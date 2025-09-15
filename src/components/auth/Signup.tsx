@@ -1,20 +1,39 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck, CheckCircle } from 'lucide-react';
 
 const Signup: React.FC = () => {
+  const resendVerification = async (email: string) => {
+    try {
+      const response = await fetch('https://api.vibe88.tech/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email })
+      });
+      if (response.ok) {
+        alert('Verification email sent again!');
+      } else {
+        alert('Failed to resend verification email.');
+      }
+    } catch (error) {
+      alert('Error occurred while resending email.');
+    }
+  };
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
+    FullName: '',
+    Email: '',
+    Password: '',
     confirmPassword: '',
-    phone_number: '',
-    gender: ''
+    PhoneNumber: '',
+    Gender: '',
+    RoleId: 2147483647
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [showVerification, setShowVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const { signup, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -30,30 +49,26 @@ const Signup: React.FC = () => {
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
     
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
+    if (!formData.FullName) {
+      newErrors.FullName = 'Full name is required';
     }
-    
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+    if (!formData.Email) {
+      newErrors.Email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.Email)) {
+      newErrors.Email = 'Email is invalid';
     }
-    
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    if (!formData.Password) {
+      newErrors.Password = 'Password is required';
+    } else if (formData.Password.length < 6) {
+      newErrors.Password = 'Password must be at least 6 characters';
     }
-    
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
+    } else if (formData.Password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
-    if (formData.phone_number && !/^[0-9+\-\s()]+$/.test(formData.phone_number)) {
-      newErrors.phone_number = 'Please enter a valid phone number';
+    if (formData.PhoneNumber && !/^[0-9+\-\s()]+$/.test(formData.PhoneNumber)) {
+      newErrors.PhoneNumber = 'Please enter a valid phone number';
     }
     
     setErrors(newErrors);
@@ -65,21 +80,65 @@ const Signup: React.FC = () => {
     
     if (!validateForm()) return;
     
-    const result = await signup(
-      formData.name, 
-      formData.email, 
-      formData.password,
-      formData.phone_number,
-      formData.gender
-    );
+    const result = await signup({
+      FullName: formData.FullName,
+      Email: formData.Email,
+      Password: formData.Password,
+      PhoneNumber: formData.PhoneNumber,
+      Gender: formData.Gender,
+      RoleId: formData.RoleId
+    });
     
     if (result.success) {
-      navigate('/home');
+      setUserEmail(formData.Email);
+      setShowVerification(true);
     } else {
       setErrors({ general: result.error || 'Signup failed' });
     }
   };
 
+  if (showVerification) {
+    return (
+      <div className="card animate-fade-in text-center">
+        <div className="mb-6">
+          <div className="mb-4">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto animate-pulse-slow" />
+          </div>
+          <h1 className="page-title">Verify Your Email</h1>
+          <p className="page-subtitle">
+            Account created successfully!<br />
+            Please check your email to verify your account.
+          </p>
+        </div>
+        
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-blue-800 text-sm">
+            📧 We've sent a verification email to:<br />
+            <strong className="text-blue-900">{userEmail}</strong>
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <p className="text-gray-600 text-sm">
+            Didn't receive the email? Check your spam folder or click below to resend.
+          </p>
+          
+          <button
+            onClick={() => {
+              resendVerification(userEmail);
+            }}
+            className="w-full btn-secondary"
+          >
+            Resend Verification Email
+          </button>
+          
+          <Link to="/login" className="block text-center link">
+            Continue to Sign In →
+          </Link>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="card animate-scale-in hover-glow">
       <div className="text-center mb-8">
@@ -104,14 +163,14 @@ const Signup: React.FC = () => {
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="FullName"
+              value={formData.FullName}
               onChange={handleChange}
               className="form-input pl-10"
               placeholder="Enter your full name"
             />
           </div>
-          {errors.name && <p className="error-message">{errors.name}</p>}
+          {errors.FullName && <p className="error-message">{errors.FullName}</p>}
         </div>
 
         <div>
@@ -120,39 +179,39 @@ const Signup: React.FC = () => {
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="email"
-              name="email"
-              value={formData.email}
+              name="Email"
+              value={formData.Email}
               onChange={handleChange}
               className="form-input pl-10"
               placeholder="Enter your email"
             />
           </div>
-          {errors.email && <p className="error-message">{errors.email}</p>}
+          {errors.Email && <p className="error-message">{errors.Email}</p>}
         </div>
 
         <div>
-          <label className="form-label">Phone Number (Optional)</label>
+          <label className="form-label">Phone Number</label>
           <div className="relative hover-lift">
             <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="tel"
-              name="phone_number"
-              value={formData.phone_number}
+              name="PhoneNumber"
+              value={formData.PhoneNumber}
               onChange={handleChange}
               className="form-input pl-10"
               placeholder="Enter your phone number"
             />
           </div>
-          {errors.phone_number && <p className="error-message">{errors.phone_number}</p>}
+          {errors.PhoneNumber && <p className="error-message">{errors.PhoneNumber}</p>}
         </div>
 
         <div>
-          <label className="form-label">Gender (Optional)</label>
+          <label className="form-label">Gender</label>
           <div className="relative hover-lift">
             <UserCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              name="gender"
-              value={formData.gender}
+              name="Gender"
+              value={formData.Gender}
               onChange={handleChange}
               className="form-input pl-10"
             >
@@ -160,7 +219,6 @@ const Signup: React.FC = () => {
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
             </select>
           </div>
         </div>
@@ -171,8 +229,8 @@ const Signup: React.FC = () => {
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type={showPassword ? 'text' : 'password'}
-              name="password"
-              value={formData.password}
+              name="Password"
+              value={formData.Password}
               onChange={handleChange}
               className="form-input pl-10 pr-10"
               placeholder="Create a password"
@@ -185,7 +243,7 @@ const Signup: React.FC = () => {
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
-          {errors.password && <p className="error-message">{errors.password}</p>}
+          {errors.Password && <p className="error-message">{errors.Password}</p>}
         </div>
 
         <div>

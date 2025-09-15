@@ -6,9 +6,10 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (name: string, email: string, password: string, phone_number?: string, gender?: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (signupData: any) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -63,15 +64,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signup = async (name: string, email: string, password: string, phone_number?: string, gender?: string) => {
+  const signup = async (signupData: any) => {
     setIsLoading(true);
     try {
-      const signupData: any = { name, email, password };
-      if (phone_number) signupData.phone_number = phone_number;
-      if (gender) signupData.gender = gender;
-      
       const response = await apiService.signup(signupData);
-      
       if (response.success && response.data) {
         const { user, token } = response.data;
         localStorage.setItem('authToken', token);
@@ -116,6 +112,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resendVerification = async (email: string) => {
+    try {
+      const response = await apiService.resendVerification(email);
+      
+      if (response.success) {
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || 'Failed to resend verification email' };
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error occurred' };
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -124,6 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     signup,
     logout,
     forgotPassword,
+    resendVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -21,12 +21,12 @@ export interface LoginRequest {
 }
 
 export interface SignupRequest {
-  name: string;
-  email: string;
-  password: string;
-  phone_number?: string;
-  gender?: string;
-  role_id?: number;
+  FullName: string;
+  Email: string;
+  Password: string;
+  PhoneNumber?: string;
+  Gender?: string;
+  RoleId?: number;
 }
 
 export interface ForgotPasswordRequest {
@@ -73,12 +73,18 @@ class ApiService {
       }
 
       const response = await fetch(url, config);
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = undefined;
+      try {
+        data = text ? JSON.parse(text) : undefined;
+      } catch (jsonError) {
+        // If response is not valid JSON, keep data as undefined
+      }
 
       if (!response.ok) {
         return {
           success: false,
-          error: data.message || `HTTP error! status: ${response.status}`,
+          error: (data && data.message) || `HTTP error! status: ${response.status}`,
         };
       }
 
@@ -103,7 +109,7 @@ class ApiService {
   }
 
   async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
-    return this.request('/auth/signup', {
+    return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -113,6 +119,13 @@ class ApiService {
     return this.request('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async resendVerification(email: string): Promise<ApiResponse<{ message: string }>> {
+    return this.request('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   }
 
@@ -138,7 +151,7 @@ class ApiService {
   }
 
   async logout(): Promise<ApiResponse<{ message: string }>> {
-    const response = await this.request('/auth/logout', {
+    const response = await this.request<{ message: string }>('/auth/logout', {
       method: 'POST',
     });
     

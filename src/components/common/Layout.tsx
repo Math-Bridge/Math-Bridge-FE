@@ -1,18 +1,11 @@
 import React from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { LogOut, Calculator, User } from 'lucide-react';
+import { Outlet, useLocation } from 'react-router-dom';
+import Header from './Header';
+import Footer from './Footer';
 
 const Layout: React.FC = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
-  
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
 
   if (isAuthPage) {
     return (
@@ -29,8 +22,8 @@ const Layout: React.FC = () => {
             <div className="absolute inset-0 flex items-center justify-center animate-slide-in-left">
               <div className="text-white text-center">
                 <div className="text-8xl mb-4 animate-bounce-slow">∫</div>
-                <h2 className="text-3xl font-bold mb-2 animate-fade-in stagger-1">Mathematical Excellence</h2>
-                <p className="text-xl opacity-90 animate-fade-in stagger-2">Where equations meet innovation</p>
+                <h2 className="text-3xl font-bold mb-2 animate-fade-in stagger-1">MathBridge</h2>
+                <p className="text-xl opacity-90 animate-fade-in stagger-2">Kết nối gia sư toán học chất lượng cao</p>
                 <div className="mt-6 text-4xl space-x-4 animate-fade-in stagger-3">
                   <span className="inline-block animate-float stagger-1">π</span>
                   <span className="inline-block animate-pulse-slow stagger-2">∑</span>
@@ -53,37 +46,14 @@ const Layout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link to="/home" className="flex items-center space-x-2">
-                <Calculator className="h-8 w-8 text-blue-900" />
-                <span className="text-xl font-bold text-gray-900">MathDash</span>
-              </Link>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-gray-700">
-                <User className="h-5 w-5" />
-                <span className="font-medium">∑ Welcome back{user?.name ? `, ${user.name}` : ''}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-blue-900 transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 math-bg-pattern min-h-screen">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 math-bg-pattern">
         <Outlet />
       </main>
+      
+      <Footer />
     </div>
   );
 };

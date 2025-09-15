@@ -1,0 +1,13 @@
+/* Base styles and resets */
+@tailwind base;
+
+@layer base {
+  * {
+    @apply border-blue-200;
+  }
+  
+  body {
+    @apply text-gray-900 bg-white;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
