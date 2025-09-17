@@ -4,42 +4,42 @@ import { Users, Calendar, Settings, BookOpen, UserPlus, CalendarPlus } from 'luc
 const QuickActions: React.FC = () => {
   const actions = [
     {
-      title: 'Quản lý gia sư',
+      title: 'Manage Tutors',
       description: '∀ tutors ∈ System: manage(tutor)',
       icon: Users,
       color: 'blue',
       onClick: () => console.log('Manage tutors')
     },
     {
-      title: 'Thêm học sinh',
+      title: 'Add Student',
       description: '∫ students dt = new knowledge',
       icon: UserPlus,
       color: 'green',
       onClick: () => console.log('Add student')
     },
     {
-      title: 'Lên lịch học',
+      title: 'Schedule Session',
       description: 'schedule(time) = max efficiency',
       icon: CalendarPlus,
       color: 'purple',
       onClick: () => console.log('Schedule session')
     },
     {
-      title: 'Quản lý khóa học',
+      title: 'Manage Courses',
       description: '∑ courses = comprehensive learning',
       icon: BookOpen,
       color: 'orange',
       onClick: () => console.log('Manage courses')
     },
     {
-      title: 'Xem lịch học',
+      title: 'View Calendar',
       description: '∫ events dt = organized calendar',
       icon: Calendar,
       color: 'indigo',
       onClick: () => console.log('View calendar')
     },
     {
-      title: 'Cài đặt hệ thống',
+      title: 'System Settings',
       description: 'optimize(system) = max efficiency',
       icon: Settings,
       color: 'gray',
@@ -60,11 +60,11 @@ const QuickActions: React.FC = () => {
   };
 
   return (
-    <div className="mt-8">
+    <div className="mt-8 w-full">
       <h2 className="text-lg font-semibold text-gray-900 mb-4 animate-fade-in">
-        ∇ Thao tác nhanh
+        ∇ Quick Actions
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
         {actions.map((action, index) => (
           <button
             key={action.title}

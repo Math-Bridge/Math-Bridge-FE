@@ -35,17 +35,18 @@ const Header: React.FC = () => {
   }
 
   const navigationItems = [
-    { name: 'Dashboard', href: '/home', icon: Home },
-    { name: 'Gia sư', href: '/tutors', icon: GraduationCap },
-    { name: 'Học sinh', href: '/students', icon: Users },
-    { name: 'Khóa học', href: '/courses', icon: BookOpen },
-    { name: 'Thành tích', href: '/achievements', icon: Trophy },
-    { name: 'Cài đặt', href: '/settings', icon: Settings },
+    { name: 'Home', href: '/home', icon: Home },
+    { name: 'Dashboard', href: '/dashboard', icon: Settings },
+    { name: 'Tutors', href: '/tutors', icon: GraduationCap },
+    { name: 'Students', href: '/students', icon: Users },
+    { name: 'Courses', href: '/courses', icon: BookOpen },
+    { name: 'Achievements', href: '/achievements', icon: Trophy },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
@@ -100,7 +101,7 @@ const Header: React.FC = () => {
                     <div className="text-sm font-medium text-gray-900">
                       {user?.name || 'User'}
                     </div>
-                    <div className="text-xs text-gray-500 font-mono">∑ Chào mừng trở lại</div>
+                    <div className="text-xs text-gray-500 font-mono">∑ Welcome back</div>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center hover-lift">
@@ -109,10 +110,10 @@ const Header: React.FC = () => {
                     <button
                       onClick={handleLogout}
                       className="flex items-center space-x-2 text-gray-600 hover:text-red-600 transition-colors hover-lift"
-                      title="Đăng xuất"
+                      title="Logout"
                     >
                       <LogOut className="h-4 w-4" />
-                      <span className="hidden sm:inline text-sm">Đăng xuất</span>
+                      <span className="hidden sm:inline text-sm">Logout</span>
                     </button>
                   </div>
                 </div>
@@ -135,13 +136,13 @@ const Header: React.FC = () => {
                   to="/login"
                   className="text-gray-600 hover:text-blue-900 font-medium transition-colors"
                 >
-                  Đăng nhập
+                  Sign In
                 </Link>
                 <Link
                   to="/signup"
                   className="btn-primary"
                 >
-                  Đăng ký
+                  Sign Up
                 </Link>
               </div>
             )}

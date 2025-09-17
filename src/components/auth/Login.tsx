@@ -33,13 +33,19 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Login attempt:', { email, passwordLength: password.length });
+    
     if (!validateForm()) return;
     
     const result = await login(email, password);
     
+    console.log('Login result:', result);
+    
     if (result.success) {
-      navigate('/home');
+      console.log('Login successful, navigating to /home');
+      navigate('/home', { replace: true });
     } else {
+      console.log('Login failed:', result.error);
       setErrors({ general: result.error || 'Login failed' });
     }
   };

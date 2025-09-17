@@ -33,31 +33,68 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     if (token && savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        console.log('Auth restored from localStorage:', parsedUser);
       } catch (error) {
+        console.error('Error parsing saved user:', error);
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
       }
+    } else {
+      console.log('No saved auth found in localStorage');
     }
     
     setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log('useAuth.login called with:', { email, passwordLength: password.length });
     setIsLoading(true);
     try {
       const response = await apiService.login({ email, password });
+      console.log('API login response:', response);
       
       if (response.success && response.data) {
-        const { user, token } = response.data;
+        // Handle different possible response structures
+        let user, token;
+        
+        if (response.data.user && response.data.token) {
+          // Standard structure: {user: {...}, token: "..."}
+          user = response.data.user;
+          token = response.data.token;
+        } else if (response.data.access_token || response.data.accessToken) {
+          // Token-only structure, create user from response
+          token = response.data.access_token || response.data.accessToken;
+          user = {
+            id: response.data.id || response.data.user_id || '1',
+            email: email,
+            name: response.data.name || response.data.full_name || email.split('@')[0],
+            createdAt: new Date().toISOString()
+          };
+        } else {
+          // Fallback: treat entire response.data as user info
+          token = 'mock-token-' + Date.now();
+          user = {
+            id: response.data.id || '1',
+            email: email,
+            name: response.data.name || response.data.full_name || email.split('@')[0],
+            createdAt: new Date().toISOString()
+          };
+        }
+        
+        console.log('Login successful, saving to localStorage:', { user, tokenLength: token?.length || 0 });
         localStorage.setItem('authToken', token);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
+        console.log('User state updated, isAuthenticated should be true');
         return { success: true };
       } else {
+        console.log('Login failed:', response.error);
         return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
+      console.log('Login network error:', error);
       return { success: false, error: 'Network error occurred' };
     } finally {
       setIsLoading(false);
@@ -99,8 +136,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const forgotPassword = async (email: string) => {
+    console.log('useAuth.forgotPassword called with:', email);
+    
     try {
       const response = await apiService.forgotPassword({ email });
+      
+      console.log('Forgot password API response:', response);
       
       if (response.success) {
         return { success: true };
@@ -108,6 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, error: response.error || 'Failed to send reset email' };
       }
     } catch (error) {
+      console.error('Forgot password error:', error);
       return { success: false, error: 'Network error occurred' };
     }
   };

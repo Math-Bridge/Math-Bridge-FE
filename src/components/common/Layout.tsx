@@ -5,7 +5,7 @@ import Footer from './Footer';
 
 const Layout: React.FC = () => {
   const location = useLocation();
-  const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
+  const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
 
   if (isAuthPage) {
     return (

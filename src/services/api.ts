@@ -33,8 +33,15 @@ export interface ForgotPasswordRequest {
   email: string;
 }
 
+export interface ResetPasswordRequest {
+  oobCode: string;
+  newPassword: string;
+}
+
 export interface DashboardStats {
   totalUsers: number;
+  totalTutors: number;
+  totalStudents: number;
   revenue: number;
   activeSessions: number;
   growthRate: number;
@@ -102,10 +109,13 @@ class ApiService {
 
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<ApiResponse<{ user: User; token: string }>> {
-    return this.request('/auth/login', {
+    console.log('API service login called with:', credentials);
+    const result = await this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
+    console.log('API login result:', result);
+    return result;
   }
 
   async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
@@ -120,6 +130,18 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<{ message: string }>> {
+    console.log('API resetPassword called with:', data);
+    
+    const response = await this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    
+    console.log('API resetPassword response:', response);
+    return response;
   }
 
   async resendVerification(email: string): Promise<ApiResponse<{ message: string }>> {
