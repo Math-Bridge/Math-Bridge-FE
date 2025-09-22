@@ -48,7 +48,6 @@ const ForgotPassword: React.FC = () => {
   };
 
   const handleVerifyReset = (oobCode: string) => {
-    // Chuyển hướng sang trang reset password với oobCode
     navigate(`/reset-password?oobCode=${oobCode}`);
   };
 

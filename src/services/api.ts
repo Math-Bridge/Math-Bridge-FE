@@ -12,6 +12,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  phone?: string;
+  address?: string;
   createdAt: string;
 }
 
@@ -172,6 +174,13 @@ class ApiService {
     return this.request('/user/profile');
   }
 
+  async updateCurrentUser(data: Partial<User>): Promise<ApiResponse<User>> {
+    return this.request('/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async logout(): Promise<ApiResponse<{ message: string }>> {
     const response = await this.request<{ message: string }>('/auth/logout', {
       method: 'POST',
@@ -182,6 +191,10 @@ class ApiService {
     localStorage.removeItem('user');
     
     return response;
+  }
+
+  async getUserWallet(userId: string): Promise<ApiResponse<{ balance: number; transactions: any[] }>> {
+    return this.request(`/users/${userId}/wallet`);
   }
 }
 

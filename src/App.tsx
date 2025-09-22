@@ -7,6 +7,10 @@ import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
 import { UserHome } from './components/user';
 import { Home } from './components/dashboard';
 import { ErrorBoundary } from './components/common';
+import UserWallet from './components/user/UserWallet';
+import UserProfile from './components/user/UserProfile';
+import WalletTopUp from './components/user/WalletTopUp';
+import WalletHistory from './components/user/WalletHistory';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -54,6 +58,26 @@ function App() {
             <Route path="dashboard" element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            } />
+            <Route path="user-wallet" element={
+              <ProtectedRoute>
+                <UserWallet />
+              </ProtectedRoute>
+            } />
+            <Route path="user-profile" element={
+              <ProtectedRoute>
+                <UserProfile />
+              </ProtectedRoute>
+            } />
+            <Route path="wallet/topup" element={
+              <ProtectedRoute>
+                <WalletTopUp />
+              </ProtectedRoute>
+            } />
+            <Route path="wallet/history" element={
+              <ProtectedRoute>
+                <WalletHistory />
               </ProtectedRoute>
             } />
           </Route>
