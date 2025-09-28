@@ -12,6 +12,11 @@ import UserProfile from './components/user/UserProfile';
 import WalletTopUp from './components/user/WalletTopUp';
 import WalletHistory from './components/user/WalletHistory';
 
+import TutorList from './components/tutors/TutorList';
+import TutorDetail from './components/tutors/TutorDetail';
+import TutorRegister from './components/tutors/TutorRegister';
+import TutorDashboard from './components/tutors/TutorDashboard';
+
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -80,6 +85,28 @@ function App() {
                 <WalletHistory />
               </ProtectedRoute>
             } />
+              <Route path="tutors" element={
+                <ProtectedRoute>
+                  <TutorList />
+                </ProtectedRoute>
+              } />
+              <Route path="tutors/:id" element={
+                <ProtectedRoute>
+                  {/* Use route param for id */}
+                  {/** @ts-ignore */}
+                  <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
+                </ProtectedRoute>
+              } />
+              <Route path="tutor/register" element={
+                <ProtectedRoute>
+                  <TutorRegister />
+                </ProtectedRoute>
+              } />
+              <Route path="tutor/dashboard" element={
+                <ProtectedRoute>
+                  <TutorDashboard />
+                </ProtectedRoute>
+              } />
           </Route>
         </Routes>
       </AuthProvider>
