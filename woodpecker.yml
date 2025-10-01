@@ -44,7 +44,7 @@ steps:
       - |
         sudo ssh -i $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "
           cd $REMOTE_TARGET_PATH/MathBridge-FE &&
-          pm2 delete BJ_FE || true &&
-          pm2 start serve --name BJ_FE -- -s ./dist/ -l 3000 &&
+          pm2 delete MathBridge_FE || true &&
+          pm2 start serve --name MathBridge_FE -- -s ./dist/ -l 3000 &&
           pm2 save
         "
