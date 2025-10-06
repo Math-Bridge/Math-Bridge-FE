@@ -72,7 +72,7 @@ const Footer: React.FC = () => {
                 <span className="absolute -top-1 -right-1 text-xs text-blue-300 animate-bounce-slow">π</span>
               </div>
               <div>
-                <span className="text-xl font-bold">MathDash</span>
+                <span className="text-xl font-bold">MathBridge</span>
                 <div className="text-xs text-blue-400 font-mono">∫ f(x)dx = success</div>
               </div>
             </div>
@@ -83,15 +83,15 @@ const Footer: React.FC = () => {
             <div className="space-y-2 text-sm text-gray-400">
               <div className="flex items-center space-x-2">
                 <Mail className="h-4 w-4 text-blue-400" />
-                <span>support@mathdash.com</span>
+                <span>support@mathbridge.com</span>
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="h-4 w-4 text-blue-400" />
-                <span>+1 (555) 123-4567</span>
+                <span>+84 (555) 123-4567</span>
               </div>
               <div className="flex items-center space-x-2">
                 <MapPin className="h-4 w-4 text-blue-400" />
-                <span>San Francisco, CA</span>
+                <span>Thành phố Hồ Chí Minh, Việt Nam</span>
               </div>
             </div>
           </div>

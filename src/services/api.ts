@@ -15,6 +15,7 @@ export interface User {
   phone?: string;
   address?: string;
   createdAt: string;
+  role?: string;
 }
 
 export interface LoginRequest {
@@ -154,10 +155,11 @@ class ApiService {
   }
 
   async googleLogin(token: string): Promise<ApiResponse<{ user: User; token: string }>> {
-    return this.request('/auth/google', {
+    const result = await this.request<{ user: User; token: string }>('/auth/google-login', {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
+    return result;
   }
 
   // Dashboard endpoints
@@ -199,3 +201,7 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
+
+export async function googleLogin(googleToken: string) {
+  return apiService.googleLogin(googleToken);
+}
