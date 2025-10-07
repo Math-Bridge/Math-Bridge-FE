@@ -9,7 +9,7 @@ import {
   Heart,
   ExternalLink
 } from 'lucide-react';
-import logo from '../../assets/logo footer.png';
+import logo from '../../assets/logo.png';
 const Footer: React.FC = () => {
   const location = useLocation();
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
