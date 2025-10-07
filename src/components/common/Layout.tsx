@@ -23,7 +23,7 @@ const Layout: React.FC = () => {
               <div className="text-white text-center">
                 <div className="text-8xl mb-4 animate-bounce-slow">∫</div>
                 <h2 className="text-3xl font-bold mb-2 animate-fade-in stagger-1">MathBridge</h2>
-                <p className="text-xl opacity-90 animate-fade-in stagger-2">Kết nối gia sư toán học chất lượng cao</p>
+                <p className="text-xl opacity-90 animate-fade-in stagger-2">Connect with high quality math tutors</p>
                 <div className="mt-6 text-4xl space-x-4 animate-fade-in stagger-3">
                   <span className="inline-block animate-float stagger-1">π</span>
                   <span className="inline-block animate-pulse-slow stagger-2">∑</span>

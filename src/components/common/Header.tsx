@@ -21,7 +21,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { apiService } from '../../services/api';
-
+import logo from '../../assets/logo.png';
 interface Transaction {
   id: string;
   description: string;
@@ -156,7 +156,7 @@ const Header: React.FC = () => {
               aria-label="MathBridge Home"
             >
               <div className="relative">
-                <Calculator className="h-8 w-8 text-blue-900" />
+                <img src={logo} alt="MathBridge Logo" className="h-10 w-10 object-contain" />
                 <span className="absolute -top-1 -right-1 text-xs text-blue-600">π</span>
               </div>
               <div>

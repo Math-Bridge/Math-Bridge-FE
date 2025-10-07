@@ -157,7 +157,7 @@ class ApiService {
   async googleLogin(token: string): Promise<ApiResponse<{ user: User; token: string }>> {
     const result = await this.request<{ user: User; token: string }>('/auth/google-login', {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ IdToken: token }),
     });
     return result;
   }
@@ -202,6 +202,14 @@ class ApiService {
 
 export const apiService = new ApiService();
 
-export async function googleLogin(googleToken: string) {
-  return apiService.googleLogin(googleToken);
+export async function googleLogin(idToken: string) {
+  // Đúng chuẩn backend: gửi { IdToken: ... }
+  const response = await fetch(`${API_BASE_URL}/auth/google-login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ IdToken: idToken }),
+  });
+  return response.json();
 }

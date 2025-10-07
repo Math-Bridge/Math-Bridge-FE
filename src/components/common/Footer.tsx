@@ -6,14 +6,10 @@ import {
   Phone, 
   MapPin, 
   Facebook, 
-  Twitter, 
-  Instagram, 
-  Linkedin,
-  Github,
   Heart,
   ExternalLink
 } from 'lucide-react';
-
+import logo from '../../assets/logo footer.png';
 const Footer: React.FC = () => {
   const location = useLocation();
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
@@ -53,10 +49,7 @@ const Footer: React.FC = () => {
 
   const socialLinks = [
     { name: 'Facebook', icon: Facebook, href: 'https://facebook.com' },
-    { name: 'Twitter', icon: Twitter, href: 'https://twitter.com' },
-    { name: 'Instagram', icon: Instagram, href: 'https://instagram.com' },
-    { name: 'LinkedIn', icon: Linkedin, href: 'https://linkedin.com' },
-    { name: 'GitHub', icon: Github, href: 'https://github.com' },
+
   ];
 
   return (
@@ -68,7 +61,7 @@ const Footer: React.FC = () => {
           <div className="lg:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
               <div className="relative">
-                <Calculator className="h-8 w-8 text-blue-400 animate-pulse-slow" />
+                <img src={logo} alt="MathBridge Logo" className="h-10 w-10 object-contain" />
                 <span className="absolute -top-1 -right-1 text-xs text-blue-300 animate-bounce-slow">π</span>
               </div>
               <div>
@@ -178,7 +171,7 @@ const Footer: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">
-                Stay updated with MathDash
+                Stay updated with MathBridge
               </h3>
               <p className="text-gray-400 text-sm">
                 Get the latest updates, tips, and mathematical insights delivered to your inbox.
@@ -205,7 +198,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <div className="flex items-center space-x-2 text-sm text-gray-400">
-              <span>© {currentYear} MathDash. Made with</span>
+              <span>© {currentYear} MathBridge. Made with</span>
               <Heart className="h-4 w-4 text-red-500 animate-pulse" />
               <span>for mathematics education.</span>
             </div>
