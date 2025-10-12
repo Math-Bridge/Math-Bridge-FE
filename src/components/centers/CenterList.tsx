@@ -2,21 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Plus, Loader } from 'lucide-react';
 import CenterCard from './CenterCard';
 import CenterSearch from './CenterSearch';
+import { getAllCenters } from '../../services/api';
 
 interface Center {
-  id: string;
+  centerId: string;
   name: string;
   address: string;
-  city: string;
-  district?: string;
   phone?: string;
+  status?: string;
+  // Optional fields that might be present in the API response
+  city?: string;
+  district?: string;
   email?: string;
   description?: string;
-  capacity: number;
-  current_students: number;
-  rating: number;
+  capacity?: number;
+  current_students?: number;
+  rating?: number;
   facilities?: string[];
-  status: string;
 }
 
 interface CenterListProps {
@@ -42,26 +44,23 @@ const CenterList: React.FC<CenterListProps> = ({
   const fetchCenters = async () => {
     try {
       setLoading(true);
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const result = await getAllCenters();
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/centers`, {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setCenters(result.data);
-        setFilteredCenters(result.data);
+      if (result.success && result.data) {
+        // Transform the API response to match our Center interface
+        const centersData = result.data.data || result.data;
+        console.log('Full API response:', result);
+        console.log('Centers data received:', centersData);
+        console.log('First center structure:', centersData[0]);
+        setCenters(centersData);
+        setFilteredCenters(centersData);
       } else {
+        console.log('API call failed:', result);
         setError(result.error || 'Failed to fetch centers');
       }
     } catch (err) {
-      setError('An error occurred while fetching centers');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching centers';
+      setError(errorMessage);
       console.error('Error:', err);
     } finally {
       setLoading(false);
@@ -82,7 +81,7 @@ const CenterList: React.FC<CenterListProps> = ({
 
     if (city) {
       filtered = filtered.filter(center =>
-        center.city.toLowerCase().includes(city.toLowerCase())
+        center.city?.toLowerCase().includes(city.toLowerCase())
       );
     }
 
@@ -160,9 +159,9 @@ const CenterList: React.FC<CenterListProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCenters.map((center) => (
+          {filteredCenters.map((center, index) => (
             <CenterCard
-              key={center.id}
+              key={center.centerId || `center-${index}`}
               center={center}
               onView={onViewCenter}
               onEdit={onEditCenter}

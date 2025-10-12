@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, MapPin, Phone, Mail, Users, X, Plus, Save, Loader } from 'lucide-react';
+import { Building2, X, Plus, Save, Loader } from 'lucide-react';
+import { getCenterById, createCenter, updateCenter, CreateCenterRequest, UpdateCenterRequest } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 
 interface CenterFormData {
   name: string;
@@ -29,6 +31,7 @@ interface CenterFormProps {
 }
 
 const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }) => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<CenterFormData>({
     name: '',
     address: '',
@@ -76,32 +79,24 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
   const fetchCenterData = async () => {
     try {
       setFetchingData(true);
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const result = await getCenterById(centerId!);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/centers/${centerId}`, {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
+      if (result.success && result.data) {
         const center = result.data;
         setFormData({
           name: center.name || '',
           address: center.address || '',
-          city: center.city || '',
-          district: center.district || '',
+          city: '', // API doesn't provide city, will need to extract from address
+          district: '', // API doesn't provide district
           phone: center.phone || '',
-          email: center.email || '',
-          description: center.description || '',
-          capacity: center.capacity || 100,
-          facilities: center.facilities || [],
-          operating_hours: center.operating_hours || formData.operating_hours
+          email: '', // API doesn't provide email
+          description: '', // API doesn't provide description
+          capacity: 100, // Default value since API doesn't provide capacity
+          facilities: [], // API doesn't provide facilities
+          operating_hours: formData.operating_hours // Default operating hours
         });
+      } else {
+        setError(result.error || 'Failed to load center data');
       }
     } catch (err) {
       console.error('Error fetching center:', err);
@@ -146,30 +141,30 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
     e.preventDefault();
     setError(null);
 
-    if (!formData.name || !formData.address || !formData.city) {
+    if (!formData.name || !formData.address) {
       setError('Please fill in all required fields');
       return;
     }
 
     try {
       setLoading(true);
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      // Prepare data for API (only include fields that the API supports)
+      const apiData = {
+        name: formData.name,
+        address: formData.address,
+        phone: formData.phone,
+        status: 'active' // Default status
+      };
 
-      const url = centerId
-        ? `${supabaseUrl}/functions/v1/centers/${centerId}`
-        : `${supabaseUrl}/functions/v1/centers`;
-
-      const response = await fetch(url, {
-        method: centerId ? 'PUT' : 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const result = await response.json();
+      let result;
+      if (centerId) {
+        // Update existing center
+        result = await updateCenter(centerId, apiData as UpdateCenterRequest);
+      } else {
+        // Create new center
+        result = await createCenter(apiData as CreateCenterRequest);
+      }
 
       if (result.success) {
         onSuccess?.();
@@ -183,6 +178,27 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
       setLoading(false);
     }
   };
+
+  // Check if user has admin/staff role
+  const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
+
+  if (!isAdminOrStaff) {
+    return (
+      <div className="card bg-red-50 border-red-200">
+        <div className="text-center py-8">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Access Denied</h3>
+          <p className="text-red-600 mb-4">
+            You need admin or staff privileges to manage centers.
+          </p>
+          {onCancel && (
+            <button onClick={onCancel} className="btn-secondary">
+              Go Back
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (fetchingData) {
     return (
@@ -231,13 +247,12 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
 
           <div>
             <label className="form-label">
-              City <span className="text-red-500">*</span>
+              City
             </label>
             <select
               value={formData.city}
               onChange={(e) => handleInputChange('city', e.target.value)}
               className="form-input"
-              required
             >
               <option value="">Select a city</option>
               {cities.map(city => (

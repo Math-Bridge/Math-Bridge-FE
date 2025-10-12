@@ -113,7 +113,7 @@ class ApiService {
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<ApiResponse<{ user: User; token: string }>> {
     console.log('API service login called with:', credentials);
-    const result = await this.request('/auth/login', {
+    const result = await this.request<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -172,7 +172,7 @@ class ApiService {
 
   // User endpoints
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    return this.request('/user/profile');
+    return this.request('/users/profile');
   }
 
   async updateCurrentUser(data: Partial<User>): Promise<ApiResponse<User>> {
@@ -226,7 +226,8 @@ export interface UpdateCenterRequest {
 }
 
 export async function getAllCenters() {
-  return apiService.request<Center[]>(`/centers`);
+  // Use the public search endpoint that doesn't require authentication
+  return apiService.request<{ data: Center[] }>(`/centers/search`);
 }
 
 export async function getCenterById(centerId: string) {

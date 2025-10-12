@@ -13,6 +13,8 @@ import {
   Loader,
   UserPlus
 } from 'lucide-react';
+import { getCenterById } from '../../services/api';
+import { useAuth } from '../../hooks/useAuth';
 
 interface Center {
   id: string;
@@ -38,6 +40,7 @@ interface CenterDetailProps {
 }
 
 const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit }) => {
+  const { user } = useAuth();
   const [center, setCenter] = useState<Center | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,20 +52,33 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
   const fetchCenterDetail = async () => {
     try {
       setLoading(true);
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const result = await getCenterById(centerId);
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/centers/${centerId}`, {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      if (result.success && result.data) {
+        // Transform API data to match component interface
+        const apiCenter = result.data;
+        const addressParts = apiCenter.address.split(',').map(part => part.trim());
+        const city = addressParts.length > 1 ? addressParts[addressParts.length - 1] : '';
 
-      const result = await response.json();
+        const transformedCenter: Center = {
+          id: apiCenter.centerId,
+          name: apiCenter.name,
+          address: apiCenter.address,
+          city: city,
+          phone: apiCenter.phone,
+          status: apiCenter.status || 'active',
+          // Default values for fields not in API
+          district: undefined,
+          email: undefined,
+          description: undefined,
+          capacity: 0,
+          current_students: 0,
+          rating: 0,
+          facilities: [],
+          operating_hours: undefined,
+        };
 
-      if (result.success) {
-        setCenter(result.data);
+        setCenter(transformedCenter);
       } else {
         setError(result.error || 'Failed to fetch center details');
       }
@@ -73,6 +89,9 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
       setLoading(false);
     }
   };
+
+  // Check if user has admin/staff role for edit functionality
+  const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
 
   if (loading) {
     return (
@@ -113,7 +132,7 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
             <span>Back</span>
           </button>
         )}
-        {onEdit && (
+        {onEdit && isAdminOrStaff && (
           <button
             onClick={() => onEdit(center.id)}
             className="btn-primary flex items-center space-x-2"
