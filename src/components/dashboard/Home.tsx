@@ -29,7 +29,7 @@ const Home: React.FC = () => {
           totalUsers: 1250,
           totalTutors: 85,
           totalStudents: 1165,
-          activeSessions: 23,
+          activeSessions: 36,
           revenue: 125000,
           growthRate: 12
         };
@@ -45,14 +45,14 @@ const Home: React.FC = () => {
           {
             id: 2,
             title: 'Session completed',
-            description: 'Grade 12 Math session with student Jane Doe',
+            description: 'Grade 12 Math session for Emma Johnson',
             time: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
             type: 'session'
           },
           {
             id: 3,
             title: 'Payment successful',
-            description: 'January tuition fee has been paid',
+            description: 'Parent payment received for tutoring sessions',
             time: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
             type: 'payment'
           }
@@ -88,20 +88,20 @@ const Home: React.FC = () => {
       formula: `T(x) = ${stats.totalTutors} + 8x`
     },
     {
-      title: 'Students',
+      title: 'Parent Accounts',
       value: `∆ ${stats.totalStudents.toLocaleString()}`,
       change: '+15% ↗',
       icon: UserPlus,
       changeType: 'positive' as const,
-      formula: `S(t) = ${stats.totalStudents} + 15t`
+      formula: `P(t) = ${stats.totalStudents} + 15t`
     },
     {
-      title: 'Sessions',
+      title: 'Children Enrolled',
       value: `π ${stats.activeSessions.toLocaleString()}`,
       change: '+5% ↗',
       icon: TrendingUp,
       changeType: 'positive' as const,
-      formula: 'G = lim(h→0) [f(x+h)-f(x)]/h'
+      formula: 'C = lim(h→0) [f(x+h)-f(x)]/h'
     }
   ];
 

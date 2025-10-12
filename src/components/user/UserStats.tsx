@@ -4,40 +4,40 @@ import { Clock, BookOpen, Star, TrendingUp } from 'lucide-react';
 const UserStats: React.FC = () => {
   const stats = [
     {
-      title: 'Study Hours',
-      value: '24.5',
+      title: 'Total Study Hours',
+      value: '204',
       unit: 'hours',
-      change: '+3.2 this week',
+      change: '+18 this week',
       icon: Clock,
       color: 'blue',
       formula: '∫ study dt'
     },
     {
-      title: 'Completed Sessions',
-      value: '12',
+      title: 'Total Sessions',
+      value: '36',
       unit: 'sessions',
-      change: '+2 this week',
+      change: '+5 this week',
       icon: BookOpen,
       color: 'green',
       formula: '∑ sessions'
     },
     {
-      title: 'Average Rating',
-      value: '4.8',
+      title: 'Avg Satisfaction',
+      value: '4.9',
       unit: '/ 5.0',
-      change: '+0.2 improvement',
+      change: 'Excellent ratings',
       icon: Star,
       color: 'yellow',
       formula: 'μ = Σx/n'
     },
     {
-      title: 'Progress Score',
-      value: '87',
+      title: 'Children Progress',
+      value: '85',
       unit: '%',
-      change: '+12% this month',
+      change: '+8% this month',
       icon: TrendingUp,
       color: 'purple',
-      formula: 'f(t) = 87e^(0.12t)'
+      formula: 'f(t) = 85e^(0.08t)'
     }
   ];
 
@@ -54,7 +54,7 @@ const UserStats: React.FC = () => {
   return (
     <div className="mb-8">
       <h2 className="text-2xl font-bold text-gray-900 mb-6 animate-fade-in">
-        Your Progress
+        Family Overview
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (

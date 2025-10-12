@@ -11,6 +11,7 @@ import UserWallet from './components/user/UserWallet';
 import UserProfile from './components/user/UserProfile';
 import WalletTopUp from './components/user/WalletTopUp';
 import WalletHistory from './components/user/WalletHistory';
+import CenterList from './components/centers/CenterList';
 
 import TutorList from './components/tutors/TutorList';
 import TutorDetail from './components/tutors/TutorDetail';
@@ -94,7 +95,6 @@ function App() {
               <Route path="tutors/:id" element={
                 <ProtectedRoute>
                   {/* Use route param for id */}
-                  {/** @ts-ignore */}
                   <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
                 </ProtectedRoute>
               } />
@@ -108,6 +108,11 @@ function App() {
                   <TutorDashboard />
                 </ProtectedRoute>
               } />
+              <Route path="centers" element={
+              <ProtectedRoute>
+                <CenterList />
+              </ProtectedRoute>
+            } />
           </Route>
         </Routes>
       </AuthProvider>

@@ -7,6 +7,7 @@ const UpcomingSessions: React.FC = () => {
       id: 1,
       subject: 'Algebra II',
       tutor: 'Dr. Sarah Johnson',
+      student: 'Emma',
       date: 'Today',
       time: '3:00 PM',
       duration: '60 min',
@@ -18,6 +19,7 @@ const UpcomingSessions: React.FC = () => {
       id: 2,
       subject: 'Calculus',
       tutor: 'Prof. Michael Chen',
+      student: 'Noah',
       date: 'Tomorrow',
       time: '10:00 AM',
       duration: '90 min',
@@ -29,6 +31,7 @@ const UpcomingSessions: React.FC = () => {
       id: 3,
       subject: 'Statistics',
       tutor: 'Ms. Emily Davis',
+      student: 'Emma',
       date: 'Friday',
       time: '2:30 PM',
       duration: '45 min',
@@ -54,7 +57,7 @@ const UpcomingSessions: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center">
           <Calendar className="h-6 w-6 text-blue-500 mr-2" />
-          Upcoming Sessions
+          Children's Upcoming Sessions
         </h2>
         <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
           View All
@@ -72,9 +75,8 @@ const UpcomingSessions: React.FC = () => {
                 <div className="text-2xl">{session.avatar}</div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{session.subject}</h3>
-                  <p className="text-sm text-gray-600 flex items-center">
-                    <User className="h-4 w-4 mr-1" />
-                    {session.tutor}
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium text-teal-700">{session.student}</span> with {session.tutor}
                   </p>
                 </div>
               </div>

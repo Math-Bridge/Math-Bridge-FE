@@ -59,7 +59,7 @@ export interface Activity {
 }
 
 class ApiService {
-  private async request<T>(
+  public async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
@@ -155,11 +155,10 @@ class ApiService {
   }
 
   async googleLogin(token: string): Promise<ApiResponse<{ user: User; token: string }>> {
-    const result = await this.request<{ user: User; token: string }>('/auth/google-login', {
+    return await this.request<{ user: User; token: string }>('/auth/google-login', {
       method: 'POST',
       body: JSON.stringify({ IdToken: token }),
-    });
-    return result;
+    }) as ApiResponse<{ user: User; token: string }>;
   }
 
   // Dashboard endpoints
@@ -201,6 +200,187 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
+
+// =====================
+// Center API
+// =====================
+export interface Center {
+  centerId: string;
+  name: string;
+  address: string;
+  phone?: string;
+  status?: string;
+}
+
+export interface CreateCenterRequest {
+  name: string;
+  address: string;
+  phone?: string;
+}
+
+export interface UpdateCenterRequest {
+  name?: string;
+  address?: string;
+  phone?: string;
+  status?: string;
+}
+
+export async function getAllCenters() {
+  return apiService.request<Center[]>(`/centers`);
+}
+
+export async function getCenterById(centerId: string) {
+  return apiService.request<Center>(`/centers/${centerId}`);
+}
+
+export async function createCenter(data: CreateCenterRequest) {
+  return apiService.request<{ centerId: string }>(`/centers`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCenter(centerId: string, data: UpdateCenterRequest) {
+  return apiService.request<void>(`/centers/${centerId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCenter(centerId: string) {
+  return apiService.request<void>(`/centers/${centerId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getTutorsByCenter(centerId: string) {
+  return apiService.request<any[]>(`/centers/${centerId}/tutors`);
+}
+
+export async function getCenterStatistics() {
+  return apiService.request<any>(`/centers/statistics`);
+}
+
+
+// Children API
+export interface Child {
+  childId: string;
+  fullName: string;
+  schoolId: string;
+  schoolName?: string;
+  centerId?: string;
+  centerName?: string;
+  grade: string;
+  dateOfBirth: string;
+  status?: string;
+}
+
+export interface AddChildRequest {
+  fullName: string;
+  schoolId: string;
+  centerId?: string;
+  grade: string;
+  dateOfBirth: string;
+}
+
+export interface UpdateChildRequest {
+  fullName?: string;
+  schoolId?: string;
+  centerId?: string;
+  grade?: string;
+  dateOfBirth?: string;
+  status?: string;
+}
+
+export async function getAllChildren() {
+  return apiService.request<Child[]>(`/children`);
+}
+
+export async function getChildById(childId: string) {
+  return apiService.request<Child>(`/children/${childId}`);
+}
+
+export async function addChild(parentId: string, data: AddChildRequest) {
+  // Usually parentId is from auth context, but if required:
+  return apiService.request<{ childId: string }>(`/parents/${parentId}/children`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateChild(childId: string, data: UpdateChildRequest) {
+  return apiService.request<void>(`/children/${childId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function softDeleteChild(childId: string) {
+  return apiService.request<{ message: string }>(`/children/${childId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function restoreChild(childId: string) {
+  return apiService.request<{ message: string }>(`/children/${childId}/restore`, {
+    method: 'PATCH',
+  });
+}
+
+export async function linkCenterToChild(childId: string, centerId: string) {
+  return apiService.request<{ message: string }>(`/children/${childId}/link-center`, {
+    method: 'POST',
+    body: JSON.stringify({ centerId }),
+  });
+}
+
+export async function getChildContracts(childId: string) {
+  return apiService.request<any[]>(`/children/${childId}/contracts`);
+}
+
+// Contract API
+export interface Contract {
+  contractId: string;
+  childId: string;
+  childName: string;
+  packageId: string;
+  packageName: string;
+  mainTutorId: string;
+  mainTutorName: string;
+  centerId?: string;
+  centerName?: string;
+  startDate: string;
+  endDate: string;
+  timeSlot: string;
+  isOnline: boolean;
+  status: string;
+}
+
+export interface CreateContractRequest {
+  childId: string;
+  packageId: string;
+  mainTutorId: string;
+  centerId?: string;
+  startDate: string;
+  endDate: string;
+  timeSlot: string;
+  isOnline: boolean;
+}
+
+export async function createContract(data: CreateContractRequest) {
+  return apiService.request<{ contractId: string }>(`/contracts`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getContractsByParent(parentId: string) {
+  return apiService.request<Contract[]>(`/contracts/parents/${parentId}`);
+}
+
+export async function getContractsByChild(childId: string) {
+  return apiService.request<Contract[]>(`/children/${childId}/contracts`);
+}
 
 export async function googleLogin(idToken: string) {
   // Đúng chuẩn backend: gửi { IdToken: ... }

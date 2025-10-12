@@ -50,10 +50,10 @@ const Header: React.FC = () => {
   // Navigation items configuration
   const navigationItems = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Dashboard', href: '/dashboard', icon: Settings },
+    // { name: 'Dashboard', href: '/dashboard', icon: Settings },
     { name: 'Tutors', href: '/tutors', icon: GraduationCap },
-    { name: 'Students', href: '/students', icon: Users },
     { name: 'Courses', href: '/courses', icon: BookOpen },
+    { name: 'Centers', href: '/centers', icon: Users },
     { name: 'Achievements', href: '/achievements', icon: Trophy },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
@@ -377,7 +377,7 @@ const Header: React.FC = () => {
                       <div className="p-4 border-b border-gray-100">
                         <div className="font-semibold text-gray-900">{user?.name || 'User'}</div>
                         <div className="text-sm text-gray-500">{user?.email}</div>
-                        <div className="text-xs text-blue-600 mt-1 capitalize">{user?.role || 'Student'}</div>
+                        <div className="text-xs text-blue-600 mt-1 capitalize">{user?.role || 'Parent'}</div>
                       </div>
                       <div className="py-1">
                         <button
