@@ -17,7 +17,7 @@ import TutorList from './components/tutors/TutorList';
 import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
 import TutorDashboard from './components/tutors/TutorDashboard';
-import { GoogleOAuthProvider } from '@react-oauth/google';
+import TutorsByCenter from './components/tutors/TutorsByCenter';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -113,6 +113,11 @@ function App() {
                 <CenterList />
               </ProtectedRoute>
             } />
+              <Route path="centers/:centerId/tutors" element={
+                <ProtectedRoute>
+                  <TutorsByCenter />
+                </ProtectedRoute>
+              } />
           </Route>
         </Routes>
       </AuthProvider>

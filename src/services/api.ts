@@ -76,10 +76,17 @@ class ApiService {
       // Add auth token if available
       const token = localStorage.getItem('authToken');
       if (token) {
+        console.log('Adding auth token to request:', { 
+          url, 
+          tokenLength: token.length, 
+          tokenStart: token.substring(0, 20) + '...' 
+        });
         config.headers = {
           ...config.headers,
           'Authorization': `Bearer ${token}`,
         };
+      } else {
+        console.warn('No auth token found for request:', url);
       }
 
       const response = await fetch(url, config);
@@ -92,9 +99,18 @@ class ApiService {
       }
 
       if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+          console.warn('401 Unauthorized - clearing auth data');
+          // Commented out automatic logout to prevent unwanted redirects
+          // localStorage.removeItem('authToken');
+          // localStorage.removeItem('user');
+          // window.location.href = '/login';
+        }
+        
         return {
           success: false,
-          error: (data && data.message) || `HTTP error! status: ${response.status}`,
+          error: (data && data.error) || (data && data.message) || `HTTP error! status: ${response.status}`,
         };
       }
 
@@ -172,11 +188,33 @@ class ApiService {
 
   // User endpoints
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    return this.request('/users/profile');
+    // Get user ID from localStorage first
+    const userStr = localStorage.getItem('user');
+    const userId = userStr ? JSON.parse(userStr).id : null;
+    
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID not found'
+      };
+    }
+    
+    return this.request(`/users/${userId}`);
   }
 
-  async updateCurrentUser(data: Partial<User>): Promise<ApiResponse<User>> {
-    return this.request('/user/profile', {
+  async updateCurrentUser(data: { fullName?: string; phoneNumber?: string; gender?: string }): Promise<ApiResponse<User>> {
+    // Get user ID from localStorage first
+    const userStr = localStorage.getItem('user');
+    const userId = userStr ? JSON.parse(userStr).id : null;
+    
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID not found'
+      };
+    }
+    
+    return this.request(`/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -267,30 +305,32 @@ export async function getCenterStatistics() {
 export interface Child {
   childId: string;
   fullName: string;
-  schoolId: string;
-  schoolName?: string;
+  school: string;
   centerId?: string;
   centerName?: string;
   grade: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
   status?: string;
 }
 
 export interface AddChildRequest {
   fullName: string;
-  schoolId: string;
+  school: string;
   centerId?: string;
   grade: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
 }
 
 export interface UpdateChildRequest {
   fullName?: string;
-  schoolId?: string;
+  school?: string;
   centerId?: string;
   grade?: string;
   dateOfBirth?: string;
-  status?: string;
+}
+
+export interface LinkCenterRequest {
+  centerId: string;
 }
 
 export async function getAllChildren() {
@@ -301,8 +341,11 @@ export async function getChildById(childId: string) {
   return apiService.request<Child>(`/children/${childId}`);
 }
 
+export async function getChildrenByParent(parentId: string) {
+  return apiService.request<Child[]>(`/parents/${parentId}/children`);
+}
+
 export async function addChild(parentId: string, data: AddChildRequest) {
-  // Usually parentId is from auth context, but if required:
   return apiService.request<{ childId: string }>(`/parents/${parentId}/children`, {
     method: 'POST',
     body: JSON.stringify(data),
@@ -310,7 +353,7 @@ export async function addChild(parentId: string, data: AddChildRequest) {
 }
 
 export async function updateChild(childId: string, data: UpdateChildRequest) {
-  return apiService.request<void>(`/children/${childId}`, {
+  return apiService.request<{ message: string }>(`/children/${childId}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });

@@ -11,7 +11,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { login, isLoading } = useAuth();
+  const { login, googleLogin, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -28,9 +28,13 @@ const Login: React.FC = () => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    setErrors({}); // Clear previous errors
     const result = await login(email, password);
-    if (result.success) navigate('/home', { replace: true });
-    else setErrors({ general: result.error || 'Login failed' });
+    if (result.success) {
+      navigate('/home', { replace: true });
+    } else {
+      setErrors({ general: result.error || 'Login failed' });
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -45,34 +49,20 @@ const Login: React.FC = () => {
       console.log("🔹 Google user:", result.user.email);
       console.log("🔹 Firebase ID token (first 30 chars):", idToken.substring(0, 30) + "...");
 
-      const response = await fetch("https://api.vibe88.tech/api/auth/google-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }), // ✅ phải là idToken
-      });
-
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        data = { error: text };
-      }
-
-      console.log("🔹 Backend raw response:", text);
-      console.log("🔹 Parsed backend response:", data);
-
-      if (!response.ok) {
-        throw new Error(data.error || `Google login failed (status ${response.status})`);
-      }
-
-      if (data.token) {
-        localStorage.setItem("authToken", data.token);
-        if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+      // Use useAuth.googleLogin instead of direct API call
+      const loginResult = await googleLogin(idToken);
+      
+      if (loginResult.success) {
         console.log("✅ Google login success → navigating to /home");
         navigate("/home", { replace: true });
+        
+        // Show warning if temporary session was created
+        if (loginResult.error && loginResult.error.includes('temporary session')) {
+          // You could show a toast notification here
+          console.warn("⚠️ Temporary session created:", loginResult.error);
+        }
       } else {
-        throw new Error("No token returned from backend");
+        setErrors({ general: loginResult.error || "Google login failed" });
       }
     } catch (error: any) {
       console.error("❌ Google login error:", error);
@@ -95,8 +85,11 @@ const Login: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in stagger-3">
         {errors.general && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {errors.general}
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+            <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            <span className="font-medium">{errors.general}</span>
           </div>
         )}
         

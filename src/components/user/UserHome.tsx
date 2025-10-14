@@ -3,7 +3,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { 
   BookOpen, 
   Calendar, 
-  Star, 
   TrendingUp,
   Clock,
   Award,
@@ -11,8 +10,7 @@ import {
   Target,
   ChevronRight,
   Play,
-  Search,
-  Filter
+  Search
 } from 'lucide-react';
 import UserStats from './UserStats';
 import RecommendedTutors from './RecommendedTutors';
@@ -102,6 +100,7 @@ const UserHome: React.FC = () => {
     };
     return colors[color as keyof typeof colors] || colors.blue;
   };
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -251,6 +250,7 @@ const UserHome: React.FC = () => {
           </div>
         </div>
       </div>
+
     </div>
   );
 };

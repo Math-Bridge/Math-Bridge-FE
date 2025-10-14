@@ -51,7 +51,7 @@ const Header: React.FC = () => {
   const navigationItems = [
     { name: 'Home', href: '/home', icon: Home },
     // { name: 'Dashboard', href: '/dashboard', icon: Settings },
-    { name: 'Tutors', href: '/tutors', icon: GraduationCap },
+    // { name: 'Tutors', href: '/tutors', icon: GraduationCap },
     { name: 'Courses', href: '/courses', icon: BookOpen },
     { name: 'Centers', href: '/centers', icon: Users },
     { name: 'Achievements', href: '/achievements', icon: Trophy },
