@@ -11,13 +11,12 @@ import UserWallet from './components/user/UserWallet';
 import UserProfile from './components/user/UserProfile';
 import WalletTopUp from './components/user/WalletTopUp';
 import WalletHistory from './components/user/WalletHistory';
-import CenterList from './components/centers/CenterList';
-
-import TutorList from './components/tutors/TutorList';
+// component-level imports left for other routes
 import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
 import TutorDashboard from './components/tutors/TutorDashboard';
 import TutorsByCenter from './components/tutors/TutorsByCenter';
+import { TutorsPage, CentersPage, CoursesPage, CourseDetailPage, CourseFormPage } from './pages';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -89,12 +88,11 @@ function App() {
             } />
               <Route path="tutors" element={
                 <ProtectedRoute>
-                  <TutorList />
+                  <TutorsPage />
                 </ProtectedRoute>
               } />
               <Route path="tutors/:id" element={
                 <ProtectedRoute>
-                  {/* Use route param for id */}
                   <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
                 </ProtectedRoute>
               } />
@@ -109,13 +107,33 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="centers" element={
-              <ProtectedRoute>
-                <CenterList />
-              </ProtectedRoute>
-            } />
+                <ProtectedRoute>
+                  <CentersPage />
+                </ProtectedRoute>
+              } />
               <Route path="centers/:centerId/tutors" element={
                 <ProtectedRoute>
                   <TutorsByCenter />
+                </ProtectedRoute>
+              } />
+              <Route path="courses" element={
+                <ProtectedRoute>
+                  <CoursesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="courses/:courseId" element={
+                <ProtectedRoute>
+                  <CourseDetailPage />
+                </ProtectedRoute>
+              } />
+              <Route path="courses/create" element={
+                <ProtectedRoute>
+                  <CourseFormPage />
+                </ProtectedRoute>
+              } />
+              <Route path="courses/:courseId/edit" element={
+                <ProtectedRoute>
+                  <CourseFormPage />
                 </ProtectedRoute>
               } />
           </Route>

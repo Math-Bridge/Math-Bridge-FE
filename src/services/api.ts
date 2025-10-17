@@ -437,3 +437,130 @@ export async function googleLogin(idToken: string) {
   });
   return response.json();
 }
+
+// =====================
+// Course API
+// =====================
+export interface Course {
+  course_id?: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  level?: string;
+  duration_weeks?: number;
+  price?: number;
+  max_students?: number;
+  current_students?: number;
+  start_date?: string;
+  end_date?: string;
+  schedule?: string;
+  status?: string;
+  image_url?: string;
+  center_id?: string;
+  center_name?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Legacy fields for backward compatibility
+  courseId?: string;
+  title?: string;
+  instructor?: string;
+  duration?: string;
+  rating?: number;
+  totalStudents?: number;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  isOnline?: boolean;
+  thumbnail?: string;
+}
+
+export interface CreateCourseRequest {
+  name: string;
+  description: string;
+  category: string;
+  level: string;
+  duration_weeks: number;
+  price?: number;
+  max_students?: number;
+  start_date: string;
+  end_date: string;
+  schedule?: string;
+  status?: string;
+  image_url?: string;
+  center_id?: string;
+  // Legacy fields for API compatibility
+  title?: string;
+  instructor?: string;
+  duration?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  isOnline?: boolean;
+}
+
+export interface UpdateCourseRequest {
+  name?: string;
+  description?: string;
+  category?: string;
+  level?: string;
+  duration_weeks?: number;
+  price?: number;
+  max_students?: number;
+  current_students?: number;
+  start_date?: string;
+  end_date?: string;
+  schedule?: string;
+  status?: string;
+  image_url?: string;
+  center_id?: string;
+  // Legacy fields for API compatibility
+  title?: string;
+  instructor?: string;
+  duration?: string;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  isOnline?: boolean;
+}
+
+export async function getAllCourses() {
+  return apiService.request<{ data: Course[] }>(`/courses`);
+}
+
+export async function getCourseById(courseId: string) {
+  return apiService.request<Course>(`/courses/${courseId}`);
+}
+
+export async function createCourse(data: CreateCourseRequest) {
+  return apiService.request<{ courseId: string }>(`/courses`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCourse(courseId: string, data: UpdateCourseRequest) {
+  return apiService.request<void>(`/courses/${courseId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCourse(courseId: string) {
+  return apiService.request<void>(`/courses/${courseId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function enrollInCourse(courseId: string) {
+  return apiService.request<{ enrollmentId: string }>(`/courses/${courseId}/enroll`, {
+    method: 'POST',
+  });
+}
+
+export async function getCourseModules(courseId: string) {
+  return apiService.request<any[]>(`/courses/${courseId}/modules`);
+}
+
+export async function getCourseReviews(courseId: string) {
+  return apiService.request<any[]>(`/courses/${courseId}/reviews`);
+}
