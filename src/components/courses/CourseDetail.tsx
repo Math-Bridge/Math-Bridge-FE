@@ -1,6 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin, BookOpen, Star, Info } from 'lucide-react';
-import type { Course } from '../../types';
+import type { Course } from '../types';
 
 interface CourseDetailProps {
   course: Course;
@@ -10,10 +10,6 @@ interface CourseDetailProps {
 }
 
 const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onEnroll }) => {
-  const enrollmentRate = course.max_students && course.current_students
-    ? ((course.current_students / course.max_students) * 100).toFixed(0)
-    : 0;
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -42,7 +38,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
     }
   };
 
-  // Mocked supplementary data for demo UI similar to Coursera
   const learnings: string[] = [
     'Develop a DevOps mindset and practice Agile philosophy & Scrum methodology',
     'Build microservices and deploy using containers (Docker, Kubernetes, OpenShift)',
@@ -79,7 +74,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Hero */}
         <div className="mb-8">
           <button
             onClick={onBack}
@@ -129,13 +123,11 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 )}
               </div>
 
-              {/* Primary CTA row like Coursera */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-8">
                 <button className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700">Enroll for free</button>
                 <div className="text-sm text-gray-600">Try for free: Enroll to start your 7‑day full access free trial</div>
               </div>
 
-              {/* Stats bar */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
                 <div className="p-4 rounded-2xl border border-gray-200">
                   <div className="text-sm text-gray-600">{syllabus.length} course series</div>
@@ -158,7 +150,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 </div>
               </div>
 
-              {/* About section */}
               {course.description && (
                 <div className="mb-8" id="about">
                   <h3 className="text-xl font-bold text-gray-900 mb-3">What you'll learn</h3>
@@ -173,7 +164,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 </div>
               )}
 
-              {/* Course Details Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-100">
                   <div className="flex items-center space-x-3 mb-3">
@@ -195,9 +185,9 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                   <p className="text-gray-700 font-semibold text-xl">${course.price || 0}</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-6 border border-orange-100">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
                       <Clock className="w-5 h-5 text-white" />
                     </div>
                     <h4 className="font-bold text-gray-900">Duration</h4>
@@ -205,22 +195,22 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                   <p className="text-gray-700 font-semibold">{course.duration_weeks || 0} weeks</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 border border-orange-100">
+                <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-2xl p-6 border border-cyan-100">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-cyan-500 rounded-lg flex items-center justify-center">
                       <Users className="w-5 h-5 text-white" />
                     </div>
-                    <h4 className="font-bold text-gray-900">Students</h4>
+                    <h4 className="font-bold text-gray-900">Registrations</h4>
                   </div>
                   <p className="text-gray-700 font-semibold">
-                    {course.current_students || 0}/{course.max_students || 0}
+                    {course.registration_count || 0} registrations
                   </p>
                 </div>
 
                 {course.start_date && (
-                  <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl p-6 border border-indigo-100">
+                  <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-2xl p-6 border border-blue-100">
                     <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-sky-500 rounded-lg flex items-center justify-center">
                         <Calendar className="w-5 h-5 text-white" />
                       </div>
                       <h4 className="font-bold text-gray-900">Start Date</h4>
@@ -244,7 +234,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 )}
               </div>
 
-              {/* Skills */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Skills you'll gain</h3>
                 <div className="flex flex-wrap gap-2">
@@ -254,7 +243,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 </div>
               </div>
 
-              {/* Tools */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Tools you'll learn</h3>
                 <div className="flex flex-wrap gap-2">
@@ -264,23 +252,6 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 </div>
               </div>
 
-              {/* Enrollment Progress */}
-              {enrollmentRate !== '0' && (
-                <div className="mb-8">
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                    <span className="font-semibold">Enrollment Progress</span>
-                    <span className="font-bold text-blue-600">{enrollmentRate}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
-                      style={{ width: `${enrollmentRate}%` }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-
-              {/* Syllabus */}
               <div className="mb-10" id="courses">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Courses in this series</h3>
                 <div className="divide-y rounded-2xl border border-gray-200 overflow-hidden">
@@ -299,9 +270,8 @@ const CourseDetail: React.FC<CourseDetailProps> = ({ course, onBack, onEdit, onE
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-4 pt-6 border-t border-gray-200">
-                {onEnroll && course.status === 'active' && course.current_students && course.max_students && course.current_students < course.max_students && (
+                {onEnroll && course.status === 'active' && (
                   <button
                     onClick={() => onEnroll(course)}
                     className="flex-1 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-lg font-semibold rounded-xl hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl"

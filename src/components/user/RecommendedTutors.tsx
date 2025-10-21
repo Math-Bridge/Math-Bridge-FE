@@ -1,142 +1,134 @@
-import React from 'react';
-import { Star, Clock, DollarSign, BookOpen, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Star, Users, BookOpen, ArrowRight } from 'lucide-react';
+import LoadingSpinner from './LoadingSpinner';
+
+interface Tutor {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  specialty: string;
+  total_students: number;
+  rating: number;
+  total_sessions: number;
+}
 
 const RecommendedTutors: React.FC = () => {
-  const tutors = [
-    {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      avatar: '👩‍🏫',
-      subjects: ['Algebra', 'Calculus', 'Statistics'],
-      rating: 4.9,
-      reviews: 127,
-      hourlyRate: 45,
-      experience: '8 years',
-      availability: 'Available now',
-      bio: 'PhD in Mathematics with expertise in helping students master complex concepts.',
-      badges: ['Top Rated', 'Quick Response']
-    },
-    {
-      id: 2,
-      name: 'Prof. Michael Chen',
-      avatar: '👨‍🏫',
-      subjects: ['Calculus', 'Linear Algebra', 'Differential Equations'],
-      rating: 4.8,
-      reviews: 89,
-      hourlyRate: 50,
-      experience: '12 years',
-      availability: 'Available today',
-      bio: 'University professor specializing in advanced mathematics and problem-solving.',
-      badges: ['Expert', 'Patient Teacher']
-    },
-    {
-      id: 3,
-      name: 'Ms. Emily Davis',
-      avatar: '👩‍💼',
-      subjects: ['Statistics', 'Probability', 'Data Analysis'],
-      rating: 4.7,
-      reviews: 156,
-      hourlyRate: 40,
-      experience: '6 years',
-      availability: 'Available tomorrow',
-      bio: 'Data scientist turned tutor, making statistics fun and understandable.',
-      badges: ['Friendly', 'Real-world Examples']
-    }
-  ];
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTutors = async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const mockTutors: Tutor[] = [
+          {
+            id: '1',
+            name: 'Dr. John Smith',
+            avatar_url: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
+            specialty: 'Advanced Mathematics',
+            total_students: 156,
+            rating: 4.9,
+            total_sessions: 342
+          },
+          {
+            id: '2',
+            name: 'Prof. Sarah Johnson',
+            avatar_url: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=200',
+            specialty: 'Linear Algebra',
+            total_students: 203,
+            rating: 4.8,
+            total_sessions: 487
+          },
+          {
+            id: '3',
+            name: 'Dr. Michael Chen',
+            avatar_url: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=200',
+            specialty: 'Calculus',
+            total_students: 189,
+            rating: 4.9,
+            total_sessions: 421
+          }
+        ];
+
+        setTutors(mockTutors);
+      } catch (error) {
+        console.error('Error fetching tutors:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTutors();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="flex items-center justify-center h-64">
+          <LoadingSpinner text="Loading recommended tutors..." />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="mb-8">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 animate-fade-in">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+          <Users className="h-6 w-6 text-blue-500 mr-2" />
           Recommended Tutors
         </h2>
-        <button className="text-blue-600 hover:text-blue-700 font-medium">
-          View All Tutors →
+        <button className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center">
+          View All
+          <ArrowRight className="h-4 w-4 ml-1" />
         </button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {tutors.map((tutor, index) => (
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {tutors.map((tutor) => (
           <div
             key={tutor.id}
-            className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover-lift animate-scale-in stagger-${index + 1}`}
+            className="border border-gray-200 rounded-lg p-5 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 bg-gradient-to-br from-white to-gray-50"
           >
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="text-3xl">{tutor.avatar}</div>
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-900">{tutor.name}</h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                    <span className="font-medium">{tutor.rating}</span>
-                    <span>({tutor.reviews} reviews)</span>
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-gray-900">
-                  ${tutor.hourlyRate}
-                  <span className="text-sm font-normal text-gray-600">/hr</span>
-                </div>
-              </div>
+            <div className="flex flex-col items-center text-center mb-4">
+              <img
+                src={tutor.avatar_url || 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150'}
+                alt={tutor.name}
+                className="w-20 h-20 rounded-full object-cover border-4 border-blue-100 mb-3"
+              />
+              <h3 className="font-semibold text-lg text-gray-900">{tutor.name}</h3>
+              <p className="text-sm text-blue-600 font-medium">{tutor.specialty}</p>
             </div>
 
-            {/* Badges */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {tutor.badges.map((badge, badgeIndex) => (
-                <span
-                  key={badgeIndex}
-                  className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
-                >
-                  {badge}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 flex items-center">
+                  <Star className="h-4 w-4 text-amber-400 mr-1 fill-current" />
+                  Rating
                 </span>
-              ))}
-            </div>
-
-            {/* Subjects */}
-            <div className="mb-4">
-              <div className="flex items-center mb-2">
-                <BookOpen className="h-4 w-4 text-gray-500 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Subjects</span>
+                <span className="font-semibold text-gray-900">{tutor.rating.toFixed(1)}</span>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {tutor.subjects.map((subject, subjectIndex) => (
-                  <span
-                    key={subjectIndex}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
-                  >
-                    {subject}
-                  </span>
-                ))}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 flex items-center">
+                  <Users className="h-4 w-4 text-blue-500 mr-1" />
+                  Students
+                </span>
+                <span className="font-semibold text-gray-900">{tutor.total_students}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 flex items-center">
+                  <BookOpen className="h-4 w-4 text-green-500 mr-1" />
+                  Sessions
+                </span>
+                <span className="font-semibold text-gray-900">{tutor.total_sessions}</span>
               </div>
             </div>
 
-            {/* Bio */}
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-              {tutor.bio}
-            </p>
-
-            {/* Stats */}
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-              <div className="flex items-center">
-                <Clock className="h-3 w-3 mr-1" />
-                {tutor.experience}
-              </div>
-              <div className="text-green-600 font-medium">
-                {tutor.availability}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex space-x-2">
-              <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
-                Book Session
-              </button>
-              <button className="p-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                <MessageCircle className="h-4 w-4" />
-              </button>
-            </div>
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center">
+              View Profile
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </button>
           </div>
         ))}
       </div>

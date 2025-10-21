@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { 
-  BookOpen, 
-  Calendar, 
+import {
+  BookOpen,
+  Calendar,
   TrendingUp,
   Clock,
-  Award,
   Users,
   Target,
   ChevronRight,
@@ -13,8 +12,8 @@ import {
   Search
 } from 'lucide-react';
 import UserStats from './UserStats';
-import RecommendedTutors from './RecommendedTutors';
-import UpcomingSessions from './UpcomingSessions';
+import TutorAchievements from './TutorAchievements';
+import PopularCourses from './PopularCourses';
 
 const UserHome: React.FC = () => {
   const { user } = useAuth();
@@ -66,30 +65,6 @@ const UserHome: React.FC = () => {
     }
   ];
 
-  const recentAchievements = [
-    {
-      title: 'First Session Complete',
-      description: 'Completed your first tutoring session',
-      icon: Award,
-      date: '2 days ago',
-      color: 'yellow'
-    },
-    {
-      title: 'Problem Solver',
-      description: 'Solved 10 algebra problems',
-      icon: Target,
-      date: '1 week ago',
-      color: 'green'
-    },
-    {
-      title: 'Consistent Learner',
-      description: '7 days learning streak',
-      icon: TrendingUp,
-      date: '3 days ago',
-      color: 'blue'
-    }
-  ];
-
   const getColorClasses = (color: string) => {
     const colors = {
       blue: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
@@ -101,19 +76,17 @@ const UserHome: React.FC = () => {
     return colors[color as keyof typeof colors] || colors.blue;
   };
 
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-between">
-            <div className="animate-fade-in">
+            <div>
               <h1 className="text-4xl font-bold mb-2">
-                {getGreeting()}, {user?.name || 'Student'}! 👋
+                {getGreeting()}, {user?.name || 'Student'}!
               </h1>
               <p className="text-xl text-blue-100 mb-4">
-                Ready to solve some equations today? • f(learning) = success
+                Ready to solve some equations today?
               </p>
               <div className="flex items-center space-x-4 text-blue-100">
                 <div className="flex items-center space-x-2">
@@ -126,24 +99,20 @@ const UserHome: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="hidden lg:block animate-float">
-              <div className="text-8xl opacity-20">∫</div>
-            </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 animate-fade-in">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">
             Quick Actions
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => (
+            {quickActions.map((action) => (
               <button
                 key={action.title}
-                className={`p-6 rounded-xl border-2 transition-all duration-200 hover-lift animate-scale-in stagger-${index + 1} ${getColorClasses(action.color)}`}
+                className={`p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 ${getColorClasses(action.color)}`}
               >
                 <action.icon className="h-8 w-8 mb-4" />
                 <h3 className="font-semibold text-lg mb-2">{action.title}</h3>
@@ -157,47 +126,13 @@ const UserHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Overview */}
         <UserStats />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Upcoming Sessions */}
-          <UpcomingSessions />
+        <TutorAchievements />
 
-          {/* Recent Achievements */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover-lift animate-slide-in-right">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Award className="h-6 w-6 text-yellow-500 mr-2" />
-                Recent Achievements
-              </h2>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                View All
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {recentAchievements.map((achievement, index) => (
-                <div key={index} className={`p-4 rounded-lg border animate-fade-in stagger-${index + 1} ${getColorClasses(achievement.color)}`}>
-                  <div className="flex items-start space-x-3">
-                    <achievement.icon className="h-6 w-6 mt-1" />
-                    <div className="flex-1">
-                      <h3 className="font-medium">{achievement.title}</h3>
-                      <p className="text-sm opacity-80">{achievement.description}</p>
-                      <p className="text-xs opacity-60 mt-1">{achievement.date}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <PopularCourses />
 
-        {/* Recommended Tutors */}
-        <RecommendedTutors />
-
-        {/* Learning Resources */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover-lift animate-slide-in-left">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
               <BookOpen className="h-6 w-6 text-blue-500 mr-2" />
@@ -207,9 +142,9 @@ const UserHome: React.FC = () => {
               Browse All
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-4 bg-blue-50 rounded-lg hover-lift">
+            <div className="p-4 bg-blue-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
               <div className="flex items-center space-x-3 mb-3">
                 <Play className="h-6 w-6 text-blue-600" />
                 <h3 className="font-medium text-blue-900">Video Lessons</h3>
@@ -221,8 +156,8 @@ const UserHome: React.FC = () => {
                 Start Watching →
               </button>
             </div>
-            
-            <div className="p-4 bg-green-50 rounded-lg hover-lift">
+
+            <div className="p-4 bg-green-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
               <div className="flex items-center space-x-3 mb-3">
                 <Target className="h-6 w-6 text-green-600" />
                 <h3 className="font-medium text-green-900">Practice Tests</h3>
@@ -234,8 +169,8 @@ const UserHome: React.FC = () => {
                 Take Test →
               </button>
             </div>
-            
-            <div className="p-4 bg-purple-50 rounded-lg hover-lift">
+
+            <div className="p-4 bg-purple-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
               <div className="flex items-center space-x-3 mb-3">
                 <Users className="h-6 w-6 text-purple-600" />
                 <h3 className="font-medium text-purple-900">Study Groups</h3>
@@ -250,7 +185,6 @@ const UserHome: React.FC = () => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };

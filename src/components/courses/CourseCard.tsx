@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOpen, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin } from 'lucide-react';
-import type { Course } from '../../types';
+import type { Course } from '../types';
 
 interface CourseCardProps {
   course: Course;
@@ -10,10 +10,6 @@ interface CourseCardProps {
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnroll }) => {
-  const enrollmentRate = course.max_students && course.current_students
-    ? ((course.current_students / course.max_students) * 100).toFixed(0)
-    : 0;
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -131,7 +127,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
               </div>
               <div className="flex items-center space-x-2 text-gray-700">
                 <Users className="w-4 h-4 text-blue-500" />
-                <span>{course.current_students}/{course.max_students}</span>
+                <span>{course.registration_count || 0} registrations</span>
               </div>
             </div>
 
@@ -143,23 +139,8 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
             )}
           </div>
 
-          {enrollmentRate !== '0' && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                <span>Enrollment</span>
-                <span className="font-bold text-blue-600">{enrollmentRate}%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
-                  style={{ width: `${enrollmentRate}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
-
           <div className="flex gap-2 pt-4 border-t border-gray-100">
-            {onEnroll && course.status === 'active' && course.current_students && course.max_students && course.current_students < course.max_students && (
+            {onEnroll && course.status === 'active' && (
               <button
                 onClick={(e) => { e.stopPropagation(); onEnroll(course); }}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"

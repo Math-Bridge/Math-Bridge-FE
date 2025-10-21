@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader } from 'lucide-react';
-import type { Course } from '../../types';
-import { createCourse, updateCourse, getAllCenters } from '../../services/api';
+import type { Course } from '../types';
 
 interface CourseFormProps {
   course?: Course | null;
@@ -21,8 +20,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
     level: course?.level || 'Beginner',
     duration_weeks: course?.duration_weeks || 0,
     price: course?.price || 0,
-    max_students: course?.max_students || 20,
-    current_students: course?.current_students || 0,
     start_date: course?.start_date || '',
     end_date: course?.end_date || '',
     schedule: course?.schedule || '',
@@ -38,9 +35,10 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
 
   const fetchCenters = async () => {
     try {
-      const response = await getAllCenters();
-      if (response.success && response.data?.data) {
-        setCenters(response.data.data);
+      const response = await fetch('/api/centers');
+      if (response.ok) {
+        const data = await response.json();
+        setCenters(data);
       }
     } catch (error) {
       console.error('Error fetching centers:', error);
@@ -53,7 +51,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
 
     try {
       if (course) {
-        // Update existing course
         const updateData = {
           name: formData.name,
           description: formData.description,
@@ -61,8 +58,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           level: formData.level,
           duration_weeks: formData.duration_weeks,
           price: formData.price,
-          max_students: formData.max_students,
-          current_students: formData.current_students,
           start_date: formData.start_date,
           end_date: formData.end_date,
           schedule: formData.schedule,
@@ -71,15 +66,18 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           center_id: formData.center_id,
         };
 
-        const response = await updateCourse(course.course_id!, updateData);
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to update course');
+        const response = await fetch(`/api/courses/${course.course_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updateData)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update course');
         }
-        
+
         onSave(course);
       } else {
-        // Create new course
         const createData = {
           name: formData.name,
           description: formData.description,
@@ -87,7 +85,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           level: formData.level,
           duration_weeks: formData.duration_weeks,
           price: formData.price,
-          max_students: formData.max_students,
           start_date: formData.start_date,
           end_date: formData.end_date,
           schedule: formData.schedule,
@@ -96,23 +93,26 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           center_id: formData.center_id,
         };
 
-        const response = await createCourse(createData);
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to create course');
+        const response = await fetch('/api/courses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(createData)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create course');
         }
-        
-        // Create a course object with the response data
+
+        const result = await response.json();
+
         const newCourse: Course = {
-          course_id: response.data?.courseId,
+          course_id: result.courseId,
           name: formData.name,
           description: formData.description,
           category: formData.category,
           level: formData.level,
           duration_weeks: formData.duration_weeks,
           price: formData.price,
-          max_students: formData.max_students,
-          current_students: formData.current_students,
           start_date: formData.start_date,
           end_date: formData.end_date,
           schedule: formData.schedule,
@@ -120,7 +120,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           image_url: formData.image_url,
           center_id: formData.center_id,
         };
-        
+
         onSave(newCourse);
       }
     } catch (error) {
@@ -135,7 +135,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: ['duration_weeks', 'price', 'max_students', 'current_students'].includes(name)
+      [name]: ['duration_weeks', 'price'].includes(name)
         ? Number(value)
         : value
     }));
@@ -265,34 +265,6 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Max Students
-              </label>
-              <input
-                type="number"
-                name="max_students"
-                value={formData.max_students}
-                onChange={handleChange}
-                min="1"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Current Students
-              </label>
-              <input
-                type="number"
-                name="current_students"
-                value={formData.current_students}
-                onChange={handleChange}
-                min="0"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
               />
             </div>
