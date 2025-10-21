@@ -8,6 +8,7 @@ steps:
   - name: Building FE
     image: bash
     commands:
+      - apt-get update && apt-get install -y libatomic1
       - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
       - export NVM_DIR="$HOME/.nvm" # Or wherever nvm is installed
       - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' # This loads nvm
