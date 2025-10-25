@@ -138,7 +138,6 @@ const TutorFeedbackForm: React.FC<TutorFeedbackFormProps> = ({
       teachingQuality: 0,
       communication: 0,
       punctuality: 0,
-      punctuality: 0,
       helpfulness: 0,
       wouldRecommend: false,
       strengths: [],
