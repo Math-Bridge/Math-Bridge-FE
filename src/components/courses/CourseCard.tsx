@@ -1,6 +1,6 @@
 import React from 'react';
 import { BookOpen, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin } from 'lucide-react';
-import type { Course } from '../types';
+import type { Course } from '../../types';
 
 interface CourseCardProps {
   course: Course;
@@ -10,6 +10,10 @@ interface CourseCardProps {
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnroll }) => {
+  const enrollmentRate = course.max_students && course.current_students
+    ? ((course.current_students / course.max_students) * 100).toFixed(0)
+    : 0;
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -38,31 +42,11 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
     }
   };
 
-  const handleCardClick = () => {
-    if (onView && course.course_id) {
-      onView(course.course_id);
-    }
-  };
-
-  const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleCardClick();
-    }
-  };
-
   return (
     <div className="group relative">
       <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-500 rounded-2xl opacity-0 group-hover:opacity-75 blur transition duration-500"></div>
 
-      <div
-        className="relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 cursor-pointer"
-        onClick={handleCardClick}
-        role={onView ? 'button' : undefined}
-        tabIndex={onView ? 0 : -1}
-        onKeyDown={onView ? handleKeyDown : undefined}
-        aria-label={onView ? `View details for ${course.name}` : undefined}
-      >
+      <div className="relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100">
         {course.image_url && (
           <div className="relative h-48 overflow-hidden">
             <img
@@ -127,7 +111,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
               </div>
               <div className="flex items-center space-x-2 text-gray-700">
                 <Users className="w-4 h-4 text-blue-500" />
-                <span>{course.registration_count || 0} registrations</span>
+                <span>{course.current_students}/{course.max_students}</span>
               </div>
             </div>
 
@@ -139,18 +123,41 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
             )}
           </div>
 
+          {enrollmentRate !== '0' && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                <span>Enrollment</span>
+                <span className="font-bold text-blue-600">{enrollmentRate}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
+                  style={{ width: `${enrollmentRate}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2 pt-4 border-t border-gray-100">
-            {onEnroll && course.status === 'active' && (
+            {onEnroll && course.status === 'active' && course.current_students && course.max_students && course.current_students < course.max_students && (
               <button
-                onClick={(e) => { e.stopPropagation(); onEnroll(course); }}
+                onClick={() => onEnroll(course)}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 Enroll Now
               </button>
             )}
+            {onView && course.course_id && (
+              <button
+                onClick={() => onView(course.course_id!)}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                View Details
+              </button>
+            )}
             {onEdit && course.course_id && (
               <button
-                onClick={(e) => { e.stopPropagation(); onEdit(course.course_id!); }}
+                onClick={() => onEdit(course.course_id!)}
                 className="flex-1 px-4 py-2.5 bg-white border-2 border-blue-200 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-50 hover:border-blue-300 transform hover:scale-105 transition-all duration-200 shadow-sm"
               >
                 Edit

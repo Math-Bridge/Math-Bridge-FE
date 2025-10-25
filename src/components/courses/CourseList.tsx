@@ -10,7 +10,6 @@ interface CourseListProps {
   onEditCourse?: (courseId: string) => void;
   onCreateCourse?: () => void;
   onEnrollCourse?: (course: Course) => void;
-  initialCourses?: Course[]; // optional mocked data for UI testing
 }
 
 const CourseList: React.FC<CourseListProps> = ({
@@ -18,8 +17,7 @@ const CourseList: React.FC<CourseListProps> = ({
   onViewCourse,
   onEditCourse,
   onCreateCourse,
-  onEnrollCourse,
-  initialCourses
+  onEnrollCourse
 }) => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
@@ -30,13 +28,8 @@ const CourseList: React.FC<CourseListProps> = ({
   const [levelFilter, setLevelFilter] = useState('all');
 
   useEffect(() => {
-    if (initialCourses && initialCourses.length) {
-      setCourses(initialCourses);
-      setLoading(false);
-      return;
-    }
     fetchCourses();
-  }, [centerId, initialCourses]);
+  }, [centerId]);
 
   useEffect(() => {
     applyFilters();

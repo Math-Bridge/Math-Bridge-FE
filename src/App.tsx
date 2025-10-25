@@ -4,19 +4,36 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { Layout } from './components/common';
 import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
-import { UserHome } from './components/user';
+// import { UserHome } from './components/user'; // Replaced with ParentDashboardPage
 import { Home } from './components/dashboard';
 import { ErrorBoundary } from './components/common';
-import UserWallet from './components/user/UserWallet';
-import UserProfile from './components/user/UserProfile';
-import WalletTopUp from './components/user/WalletTopUp';
-import WalletHistory from './components/user/WalletHistory';
-// component-level imports left for other routes
+// Wallet components moved to parent features
+import CenterList from './components/centers/CenterList';
+
+import TutorList from './components/tutors/TutorList';
 import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
-import TutorDashboard from './components/tutors/TutorDashboard';
+import TutorDashboard from './components/features/tutor/TutorDashboard';
 import TutorsByCenter from './components/tutors/TutorsByCenter';
-import { TutorsPage, CentersPage, CoursesPage, CourseDetailPage, CourseFormPage } from './pages';
+import { CourseList } from './components/courses';
+import CourseDetailPage from './pages/CourseDetailPage';
+import CourseFormPage from './pages/CourseFormPage';
+
+// Features Pages
+import {
+  ParentHomePage,
+  ParentProfilePage,
+  MyChildrenPage,
+  ParentWalletPage,
+  WalletPage,
+  ContractsPage,
+  PackageSelectionPage,
+  ContractDetailPage,
+  TutorDetailPage,
+  ProgressReportsPage,
+  AdminDashboardPage,
+  StaffDashboardPage
+} from './pages/features';
 
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -56,9 +73,10 @@ function App() {
             <Route path="forgot-password" element={<ForgotPassword />} />
             <Route path="reset-password" element={<ResetPassword />} />
             <Route path="verify-reset" element={<VerifyResetRedirect />} />
+            {/* Original Routes */}
             <Route path="home" element={
               <ProtectedRoute>
-                <UserHome />
+                <ParentHomePage />
               </ProtectedRoute>
             } />
             <Route path="dashboard" element={
@@ -68,74 +86,136 @@ function App() {
             } />
             <Route path="user-wallet" element={
               <ProtectedRoute>
-                <UserWallet />
+                <ParentWalletPage />
               </ProtectedRoute>
             } />
             <Route path="user-profile" element={
               <ProtectedRoute>
-                <UserProfile />
+                <ParentProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="parent-profile" element={
+              <ProtectedRoute>
+                <ParentProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="my-children" element={
+              <ProtectedRoute>
+                <MyChildrenPage />
               </ProtectedRoute>
             } />
             <Route path="wallet/topup" element={
               <ProtectedRoute>
-                <WalletTopUp />
+                <ParentWalletPage />
               </ProtectedRoute>
             } />
             <Route path="wallet/history" element={
               <ProtectedRoute>
-                <WalletHistory />
+                <ParentWalletPage />
               </ProtectedRoute>
             } />
-              <Route path="tutors" element={
-                <ProtectedRoute>
-                  <TutorsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="tutors/:id" element={
-                <ProtectedRoute>
-                  <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
-                </ProtectedRoute>
-              } />
-              <Route path="tutor/register" element={
-                <ProtectedRoute>
-                  <TutorRegister />
-                </ProtectedRoute>
-              } />
-              <Route path="tutor/dashboard" element={
-                <ProtectedRoute>
-                  <TutorDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="centers" element={
-                <ProtectedRoute>
-                  <CentersPage />
-                </ProtectedRoute>
-              } />
-              <Route path="centers/:centerId/tutors" element={
-                <ProtectedRoute>
-                  <TutorsByCenter />
-                </ProtectedRoute>
-              } />
-              <Route path="courses" element={
-                <ProtectedRoute>
-                  <CoursesPage />
-                </ProtectedRoute>
-              } />
-              <Route path="courses/:courseId" element={
-                <ProtectedRoute>
-                  <CourseDetailPage />
-                </ProtectedRoute>
-              } />
-              <Route path="courses/create" element={
-                <ProtectedRoute>
-                  <CourseFormPage />
-                </ProtectedRoute>
-              } />
-              <Route path="courses/:courseId/edit" element={
-                <ProtectedRoute>
-                  <CourseFormPage />
-                </ProtectedRoute>
-              } />
+            
+            {/* Tutor Routes */}
+            <Route path="tutors" element={
+              <ProtectedRoute>
+                <TutorList />
+              </ProtectedRoute>
+            } />
+            <Route path="tutors/:id" element={
+              <ProtectedRoute>
+                <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
+              </ProtectedRoute>
+            } />
+            <Route path="tutor/register" element={
+              <ProtectedRoute>
+                <TutorRegister />
+              </ProtectedRoute>
+            } />
+            <Route path="tutor/dashboard" element={
+              <ProtectedRoute>
+                <TutorDashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* Center Routes */}
+            <Route path="centers" element={
+              <ProtectedRoute>
+                <CenterList />
+              </ProtectedRoute>
+            } />
+            <Route path="centers/:centerId/tutors" element={
+              <ProtectedRoute>
+                <TutorsByCenter />
+              </ProtectedRoute>
+            } />
+            
+            {/* Course Routes */}
+            <Route path="courses" element={
+              <ProtectedRoute>
+                <CourseList />
+              </ProtectedRoute>
+            } />
+            <Route path="courses/:courseId" element={
+              <ProtectedRoute>
+                <CourseDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="courses/create" element={
+              <ProtectedRoute>
+                <CourseFormPage />
+              </ProtectedRoute>
+            } />
+            <Route path="courses/:courseId/edit" element={
+              <ProtectedRoute>
+                <CourseFormPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Additional Features Routes */}
+            <Route path="wallet" element={
+              <ProtectedRoute>
+                <WalletPage />
+              </ProtectedRoute>
+            } />
+            <Route path="contracts" element={
+              <ProtectedRoute>
+                <ContractsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="contracts/create" element={
+              <ProtectedRoute>
+                <PackageSelectionPage />
+              </ProtectedRoute>
+            } />
+            <Route path="contracts/:id" element={
+              <ProtectedRoute>
+                <ContractDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="tutors/:id" element={
+              <ProtectedRoute>
+                <TutorDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="progress" element={
+              <ProtectedRoute>
+                <ProgressReportsPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin Routes */}
+            <Route path="admin" element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Staff Routes */}
+            <Route path="staff" element={
+              <ProtectedRoute>
+                <StaffDashboardPage />
+              </ProtectedRoute>
+            } />
           </Route>
         </Routes>
       </AuthProvider>

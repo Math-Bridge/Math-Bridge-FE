@@ -1,77 +1,86 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CourseDetail } from '../components/courses';
-import type { Course } from '../types';
 import { getCourseById } from '../services/api';
+import type { Course } from '../types';
 
 const CourseDetailPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<Course | null>((() => {
-    // Try to hydrate from navigation state first (for mock/demo flows)
-    const navState = (window.history.state && (window.history.state as any).usr) || undefined;
-    if (navState && navState.course) {
-      return navState.course as Course;
-    }
-    return null;
-  })());
-  const [loading, setLoading] = useState<boolean>(true);
+  const location = useLocation();
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // If we already have course from state (mock), skip fetching
-    if (course) {
-      setLoading(false);
-      return;
-    }
     const fetchCourse = async () => {
-      if (!courseId) {
-        setError('Course ID is missing');
+      setLoading(true);
+      setError(null);
+
+      // Try to get course from navigation state first
+      const courseFromState = location.state?.course as Course;
+      if (courseFromState && courseFromState.course_id === courseId) {
+        setCourse(courseFromState);
         setLoading(false);
         return;
       }
-      setLoading(true);
-      setError(null);
-      const res = await getCourseById(courseId);
-      if (res.success && res.data) {
-        setCourse(res.data);
-      } else {
-        setError(res.error || 'Failed to load course');
+
+      if (!courseId) {
+        setError('Course ID is missing.');
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      try {
+        const response = await getCourseById(courseId);
+        if (response.success && response.data) {
+          setCourse(response.data);
+        } else {
+          setError(response.error || 'Failed to fetch course details.');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      } finally {
+        setLoading(false);
+      }
     };
+
     fetchCourse();
-  }, [courseId]);
+  }, [courseId, navigate, location.state]);
+
+  const handleBack = () => {
+    navigate('/courses');
+  };
+
+  const handleEdit = (id: string) => {
+    navigate(`/courses/${id}/edit`, { state: { course } });
+  };
+
+  const handleEnroll = (enrollingCourse: Course) => {
+    console.log('Enrolling in course:', enrollingCourse.name);
+    alert(`Enrolled in course: ${enrollingCourse.name}`);
+  };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
-      </div>
-    );
+    return <div className="text-center py-12">Loading course details...</div>;
   }
 
-  if (error || !course) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-700 mb-4">{error || 'Course not found'}</p>
-          <button onClick={() => navigate('/courses')} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Back</button>
-        </div>
-      </div>
-    );
+  if (error) {
+    return <div className="text-center py-12 text-red-600">Error: {error}</div>;
+  }
+
+  if (!course) {
+    return <div className="text-center py-12">Course not found.</div>;
   }
 
   return (
     <CourseDetail
       course={course}
-      onBack={() => navigate('/courses')}
-      onEdit={(id) => navigate(`/courses/${id}/edit`)}
-      onEnroll={() => navigate('/user-wallet')}
+      onBack={handleBack}
+      onEdit={handleEdit}
+      onEnroll={handleEnroll}
     />
   );
 };
 
 export default CourseDetailPage;
-
-

@@ -3,13 +3,13 @@ import {
   Star, 
   MapPin, 
   Clock, 
-  BookOpen, 
+  User, 
   Users, 
   ChevronRight,
   Heart,
   Award,
-  DollarSign,
-  ArrowLeft
+  ArrowLeft,
+  MessageSquare
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getTutorsByCenter } from '../../services/api';
@@ -21,7 +21,6 @@ interface Tutor {
   experience: string;
   rating: number;
   totalReviews: number;
-  hourlyRate: number;
   location: string;
   avatarUrl?: string;
   isVerified: boolean;
@@ -61,7 +60,7 @@ const TutorsByCenter: React.FC = () => {
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [search, setSearch] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
-  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'experience'>('rating');
+  const [sortBy, setSortBy] = useState<'rating' | 'experience'>('rating');
   const [loading, setLoading] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
@@ -97,7 +96,6 @@ const TutorsByCenter: React.FC = () => {
             experience: tutor.experience || '5 years',
             rating: tutor.rating || 4.5,
             totalReviews: tutor.totalReviews || 0,
-            hourlyRate: tutor.hourlyRate || 50,
             location: center?.FormattedAddress || center?.address || '',
             avatarUrl: tutor.avatarUrl,
             isVerified: tutor.isVerified || false,
@@ -117,7 +115,6 @@ const TutorsByCenter: React.FC = () => {
               experience: '8 years',
               rating: 4.9,
               totalReviews: 127,
-              hourlyRate: 65,
               location: center?.FormattedAddress || center?.address || '',
               avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
               isVerified: true,
@@ -133,7 +130,6 @@ const TutorsByCenter: React.FC = () => {
               experience: '12 years',
               rating: 4.8,
               totalReviews: 89,
-              hourlyRate: 75,
               location: center?.FormattedAddress || center?.address || '',
               avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
               isVerified: true,
@@ -149,7 +145,6 @@ const TutorsByCenter: React.FC = () => {
               experience: '5 years',
               rating: 4.7,
               totalReviews: 156,
-              hourlyRate: 45,
               location: center?.FormattedAddress || center?.address || '',
               avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
               isVerified: false,
@@ -171,7 +166,6 @@ const TutorsByCenter: React.FC = () => {
             experience: '8 years',
             rating: 4.9,
             totalReviews: 127,
-            hourlyRate: 65,
             location: center?.FormattedAddress || center?.address || '',
             avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
             isVerified: true,
@@ -200,8 +194,6 @@ const TutorsByCenter: React.FC = () => {
       switch (sortBy) {
         case 'rating':
           return b.rating - a.rating;
-        case 'price':
-          return a.hourlyRate - b.hourlyRate;
         case 'experience':
           return parseInt(b.experience) - parseInt(a.experience);
         default:
@@ -307,11 +299,10 @@ const TutorsByCenter: React.FC = () => {
             <div>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'rating' | 'price' | 'experience')}
+                onChange={(e) => setSortBy(e.target.value as 'rating' | 'experience')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none bg-white"
               >
                 <option value="rating">Sort by Rating</option>
-                <option value="price">Sort by Price</option>
                 <option value="experience">Sort by Experience</option>
               </select>
             </div>
@@ -446,10 +437,6 @@ const TutorsByCenter: React.FC = () => {
                       <div className="text-lg font-bold text-gray-900">{tutor.experience}</div>
                       <div className="text-xs text-gray-500">Experience</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">${tutor.hourlyRate}</div>
-                      <div className="text-xs text-gray-500">Per Hour</div>
-                    </div>
                   </div>
 
                   {/* Actions */}
@@ -458,13 +445,13 @@ const TutorsByCenter: React.FC = () => {
                       onClick={() => handleViewDetails(tutor.id)}
                       className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                     >
-                      <BookOpen className="h-4 w-4" />
+                      <User className="h-4 w-4" />
                       <span>View Profile</span>
                       <ChevronRight className="h-4 w-4" />
                     </button>
                     <button className="px-4 py-3 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2">
-                      <DollarSign className="h-4 w-4" />
-                      <span>Book Now</span>
+                      <MessageSquare className="h-4 w-4" />
+                      <span>Contact Staff</span>
                     </button>
                   </div>
                 </div>

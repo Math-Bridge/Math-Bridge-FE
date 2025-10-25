@@ -2,16 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { 
   Star, 
   Clock, 
-  BookOpen, 
   Award, 
-  Calendar, 
-  MessageCircle,
+  MessageSquare,
   MapPin,
-  Globe,
   CheckCircle,
-  Heart,
-  Share2,
-  ChevronLeft,
   ChevronRight
 } from 'lucide-react';
 
@@ -24,7 +18,6 @@ interface TutorDetail {
   totalReviews: number;
   bio: string;
   schedule: string;
-  hourlyRate: number;
   location: string;
   languages: string[];
   education: string[];
@@ -46,20 +39,11 @@ interface Review {
   subject: string;
 }
 
-interface AvailableSlot {
-  date: string;
-  time: string;
-  available: boolean;
-}
 
 const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
   const [tutor, setTutor] = useState<TutorDetail | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     // Simulate API call
@@ -74,7 +58,6 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
         totalReviews: 127,
         bio: 'Passionate mathematics educator with over 8 years of experience helping students excel in various mathematical disciplines. I specialize in making complex concepts accessible and engaging through personalized teaching methods.',
         schedule: 'Mon-Fri: 2:00 PM - 8:00 PM, Sat: 10:00 AM - 4:00 PM',
-        hourlyRate: 65,
         location: 'San Francisco, CA',
         languages: ['English', 'Spanish', 'French'],
         education: ['PhD in Mathematics - Stanford University', 'MS in Applied Mathematics - UC Berkeley'],
@@ -114,22 +97,6 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
         }
       ]);
 
-      // Generate available slots for the next 7 days
-      const slots: AvailableSlot[] = [];
-      for (let i = 0; i < 7; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
-        
-        ['14:00', '15:00', '16:00', '17:00', '18:00', '19:00'].forEach(time => {
-          slots.push({
-            date: dateStr,
-            time,
-            available: Math.random() > 0.3 // Random availability
-          });
-        });
-      }
-      setAvailableSlots(slots);
       
       setLoading(false);
     }, 1000);
@@ -143,11 +110,6 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
     });
   };
 
-  const handleBookSession = () => {
-    if (selectedSlot) {
-      setShowBookingModal(true);
-    }
-  };
 
   if (loading) {
     return (
@@ -250,35 +212,16 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
                     <div className="text-2xl font-bold text-purple-600">{tutor.subjects.length}</div>
                     <div className="text-sm text-gray-600">Subjects</div>
                   </div>
-                  <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                    <div className="text-2xl font-bold text-yellow-600">${tutor.hourlyRate}</div>
-                    <div className="text-sm text-gray-600">Per Hour</div>
-                  </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={() => setShowBookingModal(true)}
-                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Calendar className="h-5 w-5" />
-                    <span>Book Session</span>
-                  </button>
-                  <button
-                    onClick={() => setIsFavorite(!isFavorite)}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center space-x-2 ${
-                      isFavorite
-                        ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
-                    <span>{isFavorite ? 'Favorited' : 'Favorite'}</span>
-                  </button>
-                  <button className="px-6 py-3 bg-gray-100 text-gray-600 rounded-lg font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
-                    <Share2 className="h-5 w-5" />
-                    <span>Share</span>
-                  </button>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <MessageSquare className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-blue-900">Tutor Assignment</span>
+                  </div>
+                  <p className="text-blue-700 text-sm">
+                    Tutor assignments are managed by our staff. Please contact our team to discuss your learning needs and we'll match you with the most suitable tutor.
+                  </p>
                 </div>
               </div>
             </div>
@@ -409,12 +352,8 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Booking Card */}
+            {/* Scheduling Card */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 sticky top-8">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-gray-900">${tutor.hourlyRate}</div>
-                <div className="text-gray-500">per hour</div>
-              </div>
               
               <div className="space-y-4 mb-6">
                 <div className="flex items-center justify-between text-sm">
@@ -427,86 +366,31 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
                 </div>
               </div>
               
-              <button
-                onClick={() => setShowBookingModal(true)}
-                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-              >
-                <Calendar className="h-5 w-5" />
-                <span>Book a Session</span>
-              </button>
-              
-              <button className="w-full mt-3 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
-                <MessageCircle className="h-5 w-5" />
-                <span>Send Message</span>
-              </button>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <MessageSquare className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-blue-900">Staff Assignment</span>
+                </div>
+                <p className="text-blue-700 text-sm">
+                  Tutor assignments are managed by our staff team. Contact us to discuss your learning needs.
+                </p>
+              </div>
             </div>
 
-            {/* Schedule */}
+            {/* Schedule Info */}
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-4">Availability</h3>
+              <h3 className="font-bold text-gray-900 mb-4">Schedule</h3>
               <p className="text-sm text-gray-600 mb-4">{tutor.schedule}</p>
-              
-              <div className="space-y-2">
-                <h4 className="font-semibold text-gray-900 text-sm">Next Available Slots</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {availableSlots.filter(slot => slot.available).slice(0, 6).map((slot, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                        selectedSlot === slot
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="font-medium text-gray-900">{formatDate(slot.date)}</div>
-                      <div className="text-sm text-gray-500">{slot.time}</div>
-                    </button>
-                  ))}
-                </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  <strong>Note:</strong> Specific session times will be arranged by our staff team based on your availability and the tutor's schedule.
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Book a Session</h3>
-            <p className="text-gray-600 mb-6">
-              You're about to book a session with {tutor.name} for ${tutor.hourlyRate}/hour.
-            </p>
-            
-            {selectedSlot && (
-              <div className="bg-blue-50 p-4 rounded-lg mb-6">
-                <div className="font-semibold text-blue-900">Selected Time</div>
-                <div className="text-blue-700">{formatDate(selectedSlot.date)} at {selectedSlot.time}</div>
-              </div>
-            )}
-            
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowBookingModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // Handle booking logic here
-                  setShowBookingModal(false);
-                  alert('Session booked successfully!');
-                }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Confirm Booking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -3,7 +3,6 @@ import {
   Upload, 
   User, 
   Mail, 
-  BookOpen, 
   Award, 
   FileText, 
   DollarSign,
@@ -387,7 +386,7 @@ const TutorRegister: React.FC = () => {
           {currentStep === 2 && (
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-6">
-                <BookOpen className="h-6 w-6 text-blue-600" />
+                <User className="h-6 w-6 text-blue-600" />
                 <h2 className="text-xl font-bold text-gray-900">Professional Information</h2>
               </div>
 

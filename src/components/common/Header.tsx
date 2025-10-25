@@ -2,23 +2,21 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { 
-  Calculator, 
   User, 
   LogOut, 
   Menu, 
   X, 
   Home,
   BookOpen,
-  Trophy,
-  Settings,
   Bell,
   Users,
-  GraduationCap,
   Wallet,
   Plus,
   CreditCard,
   TrendingUp,
-  ChevronDown
+  ChevronDown,
+  FileText,
+  GraduationCap
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
@@ -47,15 +45,15 @@ const Header: React.FC = () => {
   const walletDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Navigation items configuration
+  // Navigation items configuration for Parent
   const navigationItems = [
     { name: 'Home', href: '/home', icon: Home },
-    // { name: 'Dashboard', href: '/dashboard', icon: Settings },
-    // { name: 'Tutors', href: '/tutors', icon: GraduationCap },
-    { name: 'Courses', href: '/courses', icon: BookOpen },
+    { name: 'My Children', href: '/my-children', icon: Users },
+    { name: 'Contracts', href: '/contracts', icon: FileText },
+    { name: 'Tutors', href: '/tutors', icon: GraduationCap },
     { name: 'Centers', href: '/centers', icon: Users },
-    { name: 'Achievements', href: '/achievements', icon: Trophy },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Courses', href: '/courses', icon: BookOpen },
+    { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
   // Fetch wallet data
@@ -395,7 +393,29 @@ const Header: React.FC = () => {
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                           onClick={() => { 
                             closeAllDropdowns(); 
-                            navigate('/user-wallet'); 
+                            navigate('/user-profile'); 
+                          }}
+                          role="menuitem"
+                        >
+                          <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                          My Children
+                        </button>
+                        <button
+                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                          onClick={() => { 
+                            closeAllDropdowns(); 
+                            navigate('/contracts'); 
+                          }}
+                          role="menuitem"
+                        >
+                          <FileText className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                          My Contracts
+                        </button>
+                        <button
+                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                          onClick={() => { 
+                            closeAllDropdowns(); 
+                            navigate('/wallet'); 
                           }}
                           role="menuitem"
                         >
@@ -406,12 +426,12 @@ const Header: React.FC = () => {
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                           onClick={() => { 
                             closeAllDropdowns(); 
-                            navigate('/settings'); 
+                            navigate('/progress'); 
                           }}
                           role="menuitem"
                         >
-                          <Settings className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          Settings
+                          <TrendingUp className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                          Progress Reports
                         </button>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button

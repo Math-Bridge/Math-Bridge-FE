@@ -5,13 +5,13 @@ import {
   Star, 
   MapPin, 
   Clock, 
-  BookOpen, 
+  User, 
   Users, 
   ChevronRight,
-  Heart,
   Award,
-  DollarSign
+  MessageSquare
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Tutor {
   id: string;
@@ -20,25 +20,25 @@ interface Tutor {
   experience: string;
   rating: number;
   totalReviews: number;
-  hourlyRate: number;
   location: string;
-  avatarUrl?: string;
+  avatarUrl: string;
   isVerified: boolean;
-  responseTime: string;
-  completedSessions: number;
   specialties: string[];
+  languages: string[];
 }
 
 const TutorList: React.FC = () => {
+  const navigate = useNavigate();
   const [tutors, setTutors] = useState<Tutor[]>([]);
-  const [search, setSearch] = useState('');
-  const [filterSubject, setFilterSubject] = useState('');
-  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'experience'>('rating');
   const [loading, setLoading] = useState(true);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [sortBy, setSortBy] = useState('rating');
+
+  const subjects = ['All Subjects', 'Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry', 'Pre-Calculus'];
 
   useEffect(() => {
-    // Simulate API call with more realistic data
+    // Simulate API call
     setLoading(true);
     setTimeout(() => {
       setTutors([
@@ -49,107 +49,111 @@ const TutorList: React.FC = () => {
           experience: '8 years',
           rating: 4.9,
           totalReviews: 127,
-          hourlyRate: 65,
           location: 'San Francisco, CA',
-          avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+          avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
           isVerified: true,
-          responseTime: '< 2 hours',
-          completedSessions: 450,
-          specialties: ['Test Prep', 'Advanced Calculus']
+          specialties: ['Test Preparation', 'Advanced Calculus'],
+          languages: ['English', 'Spanish']
         },
         {
           id: '2',
           name: 'Prof. Michael Chen',
-          subjects: ['Statistics', 'Data Analysis', 'Probability'],
+          subjects: ['Statistics', 'Probability', 'Data Analysis'],
           experience: '12 years',
           rating: 4.8,
           totalReviews: 89,
-          hourlyRate: 75,
           location: 'New York, NY',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
           isVerified: true,
-          responseTime: '< 1 hour',
-          completedSessions: 320,
-          specialties: ['University Level', 'Research Methods']
+          specialties: ['Data Science', 'Research Methods'],
+          languages: ['English', 'Mandarin']
         },
         {
           id: '3',
-          name: 'Emma Rodriguez',
-          subjects: ['Algebra', 'Pre-Calculus', 'Trigonometry'],
-          experience: '5 years',
+          name: 'Dr. Emily Rodriguez',
+          subjects: ['Trigonometry', 'Pre-Calculus', 'Algebra II'],
+          experience: '6 years',
           rating: 4.7,
           totalReviews: 156,
-          hourlyRate: 45,
-          location: 'Austin, TX',
-          avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-          isVerified: false,
-          responseTime: '< 4 hours',
-          completedSessions: 280,
-          specialties: ['High School Math', 'Exam Prep']
+          location: 'Los Angeles, CA',
+          avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
+          isVerified: true,
+          specialties: ['High School Math', 'SAT Prep'],
+          languages: ['English', 'Spanish', 'French']
         },
         {
           id: '4',
-          name: 'David Kim',
+          name: 'Prof. David Kim',
           subjects: ['Calculus', 'Linear Algebra', 'Differential Equations'],
-          experience: '6 years',
-          rating: 4.6,
-          totalReviews: 73,
-          hourlyRate: 55,
-          location: 'Seattle, WA',
-          avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+          experience: '10 years',
+          rating: 4.9,
+          totalReviews: 203,
+          location: 'Boston, MA',
+          avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
           isVerified: true,
-          responseTime: '< 3 hours',
-          completedSessions: 195,
-          specialties: ['Engineering Math', 'Advanced Topics']
+          specialties: ['College Math', 'Engineering Math'],
+          languages: ['English', 'Korean']
+        },
+        {
+          id: '5',
+          name: 'Dr. Lisa Thompson',
+          subjects: ['Geometry', 'Algebra', 'Statistics'],
+          experience: '7 years',
+          rating: 4.6,
+          totalReviews: 98,
+          location: 'Chicago, IL',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
+          isVerified: true,
+          specialties: ['Middle School Math', 'Tutoring'],
+          languages: ['English']
+        },
+        {
+          id: '6',
+          name: 'Prof. James Wilson',
+          subjects: ['Calculus', 'Statistics', 'Probability'],
+          experience: '15 years',
+          rating: 4.8,
+          totalReviews: 312,
+          location: 'Seattle, WA',
+          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
+          isVerified: true,
+          specialties: ['Advanced Statistics', 'Research'],
+          languages: ['English', 'German']
         }
       ]);
       setLoading(false);
     }, 1000);
   }, []);
 
-  const subjects = ['Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry', 'Pre-Calculus', 'Linear Algebra'];
+  const filteredTutors = tutors.filter(tutor => {
+    const matchesSearch = tutor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         tutor.subjects.some(subject => subject.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSubject = selectedSubject === '' || selectedSubject === 'All Subjects' || 
+                          tutor.subjects.includes(selectedSubject);
+    return matchesSearch && matchesSubject;
+  });
 
-  const filteredAndSortedTutors = tutors
-    .filter(tutor =>
-      tutor.name.toLowerCase().includes(search.toLowerCase()) &&
-      (filterSubject ? tutor.subjects.includes(filterSubject) : true)
-    )
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'rating':
-          return b.rating - a.rating;
-        case 'price':
-          return a.hourlyRate - b.hourlyRate;
-        case 'experience':
-          return parseInt(b.experience) - parseInt(a.experience);
-        default:
-          return 0;
-      }
-    });
-
-  const toggleFavorite = (tutorId: string) => {
-    const newFavorites = new Set(favorites);
-    if (newFavorites.has(tutorId)) {
-      newFavorites.delete(tutorId);
-    } else {
-      newFavorites.add(tutorId);
+  const sortedTutors = [...filteredTutors].sort((a, b) => {
+    switch (sortBy) {
+      case 'rating':
+        return b.rating - a.rating;
+      case 'experience':
+        return parseInt(b.experience) - parseInt(a.experience);
+      default:
+        return 0;
     }
-    setFavorites(newFavorites);
-  };
+  });
 
   const handleViewDetails = (tutorId: string) => {
-    // Navigate to tutor detail page
-    window.location.href = `/tutors/${tutorId}`;
+    navigate(`/tutors/${tutorId}`);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Finding the best tutors for you...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading tutors...</p>
         </div>
       </div>
     );
@@ -160,206 +164,154 @@ const TutorList: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Find Your Perfect Math Tutor</h1>
-          <p className="text-gray-600">Connect with experienced tutors who can help you excel in mathematics</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Our Math Tutors</h1>
+          <p className="text-gray-600">Browse our qualified math tutors. Contact our staff to discuss your learning needs.</p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Search by name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="Search tutors or subjects..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             {/* Subject Filter */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <div>
               <select
-                value={filterSubject}
-                onChange={(e) => setFilterSubject(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none bg-white"
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">All Subjects</option>
                 {subjects.map(subject => (
                   <option key={subject} value={subject}>{subject}</option>
                 ))}
               </select>
             </div>
 
-            {/* Sort By */}
+            {/* Sort */}
             <div>
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as 'rating' | 'price' | 'experience')}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors appearance-none bg-white"
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="rating">Sort by Rating</option>
-                <option value="price">Sort by Price</option>
-                <option value="experience">Sort by Experience</option>
+                <option value="experience">Experience</option>
               </select>
-            </div>
-
-            {/* Results Count */}
-            <div className="flex items-center justify-center md:justify-start">
-              <span className="text-gray-600 font-medium">
-                {filteredAndSortedTutors.length} tutors found
-              </span>
             </div>
           </div>
         </div>
 
+        {/* Results Count */}
+        <div className="mb-6">
+          <p className="text-gray-600">
+            Showing {sortedTutors.length} of {tutors.length} tutors
+          </p>
+        </div>
+
         {/* Tutors Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredAndSortedTutors.map((tutor) => (
-            <div
-              key={tutor.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <img
-                      src={tutor.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&size=64`}
-                      alt={tutor.name}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                    {tutor.isVerified && (
-                      <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1">
-                        <Award className="h-3 w-3 text-white" />
-                      </div>
-                    )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedTutors.map((tutor) => (
+            <div key={tutor.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              {/* Tutor Image */}
+              <div className="relative h-48 bg-gradient-to-br from-blue-500 to-purple-600">
+                <img
+                  src={tutor.avatarUrl}
+                  alt={tutor.name}
+                  className="w-full h-full object-cover"
+                />
+                {tutor.isVerified && (
+                  <div className="absolute top-3 right-3 bg-green-500 text-white p-1 rounded-full">
+                    <Award className="h-4 w-4" />
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-1">{tutor.name}</h3>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`h-4 w-4 ${
-                              i < Math.floor(tutor.rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="font-semibold text-gray-900">{tutor.rating}</span>
-                      <span className="text-gray-500 text-sm">({tutor.totalReviews} reviews)</span>
-                    </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {tutor.location}
-                      </div>
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 mr-1" />
-                        {tutor.responseTime}
-                      </div>
-                    </div>
+                )}
+              </div>
+
+              {/* Tutor Info */}
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xl font-semibold text-gray-900">{tutor.name}</h3>
+                  <div className="flex items-center space-x-1">
+                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                    <span className="text-sm font-medium text-gray-900">{tutor.rating}</span>
+                    <span className="text-sm text-gray-500">({tutor.totalReviews})</span>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => toggleFavorite(tutor.id)}
-                  className={`p-2 rounded-lg transition-colors ${
-                    favorites.has(tutor.id)
-                      ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                      : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                  }`}
-                >
-                  <Heart className={`h-5 w-5 ${favorites.has(tutor.id) ? 'fill-current' : ''}`} />
-                </button>
-              </div>
-
-              {/* Subjects */}
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-2">
-                  {tutor.subjects.map((subject, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
-                    >
-                      {subject}
-                    </span>
-                  ))}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Clock className="h-4 w-4 mr-2" />
+                    <span>{tutor.experience} experience</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    <span>{tutor.location}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <User className="h-4 w-4 mr-2" />
+                    <span>{tutor.languages.join(', ')}</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Specialties */}
-              {tutor.specialties.length > 0 && (
+                {/* Subjects */}
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">Specialties:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tutor.specialties.map((specialty, index) => (
+                  <div className="flex flex-wrap gap-1">
+                    {tutor.subjects.slice(0, 3).map((subject, index) => (
                       <span
                         key={index}
-                        className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
                       >
-                        {specialty}
+                        {subject}
                       </span>
                     ))}
+                    {tutor.subjects.length > 3 && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                        +{tutor.subjects.length - 3} more
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">{tutor.completedSessions}</div>
-                  <div className="text-xs text-gray-500">Sessions</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-900">{tutor.experience}</div>
-                  <div className="text-xs text-gray-500">Experience</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-600">${tutor.hourlyRate}</div>
-                  <div className="text-xs text-gray-500">Per Hour</div>
-                </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex space-x-3">
+                {/* Staff Assignment Info */}
+                <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <MessageSquare className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-semibold text-blue-900">Staff Assignment</span>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    Tutor assignments are managed by our staff team. Contact us to discuss your learning needs.
+                  </p>
+                </div>
+
+                {/* Action Button */}
                 <button
                   onClick={() => handleViewDetails(tutor.id)}
-                  className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                 >
-                  <BookOpen className="h-4 w-4" />
+                  <User className="h-4 w-4" />
                   <span>View Profile</span>
                   <ChevronRight className="h-4 w-4" />
-                </button>
-                <button className="px-4 py-3 border border-blue-600 text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center justify-center space-x-2">
-                  <DollarSign className="h-4 w-4" />
-                  <span>Book Now</span>
                 </button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Empty State */}
-        {filteredAndSortedTutors.length === 0 && (
+        {/* No Results */}
+        {sortedTutors.length === 0 && (
           <div className="text-center py-12">
-            <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No tutors found</h3>
-            <p className="text-gray-600 mb-4">Try adjusting your search criteria or filters</p>
-            <button
-              onClick={() => {
-                setSearch('');
-                setFilterSubject('');
-              }}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Clear Filters
-            </button>
+            <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No tutors found</h3>
+            <p className="text-gray-600">Try adjusting your search criteria or contact our staff for assistance.</p>
           </div>
         )}
       </div>
