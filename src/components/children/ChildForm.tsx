@@ -7,7 +7,7 @@ interface ChildFormProps {
   child?: {
     childId: string;
     fullName: string;
-    school: string;
+    schoolId: string;
     centerId?: string;
     grade: string;
     dateOfBirth?: string;
@@ -20,7 +20,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: child?.fullName || '',
-    school: child?.school || '',
+    schoolId: child?.schoolId || '',
     centerId: child?.centerId || '',
     grade: child?.grade || 'grade 9',
     dateOfBirth: child?.dateOfBirth || ''
@@ -51,8 +51,8 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       newErrors.fullName = 'Full name is required';
     }
     
-    if (!formData.school.trim()) {
-      newErrors.school = 'School is required';
+    if (!formData.schoolId) {
+      newErrors.schoolId = 'School is required';
     }
     
     if (!formData.grade) {
@@ -78,7 +78,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
     try {
       const requestData: AddChildRequest | UpdateChildRequest = {
         fullName: formData.fullName.trim(),
-        school: formData.school.trim(),
+        schoolId: formData.schoolId,
         centerId: formData.centerId || undefined,
         grade: formData.grade,
         dateOfBirth: formData.dateOfBirth || undefined
@@ -153,13 +153,13 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
               <School className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                value={formData.school}
-                onChange={(e) => handleChange('school', e.target.value)}
+                value={formData.schoolId}
+                onChange={(e) => handleChange('schoolId', e.target.value)}
                 className="form-input pl-10"
-                placeholder="Enter school name"
+                placeholder="Enter school ID"
               />
             </div>
-            {errors.school && <p className="error-message">{errors.school}</p>}
+            {errors.schoolId && <p className="error-message">{errors.schoolId}</p>}
           </div>
 
           <div>

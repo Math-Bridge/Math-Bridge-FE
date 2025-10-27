@@ -6,3 +6,4 @@ const ContractDetailPage: React.FC = () => {
 };
 
 export default ContractDetailPage;
+

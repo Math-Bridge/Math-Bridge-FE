@@ -170,11 +170,11 @@ class ApiService {
     });
   }
 
-  async googleLogin(token: string): Promise<ApiResponse<{ user: User; token: string }>> {
-    return await this.request<{ user: User; token: string }>('/auth/google-login', {
+  async googleLogin(token: string): Promise<ApiResponse<{ token: string }>> {
+    return await this.request<{ token: string }>('/auth/google-login', {
       method: 'POST',
       body: JSON.stringify({ IdToken: token }),
-    }) as ApiResponse<{ user: User; token: string }>;
+    }) as ApiResponse<{ token: string }>;
   }
 
   // Dashboard endpoints
@@ -305,7 +305,8 @@ export async function getCenterStatistics() {
 export interface Child {
   childId: string;
   fullName: string;
-  school: string;
+  schoolId: string;
+  schoolName: string;
   centerId?: string;
   centerName?: string;
   grade: string;
@@ -315,7 +316,7 @@ export interface Child {
 
 export interface AddChildRequest {
   fullName: string;
-  school: string;
+  schoolId: string;
   centerId?: string;
   grade: string;
   dateOfBirth?: string;
@@ -323,7 +324,7 @@ export interface AddChildRequest {
 
 export interface UpdateChildRequest {
   fullName?: string;
-  school?: string;
+  schoolId?: string;
   centerId?: string;
   grade?: string;
   dateOfBirth?: string;
@@ -346,16 +347,33 @@ export async function getChildrenByParent(parentId: string) {
 }
 
 export async function addChild(parentId: string, data: AddChildRequest) {
+  // Convert camelCase to PascalCase for backend
+  const requestData = {
+    FullName: data.fullName,
+    SchoolId: data.schoolId,
+    CenterId: data.centerId,
+    Grade: data.grade,
+    DateOfBirth: data.dateOfBirth
+  };
+  
   return apiService.request<{ childId: string }>(`/parents/${parentId}/children`, {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestData),
   });
 }
 
 export async function updateChild(childId: string, data: UpdateChildRequest) {
+  // Convert camelCase to PascalCase for backend
+  const requestData: any = {};
+  if (data.fullName) requestData.FullName = data.fullName;
+  if (data.schoolId) requestData.SchoolId = data.schoolId;
+  if (data.centerId) requestData.CenterId = data.centerId;
+  if (data.grade) requestData.Grade = data.grade;
+  if (data.dateOfBirth) requestData.DateOfBirth = data.dateOfBirth;
+  
   return apiService.request<{ message: string }>(`/children/${childId}`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestData),
   });
 }
 
@@ -374,7 +392,7 @@ export async function restoreChild(childId: string) {
 export async function linkCenterToChild(childId: string, centerId: string) {
   return apiService.request<{ message: string }>(`/children/${childId}/link-center`, {
     method: 'POST',
-    body: JSON.stringify({ centerId }),
+    body: JSON.stringify({ CenterId: centerId }),
   });
 }
 
@@ -424,18 +442,6 @@ export async function getContractsByParent(parentId: string) {
 
 export async function getContractsByChild(childId: string) {
   return apiService.request<Contract[]>(`/children/${childId}/contracts`);
-}
-
-export async function googleLogin(idToken: string) {
-  // Đúng chuẩn backend: gửi { IdToken: ... }
-  const response = await fetch(`${API_BASE_URL}/auth/google-login`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ IdToken: idToken }),
-  });
-  return response.json();
 }
 
 // =====================

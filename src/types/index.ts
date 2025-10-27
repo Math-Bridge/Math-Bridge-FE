@@ -53,7 +53,8 @@ export interface Center {
 export interface Child {
   childId: string;
   fullName: string;
-  school: string;
+  schoolId: string;
+  schoolName: string;
   centerId?: string;
   centerName?: string;
   grade: string;

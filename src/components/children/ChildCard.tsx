@@ -65,7 +65,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCe
       <div className="space-y-2 mb-4">
         <div className="flex items-center space-x-2 text-sm">
           <School className="w-4 h-4 text-gray-400" />
-          <span className="text-gray-600">{child.school}</span>
+          <span className="text-gray-600">{child.schoolName}</span>
         </div>
 
         {child.centerName && (
