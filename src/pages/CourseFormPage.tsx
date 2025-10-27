@@ -30,3 +30,6 @@ const CourseFormPage: React.FC = () => {
 };
 
 export default CourseFormPage;
+
+
+

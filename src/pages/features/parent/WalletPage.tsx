@@ -6,3 +6,4 @@ const WalletPage: React.FC = () => {
 };
 
 export default WalletPage;
+

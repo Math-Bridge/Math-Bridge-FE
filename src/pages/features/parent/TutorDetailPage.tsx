@@ -6,3 +6,6 @@ const TutorDetailPage: React.FC = () => {
 };
 
 export default TutorDetailPage;
+
+
+

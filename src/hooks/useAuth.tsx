@@ -128,70 +128,77 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Google login API response:', response);
       
       if (response.success && response.data) {
-        // Backend only returns token, not user data
-        const token = typeof response.data === 'string' ? response.data : response.data.token;
+        // Backend returns { token: "..." }
+        const token = response.data.token;
         
         if (!token) {
           console.log('Google login failed: No token received');
           return { success: false, error: 'No token received from server' };
         }
         
-        // Since backend doesn't return user data, we need to fetch it separately
-        // First save the token
+        // Save the token first
         localStorage.setItem('authToken', token);
+        console.log('Auth token saved to localStorage');
         
-        // Then fetch user data using the token
+        // Try to decode the JWT token to get user ID and info
         try {
-          const userResponse = await apiService.getCurrentUser();
-          if (userResponse.success && userResponse.data) {
-            const user = userResponse.data;
-            console.log('Google login successful, user data fetched:', user);
-            localStorage.setItem('user', JSON.stringify(user));
-            setUser(user);
-            console.log('User state updated after Google login');
-            return { success: true };
-          } else {
-            console.log('Failed to fetch user data after Google login:', userResponse.error);
-            return { success: false, error: userResponse.error || 'Failed to fetch user data' };
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            console.log('Decoded token payload:', payload);
+            
+            const userId = payload.sub || payload.userId || payload.id;
+            const role = payload.role || 'parent'; // Default role
+            const email = payload.email || '';
+            
+            if (userId) {
+              console.log('User ID from token:', userId);
+              
+              // Try to get user data from backend using the userId
+              const userResponse = await apiService.request<any>(`/users/${userId}`);
+              if (userResponse.success && userResponse.data) {
+                // Map backend UserResponse to frontend User
+                const backendUser = userResponse.data;
+                const user: User = {
+                  id: backendUser.userId || userId,
+                  email: backendUser.email || email,
+                  name: backendUser.fullName || backendUser.FullName || email.split('@')[0],
+                  phone: backendUser.phoneNumber || backendUser.PhoneNumber,
+                  createdAt: backendUser.createdDate || new Date().toISOString(),
+                  role: role
+                };
+                
+                console.log('Google login successful, user data fetched:', user);
+                localStorage.setItem('user', JSON.stringify(user));
+                setUser(user);
+                console.log('User state updated after Google login');
+                return { success: true };
+              } else {
+                // If we can't fetch user data, create minimal user from token
+                console.log('Failed to fetch user data, creating from token');
+                const user: User = {
+                  id: userId,
+                  email: email,
+                  name: email.split('@')[0],
+                  createdAt: new Date().toISOString(),
+                  role: role
+                };
+                localStorage.setItem('user', JSON.stringify(user));
+                setUser(user);
+                return { success: true };
+              }
+            }
           }
+          
+          console.log('Failed to extract user ID from token');
+          return { success: false, error: 'Failed to extract user information' };
         } catch (userError) {
-          console.log('Error fetching user data after Google login:', userError);
-          return { success: false, error: 'Failed to fetch user data after login' };
+          console.log('Error processing user data after Google login:', userError);
+          return { success: false, error: 'Failed to process user data after login' };
         }
       } else {
         console.log('Google login failed:', response.error);
-        
-        // Handle specific backend database errors
-        let errorMessage = response.error || 'Google login failed';
-        if (errorMessage.includes('saving the entity changes')) {
-          // Database constraint error - create a temporary session for user
-          console.log('Database error detected, creating temporary session');
-          
-          // Extract email from Google token (we can't decode JWT in frontend, so use a workaround)
-          const tempUser = {
-            id: 'temp-' + Date.now(),
-            email: 'google-user@temp.com', // We'll update this when backend is fixed
-            name: 'Google User',
-            createdAt: new Date().toISOString(),
-            role: 'parent'
-          };
-          
-          const tempToken = 'temp-google-token-' + Date.now();
-          
-          localStorage.setItem('authToken', tempToken);
-          localStorage.setItem('user', JSON.stringify(tempUser));
-          setUser(tempUser);
-          
-          console.log('Temporary session created for Google user');
-          return { 
-            success: true, 
-            error: 'Logged in with temporary session due to database issue. Some features may be limited.' 
-          };
-        } else if (errorMessage.includes('PasswordHash')) {
-          errorMessage = 'Account setup error. Please try again.';
-        }
-        
-        return { success: false, error: errorMessage };
+        return { success: false, error: response.error || 'Google login failed' };
       }
     } catch (error) {
       console.log('Google login network error:', error);
