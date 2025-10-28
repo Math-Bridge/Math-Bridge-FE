@@ -13,6 +13,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface Transaction {
   id: string;
@@ -32,6 +33,7 @@ interface WalletData {
 }
 
 const WalletComponent: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [walletData, setWalletData] = useState<WalletData>({
     balance: 0,
@@ -184,7 +186,7 @@ const WalletComponent: React.FC = () => {
                 className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center space-x-2"
               >
                 <Plus className="w-5 h-5" />
-                <span>Add Funds</span>
+                <span>{t('addFunds')}</span>
               </button>
             </div>
           </div>
@@ -198,7 +200,7 @@ const WalletComponent: React.FC = () => {
                 <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Deposits</p>
+                <p className="text-sm font-medium text-gray-600">{t('totalDeposits')}</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletData.totalDeposits)}
                 </p>
@@ -212,7 +214,7 @@ const WalletComponent: React.FC = () => {
                 <CreditCard className="w-6 h-6 text-red-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Spent</p>
+                <p className="text-sm font-medium text-gray-600">{t('totalSpent')}</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletData.totalSpent)}
                 </p>
@@ -237,7 +239,7 @@ const WalletComponent: React.FC = () => {
         {showDepositForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Add Funds to Wallet</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-6">{t('addFunds')}</h3>
               
               <div className="space-y-4">
                 <div>
@@ -252,14 +254,14 @@ const WalletComponent: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('depositMethod')}</label>
                   <select
                     value={depositMethod}
                     onChange={(e) => setDepositMethod(e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="credit_card">Credit Card</option>
+                    <option value="bank_transfer">{t('bankTransfer')}</option>
+                    <option value="credit_card">{t('creditCard')}</option>
                     <option value="mobile_banking">Mobile Banking</option>
                     <option value="e_wallet">E-Wallet</option>
                   </select>
@@ -277,7 +279,7 @@ const WalletComponent: React.FC = () => {
                   onClick={handleDeposit}
                   className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
-                  Add Funds
+                  {t('addFunds')}
                 </button>
               </div>
             </div>
@@ -288,7 +290,7 @@ const WalletComponent: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Transaction History</h2>
+              <h2 className="text-xl font-bold text-gray-900">{t('transactionHistory')}</h2>
               <button
                 onClick={() => navigate('/parent/wallet/history')}
                 className="text-blue-600 hover:text-blue-800 font-medium"

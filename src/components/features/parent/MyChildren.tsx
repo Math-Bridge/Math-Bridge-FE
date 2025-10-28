@@ -7,25 +7,45 @@ import {
 import { useNavigate } from 'react-router-dom';
 import ChildrenList from '../../children/ChildrenList';
 import ChildForm from '../../children/ChildForm';
+import { Child, getChildById } from '../../../services/api';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 const MyChildren: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [showChildForm, setShowChildForm] = useState(false);
+  const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleAddChild = () => {
+    setEditingChild(null);
     setShowChildForm(true);
+  };
+
+  const handleEditChild = async (childId: string) => {
+    try {
+      const result = await getChildById(childId);
+      if (result.success && result.data) {
+        setEditingChild(result.data);
+        setShowChildForm(true);
+      } else {
+        console.error('Failed to fetch child:', result.error);
+      }
+    } catch (error) {
+      console.error('Error fetching child:', error);
+    }
   };
 
   const handleChildFormClose = () => {
     setShowChildForm(false);
+    setEditingChild(null);
     setRefreshKey(prev => prev + 1);
   };
 
   const quickActions = [
     {
-      title: 'View Courses',
-      description: 'Browse available courses',
+      title: t('viewCourses'),
+      description: t('browseCourses'),
       icon: BookOpen,
       color: 'orange',
       onClick: () => navigate('/courses')
@@ -44,13 +64,13 @@ const MyChildren: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Children</h1>
-          <p className="text-gray-600 mt-2">Manage your children's profiles and learning progress</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('myChildren')}</h1>
+          <p className="text-gray-600 mt-2">{t('manageProfiles')}</p>
         </div>
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-5">Quick Actions</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-5">{t('quickActions')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {quickActions.map((action, index) => (
               <button
@@ -71,32 +91,34 @@ const MyChildren: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center">
               <Users className="h-6 w-6 text-blue-500 mr-2" />
-              My Children
+              {t('myChildren')}
             </h2>
             <button
               onClick={handleAddChild}
               className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
-              <span>Add Child</span>
+              <span>{t('addChild')}</span>
             </button>
           </div>
           
           <ChildrenList
             key={refreshKey}
+            onEditChild={handleEditChild}
           />
         </div>
 
-        {/* Child Form Modal */}
-        {showChildForm && (
-          <ChildForm
-            onClose={handleChildFormClose}
-            onSuccess={handleChildFormClose}
-          />
-        )}
-      </div>
-    </div>
-  );
-};
+            {/* Child Form Modal */}
+            {showChildForm && (
+              <ChildForm
+                child={editingChild || undefined}
+                onClose={handleChildFormClose}
+                onSuccess={handleChildFormClose}
+              />
+            )}
+          </div>
+        </div>
+      );
+    };
 
 export default MyChildren;

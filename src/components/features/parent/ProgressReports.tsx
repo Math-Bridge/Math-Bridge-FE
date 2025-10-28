@@ -15,6 +15,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface ProgressData {
   childId: string;
@@ -61,6 +62,7 @@ interface ProgressReport {
 }
 
 const ProgressReports: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [progressData, setProgressData] = useState<ProgressData[]>([]);
   const [selectedChild, setSelectedChild] = useState<string>('');
@@ -222,7 +224,7 @@ const ProgressReports: React.FC = () => {
                 onChange={(e) => setSelectedChild(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">All Children</option>
+                <option value="">{t('allChildren')}</option>
                 {progressData.map((child) => (
                   <option key={child.childId} value={child.childId}>{child.childName}</option>
                 ))}
@@ -236,7 +238,7 @@ const ProgressReports: React.FC = () => {
                 onChange={(e) => setSelectedSubject(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">All Subjects</option>
+                <option value="">{t('allSubjects')}</option>
                 {[...new Set(progressData.map(item => item.subject))].map(subject => (
                   <option key={subject} value={subject}>{subject}</option>
                 ))}
@@ -250,7 +252,7 @@ const ProgressReports: React.FC = () => {
                 onChange={(e) => setSelectedLevel(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="">All Levels</option>
+                <option value="">{t('allLevels')}</option>
                 {[...new Set(progressData.map(item => item.level))].map(level => (
                   <option key={level} value={level}>{level}</option>
                 ))}
@@ -329,7 +331,7 @@ const ProgressReports: React.FC = () => {
                   onClick={() => handleViewDetailedReport(item.childId)}
                   className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  View Detailed Report
+                  {t('viewDetailedReport')}
                 </button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, School, Calendar, MapPin, Edit, Trash2, Link } from 'lucide-react';
 import { Child } from '../../services/api';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ChildCardProps {
   child: Child;
@@ -10,6 +11,7 @@ interface ChildCardProps {
 }
 
 const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCenter }) => {
+  const { t } = useTranslation();
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not specified';
     try {
@@ -90,7 +92,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCe
             className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors flex items-center justify-center space-x-1"
           >
             <Edit className="w-3 h-3" />
-            <span>Edit</span>
+            <span>{t('edit')}</span>
           </button>
         )}
         
@@ -100,7 +102,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCe
             className="flex-1 px-3 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors flex items-center justify-center space-x-1"
           >
             <Link className="w-3 h-3" />
-            <span>Link</span>
+            <span>{t('link')}</span>
           </button>
         )}
 

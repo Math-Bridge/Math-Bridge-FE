@@ -4,8 +4,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../../firebaseConfig";
+import { useTranslation } from '../../hooks/useTranslation';
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,10 +18,10 @@ const Login: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!email) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Email is invalid';
-    if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    if (!email) newErrors.email = t('emailRequired');
+    else if (!/\S+@\S+\.\S+/.test(email)) newErrors.email = t('emailInvalid');
+    if (!password) newErrors.password = t('passwordRequired');
+    else if (password.length < 6) newErrors.password = t('passwordMinLength');
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -33,7 +35,7 @@ const Login: React.FC = () => {
     if (result.success) {
       navigate('/home', { replace: true });
     } else {
-      setErrors({ general: result.error || 'Login failed' });
+      setErrors({ general: result.error || t('loginFailed') });
     }
   };
 
@@ -94,7 +96,7 @@ const Login: React.FC = () => {
         )}
         
         <div>
-          <label className="form-label">Email Address</label>
+          <label className="form-label">{t('email')}</label>
           <div className="relative hover-lift">
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -109,7 +111,7 @@ const Login: React.FC = () => {
         </div>
 
         <div>
-          <label className="form-label">Password</label>
+          <label className="form-label">{t('password')}</label>
           <div className="relative hover-lift">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -141,7 +143,7 @@ const Login: React.FC = () => {
         </div>
 
         <button type="submit" disabled={isLoading} className="w-full btn-primary hover-lift animate-glow">
-          {isLoading ? 'Signing in...' : 'Sign In'}
+          {isLoading ? 'Signing in...' : t('signIn')}
         </button>
       </form>
 
@@ -173,7 +175,7 @@ const Login: React.FC = () => {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                Sign in with Google
+                {t('signInWithGoogle')}
               </>
             )}
           </button>
@@ -182,9 +184,9 @@ const Login: React.FC = () => {
 
       <div className="mt-8 text-center animate-fade-in stagger-5">
         <p className="text-gray-600">
-          Don't have an account?{' '}
+          {t('dontHaveAccount')}{' '}
           <Link to="/signup" className="link">
-            Sign up here →
+            {t('signUp')} →
           </Link>
         </p>
       </div>

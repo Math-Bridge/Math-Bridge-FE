@@ -10,8 +10,10 @@ import {
   ExternalLink
 } from 'lucide-react';
 import logo from '../../assets/logo.png';
+import { useTranslation } from '../../hooks/useTranslation';
 const Footer: React.FC = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
 
   if (isAuthPage) {
@@ -22,34 +24,33 @@ const Footer: React.FC = () => {
 
   const footerLinks = {
     product: [
-      { name: 'Features', href: '/features' },
-      { name: 'Pricing', href: '/pricing' },
-      { name: 'API', href: '/api' },
-      { name: 'Documentation', href: '/docs' },
+      { name: t('features'), href: '/features' },
+      { name: t('pricing'), href: '/pricing' },
+      { name: t('api'), href: '/api' },
+      { name: t('documentation'), href: '/docs' },
     ],
     company: [
-      { name: 'About Us', href: '/about' },
-      { name: 'Careers', href: '/careers' },
-      { name: 'Blog', href: '/blog' },
-      { name: 'Press', href: '/press' },
+      { name: t('aboutUs'), href: '/about' },
+      { name: t('careers'), href: '/careers' },
+      { name: t('blog'), href: '/blog' },
+      { name: t('press'), href: '/press' },
     ],
     support: [
-      { name: 'Help Center', href: '/help' },
-      { name: 'Contact Us', href: '/contact' },
-      { name: 'Status', href: '/status' },
-      { name: 'Community', href: '/community' },
+      { name: t('helpCenter'), href: '/help' },
+      { name: t('contactUs'), href: '/contact' },
+      { name: t('status'), href: '/status' },
+      { name: t('community'), href: '/community' },
     ],
     legal: [
-      { name: 'Privacy Policy', href: '/privacy' },
-      { name: 'Terms of Service', href: '/terms' },
-      { name: 'Cookie Policy', href: '/cookies' },
-      { name: 'GDPR', href: '/gdpr' },
+      { name: t('privacyPolicy'), href: '/privacy' },
+      { name: t('termsOfService'), href: '/terms' },
+      { name: t('cookiePolicy'), href: '/cookies' },
+      { name: t('gdpr'), href: '/gdpr' },
     ],
   };
 
   const socialLinks = [
-    { name: 'Facebook', icon: Facebook, href: 'https://facebook.com' },
-
+    { name: t('facebook'), icon: Facebook, href: 'https://facebook.com' },
   ];
 
   return (
@@ -198,7 +199,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
             {/* Copyright */}
             <div className="flex items-center space-x-2 text-sm text-gray-400">
-              <span>© {currentYear} MathBridge. Made with</span>
+              <span>© {currentYear} MathBridge. {t('madeWith')}</span>
               <Heart className="h-4 w-4 text-red-500 animate-pulse" />
               <span>for mathematics education.</span>
             </div>

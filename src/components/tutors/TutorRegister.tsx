@@ -14,6 +14,7 @@ import {
   Plus,
   X
 } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface FormData {
   personalInfo: {
@@ -40,6 +41,7 @@ interface FormData {
 }
 
 const TutorRegister: React.FC = () => {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     personalInfo: {
@@ -279,12 +281,12 @@ const TutorRegister: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-6">
                 <User className="h-6 w-6 text-blue-600" />
-                <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('personalInformation')}</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('firstName')} *</label>
                   <input
                     type="text"
                     value={formData.personalInfo.firstName}
@@ -298,7 +300,7 @@ const TutorRegister: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('lastName')} *</label>
                   <input
                     type="text"
                     value={formData.personalInfo.lastName}
@@ -387,7 +389,7 @@ const TutorRegister: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-6">
                 <User className="h-6 w-6 text-blue-600" />
-                <h2 className="text-xl font-bold text-gray-900">Professional Information</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('professionalInformation')}</h2>
               </div>
 
               {/* Subjects */}
@@ -553,7 +555,7 @@ const TutorRegister: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center space-x-2 mb-6">
                 <FileText className="h-6 w-6 text-blue-600" />
-                <h2 className="text-xl font-bold text-gray-900">Documents & Verification</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('documents')}</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -681,7 +683,7 @@ const TutorRegister: React.FC = () => {
                 onClick={nextStep}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
               >
-                Next Step
+                {t('nextStep')}
               </button>
             ) : (
               <button
@@ -697,7 +699,7 @@ const TutorRegister: React.FC = () => {
                 ) : (
                   <>
                     <CheckCircle className="h-4 w-4" />
-                    <span>Submit Application</span>
+                    <span>{t('submitApplication')}</span>
                   </>
                 )}
               </button>

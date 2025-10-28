@@ -3,6 +3,7 @@ import { BookOpen, Plus, Loader, Filter } from 'lucide-react';
 import CourseCard from './CourseCard';
 import type { Course } from '../../types';
 import { getAllCourses } from '../../services/api';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface CourseListProps {
   centerId?: string;
@@ -19,6 +20,7 @@ const CourseList: React.FC<CourseListProps> = ({
   onCreateCourse,
   onEnrollCourse
 }) => {
+  const { t } = useTranslation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,7 +176,7 @@ const CourseList: React.FC<CourseListProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('courseCategory')}</label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -189,7 +191,7 @@ const CourseList: React.FC<CourseListProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Level</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('courseLevel')}</label>
             <select
               value={levelFilter}
               onChange={(e) => setLevelFilter(e.target.value)}
@@ -204,7 +206,7 @@ const CourseList: React.FC<CourseListProps> = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('courseStatus')}</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -228,8 +230,8 @@ const CourseList: React.FC<CourseListProps> = ({
           <h3 className="text-3xl font-bold text-gray-900 mb-4">No courses found</h3>
           <p className="text-gray-600 text-lg mb-10 max-w-lg mx-auto">
             {courses.length === 0
-              ? 'Get started by adding your first course to begin teaching'
-              : 'Try adjusting your filters to see more courses'}
+              ? t('getStartedCourses')
+              : t('tryAdjustingCourseFilters')}
           </p>
           {onCreateCourse && courses.length === 0 && (
             <button
@@ -237,7 +239,7 @@ const CourseList: React.FC<CourseListProps> = ({
               className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 hover:-translate-y-1 transition-all duration-200 shadow-xl"
             >
               <Plus className="w-6 h-6" />
-              <span>Add Your First Course</span>
+              <span>{t('addFirstCourse')}</span>
             </button>
           )}
         </div>

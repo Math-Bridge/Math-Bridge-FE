@@ -1,46 +1,49 @@
 import React from 'react';
 import { Users, Calendar, Settings, BookOpen, UserPlus, CalendarPlus } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const QuickActions: React.FC = () => {
+  const { t } = useTranslation();
+  
   const actions = [
     {
-      title: 'Manage Tutors',
-      description: '∀ tutors ∈ System: manage(tutor)',
+      title: t('manageTutors'),
+      description: t('manageTutorsDesc'),
       icon: Users,
       color: 'blue',
       onClick: () => console.log('Manage tutors')
     },
     {
-      title: 'Add Student',
-      description: '∫ students dt = new knowledge',
+      title: t('addStudent'),
+      description: t('addStudentDesc'),
       icon: UserPlus,
       color: 'green',
       onClick: () => console.log('Add student')
     },
     {
-      title: 'Schedule Session',
-      description: 'schedule(time) = max efficiency',
+      title: t('scheduleSession'),
+      description: t('scheduleSessionDesc'),
       icon: CalendarPlus,
       color: 'purple',
       onClick: () => console.log('Schedule session')
     },
     {
-      title: 'Manage Courses',
-      description: '∑ courses = comprehensive learning',
+      title: t('manageCourses'),
+      description: t('manageCoursesDesc'),
       icon: BookOpen,
       color: 'orange',
       onClick: () => console.log('Manage courses')
     },
     {
-      title: 'View Calendar',
-      description: '∫ events dt = organized calendar',
+      title: t('viewCalendar'),
+      description: t('viewCalendarDesc'),
       icon: Calendar,
       color: 'indigo',
       onClick: () => console.log('View calendar')
     },
     {
-      title: 'System Settings',
-      description: 'optimize(system) = max efficiency',
+      title: t('systemSettings'),
+      description: t('systemSettingsDesc'),
       icon: Settings,
       color: 'gray',
       onClick: () => console.log('System settings')

@@ -12,6 +12,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Tutor {
   id: string;
@@ -28,6 +29,7 @@ interface Tutor {
 }
 
 const TutorList: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ const TutorList: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [sortBy, setSortBy] = useState('rating');
 
-  const subjects = ['All Subjects', 'Algebra', 'Geometry', 'Calculus', 'Statistics', 'Trigonometry', 'Pre-Calculus'];
+  const subjects = [t('allSubjects'), t('algebra'), t('geometry'), t('calculus'), t('statistics'), t('trigonometry'), t('preCalculus')];
 
   useEffect(() => {
     // Simulate API call
@@ -176,7 +178,7 @@ const TutorList: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Search tutors or subjects..."
+                placeholder={t('searchTutors')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -203,8 +205,8 @@ const TutorList: React.FC = () => {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="rating">Sort by Rating</option>
-                <option value="experience">Experience</option>
+                <option value="rating">{t('sortBy')} {t('rating')}</option>
+                <option value="experience">{t('experience')}</option>
               </select>
             </div>
           </div>
@@ -298,7 +300,7 @@ const TutorList: React.FC = () => {
                   className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                 >
                   <User className="h-4 w-4" />
-                  <span>View Profile</span>
+                  <span>{t('viewProfile')}</span>
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
@@ -310,7 +312,7 @@ const TutorList: React.FC = () => {
         {sortedTutors.length === 0 && (
           <div className="text-center py-12">
             <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tutors found</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noTutorsFound')}</h3>
             <p className="text-gray-600">Try adjusting your search criteria or contact our staff for assistance.</p>
           </div>
         )}

@@ -16,6 +16,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface Child {
   id: string;
@@ -40,6 +41,7 @@ interface Child {
 }
 
 const ChildManagement: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +103,7 @@ const ChildManagement: React.FC = () => {
   };
 
   const handleDeleteChild = (childId: string) => {
-    if (window.confirm('Are you sure you want to delete this child?')) {
+    if (window.confirm(t('confirmDeleteChild'))) {
       setChildren(prev => prev.filter(child => child.id !== childId));
     }
   };
@@ -215,7 +217,7 @@ const ChildManagement: React.FC = () => {
                 {/* Test Scores */}
                 {child.testScores && child.testScores.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Recent Test Scores</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{t('testScores')}</p>
                     <div className="space-y-1">
                       {child.testScores.slice(0, 2).map((test, index) => (
                         <div key={index} className="flex items-center justify-between text-sm">
@@ -241,7 +243,7 @@ const ChildManagement: React.FC = () => {
                 {/* Test Files */}
                 {child.testFiles && child.testFiles.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Test Files</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{t('testFiles')}</p>
                     <div className="space-y-1">
                       {child.testFiles.slice(0, 2).map((file, index) => (
                         <div key={index} className="flex items-center space-x-2 text-sm">
@@ -366,7 +368,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onSave, onCancel }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-6">
-          {child ? 'Edit Child' : 'Add New Child'}
+          {child ? t('editChild') : t('addNewChild')}
         </h3>
         
         <form onSubmit={handleSubmit} className="space-y-6">

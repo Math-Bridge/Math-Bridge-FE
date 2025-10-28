@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Loader } from 'lucide-react';
 import ChildCard from './ChildCard';
-import { Child, getChildrenByParent } from '../../services/api';
+import { Child, getChildrenByParent, softDeleteChild, updateChild } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ChildrenListProps {
   onAddChild?: () => void;
@@ -21,6 +22,7 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchChildren();
@@ -54,6 +56,41 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
     }
   };
 
+  const handleEditChild = async (childId: string) => {
+    if (onEditChild) {
+      onEditChild(childId);
+    }
+  };
+
+  const handleDeleteChild = async (childId: string) => {
+    if (!window.confirm(t('confirmDelete'))) {
+      return;
+    }
+
+    try {
+      const result = await softDeleteChild(childId);
+      if (result.success) {
+        // Refresh the children list
+        await fetchChildren();
+        if (onDeleteChild) {
+          onDeleteChild(childId);
+        }
+      } else {
+        setError(result.error || 'Failed to delete child');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while deleting child';
+      setError(errorMessage);
+      console.error('Error:', err);
+    }
+  };
+
+  const handleLinkCenter = async (childId: string) => {
+    if (onLinkCenter) {
+      onLinkCenter(childId);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -84,9 +121,9 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
             <User className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Children</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{t('children')}</h3>
             <p className="text-sm text-gray-600">
-              {children.length} child{children.length !== 1 ? 'ren' : ''} registered
+              {children.length} child{children.length !== 1 ? 'ren' : ''} {t('registered')}
             </p>
           </div>
         </div>
@@ -97,7 +134,7 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
             className="btn-primary flex items-center space-x-2 text-sm px-4 py-2"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Child</span>
+            <span>{t('addChild')}</span>
           </button>
         )}
       </div>
@@ -105,9 +142,9 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
       {children.length === 0 ? (
         <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 text-center py-12">
           <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No children registered</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('noChildren')}</h3>
           <p className="text-gray-600 mb-6 text-sm">
-            Get started by adding your first child to the system
+            {t('getStarted')}
           </p>
           {onAddChild && (
             <button
@@ -115,7 +152,7 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
               className="btn-primary inline-flex items-center space-x-2 text-sm px-4 py-2"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Your First Child</span>
+              <span>{t('addFirstChild')}</span>
             </button>
           )}
         </div>
@@ -125,9 +162,9 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
             <ChildCard
               key={child.childId}
               child={child}
-              onEdit={onEditChild}
-              onDelete={onDeleteChild}
-              onLinkCenter={onLinkCenter}
+              onEdit={handleEditChild}
+              onDelete={handleDeleteChild}
+              onLinkCenter={handleLinkCenter}
             />
           ))}
         </div>

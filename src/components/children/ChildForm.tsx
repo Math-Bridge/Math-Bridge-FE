@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, School, Calendar, MapPin } from 'lucide-react';
-import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllCenters, Center } from '../../services/api';
+import { X, User, School as SchoolIcon, Calendar, MapPin } from 'lucide-react';
+import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllCenters, Center, getActiveSchools, School } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ChildFormProps {
   child?: {
@@ -18,6 +19,7 @@ interface ChildFormProps {
 
 const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     fullName: child?.fullName || '',
     schoolId: child?.schoolId || '',
@@ -26,11 +28,13 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
     dateOfBirth: child?.dateOfBirth || ''
   });
   const [centers, setCenters] = useState<Center[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     fetchCenters();
+    fetchSchools();
   }, []);
 
   const fetchCenters = async () => {
@@ -41,6 +45,17 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       }
     } catch (error) {
       console.error('Error fetching centers:', error);
+    }
+  };
+
+  const fetchSchools = async () => {
+    try {
+      const result = await getActiveSchools();
+      if (result.success && result.data) {
+        setSchools(result.data.data || result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching schools:', error);
     }
   };
 
@@ -115,7 +130,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
-            {child ? 'Edit Child' : 'Add New Child'}
+            {child ? t('editChild') : t('addNewChild')}
           </h2>
           <button
             onClick={onClose}
@@ -133,7 +148,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
           )}
 
           <div>
-            <label className="form-label">Full Name *</label>
+            <label className="form-label">{t('fullName')} *</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
@@ -141,44 +156,49 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 value={formData.fullName}
                 onChange={(e) => handleChange('fullName', e.target.value)}
                 className="form-input pl-10"
-                placeholder="Enter child's full name"
+                placeholder={`Enter child's ${t('fullName').toLowerCase()}`}
               />
             </div>
             {errors.fullName && <p className="error-message">{errors.fullName}</p>}
           </div>
 
           <div>
-            <label className="form-label">School *</label>
+            <label className="form-label">{t('school')} *</label>
             <div className="relative">
-              <School className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
+              <SchoolIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <select
                 value={formData.schoolId}
                 onChange={(e) => handleChange('schoolId', e.target.value)}
                 className="form-input pl-10"
-                placeholder="Enter school ID"
-              />
+              >
+                <option value="">{t('selectSchool')}</option>
+                {schools.map((school) => (
+                  <option key={school.schoolId} value={school.schoolId}>
+                    {school.schoolName}
+                  </option>
+                ))}
+              </select>
             </div>
             {errors.schoolId && <p className="error-message">{errors.schoolId}</p>}
           </div>
 
           <div>
-            <label className="form-label">Grade *</label>
+            <label className="form-label">{t('grade')} *</label>
             <select
               value={formData.grade}
               onChange={(e) => handleChange('grade', e.target.value)}
               className="form-input"
             >
-              <option value="grade 9">Grade 9</option>
-              <option value="grade 10">Grade 10</option>
-              <option value="grade 11">Grade 11</option>
-              <option value="grade 12">Grade 12</option>
+              <option value="grade 9">{t('grade9')}</option>
+              <option value="grade 10">{t('grade10')}</option>
+              <option value="grade 11">{t('grade11')}</option>
+              <option value="grade 12">{t('grade12')}</option>
             </select>
             {errors.grade && <p className="error-message">{errors.grade}</p>}
           </div>
 
           <div>
-            <label className="form-label">Learning Center (Optional)</label>
+            <label className="form-label">{t('learningCenter')} ({t('optional')})</label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <select
@@ -186,7 +206,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 onChange={(e) => handleChange('centerId', e.target.value)}
                 className="form-input pl-10"
               >
-                <option value="">Select a center (optional)</option>
+                <option value="">{t('selectCenter')}</option>
                 {centers.map((center) => (
                   <option key={center.centerId} value={center.centerId}>
                     {center.name}
@@ -197,7 +217,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
           </div>
 
           <div>
-            <label className="form-label">Date of Birth (Optional)</label>
+            <label className="form-label">{t('dateOfBirth')} ({t('optional')})</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
@@ -216,14 +236,14 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
               onClick={onClose}
               className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Saving...' : (child ? 'Update' : 'Add Child')}
+              {loading ? t('saving') : (child ? t('update') : t('addChild'))}
             </button>
           </div>
         </form>

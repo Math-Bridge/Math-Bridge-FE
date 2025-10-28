@@ -16,10 +16,13 @@ import {
   TrendingUp,
   ChevronDown,
   FileText,
-  GraduationCap
+  GraduationCap,
+  Settings
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
+import SettingsModal from './SettingsModal';
+import { useTranslation } from '../../hooks/useTranslation';
 interface Transaction {
   id: string;
   description: string;
@@ -31,11 +34,13 @@ const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
+  const { t } = useTranslation();
   
   // State management
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [walletLoading, setWalletLoading] = useState(true);
@@ -387,7 +392,7 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          Profile
+                          {t('profile')}
                         </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
@@ -398,7 +403,7 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          My Children
+                          {t('myChildren')}
                         </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
@@ -409,7 +414,7 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <FileText className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          My Contracts
+                          {t('myContracts')}
                         </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
@@ -420,7 +425,7 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <Wallet className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          Wallet
+                          {t('wallet')}
                         </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
@@ -431,7 +436,18 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <TrendingUp className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          Progress Reports
+                          {t('progressReports')}
+                        </button>
+                        <button
+                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                          onClick={() => { 
+                            closeAllDropdowns(); 
+                            setShowSettings(true); 
+                          }}
+                          role="menuitem"
+                        >
+                          <Settings className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                          {t('settings')}
                         </button>
                         <div className="border-t border-gray-100 my-1"></div>
                         <button
@@ -440,7 +456,7 @@ const Header: React.FC = () => {
                           role="menuitem"
                         >
                           <LogOut className="h-4 w-4 mr-3" aria-hidden="true" />
-                          Sign Out
+                          {t('signOut')}
                         </button>
                       </div>
                     </div>
@@ -549,6 +565,12 @@ const Header: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </header>
   );
 };

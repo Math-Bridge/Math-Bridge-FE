@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin } from 'lucide-react';
 import type { Course } from '../../types';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface CourseCardProps {
   course: Course;
@@ -10,6 +11,7 @@ interface CourseCardProps {
 }
 
 const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnroll }) => {
+  const { t } = useTranslation();
   const enrollmentRate = course.max_students && course.current_students
     ? ((course.current_students / course.max_students) * 100).toFixed(0)
     : 0;
@@ -60,7 +62,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
                 {course.status || 'upcoming'}
               </span>
               <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getLevelColor(course.level || 'Beginner')}`}>
-                {course.level || 'Beginner'}
+                {course.level || t('beginner')}
               </span>
             </div>
           </div>
@@ -144,7 +146,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
                 onClick={() => onEnroll(course)}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-semibold rounded-lg hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"
               >
-                Enroll Now
+                {t('enrollNow')}
               </button>
             )}
             {onView && course.course_id && (
@@ -152,7 +154,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onView, onEdit, onEnrol
                 onClick={() => onView(course.course_id!)}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"
               >
-                View Details
+                {t('viewDetails')}
               </button>
             )}
             {onEdit && course.course_id && (

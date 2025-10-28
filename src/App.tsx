@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { Layout } from './components/common';
 import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
@@ -64,15 +65,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/login" replace />} />
-            <Route path="login" element={<Login />} />
-            <Route path="signup" element={<Signup />} />
-            <Route path="forgot-password" element={<ForgotPassword />} />
-            <Route path="reset-password" element={<ResetPassword />} />
-            <Route path="verify-reset" element={<VerifyResetRedirect />} />
+      <SettingsProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Navigate to="/login" replace />} />
+              <Route path="login" element={<Login />} />
+              <Route path="signup" element={<Signup />} />
+              <Route path="forgot-password" element={<ForgotPassword />} />
+              <Route path="reset-password" element={<ResetPassword />} />
+              <Route path="verify-reset" element={<VerifyResetRedirect />} />
             {/* Original Routes */}
             <Route path="home" element={
               <ProtectedRoute>
@@ -219,8 +221,9 @@ function App() {
           </Route>
         </Routes>
       </AuthProvider>
-    </ErrorBoundary>
-  );
+    </SettingsProvider>
+  </ErrorBoundary>
+);
 }
 
 export default App;

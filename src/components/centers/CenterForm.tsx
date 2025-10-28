@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, X, Plus, Save, Loader } from 'lucide-react';
 import { getCenterById, createCenter, updateCenter, CreateCenterRequest, UpdateCenterRequest } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface CenterFormData {
   name: string;
@@ -31,6 +32,7 @@ interface CenterFormProps {
 }
 
 const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [formData, setFormData] = useState<CenterFormData>({
     name: '',
@@ -218,7 +220,7 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
             <Building2 className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">
-            {centerId ? 'Edit Center' : 'Create New Center'}
+            {centerId ? t('editCenter') : t('createCenter')}
           </h2>
         </div>
       </div>
@@ -233,7 +235,7 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="form-label">
-              Center Name <span className="text-red-500">*</span>
+              {t('centerName')} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -247,7 +249,7 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
 
           <div>
             <label className="form-label">
-              City
+              {t('centerCity')}
             </label>
             <select
               value={formData.city}
@@ -262,7 +264,7 @@ const CenterForm: React.FC<CenterFormProps> = ({ centerId, onSuccess, onCancel }
           </div>
 
           <div>
-            <label className="form-label">District / Area</label>
+            <label className="form-label">{t('centerDistrict')}</label>
             <input
               type="text"
               value={formData.district}

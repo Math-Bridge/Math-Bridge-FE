@@ -9,6 +9,7 @@ import {
   MessageSquare,
   RefreshCw
 } from 'lucide-react';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface TimeSlot {
   id: string;
@@ -49,6 +50,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   currentSession,
   tutorName
 }) => {
+  const { t } = useTranslation();
   const [reason, setReason] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
@@ -121,12 +123,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   ];
 
   const reasonOptions = [
-    'Personal emergency',
-    'Family commitment',
-    'Health issue',
-    'Work conflict',
-    'Transportation issue',
-    'Other'
+    t('personalEmergency'),
+    t('familyCommitment'),
+    t('healthIssue'),
+    t('workConflict'),
+    t('transportationIssue'),
+    t('other')
   ];
 
   const handleDateSelect = (date: string) => {
@@ -244,7 +246,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           {step === 1 && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Why do you need to reschedule?</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('whyReschedule')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {reasonOptions.map((option) => (
                     <button
@@ -260,12 +262,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
                     </button>
                   ))}
                 </div>
-                {reason === 'Other' && (
+                {reason === t('other') && (
                   <div className="mt-4">
                     <textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Please specify your reason..."
+                      placeholder={t('pleaseSpecify')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       rows={3}
                     />
@@ -404,14 +406,14 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
               onClick={handleClose}
               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
             {step > 1 && (
               <button
                 onClick={() => setStep(step - 1)}
                 className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Back
+                {t('back')}
               </button>
             )}
             {step < 3 ? (
@@ -423,14 +425,14 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
                 }
                 className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
-                Next
+                {t('next')}
               </button>
             ) : (
               <button
                 onClick={handleConfirm}
                 className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Submit Request
+                {t('submitRequest')}
               </button>
             )}
           </div>

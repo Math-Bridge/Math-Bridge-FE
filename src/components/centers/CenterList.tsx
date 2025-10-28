@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Building2, Plus, Loader, TrendingUp } from 'lucide-react';
 import CenterCard from './CenterCard';
 import CenterSearch from './CenterSearch';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Center {
   centerId?: string;
@@ -43,6 +44,7 @@ const CenterList: React.FC<CenterListProps> = ({
   onEditCenter,
   onCreateCenter
 }) => {
+  const { t } = useTranslation();
   const [centers, setCenters] = useState<Center[]>([]);
   const [filteredCenters, setFilteredCenters] = useState<Center[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,11 +236,11 @@ const CenterList: React.FC<CenterListProps> = ({
                 <Building2 className="w-16 h-16 text-gray-400" />
               </div>
             </div>
-            <h3 className="text-3xl font-bold text-gray-900 mb-4">No centers found</h3>
+            <h3 className="text-3xl font-bold text-gray-900 mb-4">{t('noCentersFound')}</h3>
             <p className="text-gray-600 text-lg mb-10 max-w-lg mx-auto">
               {centers.length === 0
-                ? 'Get started by adding your first learning center to begin managing your educational network'
-                : 'Try adjusting your search filters or clearing them to see all centers'}
+                ? t('getStartedCenters')
+                : t('tryAdjustingFilters')}
             </p>
             {onCreateCenter && centers.length === 0 && (
               <button
@@ -246,7 +248,7 @@ const CenterList: React.FC<CenterListProps> = ({
                 className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 hover:-translate-y-1 transition-all duration-200 shadow-xl hover:shadow-2xl"
               >
                 <Plus className="w-6 h-6" />
-                <span>Add Your First Center</span>
+                <span>{t('addFirstCenter')}</span>
               </button>
             )}
           </div>

@@ -400,6 +400,50 @@ export async function getChildContracts(childId: string) {
   return apiService.request<any[]>(`/children/${childId}/contracts`);
 }
 
+// =====================
+// School API
+// =====================
+export interface School {
+  schoolId: string;
+  schoolName: string;
+  curriculumId: string;
+  curriculumName?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SchoolSearchRequest {
+  schoolName?: string;
+  curriculumId?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function getAllSchools() {
+  return apiService.request<{ data: School[] }>(`/schools`);
+}
+
+export async function getActiveSchools() {
+  return apiService.request<{ data: School[] }>(`/schools/active`);
+}
+
+export async function getSchoolById(schoolId: string) {
+  return apiService.request<School>(`/schools/${schoolId}`);
+}
+
+export async function searchSchools(request: SchoolSearchRequest) {
+  const params = new URLSearchParams();
+  if (request.schoolName) params.append('schoolName', request.schoolName);
+  if (request.curriculumId) params.append('curriculumId', request.curriculumId);
+  if (request.isActive !== undefined) params.append('isActive', request.isActive.toString());
+  if (request.page) params.append('page', request.page.toString());
+  if (request.pageSize) params.append('pageSize', request.pageSize.toString());
+  
+  return apiService.request<{ data: School[] }>(`/schools/search?${params.toString()}`);
+}
+
 // Contract API
 export interface Contract {
   contractId: string;

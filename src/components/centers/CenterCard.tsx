@@ -1,6 +1,7 @@
 import React from 'react';
 import { MapPin, Phone, Mail, Users, Star, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface Center {
   centerId?: string;
@@ -38,6 +39,7 @@ interface CenterCardProps {
 }
 
 const CenterCard: React.FC<CenterCardProps> = ({ center, onView, onEdit }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const occupancyRate = center.capacity && center.current_students
     ? ((center.current_students / center.capacity) * 100).toFixed(0)
@@ -166,7 +168,7 @@ const CenterCard: React.FC<CenterCardProps> = ({ center, onView, onEdit }) => {
                  </div>
                  <div className="flex items-center space-x-2">
                    <span className="text-sm text-gray-700 font-semibold">
-                     {center.current_students || (center as any).CurrentStudents || 0} / {center.capacity || (center as any).Capacity || 0} students
+                     {center.current_students || (center as any).CurrentStudents || 0} / {center.capacity || (center as any).Capacity || 0} {t('students')}
                    </span>
                    {occupancyRate !== '0' && (
                      <span className="text-xs font-bold text-blue-600">
@@ -210,7 +212,7 @@ const CenterCard: React.FC<CenterCardProps> = ({ center, onView, onEdit }) => {
                  onClick={() => onView(center.CenterId || center.centerId || '')}
                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:from-blue-600 hover:to-cyan-600 transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg"
                >
-                 View Details
+                 {t('viewDetails')}
                </button>
              )}
              {onEdit && (

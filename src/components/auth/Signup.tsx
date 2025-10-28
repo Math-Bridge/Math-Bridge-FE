@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck, CheckCircle } from 'lucide-react';
+import { useTranslation } from '../../hooks/useTranslation';
 
 const Signup: React.FC = () => {
+  const { t } = useTranslation();
   const resendVerification = async (email: string) => {
     try {
       const response = await fetch('https://api.vibe88.tech/api/auth/resend-verification', {
@@ -12,12 +14,12 @@ const Signup: React.FC = () => {
         body: JSON.stringify({ Email: email })
       });
       if (response.ok) {
-        alert('Verification email sent again!');
+        alert(t('verificationEmailSentAgain'));
       } else {
-        alert('Failed to resend verification email.');
+        alert(t('failedToResendVerification'));
       }
     } catch (error) {
-      alert('Error occurred while resending email.');
+      alert(t('errorResendingEmail'));
     }
   };
   const [formData, setFormData] = useState({
@@ -50,22 +52,22 @@ const Signup: React.FC = () => {
     const newErrors: { [key: string]: string } = {};
     
     if (!formData.FullName) {
-      newErrors.FullName = 'Full name is required';
+      newErrors.FullName = t('fullNameRequired');
     }
     if (!formData.Email) {
-      newErrors.Email = 'Email is required';
+      newErrors.Email = t('emailRequired');
     } else if (!/\S+@\S+\.\S+/.test(formData.Email)) {
-      newErrors.Email = 'Email is invalid';
+      newErrors.Email = t('emailInvalid');
     }
     if (!formData.Password) {
-      newErrors.Password = 'Password is required';
+      newErrors.Password = t('passwordRequired');
     } else if (formData.Password.length < 6) {
-      newErrors.Password = 'Password must be at least 6 characters';
+      newErrors.Password = t('passwordMinLength');
     }
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = t('confirmPassword');
     } else if (formData.Password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('passwordMismatch');
     }
     if (formData.PhoneNumber && !/^[0-9+\-\s()]+$/.test(formData.PhoneNumber)) {
       newErrors.PhoneNumber = 'Please enter a valid phone number';
@@ -146,7 +148,7 @@ const Signup: React.FC = () => {
           <span className="text-6xl text-navy-900 animate-bounce-slow">∑</span>
           <div className="absolute -top-2 -right-2 text-2xl text-navy-600 animate-math-symbols">∞</div>
         </div>
-        <h1 className="page-title animate-fade-in stagger-1">Create Account</h1>
+        <h1 className="page-title animate-fade-in stagger-1">{t('createAccount')}</h1>
         <p className="page-subtitle animate-fade-in stagger-2">Join the equation • ∀x ∈ Users</p>
       </div>
 
@@ -158,7 +160,7 @@ const Signup: React.FC = () => {
         )}
         
         <div>
-          <label className="form-label">Full Name</label>
+          <label className="form-label">{t('fullName')}</label>
           <div className="relative hover-lift">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -174,7 +176,7 @@ const Signup: React.FC = () => {
         </div>
 
         <div>
-          <label className="form-label">Email Address</label>
+          <label className="form-label">{t('email')}</label>
           <div className="relative hover-lift">
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -190,7 +192,7 @@ const Signup: React.FC = () => {
         </div>
 
         <div>
-          <label className="form-label">Phone Number</label>
+          <label className="form-label">{t('phoneNumber')}</label>
           <div className="relative hover-lift">
             <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -206,7 +208,7 @@ const Signup: React.FC = () => {
         </div>
 
         <div>
-          <label className="form-label">Gender</label>
+          <label className="form-label">{t('gender')}</label>
           <div className="relative hover-lift">
             <UserCheck className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
@@ -216,15 +218,15 @@ const Signup: React.FC = () => {
               className="form-input pl-10"
             >
               <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
+              <option value="male">{t('male')}</option>
+              <option value="female">{t('female')}</option>
+              <option value="other">{t('other')}</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label className="form-label">Password</label>
+          <label className="form-label">{t('password')}</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -247,7 +249,7 @@ const Signup: React.FC = () => {
         </div>
 
         <div>
-          <label className="form-label">Confirm Password</label>
+          <label className="form-label">{t('confirmPassword')}</label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -288,7 +290,7 @@ const Signup: React.FC = () => {
           disabled={isLoading}
           className="w-full btn-primary hover-lift animate-glow"
         >
-          {isLoading ? 'Creating account...' : 'Create Account'}
+          {isLoading ? 'Creating account...' : t('createAccount')}
         </button>
       </form>
 
@@ -318,9 +320,9 @@ const Signup: React.FC = () => {
 
       <div className="mt-8 text-center">
         <p className="text-gray-600">
-          Already have an account?{' '}
+          {t('alreadyHaveAccount')}{' '}
           <Link to="/login" className="link">
-            Sign in here →
+            {t('signInHere')} →
           </Link>
         </p>
       </div>

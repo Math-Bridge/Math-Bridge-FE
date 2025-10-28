@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
+import { useTranslation } from '../../../hooks/useTranslation';
 import {
   BookOpen,
   Calendar,
@@ -20,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 
 const ParentHome: React.FC = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -33,36 +35,36 @@ const ParentHome: React.FC = () => {
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return t('goodMorning');
+    if (hour < 18) return t('goodAfternoon');
+    return t('goodEvening');
   };
 
   const quickActions = [
     {
-      title: 'My Children',
-      description: 'Manage your children profiles',
+      title: t('myChildren'),
+      description: t('manageProfiles'),
       icon: Users,
       color: 'blue',
       onClick: () => navigate('/user-profile')
     },
     {
-      title: 'View Courses',
-      description: 'Browse available courses',
+      title: t('viewCourses'),
+      description: t('browseCourses'),
       icon: BookOpen,
       color: 'green',
       onClick: () => navigate('/courses')
     },
     {
-      title: 'Create Contract',
-      description: 'Book new learning sessions',
+      title: t('createContract'),
+      description: t('bookSessions'),
       icon: FileText,
       color: 'purple',
       onClick: () => navigate('/user/contracts/create')
     },
     {
-      title: 'View Progress',
-      description: 'Track learning progress',
+      title: t('viewProgress'),
+      description: t('trackProgress'),
       icon: TrendingUp,
       color: 'orange',
       onClick: () => navigate('/progress')

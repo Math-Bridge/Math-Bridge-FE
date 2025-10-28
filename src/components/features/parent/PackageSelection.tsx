@@ -13,6 +13,7 @@ import {
   Award
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../../hooks/useTranslation';
 
 interface Package {
   id: string;
@@ -33,6 +34,7 @@ interface Package {
 }
 
 const PackageSelection: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,8 +148,16 @@ const PackageSelection: React.FC = () => {
     }
   });
 
-  const subjects = [...new Set(packages.map(pkg => pkg.subject))];
-  const levels = [...new Set(packages.map(pkg => pkg.level))];
+  const subjects = [
+    { value: 'mathematics', label: t('mathematics') },
+    { value: 'physics', label: t('physics') },
+    { value: 'chemistry', label: t('chemistry') }
+  ];
+  const levels = [
+    { value: 'beginner', label: t('beginner') },
+    { value: 'intermediate', label: t('intermediate') },
+    { value: 'advanced', label: t('advanced') }
+  ];
 
   const handleSelectPackage = (packageId: string) => {
     navigate(`/user/contracts/create?package=${packageId}`);
@@ -173,8 +183,8 @@ const PackageSelection: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
             <span className="font-semibold">Back to Contract Creation</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Select Package</h1>
-          <p className="text-gray-600 mt-2">Choose the perfect learning package for your child</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('selectPackage')}</h1>
+          <p className="text-gray-600 mt-2">{t('selectLearningPackage')}</p>
         </div>
 
         {/* Filters */}
@@ -188,7 +198,7 @@ const PackageSelection: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search packages..."
+                  placeholder={t('searchPackages')}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -201,9 +211,9 @@ const PackageSelection: React.FC = () => {
                 onChange={(e) => setSelectedSubject(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="all">All Subjects</option>
+                <option value="all">{t('allSubjects')}</option>
                 {subjects.map(subject => (
-                  <option key={subject} value={subject}>{subject}</option>
+                  <option key={subject.value} value={subject.value}>{subject.label}</option>
                 ))}
               </select>
             </div>
@@ -215,9 +225,9 @@ const PackageSelection: React.FC = () => {
                 onChange={(e) => setSelectedLevel(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="all">All Levels</option>
+                <option value="all">{t('allLevels')}</option>
                 {levels.map(level => (
-                  <option key={level} value={level}>{level}</option>
+                  <option key={level.value} value={level.value}>{level.label}</option>
                 ))}
               </select>
             </div>
@@ -229,7 +239,7 @@ const PackageSelection: React.FC = () => {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="popular">Most Popular</option>
+                <option value="popular">{t('popular')}</option>
                 <option value="rating">Highest Rated</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
@@ -247,14 +257,14 @@ const PackageSelection: React.FC = () => {
                 {pkg.isPopular && (
                   <div className="absolute top-4 left-4 z-10">
                     <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                      Popular
+                      {t('popularPackage')}
                     </span>
                   </div>
                 )}
                 {pkg.isRecommended && (
                   <div className="absolute top-4 right-4 z-10">
                     <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                      Recommended
+                      {t('recommendedPackage')}
                     </span>
                   </div>
                 )}
@@ -286,19 +296,19 @@ const PackageSelection: React.FC = () => {
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">Duration</span>
-                    <span className="font-medium">{pkg.duration} weeks</span>
+                    <span className="text-sm text-gray-600">{t('duration')}</span>
+                    <span className="font-medium">{pkg.duration} {t('weeks')}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">Sessions</span>
-                    <span className="font-medium">{pkg.sessions} sessions</span>
+                    <span className="text-sm text-gray-600">{t('sessions')}</span>
+                    <span className="font-medium">{pkg.sessions} {t('sessions')}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Rating</span>
+                    <span className="text-sm text-gray-600">{t('rating')}</span>
                     <div className="flex items-center space-x-1">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
                       <span className="font-medium">{pkg.rating}</span>
-                      <span className="text-gray-500">({pkg.reviews})</span>
+                      <span className="text-gray-500">({pkg.reviews} {t('reviews')})</span>
                     </div>
                   </div>
                 </div>
@@ -343,7 +353,7 @@ const PackageSelection: React.FC = () => {
                   onClick={() => handleSelectPackage(pkg.id)}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                 >
-                  Select Package
+                  {t('enrollNow')}
                 </button>
               </div>
             </div>

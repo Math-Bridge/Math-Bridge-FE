@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/api';
+import { useTranslation } from '../../../hooks/useTranslation';
 import {
   User,
   Mail,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const ParentProfile: React.FC = () => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -46,7 +48,7 @@ const ParentProfile: React.FC = () => {
           });
         }
       } catch (error) {
-        setMessage({ type: 'error', text: 'Failed to load user data' });
+        setMessage({ type: 'error', text: t('failedToLoad') });
       } finally {
         setIsLoading(false);
       }
@@ -61,10 +63,10 @@ const ParentProfile: React.FC = () => {
     
     try {
       // TODO: Implement updateUser in apiService
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      setMessage({ type: 'success', text: t('profileUpdated') });
       setIsEditing(false);
     } catch (error) {
-      setMessage({ type: 'error', text: 'Network error occurred' });
+      setMessage({ type: 'error', text: t('networkError') });
     } finally {
       setIsLoading(false);
     }
@@ -78,11 +80,11 @@ const ParentProfile: React.FC = () => {
     
     try {
       // TODO: Implement changePassword in useAuth
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      setMessage({ type: 'success', text: t('passwordChanged') });
       setShowPasswordForm(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error) {
-      setMessage({ type: 'error', text: 'Network error occurred' });
+      setMessage({ type: 'error', text: t('networkError') });
     } finally {
       setIsLoading(false);
     }
