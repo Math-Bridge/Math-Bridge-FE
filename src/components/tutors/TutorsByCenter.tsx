@@ -106,75 +106,11 @@ const TutorsByCenter: React.FC = () => {
           }));
           setTutors(tutorsData);
         } else {
-          // Fallback to mock data if API fails
-          setTutors([
-            {
-              id: '1',
-              name: 'Dr. Sarah Johnson',
-              subjects: ['Algebra', 'Geometry', 'Calculus'],
-              experience: '8 years',
-              rating: 4.9,
-              totalReviews: 127,
-              location: center?.FormattedAddress || center?.address || '',
-              avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-              isVerified: true,
-              responseTime: '< 2 hours',
-              completedSessions: 450,
-              specialties: ['Test Prep', 'Advanced Calculus'],
-              centerId: centerId || ''
-            },
-            {
-              id: '2',
-              name: 'Prof. Michael Chen',
-              subjects: ['Statistics', 'Data Analysis', 'Probability'],
-              experience: '12 years',
-              rating: 4.8,
-              totalReviews: 89,
-              location: center?.FormattedAddress || center?.address || '',
-              avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
-              isVerified: true,
-              responseTime: '< 1 hour',
-              completedSessions: 320,
-              specialties: ['University Level', 'Research Methods'],
-              centerId: centerId || ''
-            },
-            {
-              id: '3',
-              name: 'Emma Rodriguez',
-              subjects: ['Algebra', 'Pre-Calculus', 'Trigonometry'],
-              experience: '5 years',
-              rating: 4.7,
-              totalReviews: 156,
-              location: center?.FormattedAddress || center?.address || '',
-              avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
-              isVerified: false,
-              responseTime: '< 4 hours',
-              completedSessions: 280,
-              specialties: ['High School Math', 'Exam Prep'],
-              centerId: centerId || ''
-            }
-          ]);
+          setTutors([]); // Không fallback mock, chỉ trả về rỗng khi lỗi hoặc không có dữ liệu
         }
       } catch (error) {
         console.error('Error fetching tutors:', error);
-        // Use mock data as fallback
-        setTutors([
-          {
-            id: '1',
-            name: 'Dr. Sarah Johnson',
-            subjects: ['Algebra', 'Geometry', 'Calculus'],
-            experience: '8 years',
-            rating: 4.9,
-            totalReviews: 127,
-            location: center?.FormattedAddress || center?.address || '',
-            avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-            isVerified: true,
-            responseTime: '< 2 hours',
-            completedSessions: 450,
-            specialties: ['Test Prep', 'Advanced Calculus'],
-            centerId: centerId || ''
-          }
-        ]);
+        setTutors([]);
       } finally {
         setLoading(false);
       }

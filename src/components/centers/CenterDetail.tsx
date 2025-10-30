@@ -13,7 +13,7 @@ import {
   Loader,
   UserPlus
 } from 'lucide-react';
-import { getCenterById } from '../../services/api';
+import { getCenterById, getTutorsByCenter } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 
 interface Center {
@@ -44,9 +44,13 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
   const [center, setCenter] = useState<Center | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tutors, setTutors] = useState<any[]>([]);
+  const [tutorsLoading, setTutorsLoading] = useState<boolean>(false);
+  const [tutorsError, setTutorsError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCenterDetail();
+    fetchTutors();
   }, [centerId]);
 
   const fetchCenterDetail = async () => {
@@ -87,6 +91,27 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
       console.error('Error:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTutors = async () => {
+    try {
+      setTutorsError(null);
+      setTutorsLoading(true);
+      const result = await getTutorsByCenter(centerId);
+      if (result.success && Array.isArray(result.data)) {
+        setTutors(result.data);
+      } else if (result.success && (result as any).data?.data) {
+        // fallback if wrapped
+        setTutors((result as any).data.data);
+      } else {
+        setTutorsError(result.error || 'Failed to fetch tutors');
+      }
+    } catch (err) {
+      setTutorsError('An error occurred while fetching tutors');
+      console.error('Tutors error:', err);
+    } finally {
+      setTutorsLoading(false);
     }
   };
 
@@ -277,6 +302,69 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
               })}
             </div>
           </div>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Tutors
+            <span className="ml-2 text-sm font-normal text-gray-500">{tutors.length}</span>
+          </h3>
+          {isAdminOrStaff && (
+            <button onClick={fetchTutors} className="btn-secondary flex items-center space-x-2">
+              <Loader className={`w-4 h-4 ${tutorsLoading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          )}
+        </div>
+
+        {tutorsLoading && (
+          <div className="flex items-center justify-center py-6">
+            <Loader className="w-6 h-6 text-blue-600 animate-spin" />
+          </div>
+        )}
+        {tutorsError && (
+          <div className="mb-4 p-3 rounded bg-red-50 text-red-700 border border-red-200">
+            {tutorsError}
+          </div>
+        )}
+
+        {!tutorsLoading && !tutorsError && (
+          tutors.length === 0 ? (
+            <div className="text-gray-500">No tutors assigned to this center.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tutors.map((t: any) => (
+                <div key={t.TutorId || t.tutorId} className="p-4 rounded-lg border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-gray-900 font-semibold">{t.FullName || t.fullName}</div>
+                      <div className="text-sm text-gray-500">{t.Email || t.email}</div>
+                      {t.PhoneNumber || t.phoneNumber ? (
+                        <div className="text-sm text-gray-500">{t.PhoneNumber || t.phoneNumber}</div>
+                      ) : null}
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      (t.VerificationStatus || t.verificationStatus) === 'verified'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {t.VerificationStatus || t.verificationStatus || 'pending'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+                    <span>Hourly Rate</span>
+                    <span className="font-medium text-gray-900">${(t.HourlyRate || t.hourlyRate || 0).toFixed ? (t.HourlyRate || t.hourlyRate || 0).toFixed(2) : Number(t.HourlyRate || t.hourlyRate || 0).toFixed(2)}</span>
+                  </div>
+                  {t.Bio || t.bio ? (
+                    <p className="mt-2 text-sm text-gray-600 line-clamp-2">{t.Bio || t.bio}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>

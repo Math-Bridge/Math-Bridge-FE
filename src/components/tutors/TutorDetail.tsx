@@ -48,58 +48,18 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
   useEffect(() => {
     // Simulate API call
     setLoading(true);
-    setTimeout(() => {
-      setTutor({
-        id,
-        name: 'Dr. Sarah Johnson',
-        subjects: ['Algebra', 'Geometry', 'Calculus', 'Statistics'],
-        experience: '8 years',
-        rating: 4.9,
-        totalReviews: 127,
-        bio: 'Passionate mathematics educator with over 8 years of experience helping students excel in various mathematical disciplines. I specialize in making complex concepts accessible and engaging through personalized teaching methods.',
-        schedule: 'Mon-Fri: 2:00 PM - 8:00 PM, Sat: 10:00 AM - 4:00 PM',
-        location: 'San Francisco, CA',
-        languages: ['English', 'Spanish', 'French'],
-        education: ['PhD in Mathematics - Stanford University', 'MS in Applied Mathematics - UC Berkeley'],
-        certifications: ['Certified Math Teacher', 'Online Teaching Certificate'],
-        specialties: ['Test Preparation', 'Advanced Calculus', 'Statistics for Data Science'],
-        avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-        coverUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=800&h=300&fit=crop',
-        isVerified: true,
-        responseTime: '< 2 hours',
-        completedSessions: 450
-      });
-
-      setReviews([
-        {
-          id: '1',
-          studentName: 'Alex Chen',
-          rating: 5,
-          comment: 'Dr. Johnson is an exceptional tutor! She helped me understand calculus concepts that I struggled with for months. Her teaching style is clear and patient.',
-          date: '2025-01-10',
-          subject: 'Calculus'
-        },
-        {
-          id: '2',
-          studentName: 'Maria Rodriguez',
-          rating: 5,
-          comment: 'Amazing tutor! Very knowledgeable and makes learning fun. My grades improved significantly after working with her.',
-          date: '2025-01-08',
-          subject: 'Algebra'
-        },
-        {
-          id: '3',
-          studentName: 'David Kim',
-          rating: 4,
-          comment: 'Great experience overall. Dr. Johnson is very professional and well-prepared for each session.',
-          date: '2025-01-05',
-          subject: 'Statistics'
-        }
-      ]);
-
-      
-      setLoading(false);
-    }, 1000);
+    // TODO: Gọi API thật để lấy thông tin tutor ở đây. Nếu thất bại thì setTutor(null)
+    // Ví dụ:
+    /*
+    getTutorById(id).then(result => {
+      if(result.success && result.data){
+        setTutor(result.data);  // Chuyển đổi nếu cần
+      } else {
+        setTutor(null);
+      }
+    }).catch(() => setTutor(null)).finally(() => setLoading(false));
+    */
+    setLoading(false); // Xóa đoạn mock bên dưới, chỉ để loading kết thúc nếu không gọi được API
   }, [id]);
 
   const formatDate = (dateString: string) => {

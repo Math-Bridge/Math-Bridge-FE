@@ -36,9 +36,9 @@ import {
   StaffDashboardPage
 } from './pages/features';
 
-// Protected Route Component
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+// Protected Route Component (supports role-based guard)
+const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[] }> = ({ children, requiredRole }) => {
+  const { isAuthenticated, isLoading, user } = useAuth();
   
   console.log('ProtectedRoute - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
   
@@ -58,7 +58,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return <Navigate to="/login" replace />;
   }
   
-  console.log('User authenticated, showing protected content');
+  // Role guard if specified
+  if (requiredRole) {
+    const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+    const userRole = user?.role;
+    if (!userRole || !roles.includes(userRole)) {
+      console.warn('Access denied due to role mismatch', { requiredRole: roles, userRole });
+      return <Navigate to="/login" replace />;
+    }
+  }
+
+  console.log('User authenticated (and role ok if required), showing protected content');
   return <>{children}</>;
 };
 
@@ -134,7 +144,7 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="tutor/dashboard" element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="tutor">
                 <TutorDashboard />
               </ProtectedRoute>
             } />

@@ -23,6 +23,19 @@ export const useAuth = () => {
   return context;
 };
 
+// THÊM: mapping RoleId sang role chuỗi cho FE nhận diện đúng phân quyền
+type RoleMap = { [k: number]: string };
+const roleIdToNameMap: RoleMap = {
+  1: 'admin',
+  2: 'staff',
+  3: 'tutor',
+  2147483647: 'parent', // bạn có thể cập nhật lại cho đúng hệ thống nếu có thay đổi bên BE
+};
+function mapRoleIdToRole(roleId: number|undefined): string {
+  if (!roleId) return 'user';
+  return roleIdToNameMap[roleId] || 'user';
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +99,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             createdAt: new Date().toISOString()
           };
           console.log('Using fallback structure, user ID:', user.id);
+        }
+        
+        // DÙ BACKEND không trả về field role nhưng có RoleId thì tự mapping cho FE
+        if (user && (!user.role) && (user.RoleId || user.roleId)) {
+          user.role = mapRoleIdToRole(user.RoleId || user.roleId);
         }
         
         console.log('Login successful, saving to localStorage:', { user, tokenLength: token?.length || 0 });
