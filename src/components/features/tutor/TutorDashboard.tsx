@@ -23,6 +23,7 @@ const TutorDashboard: React.FC = () => {
 
   type ActionKey = 'availabilities' | 'profile' | 'sessions' | 'centers' | 'reports';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('availabilities');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const quickActions: Array<{
     key: ActionKey;
@@ -111,10 +112,64 @@ const TutorDashboard: React.FC = () => {
           <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
         </div>
 
+        {/* Mobile toggle for sidebar */}
+        <div className="mb-4 lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 shadow-sm text-gray-700 hover:bg-gray-50"
+          >
+            <span className="i-[hamburger] hidden" />
+            <span>Quick Actions</span>
+          </button>
+        </div>
+
+        {/* Mobile sidebar drawer */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
+            <div className="fixed inset-y-0 left-0 w-80 max-w-[85%] bg-white shadow-xl border-r border-gray-200 p-6 overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 rounded-md hover:bg-gray-100"
+                  aria-label="Close sidebar"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-3">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.key}
+                    onClick={() => {
+                      setSelectedAction(action.key);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full p-4 rounded-lg border transition-all text-left flex items-start gap-3 ${
+                      selectedAction === action.key
+                        ? 'border-blue-300 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center`}>
+                      <action.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{action.title}</h3>
+                      <p className="text-sm text-gray-600">{action.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Left sidebar: Quick Actions */}
           <aside className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 lg:sticky lg:top-24">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-3">
                 {quickActions.map((action) => (

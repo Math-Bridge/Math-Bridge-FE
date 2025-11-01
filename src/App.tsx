@@ -144,9 +144,9 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="tutor/dashboard" element={
-              <ProtectedRoute requiredRole="tutor">
+              // <ProtectedRoute requiredRole="tutor">
                 <TutorDashboard />
-              </ProtectedRoute>
+              // </ProtectedRoute>
             } />
             
             {/* Center Routes */}
