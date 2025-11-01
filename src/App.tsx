@@ -72,6 +72,31 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
   return <>{children}</>;
 };
 
+// Role-based redirect component
+const RoleBasedRedirect: React.FC = () => {
+  const { user, isLoading, isAuthenticated } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // Redirect tutor to tutor dashboard
+  if (user?.role === 'tutor') {
+    return <Navigate to="/tutor/dashboard" replace />;
+  }
+  
+  // Default redirect for other roles
+  return <Navigate to="/home" replace />;
+};
+
 function App() {
   return (
     <ErrorBoundary>
@@ -79,7 +104,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Layout />}>
-              <Route index element={<Navigate to="/login" replace />} />
+              <Route index element={<RoleBasedRedirect />} />
               <Route path="login" element={<Login />} />
               <Route path="signup" element={<Signup />} />
               <Route path="forgot-password" element={<ForgotPassword />} />
@@ -144,9 +169,9 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="tutor/dashboard" element={
-              // <ProtectedRoute requiredRole="tutor">
+              <ProtectedRoute requiredRole="tutor">
                 <TutorDashboard />
-              // </ProtectedRoute>
+              </ProtectedRoute>
             } />
             
             {/* Center Routes */}

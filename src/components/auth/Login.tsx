@@ -33,7 +33,23 @@ const Login: React.FC = () => {
     setErrors({}); // Clear previous errors
     const result = await login(email, password);
     if (result.success) {
-      navigate('/home', { replace: true });
+      // Get user role from localStorage to determine redirect
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          if (user.role === 'tutor') {
+            navigate('/tutor/dashboard', { replace: true });
+          } else {
+            navigate('/home', { replace: true });
+          }
+        } catch (error) {
+          // Fallback to home if parsing fails
+          navigate('/home', { replace: true });
+        }
+      } else {
+        navigate('/home', { replace: true });
+      }
     } else {
       setErrors({ general: result.error || t('loginFailed') });
     }
@@ -55,8 +71,26 @@ const Login: React.FC = () => {
       const loginResult = await googleLogin(idToken);
       
       if (loginResult.success) {
-        console.log("✅ Google login success → navigating to /home");
-        navigate("/home", { replace: true });
+        // Get user role from localStorage to determine redirect
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const user = JSON.parse(savedUser);
+            if (user.role === 'tutor') {
+              console.log("✅ Google login success → navigating to /tutor/dashboard");
+              navigate("/tutor/dashboard", { replace: true });
+            } else {
+              console.log("✅ Google login success → navigating to /home");
+              navigate("/home", { replace: true });
+            }
+          } catch (error) {
+            console.log("✅ Google login success → navigating to /home (fallback)");
+            navigate("/home", { replace: true });
+          }
+        } else {
+          console.log("✅ Google login success → navigating to /home");
+          navigate("/home", { replace: true });
+        }
         
         // Show warning if temporary session was created
         if (loginResult.error && loginResult.error.includes('temporary session')) {

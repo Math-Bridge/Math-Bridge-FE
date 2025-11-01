@@ -17,7 +17,8 @@ import {
   ChevronDown,
   FileText,
   GraduationCap,
-  Settings
+  Settings,
+  Calendar
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
@@ -50,16 +51,31 @@ const Header: React.FC = () => {
   const walletDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Navigation items configuration for Parent
-  const navigationItems = [
-    { name: 'Home', href: '/home', icon: Home },
-    { name: 'My Children', href: '/my-children', icon: Users },
-    { name: 'Contracts', href: '/contracts', icon: FileText },
-    { name: 'Tutors', href: '/tutors', icon: GraduationCap },
-    { name: 'Centers', href: '/centers', icon: Users },
-    { name: 'Courses', href: '/courses', icon: BookOpen },
-    { name: 'Progress', href: '/progress', icon: TrendingUp },
-  ];
+  // Navigation items configuration based on user role
+  const getNavigationItems = () => {
+    if (user?.role === 'tutor') {
+      return [
+        { name: 'Dashboard', href: '/tutor/dashboard', icon: Home },
+        { name: 'My Availabilities', href: '/tutor/dashboard', icon: Calendar },
+        { name: 'My Sessions', href: '/tutor/dashboard', icon: BookOpen },
+        { name: 'Centers', href: '/centers', icon: Users },
+        { name: 'Profile', href: '/user-profile', icon: User },
+      ];
+    } else {
+      // Default navigation for Parent and other roles
+      return [
+        { name: 'Home', href: '/home', icon: Home },
+        { name: 'My Children', href: '/my-children', icon: Users },
+        { name: 'Contracts', href: '/contracts', icon: FileText },
+        { name: 'Tutors', href: '/tutors', icon: GraduationCap },
+        { name: 'Centers', href: '/centers', icon: Users },
+        { name: 'Courses', href: '/courses', icon: BookOpen },
+        { name: 'Progress', href: '/progress', icon: TrendingUp },
+      ];
+    }
+  };
+
+  const navigationItems = getNavigationItems();
 
   // Fetch wallet data
   useEffect(() => {
@@ -197,7 +213,8 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-2 sm:space-x-4">
             {isAuthenticated ? (
               <>
-                {/* Wallet Section */}
+                {/* Wallet Section - Only show for non-tutor users */}
+                {user?.role !== 'tutor' && (
                 <div className="relative" ref={walletDropdownRef}>
                   <button
                     onClick={() => {
@@ -341,6 +358,7 @@ const Header: React.FC = () => {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Notifications */}
                 <button 
@@ -383,61 +401,101 @@ const Header: React.FC = () => {
                         <div className="text-xs text-blue-600 mt-1 capitalize">{user?.role || 'Parent'}</div>
                       </div>
                       <div className="py-1">
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/user-profile'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('profile')}
-                        </button>
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/user-profile'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('myChildren')}
-                        </button>
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/contracts'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <FileText className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('myContracts')}
-                        </button>
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/wallet'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <Wallet className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('wallet')}
-                        </button>
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/progress'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <TrendingUp className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('progressReports')}
-                        </button>
+                        {user?.role === 'tutor' ? (
+                          <>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/tutor/dashboard'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <Home className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              Tutor Dashboard
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/user-profile'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('profile')}
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/centers'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              My Centers
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/user-profile'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('profile')}
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/my-children'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('myChildren')}
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/contracts'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <FileText className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('myContracts')}
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/wallet'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <Wallet className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('wallet')}
+                            </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/progress'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <TrendingUp className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('progressReports')}
+                            </button>
+                          </>
+                        )}
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                           onClick={() => { 
@@ -503,7 +561,8 @@ const Header: React.FC = () => {
         {/* Mobile Navigation */}
         {isAuthenticated && isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
-            {/* Mobile Wallet Section */}
+            {/* Mobile Wallet Section - Only show for non-tutor users */}
+            {user?.role !== 'tutor' && (
             <div className="mb-4 p-3 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
@@ -539,6 +598,7 @@ const Header: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
 
             {/* Mobile Navigation Items */}
             <nav className="space-y-2" role="navigation" aria-label="Mobile navigation">
