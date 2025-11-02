@@ -24,12 +24,13 @@ export const useAuth = () => {
 };
 
 // THÊM: mapping RoleId sang role chuỗi cho FE nhận diện đúng phân quyền
+// Mapping dựa trên backend: RoleId 2 = tutor, RoleId 3 = parent
 type RoleMap = { [k: number]: string };
 const roleIdToNameMap: RoleMap = {
   1: 'admin',
-  2: 'staff',
-  3: 'tutor',
-  2147483647: 'parent', // bạn có thể cập nhật lại cho đúng hệ thống nếu có thay đổi bên BE
+  2: 'tutor',  // Backend uses RoleId 2 for tutor
+  3: 'parent', // Backend uses RoleId 3 for parent
+  4: 'staff',  // Assuming staff might be 4 or another ID
 };
 function mapRoleIdToRole(roleId: number|undefined): string {
   if (!roleId) return 'user';
@@ -71,48 +72,85 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Response data structure:', JSON.stringify(response.data, null, 2));
       
       if (response.success && response.data) {
-        // Handle different possible response structures
-        let user, token;
+        // Backend returns: { token: "jwt_token" }
+        const token = (response.data as any).token;
         
-        if (response.data.user && response.data.token) {
-          // Standard structure: {user: {...}, token: "..."}
-          user = response.data.user;
-          token = response.data.token;
-          console.log('Using standard structure, user ID:', user.id);
-        } else if ((response.data as any).access_token || (response.data as any).accessToken) {
-          // Token-only structure, create user from response
-          token = (response.data as any).access_token || (response.data as any).accessToken;
-          user = {
-            id: (response.data as any).id || (response.data as any).user_id || '1',
-            email: email,
-            name: (response.data as any).name || (response.data as any).full_name || email.split('@')[0],
-            createdAt: new Date().toISOString()
-          };
-          console.log('Using token-only structure, user ID:', user.id);
-        } else {
-          // Fallback: treat entire response.data as user info
-          token = 'mock-token-' + Date.now();
-          user = {
-            id: (response.data as any).id || '1',
-            email: email,
-            name: (response.data as any).name || (response.data as any).full_name || email.split('@')[0],
-            createdAt: new Date().toISOString()
-          };
-          console.log('Using fallback structure, user ID:', user.id);
+        if (!token) {
+          console.error('Login failed: No token received');
+          return { success: false, error: 'No token received from server' };
         }
         
-        // DÙ BACKEND không trả về field role nhưng có RoleId thì tự mapping cho FE
-        if (user && (!user.role) && (user.RoleId || user.roleId)) {
-          user.role = mapRoleIdToRole(user.RoleId || user.roleId);
-        }
-        
-        console.log('Login successful, saving to localStorage:', { user, tokenLength: token?.length || 0 });
+        // Save token first
         localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
-        console.log('User state updated, isAuthenticated should be true');
-        console.log('User object details:', { id: user.id, email: user.email, name: user.name });
-        return { success: true };
+        console.log('Auth token saved to localStorage');
+        
+        // Decode JWT token to get user ID and info
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            console.log('Decoded token payload:', payload);
+            
+            const userId = payload.sub || payload.userId || payload.id || payload.nameid;
+            const roleFromToken = payload.role || payload.RoleName || payload.roleName || 'parent';
+            const role = roleFromToken.toLowerCase();
+            
+            if (userId) {
+              console.log('User ID from token:', userId);
+              
+              // Fetch user data from backend
+              const userResponse = await apiService.request<any>(`/users/${userId}`);
+              if (userResponse.success && userResponse.data) {
+                const backendUser = userResponse.data;
+                
+                // Map role from RoleId if available
+                let userRole = role;
+                if (backendUser.RoleId || backendUser.roleId) {
+                  userRole = mapRoleIdToRole(backendUser.RoleId || backendUser.roleId);
+                } else if (backendUser.role || backendUser.Role) {
+                  userRole = (backendUser.role || backendUser.Role).toLowerCase();
+                }
+                
+                const user: User = {
+                  id: backendUser.userId || backendUser.UserId || userId,
+                  email: backendUser.email || backendUser.Email || email,
+                  name: backendUser.fullName || backendUser.FullName || email.split('@')[0],
+                  phone: backendUser.phoneNumber || backendUser.PhoneNumber,
+                  createdAt: backendUser.createdDate || backendUser.CreatedDate || new Date().toISOString(),
+                  role: userRole
+                };
+                
+                console.log('Login successful, user data fetched:', user);
+                localStorage.setItem('user', JSON.stringify(user));
+                setUser(user);
+                console.log('User state updated');
+                return { success: true };
+              } else {
+                // If can't fetch user, create minimal user from token
+                console.log('Failed to fetch user data, creating from token');
+                const user: User = {
+                  id: userId,
+                  email: email,
+                  name: email.split('@')[0],
+                  createdAt: new Date().toISOString(),
+                  role: role
+                };
+                localStorage.setItem('user', JSON.stringify(user));
+                setUser(user);
+                return { success: true };
+              }
+            } else {
+              console.error('Failed to extract user ID from token');
+              return { success: false, error: 'Failed to extract user information from token' };
+            }
+          } else {
+            console.error('Invalid token format');
+            return { success: false, error: 'Invalid token format' };
+          }
+        } catch (tokenError) {
+          console.error('Error processing token:', tokenError);
+          return { success: false, error: 'Failed to process authentication token' };
+        }
       } else {
         console.log('Login failed:', response.error);
         // Map specific error messages to user-friendly messages
@@ -165,9 +203,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const payload = JSON.parse(atob(tokenParts[1]));
             console.log('Decoded token payload:', payload);
             
-            const userId = payload.sub || payload.userId || payload.id;
-            const role = payload.role || 'parent'; // Default role
-            const email = payload.email || '';
+            const userId = payload.sub || payload.userId || payload.id || payload.nameid;
+            // Get role from token - backend might use 'RoleName' or 'role' claim
+            const roleFromToken = payload.role || payload.RoleName || payload.roleName || 'parent';
+            // Convert role name to lowercase for consistency
+            const role = roleFromToken.toLowerCase();
+            const email = payload.email || payload.Email || '';
             
             if (userId) {
               console.log('User ID from token:', userId);
@@ -177,13 +218,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               if (userResponse.success && userResponse.data) {
                 // Map backend UserResponse to frontend User
                 const backendUser = userResponse.data;
+                
+                // Map role from RoleId if available, otherwise use role from token
+                let userRole = role;
+                if (backendUser.RoleId || backendUser.roleId) {
+                  userRole = mapRoleIdToRole(backendUser.RoleId || backendUser.roleId);
+                } else if (backendUser.role || backendUser.Role) {
+                  userRole = (backendUser.role || backendUser.Role).toLowerCase();
+                }
+                
                 const user: User = {
-                  id: backendUser.userId || userId,
-                  email: backendUser.email || email,
+                  id: backendUser.userId || backendUser.UserId || userId,
+                  email: backendUser.email || backendUser.Email || email,
                   name: backendUser.fullName || backendUser.FullName || email.split('@')[0],
                   phone: backendUser.phoneNumber || backendUser.PhoneNumber,
-                  createdAt: backendUser.createdDate || new Date().toISOString(),
-                  role: role
+                  createdAt: backendUser.createdDate || backendUser.CreatedDate || new Date().toISOString(),
+                  role: userRole
                 };
                 
                 console.log('Google login successful, user data fetched:', user);

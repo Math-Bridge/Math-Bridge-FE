@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Loader } from 'lucide-react';
 import ChildCard from './ChildCard';
-import { Child, getChildrenByParent, softDeleteChild, updateChild } from '../../services/api';
+import { Child, getChildrenByParent, softDeleteChild, updateChild, getSchoolById } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 
@@ -25,8 +25,10 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
   const { t } = useTranslation();
 
   useEffect(() => {
-    fetchChildren();
-  }, []);
+    if (user?.id) {
+      fetchChildren();
+    }
+  }, [user?.id]);
 
   const fetchChildren = async () => {
     console.log('Fetching children for user:', user);
@@ -39,18 +41,75 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
 
     try {
       setLoading(true);
+      setError(null);
       console.log('Calling getChildrenByParent with user ID:', user.id);
       const result = await getChildrenByParent(user.id);
       
+      console.log('getChildrenByParent result:', result);
+      
       if (result.success && result.data) {
-        setChildren(result.data);
+        // Handle different response formats
+        const childrenData = Array.isArray(result.data) ? result.data : [];
+        
+        // Map backend response to frontend Child interface
+        // Filter out reschedule_count field that doesn't exist in backend
+        // Filter out deleted children (status = "deleted")
+        const mappedChildren = await Promise.all(
+          childrenData
+            .filter((child: any) => {
+              const status = child.Status || child.status || 'active';
+              return status !== 'deleted';
+            })
+            .map(async (child: any) => {
+              // Remove reschedule_count if present to avoid errors
+              const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanChild } = child;
+              
+              let schoolName = cleanChild.SchoolName || cleanChild.schoolName || cleanChild.School?.SchoolName || cleanChild.school?.SchoolName || '';
+              
+              // If schoolName is empty but we have schoolId, try to fetch school name from API
+              if (!schoolName || schoolName.trim() === '') {
+                const schoolId = cleanChild.SchoolId || cleanChild.schoolId;
+                if (schoolId) {
+                  try {
+                    const schoolResponse = await getSchoolById(schoolId);
+                    if (schoolResponse.success && schoolResponse.data) {
+                      // Backend returns SchoolDto with PascalCase: SchoolName
+                      schoolName = schoolResponse.data.SchoolName || schoolResponse.data.schoolName || '';
+                      console.log(`Fetched school name for ${schoolId}: ${schoolName}`);
+                    }
+                  } catch (error) {
+                    console.error('Failed to fetch school name for schoolId:', schoolId, error);
+                  }
+                }
+              }
+              
+              return {
+                childId: cleanChild.ChildId || cleanChild.childId || cleanChild.id || String(cleanChild.ChildId),
+                fullName: cleanChild.FullName || cleanChild.fullName || cleanChild.name || '',
+                schoolId: cleanChild.SchoolId || cleanChild.schoolId || '',
+                schoolName: schoolName,
+                centerId: cleanChild.CenterId || cleanChild.centerId || undefined,
+                centerName: cleanChild.CenterName || cleanChild.centerName || cleanChild.center?.Name || undefined,
+                grade: cleanChild.Grade || cleanChild.grade || '',
+                dateOfBirth: cleanChild.DateOfBirth || cleanChild.dateOfBirth || undefined,
+                status: cleanChild.Status || cleanChild.status || 'active'
+              };
+            })
+        );
+        
+        console.log('Mapped children (excluding deleted):', mappedChildren);
+        setChildren(mappedChildren);
       } else {
-        setError(result.error || 'Failed to fetch children');
+        const errorMsg = result.error || 'Failed to fetch children';
+        console.error('Failed to fetch children:', errorMsg);
+        setError(errorMsg);
+        setChildren([]); // Set empty array on error
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching children';
+      console.error('Error fetching children:', err);
       setError(errorMessage);
-      console.error('Error:', err);
+      setChildren([]); // Set empty array on error
     } finally {
       setLoading(false);
     }

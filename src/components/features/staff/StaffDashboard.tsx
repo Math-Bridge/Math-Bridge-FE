@@ -55,54 +55,42 @@ const StaffDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data for demo
-    setStats({
-      pendingContracts: 12,
-      activeTutors: 45,
-      totalCenters: 8,
-      unreadMessages: 7,
-      upcomingSessions: 23,
-      completedSessions: 156,
-      rescheduleRequests: 3,
-      newParentRequests: 5
-    });
+    const fetchStaffData = async () => {
+      try {
+        // TODO: Replace with actual API endpoint when available
+        // For now, set default values instead of mock data
+        setStats({
+          pendingContracts: 0,
+          activeTutors: 0,
+          totalCenters: 0,
+          unreadMessages: 0,
+          upcomingSessions: 0,
+          completedSessions: 0,
+          rescheduleRequests: 0,
+          newParentRequests: 0
+        });
 
-    setRecentActivities([
-      {
-        id: '1',
-        type: 'contract',
-        title: 'New contract request',
-        description: 'Parent Nguyen Minh Anh requested Advanced Math package',
-        timestamp: '2024-01-15T10:30:00Z',
-        priority: 'high'
-      },
-      {
-        id: '2',
-        type: 'message',
-        title: 'Parent inquiry',
-        description: 'Mrs. Tran asked about Physics tutoring availability',
-        timestamp: '2024-01-15T09:15:00Z',
-        priority: 'medium'
-      },
-      {
-        id: '3',
-        type: 'session',
-        title: 'Session completed',
-        description: 'Dr. Johnson completed Math session with student',
-        timestamp: '2024-01-15T08:45:00Z',
-        priority: 'low'
-      },
-      {
-        id: '4',
-        type: 'request',
-        title: 'Reschedule request',
-        description: 'Parent requested to reschedule Friday session',
-        timestamp: '2024-01-15T08:30:00Z',
-        priority: 'medium'
+        // TODO: Replace with actual activities API endpoint when available
+        setRecentActivities([]);
+      } catch (error) {
+        console.error('Error fetching staff data:', error);
+        setStats({
+          pendingContracts: 0,
+          activeTutors: 0,
+          totalCenters: 0,
+          unreadMessages: 0,
+          upcomingSessions: 0,
+          completedSessions: 0,
+          rescheduleRequests: 0,
+          newParentRequests: 0
+        });
+        setRecentActivities([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
+    };
 
-    setLoading(false);
+    fetchStaffData();
   }, []);
 
   const quickActions = [

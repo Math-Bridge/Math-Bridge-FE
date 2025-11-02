@@ -18,6 +18,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../../../services/api';
 
 interface SystemStats {
   totalUsers: number;
@@ -55,54 +56,58 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data for demo
-    setStats({
-      totalUsers: 1247,
-      activeTutors: 89,
-      totalCenters: 12,
-      monthlyRevenue: 45000000,
-      pendingContracts: 23,
-      systemHealth: 98.5,
-      errorCount: 3,
-      uptime: '15d 8h 32m'
-    });
+    const fetchAdminData = async () => {
+      try {
+        // Fetch admin stats
+        const statsResponse = await apiService.getAdminStats();
+        if (statsResponse.success && statsResponse.data) {
+          const data = statsResponse.data;
+          setStats({
+            totalUsers: data.totalUsers || 0,
+            activeTutors: data.activeTutors || 0,
+            totalCenters: data.totalCenters || 0,
+            monthlyRevenue: data.monthlyRevenue || 0,
+            pendingContracts: data.pendingContracts || 0,
+            systemHealth: data.systemHealth || 0,
+            errorCount: data.errorCount || 0,
+            uptime: data.uptime || '0d 0h 0m'
+          });
+        } else {
+          // If API fails, set default values
+          setStats({
+            totalUsers: 0,
+            activeTutors: 0,
+            totalCenters: 0,
+            monthlyRevenue: 0,
+            pendingContracts: 0,
+            systemHealth: 0,
+            errorCount: 0,
+            uptime: '0d 0h 0m'
+          });
+        }
 
-    setRecentActivities([
-      {
-        id: '1',
-        type: 'user',
-        title: 'New tutor registration',
-        description: 'Dr. Sarah Johnson registered as Advanced Math tutor',
-        timestamp: '2024-01-15T10:30:00Z',
-        severity: 'low'
-      },
-      {
-        id: '2',
-        type: 'payment',
-        title: 'Large transaction processed',
-        description: 'Contract payment of 5,000,000 VND completed',
-        timestamp: '2024-01-15T09:15:00Z',
-        severity: 'medium'
-      },
-      {
-        id: '3',
-        type: 'system',
-        title: 'System backup completed',
-        description: 'Daily backup completed successfully',
-        timestamp: '2024-01-15T08:00:00Z',
-        severity: 'low'
-      },
-      {
-        id: '4',
-        type: 'error',
-        title: 'API timeout error',
-        description: 'Payment gateway timeout - 3 failed requests',
-        timestamp: '2024-01-15T07:45:00Z',
-        severity: 'high'
+        // Fetch recent activities (if API endpoint exists)
+        // For now, set empty array as activities endpoint may not exist
+        setRecentActivities([]);
+      } catch (error) {
+        console.error('Error fetching admin data:', error);
+        setStats({
+          totalUsers: 0,
+          activeTutors: 0,
+          totalCenters: 0,
+          monthlyRevenue: 0,
+          pendingContracts: 0,
+          systemHealth: 0,
+          errorCount: 0,
+          uptime: '0d 0h 0m'
+        });
+        setRecentActivities([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
+    };
 
-    setLoading(false);
+    fetchAdminData();
   }, []);
 
   const managementModules = [

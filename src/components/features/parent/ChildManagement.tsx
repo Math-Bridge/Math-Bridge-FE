@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { getChildrenByParent, softDeleteChild, updateChild } from '../../../services/api';
 
 interface Child {
   id: string;
@@ -49,47 +50,54 @@ const ChildManagement: React.FC = () => {
   const [editingChild, setEditingChild] = useState<Child | null>(null);
 
   useEffect(() => {
-    // Mock data for demo
-    setChildren([
-      {
-        id: '1',
-        fullName: 'Nguyen Minh Anh',
-        school: 'THCS Nguyen Du',
-        grade: '8',
-        dateOfBirth: '2010-05-15',
-        centerId: 'ct1',
-        centerName: 'MathBridge Center District 1',
-        status: 'active',
-        subjects: ['Mathematics', 'Physics', 'Chemistry'],
-        testScores: [
-          { subject: 'Mathematics', score: 85, date: '2024-01-10' },
-          { subject: 'Physics', score: 78, date: '2024-01-12' }
-        ],
-        testFiles: [
-          { name: 'Math Test 1.pdf', url: '#', uploadDate: '2024-01-10' },
-          { name: 'Physics Quiz.pdf', url: '#', uploadDate: '2024-01-12' }
-        ]
-      },
-      {
-        id: '2',
-        fullName: 'Tran Duc Minh',
-        school: 'THPT Le Hong Phong',
-        grade: '11',
-        dateOfBirth: '2008-03-22',
-        centerId: 'ct2',
-        centerName: 'MathBridge Center Thu Duc',
-        status: 'active',
-        subjects: ['Mathematics', 'Advanced Calculus'],
-        testScores: [
-          { subject: 'Mathematics', score: 92, date: '2024-01-08' },
-          { subject: 'Advanced Calculus', score: 88, date: '2024-01-14' }
-        ],
-        testFiles: [
-          { name: 'Calculus Final.pdf', url: '#', uploadDate: '2024-01-14' }
-        ]
+    const fetchChildren = async () => {
+      try {
+        // Get parent ID from localStorage
+        const userStr = localStorage.getItem('user');
+        const parentId = userStr ? JSON.parse(userStr).id : null;
+
+        if (!parentId) {
+          console.error('Parent ID not found');
+          setLoading(false);
+          return;
+        }
+
+        const response = await getChildrenByParent(parentId);
+        if (response.success && response.data) {
+          // Map API response to component interface
+          // Filter out deleted children (status = "deleted")
+          const mappedChildren = response.data
+            .filter((child: any) => {
+              const status = child.status || child.Status || 'active';
+              return status !== 'deleted';
+            })
+            .map((child: any) => ({
+              id: child.childId || child.id || String(child.childId),
+              fullName: child.fullName || '',
+              school: child.schoolName || child.school || '',
+              grade: child.grade || '',
+              dateOfBirth: child.dateOfBirth || '',
+              centerId: child.centerId,
+              centerName: child.centerName || '',
+              status: (child.status?.toLowerCase() === 'active' || !child.status) ? 'active' : 'inactive',
+              subjects: child.subjects || [],
+              testScores: child.testScores || [],
+              testFiles: child.testFiles || []
+            }));
+          setChildren(mappedChildren);
+        } else {
+          console.error('Failed to fetch children:', response.error);
+          setChildren([]);
+        }
+      } catch (error) {
+        console.error('Error fetching children:', error);
+        setChildren([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
-    setLoading(false);
+    };
+
+    fetchChildren();
   }, []);
 
   const handleAddChild = () => {
@@ -102,30 +110,57 @@ const ChildManagement: React.FC = () => {
     setShowAddForm(true);
   };
 
-  const handleDeleteChild = (childId: string) => {
+  const handleDeleteChild = async (childId: string) => {
     if (window.confirm(t('confirmDeleteChild'))) {
-      setChildren(prev => prev.filter(child => child.id !== childId));
+      try {
+        const response = await softDeleteChild(childId);
+        if (response.success) {
+          setChildren(prev => prev.filter(child => child.id !== childId));
+        } else {
+          alert(response.error || 'Failed to delete child');
+        }
+      } catch (error) {
+        console.error('Error deleting child:', error);
+        alert('Failed to delete child');
+      }
     }
   };
 
-  const handleSaveChild = (childData: Omit<Child, 'id'>) => {
-    if (editingChild) {
-      // Update existing child
-      setChildren(prev => prev.map(child => 
-        child.id === editingChild.id 
-          ? { ...child, ...childData }
-          : child
-      ));
-    } else {
-      // Add new child
-      const newChild: Child = {
-        ...childData,
-        id: Date.now().toString()
-      };
-      setChildren(prev => [...prev, newChild]);
+  const handleSaveChild = async (childData: Omit<Child, 'id'>) => {
+    try {
+      if (editingChild) {
+        // Update existing child
+        const response = await updateChild(editingChild.id, {
+          fullName: childData.fullName,
+          grade: childData.grade,
+          dateOfBirth: childData.dateOfBirth,
+          centerId: childData.centerId
+        });
+        
+        if (response.success) {
+          setChildren(prev => prev.map(child => 
+            child.id === editingChild.id 
+              ? { ...child, ...childData }
+              : child
+          ));
+        } else {
+          alert(response.error || 'Failed to update child');
+          return;
+        }
+      } else {
+        // Add new child - handled by form component which calls addChild API
+        const newChild: Child = {
+          ...childData,
+          id: Date.now().toString()
+        };
+        setChildren(prev => [...prev, newChild]);
+      }
+      setShowAddForm(false);
+      setEditingChild(null);
+    } catch (error) {
+      console.error('Error saving child:', error);
+      alert('Failed to save child');
     }
-    setShowAddForm(false);
-    setEditingChild(null);
   };
 
   if (loading) {

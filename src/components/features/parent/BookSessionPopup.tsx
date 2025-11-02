@@ -42,7 +42,8 @@ const BookSessionPopup: React.FC<BookSessionPopupProps> = ({
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [selectedWeek, setSelectedWeek] = useState(0);
 
-  // Mock data for available time slots
+  // TODO: Replace with actual tutor availability API call
+  // Fetch from GET /api/tutor-availabilities/search-tutors or similar endpoint
   const weeklySchedules: DaySchedule[] = [
     {
       date: '2024-01-22',

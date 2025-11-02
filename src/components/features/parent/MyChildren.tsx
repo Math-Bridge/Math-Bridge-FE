@@ -26,7 +26,21 @@ const MyChildren: React.FC = () => {
     try {
       const result = await getChildById(childId);
       if (result.success && result.data) {
-        setEditingChild(result.data);
+        // Map backend response (PascalCase) to frontend Child interface (camelCase)
+        const childData = result.data as any;
+        const mappedChild: Child = {
+          childId: childData.ChildId || childData.childId || childId,
+          fullName: childData.FullName || childData.fullName || '',
+          schoolId: childData.SchoolId || childData.schoolId || '',
+          schoolName: childData.SchoolName || childData.schoolName || '',
+          centerId: childData.CenterId || childData.centerId || undefined,
+          centerName: childData.CenterName || childData.centerName || undefined,
+          grade: childData.Grade || childData.grade || '',
+          dateOfBirth: childData.DateOfBirth || childData.dateOfBirth || undefined,
+          status: childData.Status || childData.status || 'active'
+        };
+        console.log('Mapped child for edit:', mappedChild);
+        setEditingChild(mappedChild);
         setShowChildForm(true);
       } else {
         console.error('Failed to fetch child:', result.error);

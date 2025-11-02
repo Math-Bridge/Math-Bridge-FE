@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { apiService } from '../../../services/api';
 
 interface Transaction {
   id: string;
@@ -47,58 +48,60 @@ const WalletComponent: React.FC = () => {
   const [depositMethod, setDepositMethod] = useState('bank_transfer');
 
   useEffect(() => {
-    // Mock data for demo
-    setWalletData({
-      balance: 2500000,
-      totalDeposits: 10000000,
-      totalSpent: 7500000,
-      recentTransactions: [
-        {
-          id: '1',
-          type: 'deposit',
-          amount: 2000000,
-          description: 'Bank transfer deposit',
-          date: '2024-01-15T10:30:00Z',
-          status: 'completed',
-          method: 'Bank Transfer'
-        },
-        {
-          id: '2',
-          type: 'payment',
-          amount: -500000,
-          description: 'Math tutoring session - Sarah Johnson',
-          date: '2024-01-14T15:00:00Z',
-          status: 'completed'
-        },
-        {
-          id: '3',
-          type: 'deposit',
-          amount: 1000000,
-          description: 'Credit card deposit',
-          date: '2024-01-13T14:20:00Z',
-          status: 'completed',
-          method: 'Credit Card'
-        },
-        {
-          id: '4',
-          type: 'payment',
-          amount: -300000,
-          description: 'Physics tutoring session - Dr. Chen',
-          date: '2024-01-12T16:30:00Z',
-          status: 'completed'
-        },
-        {
-          id: '5',
-          type: 'deposit',
-          amount: 500000,
-          description: 'Mobile banking deposit',
-          date: '2024-01-10T09:15:00Z',
-          status: 'pending',
-          method: 'Mobile Banking'
+    const fetchWalletData = async () => {
+      try {
+        // Get user ID from localStorage
+        const userStr = localStorage.getItem('user');
+        const userId = userStr ? JSON.parse(userStr).id : null;
+
+        if (!userId) {
+          console.error('User ID not found');
+          setLoading(false);
+          return;
         }
-      ]
-    });
-    setLoading(false);
+
+        const response = await apiService.getUserWallet(userId);
+        if (response.success && response.data) {
+          // Map API response to component interface
+          const walletResponse = response.data;
+          setWalletData({
+            balance: walletResponse.balance || 0,
+            totalDeposits: walletResponse.totalDeposits || 0,
+            totalSpent: walletResponse.totalSpent || 0,
+            recentTransactions: (walletResponse.transactions || []).map((tx: any) => ({
+              id: tx.id || tx.transactionId || String(Date.now()),
+              type: tx.type || 'payment',
+              amount: tx.amount || 0,
+              description: tx.description || tx.note || '',
+              date: tx.date || tx.createdAt || new Date().toISOString(),
+              status: tx.status || 'completed',
+              method: tx.method || tx.paymentMethod
+            }))
+          });
+        } else {
+          console.error('Failed to fetch wallet data:', response.error);
+          // Set default empty data instead of mock
+          setWalletData({
+            balance: 0,
+            totalDeposits: 0,
+            totalSpent: 0,
+            recentTransactions: []
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching wallet data:', error);
+        setWalletData({
+          balance: 0,
+          totalDeposits: 0,
+          totalSpent: 0,
+          recentTransactions: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWalletData();
   }, []);
 
   const handleDeposit = () => {

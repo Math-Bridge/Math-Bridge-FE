@@ -137,7 +137,7 @@ const TutorDetail: React.FC = () => {
   }, []);
 
   const handleBookSession = () => {
-    navigate('/user/contracts/create', { 
+    navigate('/contracts/create', { 
       state: { 
         tutorId: tutor?.id, 
         tutorName: tutor?.name 

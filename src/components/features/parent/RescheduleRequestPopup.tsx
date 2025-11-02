@@ -58,7 +58,8 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   const [notes, setNotes] = useState('');
   const [step, setStep] = useState(1);
 
-  // Mock data for available time slots
+  // TODO: Replace with actual tutor availability API call
+  // Fetch from GET /api/tutor-availabilities/search-tutors or similar endpoint
   const weeklySchedules: DaySchedule[] = [
     {
       date: '2024-01-22',

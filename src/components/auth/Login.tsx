@@ -77,18 +77,18 @@ const Login: React.FC = () => {
           try {
             const user = JSON.parse(savedUser);
             if (user.role === 'tutor') {
-              console.log("✅ Google login success → navigating to /tutor/dashboard");
+              console.log(" Google login success → navigating to /tutor/dashboard");
               navigate("/tutor/dashboard", { replace: true });
             } else {
-              console.log("✅ Google login success → navigating to /home");
+              console.log("Google login success → navigating to /home");
               navigate("/home", { replace: true });
             }
           } catch (error) {
-            console.log("✅ Google login success → navigating to /home (fallback)");
+            console.log("Google login success → navigating to /home (fallback)");
             navigate("/home", { replace: true });
           }
         } else {
-          console.log("✅ Google login success → navigating to /home");
+          console.log("Google login success → navigating to /home");
           navigate("/home", { replace: true });
         }
         

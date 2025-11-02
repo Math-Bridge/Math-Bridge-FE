@@ -72,42 +72,20 @@ const ProgressReports: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock data for demo
-    setProgressData([
-      {
-        childId: '1',
-        childName: 'Nguyen Minh Anh',
-        subject: 'Mathematics',
-        grade: '8',
-        curriculum: 'Vietnamese National Curriculum',
-        level: 'Intermediate',
-        totalSessions: 20,
-        completedSessions: 16,
-        averageScore: 85,
-        improvement: 15,
-        lastTestScore: 88,
-        lastTestDate: '2024-01-10',
-        tutorName: 'Dr. Sarah Johnson',
-        centerName: 'MathBridge Center District 1'
-      },
-      {
-        childId: '2',
-        childName: 'Tran Duc Minh',
-        subject: 'Physics',
-        grade: '11',
-        curriculum: 'Vietnamese National Curriculum',
-        level: 'Advanced',
-        totalSessions: 15,
-        completedSessions: 15,
-        averageScore: 92,
-        improvement: 8,
-        lastTestScore: 95,
-        lastTestDate: '2024-01-08',
-        tutorName: 'Dr. Chen Wei',
-        centerName: 'MathBridge Center Thu Duc'
+    const fetchProgressData = async () => {
+      try {
+        // TODO: Replace with actual progress reports API endpoint when available
+        // For now, set empty array instead of mock data
+        setProgressData([]);
+      } catch (error) {
+        console.error('Error fetching progress data:', error);
+        setProgressData([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
-    setLoading(false);
+    };
+
+    fetchProgressData();
   }, []);
 
   const filteredData = progressData.filter(item => {
@@ -117,62 +95,32 @@ const ProgressReports: React.FC = () => {
     return matchesChild && matchesSubject && matchesLevel;
   });
 
-  const handleViewDetailedReport = (childId: string) => {
-    // Mock detailed report data
-    const mockReport: ProgressReport = {
-      childId,
-      childName: progressData.find(p => p.childId === childId)?.childName || '',
-      subject: progressData.find(p => p.childId === childId)?.subject || '',
-      grade: progressData.find(p => p.childId === childId)?.grade || '',
-      curriculum: progressData.find(p => p.childId === childId)?.curriculum || '',
-      level: progressData.find(p => p.childId === childId)?.level || '',
-      overallProgress: 78,
-      strengths: [
-        'Strong problem-solving skills',
-        'Good understanding of algebraic concepts',
-        'Excellent attendance and participation',
-        'Quick learner with new topics'
-      ],
-      areasForImprovement: [
-        'Geometry proofs need more practice',
-        'Word problems could be approached more systematically',
-        'Time management during tests'
-      ],
-      recommendations: [
-        'Focus on geometry practice sessions',
-        'Implement timed problem-solving exercises',
-        'Continue with current learning pace'
-      ],
-      testResults: [
-        {
-          id: '1',
-          testName: 'Algebra Midterm',
-          subject: 'Mathematics',
-          score: 88,
-          maxScore: 100,
-          date: '2024-01-10',
-          level: 'Intermediate',
-          feedback: 'Excellent work on algebraic equations. Minor errors in word problems.'
-        },
-        {
-          id: '2',
-          testName: 'Geometry Quiz',
-          subject: 'Mathematics',
-          score: 75,
-          maxScore: 100,
-          date: '2024-01-05',
-          level: 'Intermediate',
-          feedback: 'Good understanding of basic concepts. Needs more practice with proofs.'
-        }
-      ],
-      tutorFeedback: 'Student shows excellent progress in mathematics. Strong analytical thinking and good problem-solving approach. Recommended to focus more on geometry and word problems.',
-      nextGoals: [
-        'Master geometry proofs',
-        'Improve word problem solving',
-        'Achieve 90+ average score'
-      ]
+  const handleViewDetailedReport = async (childId: string) => {
+    // TODO: Replace with actual detailed report API endpoint when available
+    // For now, create minimal report from existing data instead of mock
+    const childData = progressData.find(p => p.childId === childId);
+    if (!childData) {
+      console.error('Child data not found');
+      return;
+    }
+
+    // Create report from available data (non-mock)
+    const report: ProgressReport = {
+      childId: childData.childId,
+      childName: childData.childName,
+      subject: childData.subject,
+      grade: childData.grade,
+      curriculum: childData.curriculum,
+      level: childData.level,
+      overallProgress: childData.averageScore || 0,
+      strengths: [], // TODO: Fetch from API
+      areasForImprovement: [], // TODO: Fetch from API
+      recommendations: [], // TODO: Fetch from API
+      testResults: [], // TODO: Fetch from API
+      tutorFeedback: '', // TODO: Fetch from API
+      nextGoals: [] // TODO: Fetch from API
     };
-    setDetailedReport(mockReport);
+    setDetailedReport(report);
   };
 
   const getProgressColor = (score: number) => {

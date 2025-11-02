@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { apiService } from '../../../services/api';
 
 interface Package {
   id: string;
@@ -44,85 +45,42 @@ const PackageSelection: React.FC = () => {
   const [sortBy, setSortBy] = useState('popular');
 
   useEffect(() => {
-    // Mock data for demo
-    setPackages([
-      {
-        id: '1',
-        name: 'Advanced Algebra Mastery',
-        description: 'Comprehensive algebra course covering all topics from basic to advanced level',
-        subject: 'Mathematics',
-        level: 'Advanced',
-        duration: 12,
-        sessions: 24,
-        price: 2000000,
-        originalPrice: 2500000,
-        discount: 20,
-        rating: 4.8,
-        reviews: 156,
-        features: ['1-on-1 tutoring', 'Practice tests', 'Progress tracking', 'Certificate'],
-        isPopular: true,
-        isRecommended: true
-      },
-      {
-        id: '2',
-        name: 'Physics Fundamentals',
-        description: 'Complete physics course covering mechanics, thermodynamics, and waves',
-        subject: 'Physics',
-        level: 'Intermediate',
-        duration: 8,
-        sessions: 16,
-        price: 1500000,
-        originalPrice: 1800000,
-        discount: 17,
-        rating: 4.6,
-        reviews: 89,
-        features: ['Group sessions', 'Lab experiments', 'Homework help', 'Exam prep'],
-        isRecommended: true
-      },
-      {
-        id: '3',
-        name: 'Chemistry Basics',
-        description: 'Introduction to chemistry with hands-on experiments and practical applications',
-        subject: 'Chemistry',
-        level: 'Beginner',
-        duration: 6,
-        sessions: 12,
-        price: 1200000,
-        rating: 4.4,
-        reviews: 67,
-        features: ['Interactive labs', 'Safety training', 'Periodic table mastery', 'Real-world applications']
-      },
-      {
-        id: '4',
-        name: 'Calculus Intensive',
-        description: 'Advanced calculus course for university preparation',
-        subject: 'Mathematics',
-        level: 'Advanced',
-        duration: 16,
-        sessions: 32,
-        price: 3000000,
-        originalPrice: 3500000,
-        discount: 14,
-        rating: 4.9,
-        reviews: 203,
-        features: ['University prep', 'Advanced problems', 'Research projects', 'Mentorship'],
-        isPopular: true
-      },
-      {
-        id: '5',
-        name: 'Biology Essentials',
-        description: 'Comprehensive biology course covering cell biology, genetics, and ecology',
-        subject: 'Biology',
-        level: 'Intermediate',
-        duration: 10,
-        sessions: 20,
-        price: 1800000,
-        rating: 4.5,
-        reviews: 94,
-        features: ['Microscopy labs', 'Field trips', 'Research projects', 'Career guidance']
+    const fetchPackages = async () => {
+      try {
+        const response = await apiService.getAllPackages();
+        if (response.success && response.data) {
+          // Map API response to component interface
+          const mappedPackages = response.data.map((pkg: any) => ({
+            id: pkg.packageId || pkg.id || String(pkg.packageId),
+            name: pkg.name || pkg.packageName || '',
+            description: pkg.description || '',
+            subject: pkg.subject || pkg.category || 'General',
+            level: pkg.level || 'Intermediate',
+            duration: pkg.duration || pkg.durationWeeks || 0,
+            sessions: pkg.sessions || pkg.totalSessions || 0,
+            price: pkg.price || 0,
+            originalPrice: pkg.originalPrice,
+            discount: pkg.discount,
+            rating: pkg.rating || 0,
+            reviews: pkg.reviews || pkg.reviewCount || 0,
+            features: pkg.features || [],
+            isPopular: pkg.isPopular || false,
+            isRecommended: pkg.isRecommended || false
+          }));
+          setPackages(mappedPackages);
+        } else {
+          console.error('Failed to fetch packages:', response.error);
+          setPackages([]);
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+        setPackages([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
-    setLoading(false);
+    };
+
+    fetchPackages();
   }, []);
 
   const filteredPackages = packages.filter(pkg => {
@@ -160,7 +118,7 @@ const PackageSelection: React.FC = () => {
   ];
 
   const handleSelectPackage = (packageId: string) => {
-    navigate(`/user/contracts/create?package=${packageId}`);
+    navigate(`/contracts/create?package=${packageId}`);
   };
 
   if (loading) {
@@ -177,7 +135,7 @@ const PackageSelection: React.FC = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/user/contracts/create')}
+            onClick={() => navigate('/contracts/create')}
             className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />

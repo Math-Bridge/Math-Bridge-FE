@@ -16,7 +16,9 @@ import {
   TrendingUp,
   Award
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getContractById, getContractsByParent, apiService } from '../../../services/api';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface Session {
   id: string;
@@ -54,70 +56,125 @@ interface ContractDetail {
 
 const ContractDetail: React.FC = () => {
   const navigate = useNavigate();
+  const { id: contractId } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'tutor'>('overview');
 
   useEffect(() => {
-    // Mock data for demo
-    setContract({
-      id: '1',
-      childName: 'Nguyen Minh Anh',
-      tutorName: 'Sarah Johnson',
-      tutorEmail: 'sarah.johnson@mathbridge.com',
-      tutorPhone: '+84 123 456 789',
-      subject: 'Mathematics',
-      packageName: 'Advanced Algebra Mastery',
-      totalSessions: 20,
-      completedSessions: 8,
-      price: 2000000,
-      status: 'active',
-      startDate: '2024-01-01',
-      endDate: '2024-03-01',
-      schedule: 'Mon, Wed, Fri 3:00 PM',
-      centerName: 'MathBridge Center District 1',
-      centerAddress: '123 Nguyen Hue, District 1, Ho Chi Minh City',
-      createdAt: '2023-12-15',
-      tutorRating: 4.8,
-      tutorExperience: '5 years teaching experience',
-      tutorQualifications: ['Master in Mathematics', 'Certified Math Teacher', 'IELTS 8.0'],
-      sessions: [
-        {
-          id: '1',
-          date: '2024-01-15',
-          time: '15:00',
-          status: 'completed',
-          topic: 'Linear Equations',
-          notes: 'Great progress on solving linear equations',
-          rating: 5
-        },
-        {
-          id: '2',
-          date: '2024-01-17',
-          time: '15:00',
-          status: 'completed',
-          topic: 'Quadratic Functions',
-          notes: 'Student showed excellent understanding',
-          rating: 4
-        },
-        {
-          id: '3',
-          date: '2024-01-19',
-          time: '15:00',
-          status: 'upcoming',
-          topic: 'Polynomial Functions'
-        },
-        {
-          id: '4',
-          date: '2024-01-22',
-          time: '15:00',
-          status: 'upcoming',
-          topic: 'Rational Functions'
+    const fetchContract = async () => {
+      if (!contractId) {
+        setError('Contract ID is required');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Try to get contract by ID first
+        let contractData = null;
+        const directResponse = await getContractById(contractId);
+        
+        if (directResponse.success && directResponse.data) {
+          contractData = directResponse.data;
+        } else {
+          // Fallback: Get from parent's contracts list
+          if (user?.id) {
+            const parentContractsResponse = await getContractsByParent(user.id);
+            if (parentContractsResponse.success && parentContractsResponse.data) {
+              contractData = parentContractsResponse.data.find((c: any) => 
+                (c.ContractId || c.contractId || c.id) === contractId
+              );
+            }
+          }
         }
-      ]
-    });
-    setLoading(false);
-  }, []);
+
+        if (!contractData) {
+          setError('Contract not found');
+          setLoading(false);
+          return;
+        }
+
+        // Map backend data to frontend format
+        // Fetch package details if needed
+        let totalSessions = contractData.TotalSessions || contractData.totalSessions || 0;
+        let price = contractData.Price || contractData.price || contractData.Amount || contractData.amount || 0;
+        
+        if ((!totalSessions || !price) && (contractData.PackageId || contractData.packageId)) {
+          try {
+            const packageId = contractData.PackageId || contractData.packageId;
+            const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
+            if (packageResponse.success && packageResponse.data) {
+              const pkg = packageResponse.data;
+              if (!totalSessions) {
+                totalSessions = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0;
+              }
+              if (!price) {
+                price = pkg.Price || pkg.price || 0;
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching package details:', error);
+          }
+        }
+
+        // Build schedule string
+        let schedule = '';
+        if (contractData.DaysOfWeeksDisplay || contractData.daysOfWeeksDisplay) {
+          const days = contractData.DaysOfWeeksDisplay || contractData.daysOfWeeksDisplay;
+          const startTime = contractData.StartTime || contractData.startTime || '';
+          const endTime = contractData.EndTime || contractData.endTime || '';
+          if (startTime && endTime) {
+            schedule = `${days}, ${startTime} - ${endTime}`;
+          } else if (startTime) {
+            schedule = `${days}, ${startTime}`;
+          } else {
+            schedule = days;
+          }
+        } else {
+          schedule = contractData.timeSlot || contractData.schedule || 'Schedule not set';
+        }
+
+        // Map to frontend format
+        const mappedContract: ContractDetail = {
+          id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
+          childName: contractData.ChildName || contractData.childName || 'N/A',
+          tutorName: contractData.MainTutorName || contractData.mainTutorName || 'Tutor not assigned',
+          tutorEmail: contractData.MainTutorEmail || contractData.mainTutorEmail || '',
+          tutorPhone: contractData.MainTutorPhone || contractData.mainTutorPhone || '',
+          subject: 'Mathematics', // Default subject
+          packageName: contractData.PackageName || contractData.packageName || 'N/A',
+          totalSessions: totalSessions,
+          completedSessions: contractData.CompletedSessions || contractData.completedSessions || 0,
+          price: price,
+          status: (contractData.Status || contractData.status || 'pending').toLowerCase() as 'pending' | 'active' | 'completed' | 'cancelled',
+          startDate: contractData.StartDate || contractData.startDate || '',
+          endDate: contractData.EndDate || contractData.endDate || '',
+          schedule: schedule,
+          centerName: contractData.CenterName || contractData.centerName || 'Online',
+          centerAddress: contractData.CenterAddress || contractData.centerAddress || '',
+          createdAt: contractData.CreatedDate || contractData.createdDate || contractData.CreatedAt || contractData.createdAt || '',
+          sessions: [], // TODO: Fetch sessions from API
+          tutorRating: contractData.TutorRating || contractData.tutorRating || 0,
+          tutorExperience: contractData.TutorExperience || contractData.tutorExperience || '',
+          tutorQualifications: contractData.TutorQualifications || contractData.tutorQualifications || []
+        };
+
+        setContract(mappedContract);
+      } catch (err) {
+        console.error('Error fetching contract:', err);
+        setError('Failed to load contract details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchContract();
+  }, [contractId, user?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -155,15 +212,17 @@ const ContractDetail: React.FC = () => {
     );
   }
 
-  if (!contract) {
+  if (error || !contract) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Contract not found</h3>
-          <p className="text-gray-600 mb-6">The contract you're looking for doesn't exist</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            {error || 'Contract not found'}
+          </h3>
+          <p className="text-gray-600 mb-6">The contract you're looking for doesn't exist or couldn't be loaded</p>
           <button
-            onClick={() => navigate('/parent/contracts')}
+            onClick={() => navigate('/contracts')}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
             Back to Contracts
@@ -179,7 +238,7 @@ const ContractDetail: React.FC = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/user/contracts')}
+            onClick={() => navigate('/contracts')}
             className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -199,7 +258,7 @@ const ContractDetail: React.FC = () => {
               </span>
               {contract.status === 'active' && (
                 <button
-                  onClick={() => navigate(`/user/contracts/${contract.id}/reschedule`)}
+                  onClick={() => navigate(`/contracts/${contract.id}/reschedule`)}
                   className="px-4 py-2 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors flex items-center space-x-2"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -317,7 +376,7 @@ const ContractDetail: React.FC = () => {
                 <div className="space-y-3">
                   {contract.status === 'active' && (
                     <button
-                      onClick={() => navigate(`/user/contracts/${contract.id}/reschedule`)}
+                      onClick={() => navigate(`/contracts/${contract.id}/reschedule`)}
                       className="w-full flex items-center space-x-3 p-3 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
                     >
                       <RefreshCw className="w-5 h-5" />
@@ -333,7 +392,7 @@ const ContractDetail: React.FC = () => {
                   </button>
                   {contract.status === 'completed' && (
                     <button
-                      onClick={() => navigate(`/user/contracts/${contract.id}/feedback`)}
+                      onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
                       className="w-full flex items-center space-x-3 p-3 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
                     >
                       <Star className="w-5 h-5" />

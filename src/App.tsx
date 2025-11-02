@@ -29,6 +29,7 @@ import {
   WalletPage,
   ContractsPage,
   PackageSelectionPage,
+  CreateContractPage,
   ContractDetailPage,
   TutorDetailPage,
   ProgressReportsPage,
@@ -221,7 +222,7 @@ function App() {
             } />
             <Route path="contracts/create" element={
               <ProtectedRoute>
-                <PackageSelectionPage />
+                <CreateContractPage />
               </ProtectedRoute>
             } />
             <Route path="contracts/:id" element={

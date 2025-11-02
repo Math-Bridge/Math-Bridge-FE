@@ -3,7 +3,6 @@ import {
   FileText, 
   Plus, 
   Eye, 
-  Edit, 
   Clock,
   CheckCircle,
   XCircle,
@@ -11,10 +10,12 @@ import {
   Calendar,
   User,
   DollarSign,
+  ArrowLeft,
   RefreshCw,
   MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getContractsByParent, apiService } from '../../../services/api';
 
 interface Contract {
   id: string;
@@ -40,58 +41,113 @@ const ContractsManagement: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled'>('all');
 
   useEffect(() => {
-    // Mock data for demo
-    setContracts([
-      {
-        id: '1',
-        childName: 'Nguyen Minh Anh',
-        tutorName: 'Sarah Johnson',
-        subject: 'Mathematics',
-        packageName: 'Advanced Algebra Package',
-        totalSessions: 20,
-        completedSessions: 8,
-        price: 2000000,
-        status: 'active',
-        startDate: '2024-01-01',
-        endDate: '2024-03-01',
-        schedule: 'Mon, Wed, Fri 3:00 PM',
-        centerName: 'MathBridge Center District 1',
-        createdAt: '2023-12-15'
-      },
-      {
-        id: '2',
-        childName: 'Tran Duc Minh',
-        tutorName: 'Dr. Chen Wei',
-        subject: 'Physics',
-        packageName: 'Advanced Physics Package',
-        totalSessions: 15,
-        completedSessions: 15,
-        price: 1500000,
-        status: 'completed',
-        startDate: '2023-10-01',
-        endDate: '2023-12-15',
-        schedule: 'Tue, Thu 4:00 PM',
-        centerName: 'MathBridge Center Thu Duc',
-        createdAt: '2023-09-20'
-      },
-      {
-        id: '3',
-        childName: 'Nguyen Minh Anh',
-        tutorName: 'Michael Brown',
-        subject: 'Chemistry',
-        packageName: 'Chemistry Fundamentals',
-        totalSessions: 12,
-        completedSessions: 0,
-        price: 1200000,
-        status: 'pending',
-        startDate: '2024-02-01',
-        endDate: '2024-04-01',
-        schedule: 'Sat 2:00 PM',
-        centerName: 'MathBridge Center District 1',
-        createdAt: '2024-01-10'
+    const fetchContracts = async () => {
+      try {
+        // Get parent ID from localStorage
+        const userStr = localStorage.getItem('user');
+        const parentId = userStr ? JSON.parse(userStr).id : null;
+
+        if (!parentId) {
+          console.error('Parent ID not found');
+          setLoading(false);
+          return;
+        }
+
+        console.log(`[ContractsManagement] Fetching contracts for parent ID: ${parentId}`);
+        const response = await getContractsByParent(parentId);
+        
+        if (response.success && response.data) {
+          console.log(`[ContractsManagement] Received ${response.data.length} contracts`);
+          // Map API response to component interface
+          // Backend returns ContractDto with PascalCase fields
+          // Filter out reschedule_count field that doesn't exist in backend
+          // Fetch package info for each contract to get totalSessions and price
+          const mappedContracts = await Promise.all(response.data.map(async (contract: any) => {
+            // Remove reschedule_count if present to avoid errors
+            const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+            
+            // Build schedule string from DaysOfWeeksDisplay and time
+            // Format time from "HH:mm:ss" or "HH:mm" to "HH:mm"
+            const formatTime = (timeStr: string) => {
+              if (!timeStr) return '';
+              // Remove seconds if present (HH:mm:ss -> HH:mm)
+              return timeStr.split(':').slice(0, 2).join(':');
+            };
+            
+            let schedule = '';
+            if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
+              const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
+              const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
+              const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
+              if (startTime && endTime) {
+                schedule = `${days}, ${startTime} - ${endTime}`;
+              } else if (startTime) {
+                schedule = `${days}, ${startTime}`;
+              } else {
+                schedule = days || 'Schedule not set';
+              }
+            } else {
+              schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
+            }
+            
+            // Fetch package info to get totalSessions and price if not in contract
+            let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
+            let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
+            
+            if ((!totalSessions || !price) && (cleanContract.PackageId || cleanContract.packageId)) {
+              try {
+                const packageId = cleanContract.PackageId || cleanContract.packageId;
+                const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
+                if (packageResponse.success && packageResponse.data) {
+                  const pkg = packageResponse.data;
+                  if (!totalSessions) {
+                    totalSessions = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0;
+                  }
+                  if (!price) {
+                    price = pkg.Price || pkg.price || 0;
+                  }
+                }
+              } catch (error) {
+                console.error('Failed to fetch package info for contract:', error);
+              }
+            }
+            
+            // CompletedSessions not in ContractDto - need to calculate from Sessions count
+            // TODO: Backend should provide this count or fetch from /contracts/{id}/sessions
+            const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
+            
+            return {
+              id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
+              childName: cleanContract.ChildName || cleanContract.childName || 'N/A',
+              tutorName: cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned',
+              subject: cleanContract.Subject || cleanContract.subject || 'Mathematics', // Default subject if not provided
+              packageName: cleanContract.PackageName || cleanContract.packageName || 'Package not specified',
+              totalSessions: totalSessions || 0,
+              completedSessions: completedSessions || 0,
+              price: price || 0,
+              status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
+              startDate: cleanContract.StartDate || cleanContract.startDate || '',
+              endDate: cleanContract.EndDate || cleanContract.endDate || '',
+              schedule: schedule,
+              centerName: cleanContract.CenterName || cleanContract.centerName || 'Online',
+              createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
+            };
+          }));
+          console.log('Mapped contracts:', mappedContracts);
+          setContracts(mappedContracts);
+        } else {
+          console.error('Failed to fetch contracts:', response.error);
+          setContracts([]);
+        }
+      } catch (error) {
+        console.error('Error fetching contracts:', error);
+        setContracts([]);
+      } finally {
+        setLoading(false);
       }
-    ]);
-    setLoading(false);
+    };
+
+    fetchContracts();
   }, []);
 
   const filteredContracts = contracts.filter(contract => 
@@ -129,19 +185,19 @@ const ContractsManagement: React.FC = () => {
   };
 
   const handleCreateContract = () => {
-    navigate('/user/contracts/create');
+    navigate('/contracts/create');
   };
 
   const handleViewContract = (contractId: string) => {
-    navigate(`/user/contracts/${contractId}`);
+    navigate(`/contracts/${contractId}`);
   };
 
   const handleReschedule = (contractId: string) => {
-    navigate(`/user/contracts/${contractId}/reschedule`);
+    navigate(`/contracts/${contractId}/reschedule`);
   };
 
   const handleFeedback = (contractId: string) => {
-    navigate(`/user/contracts/${contractId}/feedback`);
+    navigate(`/contracts/${contractId}/feedback`);
   };
 
   if (loading) {
@@ -157,6 +213,13 @@ const ContractsManagement: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
+          <button
+            onClick={() => navigate('/user/dashboard')}
+            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-semibold">Back to Dashboard</span>
+          </button>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">My Contracts</h1>
@@ -212,7 +275,8 @@ const ContractsManagement: React.FC = () => {
                       {contract.subject} • {contract.childName}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Tutor: {contract.tutorName} • {contract.centerName}
+                      {contract.tutorName === 'Tutor not assigned' ? 'Tutor: Not assigned yet' : `Tutor: ${contract.tutorName}`}
+                      {contract.centerName && contract.centerName !== 'Online' && ` • ${contract.centerName}`}
                     </p>
                   </div>
                 </div>
@@ -243,7 +307,12 @@ const ContractsManagement: React.FC = () => {
                   <User className="w-4 h-4 text-gray-400" />
                   <div>
                     <p className="text-sm text-gray-600">Progress</p>
-                    <p className="font-medium">{contract.completedSessions}/{contract.totalSessions} sessions</p>
+                    <p className="font-medium">
+                      {contract.totalSessions > 0 
+                        ? `${contract.completedSessions}/${contract.totalSessions} sessions`
+                        : 'No sessions scheduled'
+                      }
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -251,7 +320,10 @@ const ContractsManagement: React.FC = () => {
                   <div>
                     <p className="text-sm text-gray-600">Price</p>
                     <p className="font-medium">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)}
+                      {contract.price > 0 
+                        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)
+                        : 'Price not set'
+                      }
                     </p>
                   </div>
                 </div>
@@ -263,13 +335,20 @@ const ContractsManagement: React.FC = () => {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Progress</span>
                     <span className="text-sm text-gray-600">
-                      {Math.round((contract.completedSessions / contract.totalSessions) * 100)}%
+                      {contract.totalSessions > 0
+                        ? `${Math.round((contract.completedSessions / contract.totalSessions) * 100)}%`
+                        : '0%'
+                      }
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(contract.completedSessions / contract.totalSessions) * 100}%` }}
+                      style={{ 
+                        width: contract.totalSessions > 0
+                          ? `${Math.min((contract.completedSessions / contract.totalSessions) * 100, 100)}%`
+                          : '0%'
+                      }}
                     ></div>
                   </div>
                 </div>

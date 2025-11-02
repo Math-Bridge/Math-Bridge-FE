@@ -60,7 +60,7 @@ const ParentHome: React.FC = () => {
       description: t('bookSessions'),
       icon: FileText,
       color: 'purple',
-      onClick: () => navigate('/user/contracts/create')
+      onClick: () => navigate('/contracts/create')
     },
     {
       title: t('viewProgress'),

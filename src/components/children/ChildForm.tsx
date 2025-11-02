@@ -30,32 +30,159 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const [centers, setCenters] = useState<Center[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Update form data when child prop changes (for edit mode)
   useEffect(() => {
-    fetchCenters();
-    fetchSchools();
+    if (child) {
+      // Format dateOfBirth for date input (YYYY-MM-DD format)
+      let formattedDateOfBirth = '';
+      if (child.dateOfBirth) {
+        try {
+          // Handle different date formats from backend
+          const date = new Date(child.dateOfBirth);
+          if (!isNaN(date.getTime())) {
+            // Format as YYYY-MM-DD for date input
+            formattedDateOfBirth = date.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          console.error('Error parsing dateOfBirth:', error);
+        }
+      }
+      
+      setFormData({
+        fullName: child.fullName || '',
+        schoolId: child.schoolId || '',
+        centerId: child.centerId || '',
+        grade: child.grade || 'grade 9',
+        dateOfBirth: formattedDateOfBirth
+      });
+      console.log('ChildForm: Updated form data for edit mode:', {
+        child,
+        formData: {
+          fullName: child.fullName || '',
+          schoolId: child.schoolId || '',
+          centerId: child.centerId || '',
+          grade: child.grade || 'grade 9',
+          dateOfBirth: formattedDateOfBirth
+        }
+      });
+    } else {
+      // Reset form for add mode
+      setFormData({
+        fullName: '',
+        schoolId: '',
+        centerId: '',
+        grade: 'grade 9',
+        dateOfBirth: ''
+      });
+    }
+  }, [child]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingData(true);
+      await Promise.all([fetchCenters(), fetchSchools()]);
+      setLoadingData(false);
+    };
+    loadData();
   }, []);
 
   const fetchCenters = async () => {
     try {
       const result = await getAllCenters();
+      console.log('Centers API response:', result);
       if (result.success && result.data) {
-        setCenters(result.data.data || result.data);
+        // Handle different response structures:
+        // 1. Direct array: result.data = [...]
+        // 2. Wrapped in data: result.data = { data: [...] }
+        // 3. Wrapped in array property: result.data = { centers: [...] }
+        let centersData: any[] = [];
+        
+        if (Array.isArray(result.data)) {
+          centersData = result.data;
+        } else if (result.data.data && Array.isArray(result.data.data)) {
+          centersData = result.data.data;
+        } else if (result.data.centers && Array.isArray(result.data.centers)) {
+          centersData = result.data.centers;
+        } else if (result.data.items && Array.isArray(result.data.items)) {
+          centersData = result.data.items;
+        }
+        
+        setCenters(centersData);
+        console.log('Parsed centers:', centersData);
+      } else {
+        console.error('Failed to fetch centers:', result.error);
+        setCenters([]);
       }
     } catch (error) {
       console.error('Error fetching centers:', error);
+      setCenters([]);
     }
   };
 
   const fetchSchools = async () => {
     try {
       const result = await getActiveSchools();
+      console.log('Schools API response:', result);
       if (result.success && result.data) {
-        setSchools(result.data.data || result.data);
+        // Handle different response structures:
+        // 1. Direct array: result.data = [...]
+        // 2. Wrapped in data: result.data = { data: [...] }
+        // 3. Wrapped in array property: result.data = { schools: [...] }
+        let schoolsData: any[] = [];
+        
+        if (Array.isArray(result.data)) {
+          schoolsData = result.data;
+        } else if (result.data.data && Array.isArray(result.data.data)) {
+          schoolsData = result.data.data;
+        } else if (result.data.schools && Array.isArray(result.data.schools)) {
+          schoolsData = result.data.schools;
+        } else if (result.data.items && Array.isArray(result.data.items)) {
+          schoolsData = result.data.items;
+        }
+        
+        setSchools(schoolsData);
+        console.log('Parsed schools:', schoolsData);
+      } else {
+        console.error('Failed to fetch schools:', result.error);
+        setSchools([]);
       }
     } catch (error) {
       console.error('Error fetching schools:', error);
+      setSchools([]);
+    }
+  };
+
+  // Calculate age from date of birth
+  const calculateAge = (dateOfBirth: string): number | null => {
+    if (!dateOfBirth) return null;
+    const birthDate = new Date(dateOfBirth);
+    if (isNaN(birthDate.getTime())) return null;
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Get expected age range for grade
+  const getExpectedAgeRange = (grade: string): { min: number; max: number } | null => {
+    switch (grade.toLowerCase()) {
+      case 'grade 9':
+        return { min: 14, max: 15 };
+      case 'grade 10':
+        return { min: 15, max: 16 };
+      case 'grade 11':
+        return { min: 16, max: 17 };
+      case 'grade 12':
+        return { min: 17, max: 18 };
+      default:
+        return null;
     }
   };
 
@@ -78,6 +205,16 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       const date = new Date(formData.dateOfBirth);
       if (isNaN(date.getTime())) {
         newErrors.dateOfBirth = 'Invalid date format';
+      } else {
+        // Validate age against grade
+        const age = calculateAge(formData.dateOfBirth);
+        const ageRange = getExpectedAgeRange(formData.grade);
+        
+        if (age !== null && ageRange) {
+          if (age < ageRange.min || age > ageRange.max) {
+            newErrors.dateOfBirth = `Age does not match ${formData.grade}. This grade is typically for students aged ${ageRange.min} to ${ageRange.max} years old (current age: ${age})`;
+          }
+        }
       }
     }
     
@@ -94,9 +231,11 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       const requestData: AddChildRequest | UpdateChildRequest = {
         fullName: formData.fullName.trim(),
         schoolId: formData.schoolId,
-        centerId: formData.centerId || undefined,
+        // Only include centerId if it's not empty
+        centerId: formData.centerId && formData.centerId.trim() !== '' ? formData.centerId : undefined,
         grade: formData.grade,
-        dateOfBirth: formData.dateOfBirth || undefined
+        // Only include dateOfBirth if it's not empty
+        dateOfBirth: formData.dateOfBirth && formData.dateOfBirth.trim() !== '' ? formData.dateOfBirth : undefined
       };
 
       if (child) {
@@ -118,10 +257,35 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const updatedData = { ...formData, [field]: value };
+    setFormData(updatedData);
+    
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+    
+    // Validate age when dateOfBirth or grade changes
+    if (field === 'dateOfBirth' || field === 'grade') {
+      const dateOfBirth = field === 'dateOfBirth' ? value : updatedData.dateOfBirth;
+      const grade = field === 'grade' ? value : updatedData.grade;
+      
+      if (dateOfBirth && grade) {
+        const age = calculateAge(dateOfBirth);
+        const ageRange = getExpectedAgeRange(grade);
+        
+        if (age !== null && ageRange) {
+          if (age < ageRange.min || age > ageRange.max) {
+            setErrors(prev => ({
+              ...prev,
+              dateOfBirth: `Age does not match ${grade}. This grade is typically for students aged ${ageRange.min} to ${ageRange.max} years old (current age: ${age})`
+            }));
+          } else {
+            // Clear error if age is valid
+            setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+          }
+        }
+      }
     }
   };
 
@@ -170,13 +334,20 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 value={formData.schoolId}
                 onChange={(e) => handleChange('schoolId', e.target.value)}
                 className="form-input pl-10"
+                disabled={loadingData}
               >
-                <option value="">{t('selectSchool')}</option>
-                {schools.map((school) => (
-                  <option key={school.schoolId} value={school.schoolId}>
-                    {school.schoolName}
-                  </option>
-                ))}
+                <option value="">
+                  {loadingData ? t('loading') || 'Loading...' : t('selectSchool')}
+                </option>
+                {schools.map((school) => {
+                  const schoolId = school.SchoolId || school.schoolId || school.id;
+                  const schoolName = school.SchoolName || school.schoolName || school.name || 'Unknown School';
+                  return (
+                    <option key={schoolId} value={schoolId}>
+                      {schoolName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             {errors.schoolId && <p className="error-message">{errors.schoolId}</p>}
@@ -189,10 +360,16 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
               onChange={(e) => handleChange('grade', e.target.value)}
               className="form-input"
             >
-              <option value="grade 9">{t('grade9')}</option>
-              <option value="grade 10">{t('grade10')}</option>
-              <option value="grade 11">{t('grade11')}</option>
-              <option value="grade 12">{t('grade12')}</option>
+              {[
+                { value: 'grade 9', label: t('grade9') },
+                { value: 'grade 10', label: t('grade10') },
+                { value: 'grade 11', label: t('grade11') },
+                { value: 'grade 12', label: t('grade12') }
+              ].map((grade) => (
+                <option key={grade.value} value={grade.value}>
+                  {grade.label}
+                </option>
+              ))}
             </select>
             {errors.grade && <p className="error-message">{errors.grade}</p>}
           </div>
@@ -205,13 +382,20 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 value={formData.centerId}
                 onChange={(e) => handleChange('centerId', e.target.value)}
                 className="form-input pl-10"
+                disabled={loadingData}
               >
-                <option value="">{t('selectCenter')}</option>
-                {centers.map((center) => (
-                  <option key={center.centerId} value={center.centerId}>
-                    {center.name}
-                  </option>
-                ))}
+                <option value="">
+                  {loadingData ? t('loading') || 'Loading...' : t('selectCenter')}
+                </option>
+                {centers.map((center) => {
+                  const centerId = center.CenterId || center.centerId || center.id;
+                  const centerName = center.Name || center.name || 'Unknown Center';
+                  return (
+                    <option key={centerId} value={centerId}>
+                      {centerName}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>

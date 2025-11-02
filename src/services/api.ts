@@ -76,15 +76,21 @@ class ApiService {
       // Add auth token if available
       const token = localStorage.getItem('authToken');
       if (token) {
-        console.log('Adding auth token to request:', { 
-          url, 
-          tokenLength: token.length, 
-          tokenStart: token.substring(0, 20) + '...' 
-        });
-        config.headers = {
-          ...config.headers,
-          'Authorization': `Bearer ${token}`,
-        };
+        // Ensure token is not empty and is a valid string
+        const cleanToken = token.trim();
+        if (cleanToken) {
+          console.log('Adding auth token to request:', { 
+            url, 
+            tokenLength: cleanToken.length, 
+            tokenStart: cleanToken.substring(0, 20) + '...' 
+          });
+          config.headers = {
+            ...config.headers,
+            'Authorization': `Bearer ${cleanToken}`,
+          } as HeadersInit;
+        } else {
+          console.warn('Auth token is empty for request:', url);
+        }
       } else {
         console.warn('No auth token found for request:', url);
       }
@@ -101,16 +107,56 @@ class ApiService {
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired or invalid
         if (response.status === 401) {
-          console.warn('401 Unauthorized - clearing auth data');
-          // Commented out automatic logout to prevent unwanted redirects
-          // localStorage.removeItem('authToken');
-          // localStorage.removeItem('user');
-          // window.location.href = '/login';
+          const currentToken = localStorage.getItem('authToken');
+          console.warn('401 Unauthorized - Token authentication failed:', {
+            url,
+            hasToken: !!currentToken,
+            tokenLength: currentToken?.length || 0,
+            tokenPreview: currentToken ? `${currentToken.substring(0, 30)}...` : 'N/A',
+            responseText: text.substring(0, 200)
+          });
+          
+          // Clear invalid token and user data
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          
+          // Redirect to login only if not already on login page
+          if (!window.location.pathname.includes('/login')) {
+            console.log('Redirecting to login due to 401 Unauthorized error');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 1000);
+          }
+        }
+        
+        // Log detailed error information for debugging
+        console.error('API Error Details:', {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          responseData: data,
+          responseText: text.substring(0, 500), // First 500 chars
+          hasToken: !!localStorage.getItem('authToken'),
+          requestHeaders: config.headers
+        });
+        
+        // Extract error message from response
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        if (data) {
+          if (data.error) {
+            errorMessage = data.error;
+          } else if (data.message) {
+            errorMessage = data.message;
+          } else if (typeof data === 'string') {
+            errorMessage = data;
+          }
+        } else if (text) {
+          errorMessage = text.substring(0, 200); // First 200 chars of text response
         }
         
         return {
           success: false,
-          error: (data && data.error) || (data && data.message) || `HTTP error! status: ${response.status}`,
+          error: errorMessage,
         };
       }
 
@@ -235,6 +281,90 @@ class ApiService {
   async getUserWallet(userId: string): Promise<ApiResponse<{ balance: number; transactions: any[] }>> {
     return this.request(`/users/${userId}/wallet`);
   }
+
+  // User endpoints
+  async getUserById(userId: string): Promise<ApiResponse<any>> {
+    return this.request(`/users/${userId}`);
+  }
+
+  async updateUser(userId: string, data: {
+    FullName?: string;
+    PhoneNumber?: string;
+    Gender?: string;
+  }): Promise<ApiResponse<{ userId: string }>> {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Location endpoints
+  async getAddressAutocomplete(input: string, country: string = 'VN'): Promise<ApiResponse<{
+    success: boolean;
+    predictions: Array<{
+      place_id: string;
+      description: string;
+      structured_formatting?: {
+        main_text: string;
+        secondary_text: string;
+      };
+    }>;
+    totalCount: number;
+  }>> {
+    return this.request(`/location/autocomplete?input=${encodeURIComponent(input)}&country=${country}`);
+  }
+
+  async saveAddress(placeId: string): Promise<ApiResponse<{
+    success: boolean;
+    message: string;
+    locationUpdatedDate?: string;
+  }>> {
+    return this.request('/location/save-address', {
+      method: 'POST',
+      body: JSON.stringify({ PlaceId: placeId }),
+    });
+  }
+
+  // Package endpoints
+  async getAllPackages(): Promise<ApiResponse<any[]>> {
+    console.log('API getAllPackages called');
+    const response = await this.request<any>('/packages');
+    console.log('API getAllPackages response:', response);
+    
+    // Handle different response formats
+    if (response.success && response.data) {
+      // If response.data is already an array, return as is
+      if (Array.isArray(response.data)) {
+        return response;
+      }
+      // If response.data is an object with data/items/packages property
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return {
+          ...response,
+          data: response.data.data
+        };
+      }
+      if (response.data.items && Array.isArray(response.data.items)) {
+        return {
+          ...response,
+          data: response.data.items
+        };
+      }
+      if (response.data.packages && Array.isArray(response.data.packages)) {
+        return {
+          ...response,
+          data: response.data.packages
+        };
+      }
+    }
+    
+    return response;
+  }
+
+  // Admin endpoints
+  async getAdminStats(): Promise<ApiResponse<any>> {
+    return this.request('/admin/stats');
+  }
 }
 
 export const apiService = new ApiService();
@@ -312,6 +442,10 @@ export interface Child {
   grade: string;
   dateOfBirth?: string;
   status?: string;
+  // Ignore fields that don't exist in backend
+  reschedule_count?: never; // This field doesn't exist, ignore it
+  rescheduleCount?: never;
+  RescheduleCount?: never;
 }
 
 export interface AddChildRequest {
@@ -335,26 +469,63 @@ export interface LinkCenterRequest {
 }
 
 export async function getAllChildren() {
-  return apiService.request<Child[]>(`/children`);
+  const response = await apiService.request<Child[]>(`/children`);
+  
+  // Filter out reschedule_count field from response if present
+  if (response.success && response.data) {
+    response.data = response.data.map((child: any) => {
+      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanChild } = child;
+      return cleanChild;
+    }) as Child[];
+  }
+  
+  return response;
 }
 
 export async function getChildById(childId: string) {
-  return apiService.request<Child>(`/children/${childId}`);
+  const response = await apiService.request<Child>(`/children/${childId}`);
+  
+  // Filter out reschedule_count field from response if present
+  if (response.success && response.data) {
+    const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanChild } = response.data as any;
+    response.data = cleanChild as Child;
+  }
+  
+  return response;
 }
 
 export async function getChildrenByParent(parentId: string) {
-  return apiService.request<Child[]>(`/parents/${parentId}/children`);
+  const response = await apiService.request<Child[]>(`/parents/${parentId}/children`);
+  
+  // Filter out reschedule_count field from response if present (field doesn't exist in backend)
+  if (response.success && response.data) {
+    response.data = response.data.map((child: any) => {
+      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanChild } = child;
+      return cleanChild;
+    }) as Child[];
+  }
+  
+  return response;
 }
 
 export async function addChild(parentId: string, data: AddChildRequest) {
   // Convert camelCase to PascalCase for backend
-  const requestData = {
+  // Only include optional fields if they have values
+  const requestData: any = {
     FullName: data.fullName,
     SchoolId: data.schoolId,
-    CenterId: data.centerId,
-    Grade: data.grade,
-    DateOfBirth: data.dateOfBirth
+    Grade: data.grade
   };
+  
+  // Only include CenterId if it's provided and not empty
+  if (data.centerId && data.centerId.trim() !== '') {
+    requestData.CenterId = data.centerId;
+  }
+  
+  // Only include DateOfBirth if it's provided
+  if (data.dateOfBirth && data.dateOfBirth.trim() !== '') {
+    requestData.DateOfBirth = data.dateOfBirth;
+  }
   
   return apiService.request<{ childId: string }>(`/parents/${parentId}/children`, {
     method: 'POST',
@@ -460,32 +631,196 @@ export interface Contract {
   timeSlot: string;
   isOnline: boolean;
   status: string;
+  // Ignore fields that don't exist in backend
+  reschedule_count?: never; // This field doesn't exist, ignore it
+  rescheduleCount?: never;
+  RescheduleCount?: never;
 }
 
 export interface CreateContractRequest {
+  parentId: string;
   childId: string;
   packageId: string;
   mainTutorId: string;
+  substituteTutor1Id?: string; // Optional substitute tutor 1
+  substituteTutor2Id?: string; // Optional substitute tutor 2
   centerId?: string;
   startDate: string;
   endDate: string;
-  timeSlot: string;
+  daysOfWeeks?: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  startTime?: string; // Format: "HH:mm"
+  endTime?: string; // Format: "HH:mm"
   isOnline: boolean;
+  offlineAddress?: string;
+  offlineLatitude?: number;
+  offlineLongitude?: number;
+  videoCallPlatform?: string;
+  maxDistanceKm?: number;
 }
 
 export async function createContract(data: CreateContractRequest) {
+  // Remove reschedule_count if present (field doesn't exist in backend)
+  const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanData } = data as any;
+  
+  // Check if mainTutorId is empty GUID - backend requires a valid tutor ID
+  // Note: Backend validation requires MainTutorId to be a valid tutor (not empty GUID)
+  // If it's an empty GUID placeholder, we should not send it (but backend DTO requires it)
+  // For now, we'll send it and let backend handle the error gracefully
+  const isEmptyGuid = cleanData.mainTutorId === '00000000-0000-0000-0000-000000000000' || 
+                       !cleanData.mainTutorId || 
+                       cleanData.mainTutorId.trim() === '';
+  
+  if (isEmptyGuid) {
+    console.warn('MainTutorId is empty GUID - backend may reject this. Backend needs to allow nullable MainTutorId or a valid placeholder.');
+    // Backend currently requires MainTutorId, but we need it to be nullable or allow placeholder
+    // This is a limitation that needs backend fix
+  }
+  
+  // Validate required fields before building request
+  if (!cleanData.daysOfWeeks || cleanData.daysOfWeeks === 0) {
+    return Promise.resolve({
+      success: false,
+      error: 'At least one day must be selected (DaysOfWeeks must be 1-127)',
+      data: null
+    });
+  }
+
+  if (!cleanData.startTime || !cleanData.endTime || cleanData.startTime === '' || cleanData.endTime === '') {
+    return Promise.resolve({
+      success: false,
+      error: 'Start time and End time are required',
+      data: null
+    });
+  }
+
+  // Map camelCase to PascalCase for backend
+  // Backend expects DateOnly (YYYY-MM-DD) and TimeOnly (HH:mm) formats
+  const requestData: any = {
+    ParentId: cleanData.parentId,
+    ChildId: cleanData.childId,
+    PackageId: cleanData.packageId,
+    StartDate: cleanData.startDate, // Format: YYYY-MM-DD (DateOnly)
+    EndDate: cleanData.endDate, // Format: YYYY-MM-DD (DateOnly)
+    DaysOfWeeks: cleanData.daysOfWeeks, // Must be 1-127 (at least one day)
+    StartTime: cleanData.startTime, // Format: HH:mm (TimeOnly)
+    EndTime: cleanData.endTime, // Format: HH:mm (TimeOnly)
+    IsOnline: cleanData.isOnline,
+    MaxDistanceKm: cleanData.maxDistanceKm ?? (cleanData.isOnline ? 0 : 10)
+  };
+  
+  // MainTutorId is required by backend DTO, but entity allows nullable
+  // For now, we send empty GUID and backend should handle validation
+  // Note: Backend may return error if MainTutorId is empty GUID and validation fails
+  requestData.MainTutorId = cleanData.mainTutorId || '00000000-0000-0000-0000-000000000000';
+  
+  // Optional fields - only include if provided
+  if (cleanData.substituteTutor1Id) {
+    requestData.SubstituteTutor1Id = cleanData.substituteTutor1Id;
+  }
+  if (cleanData.substituteTutor2Id) {
+    requestData.SubstituteTutor2Id = cleanData.substituteTutor2Id;
+  }
+  if (cleanData.centerId) {
+    requestData.CenterId = cleanData.centerId;
+  }
+  if (cleanData.offlineAddress) {
+    requestData.OfflineAddress = cleanData.offlineAddress;
+  }
+  if (cleanData.offlineLatitude !== undefined) {
+    requestData.OfflineLatitude = cleanData.offlineLatitude;
+  }
+  if (cleanData.offlineLongitude !== undefined) {
+    requestData.OfflineLongitude = cleanData.offlineLongitude;
+  }
+  if (cleanData.videoCallPlatform) {
+    requestData.VideoCallPlatform = cleanData.videoCallPlatform;
+  }
+  
+  // Note: Backend validation requires MainTutorId to be a valid tutor
+  // If MainTutorId is empty GUID, backend will return "Invalid main tutor" error
+  // This is expected behavior until backend allows nullable MainTutorId for pending contracts
+  if (!requestData.MainTutorId) {
+    return Promise.resolve({
+      success: false,
+      error: 'Main tutor ID is required by backend',
+      data: null
+    });
+  }
+  
+  // Log the request data for debugging (excluding sensitive info)
+  console.log('Creating contract with data:', {
+    ...requestData,
+    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'N/A'
+  });
+  
   return apiService.request<{ contractId: string }>(`/contracts`, {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestData),
   });
 }
 
 export async function getContractsByParent(parentId: string) {
-  return apiService.request<Contract[]>(`/contracts/parents/${parentId}`);
+  console.log(`[API] Fetching contracts for parent: ${parentId}`);
+  
+  const response = await apiService.request<Contract[]>(`/contracts/parents/${parentId}`);
+  
+  if (response.success && response.data) {
+    console.log(`[API] Successfully fetched ${response.data.length} contracts for parent ${parentId}`);
+    
+    // Filter out reschedule_count field from response if present
+    response.data = response.data.map((contract: any) => {
+      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+      return cleanContract;
+    }) as Contract[];
+  } else {
+    console.error(`[API] Failed to fetch contracts for parent ${parentId}:`, response.error);
+  }
+  
+  return response;
 }
 
 export async function getContractsByChild(childId: string) {
-  return apiService.request<Contract[]>(`/children/${childId}/contracts`);
+  const response = await apiService.request<Contract[]>(`/children/${childId}/contracts`);
+  
+  // Filter out reschedule_count field from response if present
+  if (response.success && response.data) {
+    response.data = response.data.map((contract: any) => {
+      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+      return cleanContract;
+    }) as Contract[];
+  }
+  
+  return response;
+}
+
+export async function getContractById(contractId: string) {
+  // Backend might not have direct GET /contracts/{id} endpoint
+  // So we'll try to get it from parent's contracts list
+  // Or if backend has the endpoint, use it directly
+  try {
+    // Try direct endpoint first (if backend supports it)
+    const response = await apiService.request<any>(`/contracts/${contractId}`);
+    
+    if (response.success && response.data) {
+      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = response.data;
+      return {
+        success: true,
+        data: cleanContract,
+        error: null
+      };
+    }
+    
+    return response;
+  } catch (error) {
+    // If direct endpoint doesn't exist, try to get from parent's contracts
+    // This is a fallback approach
+    console.warn('Direct contract endpoint not available, will need parent ID to fetch from list');
+    return {
+      success: false,
+      data: null,
+      error: 'Contract endpoint not available. Please use getContractsByParent and filter by ID.'
+    };
+  }
 }
 
 // =====================

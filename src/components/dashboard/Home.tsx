@@ -25,45 +25,27 @@ const Home: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
+      setError(null);
       try {
-        // Use mock data since API endpoints don't exist yet
-        const mockStats: DashboardStats = {
-          totalUsers: 1250,
-          totalTutors: 85,
-          totalStudents: 1165,
-          activeSessions: 36,
-          revenue: 125000,
-          growthRate: 12
-        };
-        
-        const mockActivities: Activity[] = [
-          {
-            id: 1,
-            title: 'New tutor registered',
-            description: 'John Smith joined the system',
-            time: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-            type: 'user'
-          },
-          {
-            id: 2,
-            title: 'Session completed',
-            description: 'Grade 12 Math session for Emma Johnson',
-            time: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-            type: 'session'
-          },
-          {
-            id: 3,
-            title: 'Payment successful',
-            description: 'Parent payment received for tutoring sessions',
-            time: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-            type: 'payment'
-          }
-        ];
-        
-        setStats(mockStats);
-        setActivities(mockActivities);
+        // Fetch dashboard stats from API
+        const statsResponse = await apiService.getDashboardStats();
+        if (statsResponse.success && statsResponse.data) {
+          setStats(statsResponse.data);
+        } else {
+          throw new Error(statsResponse.error || 'Failed to load dashboard stats');
+        }
+
+        // Fetch recent activities from API
+        const activitiesResponse = await apiService.getRecentActivities();
+        if (activitiesResponse.success && activitiesResponse.data) {
+          setActivities(activitiesResponse.data);
+        } else {
+          // If activities fail, set empty array instead of throwing
+          setActivities([]);
+        }
       } catch (err) {
-        setError('Failed to load dashboard data');
+        console.error('Error fetching dashboard data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
       } finally {
         setIsLoading(false);
       }
