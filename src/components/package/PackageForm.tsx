@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Loader } from 'lucide-react';
-import type { Course } from '../types';
+import { useToast } from '../../contexts/ToastContext';
+import type { Course } from '../../types';
 
-interface CourseFormProps {
+interface PackageFormProps {
   course?: Course | null;
   centerId?: string;
   onSave: (course: Course) => void;
   onCancel: () => void;
 }
 
-const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCancel }) => {
+const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onCancel }) => {
+  const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(false);
   const [centers, setCenters] = useState<any[]>([]);
   const [formData, setFormData] = useState({
@@ -66,16 +68,18 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           center_id: formData.center_id,
         };
 
-        const response = await fetch(`/api/courses/${course.course_id}`, {
+        const response = await fetch(`/api/packages/${course.course_id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updateData)
         });
 
         if (!response.ok) {
-          throw new Error('Failed to update course');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to update package');
         }
 
+        showSuccess('Package updated successfully!');
         onSave(course);
       } else {
         const createData = {
@@ -93,17 +97,19 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
           center_id: formData.center_id,
         };
 
-        const response = await fetch('/api/courses', {
+        const response = await fetch('/api/packages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(createData)
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create course');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create package');
         }
 
         const result = await response.json();
+        showSuccess('Package created successfully!');
 
         const newCourse: Course = {
           course_id: result.courseId,
@@ -124,8 +130,9 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
         onSave(newCourse);
       }
     } catch (error) {
-      console.error('Error saving course:', error);
-      alert('Failed to save course');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save package';
+      console.error('Error saving package:', error);
+      showError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -147,7 +154,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
         <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">
-              {course ? 'Edit Course' : 'Create New Course'}
+              {course ? 'Edit Package' : 'Create New Package'}
             </h2>
             <button
               onClick={onCancel}
@@ -182,7 +189,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Course Name *
+                Package Name *
               </label>
               <input
                 type="text"
@@ -191,7 +198,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
                 onChange={handleChange}
                 required
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                placeholder="Enter course name"
+                placeholder="Enter package name"
               />
             </div>
 
@@ -205,7 +212,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
                 onChange={handleChange}
                 rows={4}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none resize-none"
-                placeholder="Enter course description"
+                placeholder="Enter package description"
               />
             </div>
 
@@ -362,7 +369,7 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
               ) : (
                 <>
                   <Save className="w-5 h-5" />
-                  <span>{course ? 'Update Course' : 'Create Course'}</span>
+                  <span>{course ? 'Update Package' : 'Create Package'}</span>
                 </>
               )}
             </button>
@@ -373,4 +380,4 @@ const CourseForm: React.FC<CourseFormProps> = ({ course, centerId, onSave, onCan
   );
 };
 
-export default CourseForm;
+export default PackageForm;

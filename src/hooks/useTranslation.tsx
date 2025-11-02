@@ -6,6 +6,8 @@ type TranslationKey =
   | 'quickActions'
   | 'viewCourses'
   | 'browseCourses'
+  | 'viewPackages'
+  | 'browsePackages'
   | 'addChild'
   | 'children'
   | 'registered'
@@ -471,6 +473,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     quickActions: 'Quick Actions',
     viewCourses: 'View Courses',
     browseCourses: 'Browse available courses',
+    viewPackages: 'View Packages',
+    browsePackages: 'Browse available packages',
     addChild: 'Add Child',
     children: 'Children',
     registered: 'registered',
@@ -935,6 +939,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     quickActions: 'Hành động nhanh',
     viewCourses: 'Xem khóa học',
     browseCourses: 'Duyệt các khóa học có sẵn',
+    viewPackages: 'Xem gói học',
+    browsePackages: 'Duyệt các gói học có sẵn',
     addChild: 'Thêm trẻ',
     children: 'Trẻ em',
     registered: 'đã đăng ký',

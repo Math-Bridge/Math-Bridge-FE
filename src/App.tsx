@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { Layout } from './components/common';
 import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
@@ -16,9 +17,9 @@ import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
 import TutorDashboard from './components/features/tutor/TutorDashboard';
 import TutorsByCenter from './components/tutors/TutorsByCenter';
-import { CourseList } from './components/courses';
-import CourseDetailPage from './pages/CourseDetailPage';
-import CourseFormPage from './pages/CourseFormPage';
+import { PackageList } from './components/package';
+import PackageDetailPage from './pages/PackageDetailPage';
+import PackageFormPage from './pages/PackageFormPage';
 
 // Features Pages
 import {
@@ -102,8 +103,9 @@ function App() {
   return (
     <ErrorBoundary>
       <SettingsProvider>
-        <AuthProvider>
-          <Routes>
+        <ToastProvider>
+          <AuthProvider>
+            <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<RoleBasedRedirect />} />
               <Route path="login" element={<Login />} />
@@ -187,25 +189,25 @@ function App() {
               </ProtectedRoute>
             } />
             
-            {/* Course Routes */}
-            <Route path="courses" element={
+            {/* Package Routes */}
+            <Route path="packages" element={
               <ProtectedRoute>
-                <CourseList />
+                <PackageList />
               </ProtectedRoute>
             } />
-            <Route path="courses/:courseId" element={
+            <Route path="packages/:packageId" element={
               <ProtectedRoute>
-                <CourseDetailPage />
+                <PackageDetailPage />
               </ProtectedRoute>
             } />
-            <Route path="courses/create" element={
-              <ProtectedRoute>
-                <CourseFormPage />
+            <Route path="packages/create" element={
+              <ProtectedRoute requiredRole="admin">
+                <PackageFormPage />
               </ProtectedRoute>
             } />
-            <Route path="courses/:courseId/edit" element={
-              <ProtectedRoute>
-                <CourseFormPage />
+            <Route path="packages/:packageId/edit" element={
+              <ProtectedRoute requiredRole="admin">
+                <PackageFormPage />
               </ProtectedRoute>
             } />
             
@@ -256,10 +258,11 @@ function App() {
             } />
           </Route>
         </Routes>
-      </AuthProvider>
-    </SettingsProvider>
-  </ErrorBoundary>
-);
+          </AuthProvider>
+        </ToastProvider>
+      </SettingsProvider>
+    </ErrorBoundary>
+  );
 }
 
 export default App;

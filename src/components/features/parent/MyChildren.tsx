@@ -56,15 +56,7 @@ const MyChildren: React.FC = () => {
     setRefreshKey(prev => prev + 1);
   };
 
-  const quickActions = [
-    {
-      title: t('viewCourses'),
-      description: t('browseCourses'),
-      icon: BookOpen,
-      color: 'orange',
-      onClick: () => navigate('/courses')
-    }
-  ];
+ 
 
   const getColorClasses = (color: string) => {
     const colors = {
@@ -82,23 +74,7 @@ const MyChildren: React.FC = () => {
           <p className="text-gray-600 mt-2">{t('manageProfiles')}</p>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-5">{t('quickActions')}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => (
-              <button
-                key={index}
-                onClick={action.onClick}
-                className={`flex flex-col items-center justify-center p-6 rounded-xl shadow-sm border ${getColorClasses(action.color)} hover:shadow-md hover:-translate-y-1 transition-all duration-200`}
-              >
-                <action.icon className="h-8 w-8 mb-3" />
-                <span className="text-lg font-semibold">{action.title}</span>
-                <span className="text-sm text-gray-600 mt-1 text-center">{action.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+       
 
         {/* Children Management */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

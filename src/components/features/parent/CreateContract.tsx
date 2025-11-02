@@ -16,6 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getChildrenByParent, createContract, apiService, getSchoolById } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
 
 interface Package {
@@ -33,6 +34,7 @@ type Step = 'select-child' | 'select-package' | 'schedule' | 'payment';
 const CreateContract: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showError, showSuccess } = useToast();
   const [currentStep, setCurrentStep] = useState<Step>('select-child');
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
@@ -183,6 +185,16 @@ const CreateContract: React.FC = () => {
       ...prev,
       isOnline: !selectedChild?.centerId
     }));
+    // Don't auto-navigate to schedule, wait for Continue button
+  };
+
+  const handleContinueFromPackage = () => {
+    if (!selectedPackage) {
+      const msg = 'Please select a package';
+      setError(msg);
+      showError(msg);
+      return;
+    }
     setCurrentStep('schedule');
   };
 
@@ -264,20 +276,26 @@ const CreateContract: React.FC = () => {
       const result = await createContract(contractData);
 
       if (result.success) {
+        showSuccess('Contract created successfully!');
         // Navigate to payment page or contract detail
         navigate(`/contracts/${result.data?.contractId || ''}`);
       } else {
         // Check for specific backend errors
         const errorMsg = result.error || 'Failed to create contract';
         if (errorMsg.includes('Invalid main tutor') || errorMsg.includes('Invalid main tutor')) {
-          setError('Cannot create contract: Tutor assignment is required. Please contact support or wait for staff to assign a tutor. Note: This feature requires backend update to allow pending contracts without tutor.');
+          const msg = 'Cannot create contract: Tutor assignment is required. Please contact support or wait for staff to assign a tutor.';
+          setError(msg);
+          showError(msg);
         } else {
           setError(errorMsg);
+          showError(errorMsg);
         }
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create contract';
       console.error('Error creating contract:', err);
-      setError('Failed to create contract');
+      setError(errorMsg);
+      showError(errorMsg);
     } finally {
       setIsCreating(false);
     }
@@ -314,10 +332,10 @@ const CreateContract: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={() => navigate('/contracts')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
+            className="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2 mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span className="font-semibold">Back to Contracts</span>
+            <span>Back to Contracts</span>
           </button>
           <h1 className="text-3xl font-bold text-gray-900">Create New Contract</h1>
           <p className="text-gray-600 mt-2">Follow the steps to create a new tutoring contract</p>
@@ -501,60 +519,80 @@ const CreateContract: React.FC = () => {
                 <p className="text-gray-600">Please check back later or contact support.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {packages
-                  .filter(pkg => {
-                    // If child has a grade, show packages that match the grade OR packages with no grade specified
-                    // If child has no grade, show all packages
-                    if (!selectedChild?.grade) {
-                      return true; // Show all if no child grade
-                    }
-                    // Show packages that match child's grade OR packages with no grade specified
-                    return !pkg.grade || pkg.grade === selectedChild.grade || 
-                           pkg.grade.toLowerCase() === selectedChild.grade.toLowerCase();
-                  })
-                  .map((pkg) => {
-                    console.log('Rendering package:', pkg);
-                    return (
-                      <div
-                        key={pkg.packageId}
-                        onClick={() => handleSelectPackage(pkg)}
-                        className={`border rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
-                          selectedPackage?.packageId === pkg.packageId
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200'
-                        }`}
-                      >
-                        <h3 className="font-bold text-gray-900 text-lg mb-2">{pkg.packageName}</h3>
-                        {pkg.description && (
-                          <p className="text-sm text-gray-600 mb-4">{pkg.description}</p>
-                        )}
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Sessions:</span>
-                            <span className="font-medium">{pkg.sessionCount}</span>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {packages
+                    .filter(pkg => {
+                      // If child has a grade, show packages that match the grade OR packages with no grade specified
+                      // If child has no grade, show all packages
+                      if (!selectedChild?.grade) {
+                        return true; // Show all if no child grade
+                      }
+                      // Show packages that match child's grade OR packages with no grade specified
+                      return !pkg.grade || pkg.grade === selectedChild.grade || 
+                             pkg.grade.toLowerCase() === selectedChild.grade.toLowerCase();
+                    })
+                    .map((pkg) => {
+                      console.log('Rendering package:', pkg);
+                      return (
+                        <div
+                          key={pkg.packageId}
+                          onClick={() => handleSelectPackage(pkg)}
+                          className={`border rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
+                            selectedPackage?.packageId === pkg.packageId
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200'
+                          }`}
+                        >
+                          <h3 className="font-bold text-gray-900 text-lg mb-2">{pkg.packageName}</h3>
+                          {pkg.description && (
+                            <p className="text-sm text-gray-600 mb-4">{pkg.description}</p>
+                          )}
+                          <div className="space-y-2 mb-4">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Sessions:</span>
+                              <span className="font-medium">{pkg.sessionCount}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Duration:</span>
+                              <span className="font-medium">{pkg.durationDays} days</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">Grade:</span>
+                              <span className="font-medium">{pkg.grade || 'All'}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Duration:</span>
-                            <span className="font-medium">{pkg.durationDays} days</span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Grade:</span>
-                            <span className="font-medium">{pkg.grade || 'All'}</span>
+                          <div className="pt-4 border-t border-gray-200">
+                            <p className="text-2xl font-bold text-gray-900">
+                              {new Intl.NumberFormat('vi-VN', { 
+                                style: 'currency', 
+                                currency: 'VND' 
+                              }).format(pkg.price)}
+                            </p>
                           </div>
                         </div>
-                        <div className="pt-4 border-t border-gray-200">
-                          <p className="text-2xl font-bold text-gray-900">
-                            {new Intl.NumberFormat('vi-VN', { 
-                              style: 'currency', 
-                              currency: 'VND' 
-                            }).format(pkg.price)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
+                      );
+                    })}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleBack}
+                    className="flex-1 px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleContinueFromPackage}
+                    disabled={!selectedPackage}
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <span>Continue to Schedule</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -786,13 +824,17 @@ const CreateContract: React.FC = () => {
                   onClick={() => {
                     // Validate start date
                     if (!schedule.startDate) {
-                      setError('Please select a start date');
+                      const msg = 'Please select a start date';
+                      setError(msg);
+                      showError(msg);
                       return;
                     }
                     
                     // Validate offline location if offline is selected
                     if (!schedule.isOnline && (!schedule.offlineAddress || schedule.offlineAddress.trim() === '')) {
-                      setError('Please enter a location for offline sessions');
+                      const msg = 'Please enter a location for offline sessions';
+                      setError(msg);
+                      showError(msg);
                       return;
                     }
                     

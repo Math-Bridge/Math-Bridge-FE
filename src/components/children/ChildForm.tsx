@@ -3,7 +3,7 @@ import { X, User, School as SchoolIcon, Calendar, MapPin } from 'lucide-react';
 import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllCenters, Center, getActiveSchools, School } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
-
+import { useToast } from '../../contexts/ToastContext';
 interface ChildFormProps {
   child?: {
     childId: string;
@@ -20,6 +20,7 @@ interface ChildFormProps {
 const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { showSuccess, showError } = useToast();
   const [formData, setFormData] = useState({
     fullName: child?.fullName || '',
     schoolId: child?.schoolId || '',
@@ -240,17 +241,35 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
 
       if (child) {
         // Update existing child
-        await updateChild(child.childId, requestData);
+        const result = await updateChild(child.childId, requestData);
+        if (result.success) {
+          showSuccess('Child updated successfully!');
+        } else {
+          showError(result.error || 'Failed to update child');
+          setErrors({ general: result.error || 'Failed to update child' });
+          setLoading(false);
+          return;
+        }
       } else {
         // Add new child
-        await addChild(user.id, requestData as AddChildRequest);
+        const result = await addChild(user.id, requestData as AddChildRequest);
+        if (result.success) {
+          showSuccess('Child added successfully!');
+        } else {
+          showError(result.error || 'Failed to add child');
+          setErrors({ general: result.error || 'Failed to add child' });
+          setLoading(false);
+          return;
+        }
       }
 
       onSuccess();
       onClose();
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save child. Please try again.';
       console.error('Error saving child:', error);
-      setErrors({ general: 'Failed to save child. Please try again.' });
+      showError(errorMsg);
+      setErrors({ general: errorMsg });
     } finally {
       setLoading(false);
     }

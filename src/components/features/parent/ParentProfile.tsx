@@ -10,19 +10,18 @@ import {
   Lock,
   LogOut,
   ChevronRight,
-  AlertCircle,
-  CheckCircle2
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
 
 const ParentProfile: React.FC = () => {
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -47,18 +46,16 @@ const ParentProfile: React.FC = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setFormData(originalData);
-    setMessage(null);
   };
 
 
   const handleSave = async () => {
     if (!user?.id) {
-      setMessage({ type: 'error', text: 'User not authenticated' });
+      showError('User not authenticated');
       return;
     }
 
     setIsLoading(true);
-    setMessage(null);
 
     try {
       // Step 1: Update user basic info (FullName, PhoneNumber)
@@ -75,21 +72,23 @@ const ParentProfile: React.FC = () => {
       if (updateData.FullName || updateData.PhoneNumber) {
         const response = await apiService.updateUser(user.id, updateData);
         if (!response.success) {
-          setMessage({ type: 'error', text: response.error || 'Failed to update profile' });
+          const errorMsg = response.error || 'Failed to update profile';
+          showError(errorMsg);
           setIsLoading(false);
           return;
         }
       }
 
 
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      showSuccess('Profile updated successfully!');
       setIsEditing(false);
       setOriginalData(formData);
       // Refresh user data to get latest from server
       await fetchUserData();
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update profile. Please try again.';
       console.error('Error updating profile:', err);
-      setMessage({ type: 'error', text: 'Failed to update profile' });
+      showError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -97,19 +96,18 @@ const ParentProfile: React.FC = () => {
 
   const handlePasswordChange = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
+      showError('New passwords do not match');
       return;
     }
     if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+      showError('Password must be at least 6 characters');
       return;
     }
 
     setIsLoading(true);
-    setMessage(null);
 
     setTimeout(() => {
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      showSuccess('Password changed successfully!');
       setShowPasswordModal(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsLoading(false);
@@ -121,16 +119,16 @@ const ParentProfile: React.FC = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setMessage({ type: 'error', text: 'Please select an image file' });
+      showError('Please select an image file');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setMessage({ type: 'error', text: 'Image size must be less than 5MB' });
+      showError('Image size must be less than 5MB');
       return;
     }
 
-    setMessage({ type: 'success', text: 'Profile picture uploaded successfully!' });
+    showSuccess('Profile picture uploaded successfully!');
   };
 
   // Fetch user data on component mount
@@ -161,43 +159,22 @@ const ParentProfile: React.FC = () => {
           phone: userData.PhoneNumber || userData.phoneNumber || userData.phone || ''
         });
       } else {
-        setMessage({ type: 'error', text: response.error || 'Failed to load profile data' });
+        showError(response.error || 'Failed to load profile data');
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to load profile data';
       console.error('Error fetching user data:', err);
-      setMessage({ type: 'error', text: 'Failed to load profile data' });
+      showError(errorMsg);
     } finally {
       setIsFetching(false);
     }
   };
-
-  useEffect(() => {
-    if (message) {
-      const timer = setTimeout(() => setMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Message Toast */}
-        {message && (
-          <div className={`fixed top-6 right-6 z-50 flex items-center space-x-3 px-6 py-4 rounded-xl shadow-lg backdrop-blur-sm animate-in slide-in-from-top-5 ${
-            message.type === 'success'
-              ? 'bg-emerald-500 text-white'
-              : 'bg-red-500 text-white'
-          }`}>
-            {message.type === 'success' ? (
-              <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            )}
-            <span className="font-medium">{message.text}</span>
-          </div>
-        )}
 
         {/* Header Section */}
         <div className="mb-8">

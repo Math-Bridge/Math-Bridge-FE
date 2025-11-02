@@ -916,6 +916,21 @@ export async function getCourseById(courseId: string) {
   return apiService.request<Course>(`/courses/${courseId}`);
 }
 
+// Package API functions (wrapper for packages endpoint)
+export async function getPackageById(packageId: string) {
+  // Try packages endpoint first, fallback to courses
+  try {
+    const response = await apiService.request<Course>(`/packages/${packageId}`);
+    if (response.success) {
+      return response;
+    }
+  } catch (err) {
+    console.log('Package endpoint not available, trying courses endpoint');
+  }
+  // Fallback to courses endpoint
+  return apiService.request<Course>(`/courses/${packageId}`);
+}
+
 export async function createCourse(data: CreateCourseRequest) {
   return apiService.request<{ courseId: string }>(`/courses`, {
     method: 'POST',

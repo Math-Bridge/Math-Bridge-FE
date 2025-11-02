@@ -12,18 +12,57 @@ import {
   Star,
   Wallet,
   FileText,
-  Plus,
   BarChart3,
   MessageCircle,
   Bell
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { 
+  apiService, 
+  getContractsByParent
+} from '../../../services/api';
+
+interface UpcomingSession {
+  id: string;
+  childName: string;
+  subject: string;
+  tutorName: string;
+  date: string;
+  duration: string;
+}
+
+interface RecentActivity {
+  id: string;
+  type: 'session' | 'contract' | 'payment';
+  title: string;
+  description: string;
+  time: string;
+  status: 'completed' | 'pending' | 'active';
+}
+
+interface PopularPackage {
+  id: string;
+  title: string;
+  description: string;
+  rating: number;
+  students: number;
+  price: number;
+  duration: string;
+  level: string;
+}
 
 const ParentHome: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // API Data States
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [popularPackages, setPopularPackages] = useState<PopularPackage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -32,6 +71,160 @@ const ParentHome: React.FC = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  // Fetch data from API
+  useEffect(() => {
+    if (user?.id) {
+      fetchHomeData();
+    }
+  }, [user?.id]);
+
+  const fetchHomeData = async () => {
+    if (!user?.id) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Fetch wallet balance
+      const walletResponse = await apiService.getUserWallet(user.id);
+      if (walletResponse.success && walletResponse.data) {
+        setWalletBalance(walletResponse.data.balance || 0);
+      }
+
+      // Fetch contracts to create upcoming sessions and recent activities
+      const contractsResponse = await getContractsByParent(user.id);
+      if (contractsResponse.success && contractsResponse.data) {
+        const contracts = contractsResponse.data;
+        
+        // Create upcoming sessions from active contracts
+        const sessions: UpcomingSession[] = [];
+        contracts
+          .filter((c: any) => {
+            const status = (c.Status || c.status || '').toLowerCase();
+            return status === 'active' || status === 'pending';
+          })
+          .slice(0, 5) // Limit to 5 upcoming sessions
+          .forEach((contract: any) => {
+            const startDate = contract.StartDate || contract.startDate;
+            const childName = contract.ChildName || contract.childName || 'N/A';
+            const tutorName = contract.MainTutorName || contract.mainTutorName || 'Will be assigned';
+            const packageName = contract.PackageName || contract.packageName || 'Package';
+            
+            // Create a simple upcoming session entry
+            if (startDate) {
+              const start = new Date(startDate);
+              const now = new Date();
+              if (start >= now) {
+                sessions.push({
+                  id: contract.ContractId || contract.contractId || contract.id || '',
+                  childName: childName,
+                  subject: packageName,
+                  tutorName: tutorName,
+                  date: start.toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric' }),
+                  duration: '1 hour'
+                });
+              }
+            }
+          });
+        setUpcomingSessions(sessions);
+
+        // Create recent activities from contracts
+        const activities: RecentActivity[] = [];
+        contracts
+          .slice(0, 3) // Limit to 3 recent activities
+          .forEach((contract: any) => {
+            const createdAt = contract.CreatedAt || contract.createdAt || contract.StartDate || contract.startDate;
+            const status = (contract.Status || contract.status || '').toLowerCase();
+            const packageName = contract.PackageName || contract.packageName || 'Package';
+            const childName = contract.ChildName || contract.childName || 'N/A';
+            
+            let timeAgo = 'Recently';
+            if (createdAt) {
+              const created = new Date(createdAt);
+              const now = new Date();
+              const diffMs = now.getTime() - created.getTime();
+              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+              
+              if (diffDays === 0) {
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                if (diffHours === 0) {
+                  const diffMins = Math.floor(diffMs / (1000 * 60));
+                  timeAgo = diffMins <= 1 ? 'Just now' : `${diffMins} minutes ago`;
+                } else {
+                  timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                }
+              } else if (diffDays === 1) {
+                timeAgo = '1 day ago';
+              } else {
+                timeAgo = `${diffDays} days ago`;
+              }
+            }
+
+            activities.push({
+              id: contract.ContractId || contract.contractId || contract.id || '',
+              type: 'contract',
+              title: 'Contract Created',
+              description: `${packageName} for ${childName}`,
+              time: timeAgo,
+              status: status === 'active' ? 'active' : status === 'completed' ? 'completed' : 'pending'
+            });
+          });
+        setRecentActivities(activities);
+      }
+
+      // Fetch packages for popular packages section
+      const packagesResponse = await apiService.getAllPackages();
+      if (packagesResponse.success && packagesResponse.data) {
+        const packages = packagesResponse.data;
+        const mappedPackages: PopularPackage[] = packages
+          .slice(0, 3) // Limit to 3 popular packages
+          .map((pkg: any) => {
+            const price = pkg.Price || pkg.price || 0;
+            const sessionCount = pkg.SessionCount || pkg.sessionCount || 0;
+            const weeksNeeded = Math.ceil(sessionCount / 3); // 3 sessions per week
+            
+            return {
+              id: pkg.PackageId || pkg.packageId || pkg.id || '',
+              title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
+              description: pkg.Description || pkg.description || 'Comprehensive math tutoring',
+              rating: 4.8, // Default rating (backend may not have this)
+              students: 100, // Default students (backend may not have this)
+              price: price,
+              duration: `${weeksNeeded} weeks`,
+              level: 'Intermediate' // Default level
+            };
+          });
+        setPopularPackages(mappedPackages);
+      }
+
+      // Try to fetch recent activities from API (if endpoint exists)
+      try {
+        const activitiesResponse = await apiService.getRecentActivities();
+        if (activitiesResponse.success && activitiesResponse.data && activitiesResponse.data.length > 0) {
+          // Use API activities if available, otherwise use contract-based activities
+          const mappedActivities = activitiesResponse.data.map((activity: any) => ({
+            id: activity.Id || activity.id || String(activity.id || ''),
+            type: (activity.Type || activity.type || 'session').toLowerCase() as 'session' | 'contract' | 'payment',
+            title: activity.Title || activity.title || 'Activity',
+            description: activity.Description || activity.description || '',
+            time: activity.Time || activity.time || 'Recently',
+            status: (activity.Status || activity.status || 'pending').toLowerCase() as 'completed' | 'pending' | 'active'
+          }));
+          if (mappedActivities.length > 0) {
+            setRecentActivities(mappedActivities.slice(0, 3));
+          }
+        }
+      } catch (err) {
+        // If activities endpoint doesn't exist, use contract-based activities (already set above)
+        console.log('Recent activities endpoint not available, using contract-based activities');
+      }
+
+    } catch (err) {
+      console.error('Error fetching home data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
@@ -49,11 +242,11 @@ const ParentHome: React.FC = () => {
       onClick: () => navigate('/user-profile')
     },
     {
-      title: t('viewCourses'),
-      description: t('browseCourses'),
+      title: t('viewPackages'),
+      description: t('browsePackages'),
       icon: BookOpen,
       color: 'green',
-      onClick: () => navigate('/courses')
+      onClick: () => navigate('/packages')
     },
     {
       title: t('createContract'),
@@ -82,51 +275,6 @@ const ParentHome: React.FC = () => {
     return colors[color as keyof typeof colors] || colors.blue;
   };
 
-  const recentActivities = [
-    {
-      id: '1',
-      type: 'session',
-      title: 'Math Session with Sarah',
-      description: 'Algebra fundamentals - Grade 8',
-      time: '2 hours ago',
-      status: 'completed'
-    },
-    {
-      id: '2',
-      type: 'contract',
-      title: 'New Contract Created',
-      description: 'Advanced Calculus package with Dr. Johnson',
-      time: '1 day ago',
-      status: 'pending'
-    },
-    {
-      id: '3',
-      type: 'payment',
-      title: 'Wallet Deposit',
-      description: 'Added 2,000,000 VND to wallet',
-      time: '2 days ago',
-      status: 'completed'
-    }
-  ];
-
-  const upcomingSessions = [
-    {
-      id: '1',
-      childName: 'Emma Johnson',
-      subject: 'Algebra',
-      tutorName: 'Dr. Sarah Wilson',
-      date: 'Tomorrow, 2:00 PM',
-      duration: '1 hour'
-    },
-    {
-      id: '2',
-      childName: 'Michael Johnson',
-      subject: 'Geometry',
-      tutorName: 'Prof. David Lee',
-      date: 'Friday, 4:00 PM',
-      duration: '1.5 hours'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -158,7 +306,13 @@ const ParentHome: React.FC = () => {
                   <Wallet className="h-5 w-5" />
                   <span className="text-sm">Wallet Balance</span>
                 </div>
-                <div className="text-2xl font-bold">2,500,000 VND</div>
+                <div className="text-2xl font-bold">
+                  {walletBalance !== null 
+                    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletBalance)
+                    : isLoading 
+                      ? 'Loading...' 
+                      : '0 VND'}
+                </div>
               </div>
             </div>
           </div>
@@ -166,6 +320,13 @@ const ParentHome: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="mb-8 flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
@@ -205,7 +366,13 @@ const ParentHome: React.FC = () => {
               </div>
 
               <div className="space-y-4">
-                {recentActivities.map((activity) => (
+                {recentActivities.length === 0 && !isLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No recent activities</p>
+                  </div>
+                ) : (
+                  recentActivities.map((activity) => (
                   <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       activity.type === 'session' ? 'bg-blue-100' :
@@ -232,7 +399,8 @@ const ParentHome: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -246,17 +414,24 @@ const ParentHome: React.FC = () => {
               </h2>
 
               <div className="space-y-4">
-                {upcomingSessions.map((session) => (
-                  <div key={session.id} className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-gray-900">{session.childName}</h3>
-                      <span className="text-xs text-green-600 font-medium">{session.duration}</span>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">{session.subject}</p>
-                    <p className="text-sm text-gray-500 mb-2">with {session.tutorName}</p>
-                    <p className="text-sm font-medium text-green-700">{session.date}</p>
+                {upcomingSessions.length === 0 && !isLoading ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No upcoming sessions</p>
                   </div>
-                ))}
+                ) : (
+                  upcomingSessions.map((session) => (
+                    <div key={session.id} className="p-4 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="font-medium text-gray-900">{session.childName}</h3>
+                        <span className="text-xs text-green-600 font-medium">{session.duration}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">{session.subject}</p>
+                      <p className="text-sm text-gray-500 mb-2">with {session.tutorName}</p>
+                      <p className="text-sm font-medium text-green-700">{session.date}</p>
+                    </div>
+                  ))
+                )}
               </div>
 
               <button className="w-full mt-4 p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
@@ -266,83 +441,54 @@ const ParentHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Popular Courses Section */}
+        {/* Popular Packages Section */}
         <div className="mt-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900 flex items-center">
                 <TrendingUp className="h-6 w-6 text-purple-500 mr-2" />
-                Popular Courses
+                Popular Packages
               </h2>
               <button 
-                onClick={() => navigate('/courses')}
+                onClick={() => navigate('/packages')}
                 className="text-purple-600 hover:text-purple-700 text-sm font-medium"
               >
-                View All Courses
+                View All Packages
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  id: '1',
-                  title: 'Advanced Algebra',
-                  description: 'Master complex algebraic concepts',
-                  rating: 4.9,
-                  students: 1250,
-                  price: 500000,
-                  duration: '8 weeks',
-                  level: 'Advanced'
-                },
-                {
-                  id: '2',
-                  title: 'Geometry Fundamentals',
-                  description: 'Learn geometric principles and proofs',
-                  rating: 4.8,
-                  students: 980,
-                  price: 450000,
-                  duration: '6 weeks',
-                  level: 'Intermediate'
-                },
-                {
-                  id: '3',
-                  title: 'Calculus for Beginners',
-                  description: 'Introduction to calculus concepts',
-                  rating: 4.7,
-                  students: 2100,
-                  price: 600000,
-                  duration: '10 weeks',
-                  level: 'Beginner'
-                }
-              ].map((course) => (
-                <div key={course.id} className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+              {popularPackages.length === 0 && !isLoading ? (
+                <div className="col-span-3 text-center py-8 text-gray-500">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p>No packages available</p>
+                </div>
+              ) : (
+                popularPackages.map((pkg) => (
+                <div key={pkg.id} className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900 text-lg">{course.title}</h3>
+                    <h3 className="font-semibold text-gray-900 text-lg">{pkg.title}</h3>
                     <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                      {course.level}
+                      {pkg.level}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{course.description}</p>
+                  <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                   <div className="flex items-center space-x-4 mb-3">
                     <div className="flex items-center space-x-1">
                       <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium">{course.rating}</span>
+                      <span className="text-sm font-medium">{pkg.rating}</span>
                     </div>
-                    <span className="text-sm text-gray-500">{course.students} students</span>
+                    <span className="text-sm text-gray-500">{pkg.students} students</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-bold text-purple-600">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.price)}
-                      </span>
-                      <span className="text-sm text-gray-500 ml-2">{course.duration}</span>
-                    </div>
-                    <button className="px-3 py-1 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors">
-                      Enroll
-                    </button>
+                  <div>
+                    <span className="text-lg font-bold text-purple-600">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(pkg.price)}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">{pkg.duration}</span>
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -513,16 +659,16 @@ const ParentHome: React.FC = () => {
               <div className="p-4 bg-blue-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                 <div className="flex items-center space-x-3 mb-3">
                   <BookOpen className="h-6 w-6 text-blue-600" />
-                  <h3 className="font-medium text-blue-900">View Courses</h3>
+                  <h3 className="font-medium text-blue-900">View Packages</h3>
                 </div>
                 <p className="text-sm text-blue-700 mb-3">
-                  Browse available courses for your children
+                  Browse available packages for your children
                 </p>
                 <button 
-                  onClick={() => navigate('/courses')}
+                  onClick={() => navigate('/packages')}
                   className="text-blue-600 text-sm font-medium hover:text-blue-700"
                 >
-                  View Courses →
+                  View Packages →
                 </button>
               </div>
 

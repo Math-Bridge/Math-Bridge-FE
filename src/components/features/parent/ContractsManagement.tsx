@@ -59,8 +59,6 @@ const ContractsManagement: React.FC = () => {
         if (response.success && response.data) {
           console.log(`[ContractsManagement] Received ${response.data.length} contracts`);
           // Map API response to component interface
-          // Backend returns ContractDto with PascalCase fields
-          // Filter out reschedule_count field that doesn't exist in backend
           // Fetch package info for each contract to get totalSessions and price
           const mappedContracts = await Promise.all(response.data.map(async (contract: any) => {
             // Remove reschedule_count if present to avoid errors
@@ -213,13 +211,7 @@ const ContractsManagement: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/user/dashboard')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-semibold">Back to Dashboard</span>
-          </button>
+          
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">My Contracts</h1>

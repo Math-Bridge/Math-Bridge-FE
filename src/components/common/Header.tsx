@@ -58,7 +58,7 @@ const Header: React.FC = () => {
         { name: 'Dashboard', href: '/tutor/dashboard', icon: Home },
         { name: 'My Availabilities', href: '/tutor/dashboard', icon: Calendar },
         { name: 'My Sessions', href: '/tutor/dashboard', icon: BookOpen },
-        { name: 'Centers', href: '/centers', icon: Users },
+        // { name: 'Centers', href: '/centers', icon: Users },
         { name: 'Profile', href: '/user-profile', icon: User },
       ];
     } else {
@@ -67,9 +67,9 @@ const Header: React.FC = () => {
         { name: 'Home', href: '/home', icon: Home },
         { name: 'My Children', href: '/my-children', icon: Users },
         { name: 'Contracts', href: '/contracts', icon: FileText },
-        { name: 'Tutors', href: '/tutors', icon: GraduationCap },
-        { name: 'Centers', href: '/centers', icon: Users },
-        { name: 'Courses', href: '/courses', icon: BookOpen },
+        // { name: 'Tutors', href: '/tutors', icon: GraduationCap },
+        // { name: 'Centers', href: '/centers', icon: Users },
+        { name: 'Packages', href: '/packages', icon: BookOpen },
         { name: 'Progress', href: '/progress', icon: TrendingUp },
       ];
     }
