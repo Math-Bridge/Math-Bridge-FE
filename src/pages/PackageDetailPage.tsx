@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { PackageDetail } from '../components/package';
 import { getPackageById } from '../services/api';
-import type { Course } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../contexts/ToastContext';
+import type { Course } from '../types';
 
 const PackageDetailPage: React.FC = () => {
   const { packageId } = useParams<{ packageId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const isAdmin = user?.role === 'admin';
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,7 @@ const PackageDetailPage: React.FC = () => {
 
   const handleEnroll = (enrollingPackage: Course) => {
     console.log('Enrolling in package:', enrollingPackage.name);
-    alert(`Enrolled in package: ${enrollingPackage.name}`);
+    showSuccess(`Enrolled in package: ${enrollingPackage.name}`);
   };
 
   if (loading) {

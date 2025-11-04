@@ -11,7 +11,9 @@ import {
   MapPin,
   Users,
   Clock,
-  Calendar
+  Calendar,
+  Wallet,
+  Building2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getChildrenByParent, createContract, apiService, getSchoolById } from '../../../services/api';
@@ -30,6 +32,14 @@ interface Package {
 }
 
 type Step = 'select-child' | 'select-package' | 'schedule' | 'payment';
+
+// Available time slots (1.5 hours each)
+const TIME_SLOTS = [
+  { id: 'slot1', from: '16:00', to: '17:30', label: '16:00 - 17:30' },
+  { id: 'slot2', from: '17:30', to: '19:00', label: '17:30 - 19:00' },
+  { id: 'slot3', from: '19:00', to: '20:30', label: '19:00 - 20:30' },
+  { id: 'slot4', from: '20:30', to: '22:00', label: '20:30 - 22:00' },
+] as const;
 
 const CreateContract: React.FC = () => {
   const navigate = useNavigate();
@@ -50,9 +60,9 @@ const CreateContract: React.FC = () => {
     offlineLongitude?: number;
     maxDistanceKm?: number;
   }>({
-    daysOfWeeks: 42, // Mon, Wed, Fri default
-    startTime: '18:00',
-    endTime: '19:00',
+    daysOfWeeks: 42, // Backend: Mon(2) + Wed(8) + Fri(32) = 42
+    startTime: '19:00', // Default to slot 3: 19:00 - 20:30
+    endTime: '20:30',
     isOnline: true,
     startDate: new Date().toISOString().split('T')[0] // Default to today
   });
@@ -61,11 +71,45 @@ const CreateContract: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank_transfer'>('wallet');
 
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Refresh wallet balance when returning from top-up page
+  useEffect(() => {
+    const refreshWallet = async () => {
+      if (user?.id && !walletLoading) {
+        try {
+          const walletResult = await apiService.getUserWallet(user.id);
+          if (walletResult.success && walletResult.data) {
+            setWalletBalance(walletResult.data.balance || 0);
+          }
+        } catch (err) {
+          console.error('Error refreshing wallet balance:', err);
+        }
+      }
+    };
+
+    // Refresh wallet when component becomes visible (user returns from top-up)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshWallet();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', refreshWallet);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', refreshWallet);
+    };
+  }, [user?.id, walletLoading]);
 
   const fetchData = async () => {
     if (!user?.id) {
@@ -165,6 +209,21 @@ const CreateContract: React.FC = () => {
         console.error('Failed to fetch packages:', packagesResult.error || 'Unknown error');
         setError(packagesResult.error || 'Failed to load packages');
       }
+
+      // Fetch wallet balance
+      if (user?.id) {
+        setWalletLoading(true);
+        try {
+          const walletResult = await apiService.getUserWallet(user.id);
+          if (walletResult.success && walletResult.data) {
+            setWalletBalance(walletResult.data.balance || 0);
+          }
+        } catch (err) {
+          console.error('Error fetching wallet balance:', err);
+        } finally {
+          setWalletLoading(false);
+        }
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load data');
@@ -209,6 +268,15 @@ const CreateContract: React.FC = () => {
       return;
     }
 
+    // Check wallet balance only if payment method is wallet
+    if (paymentMethod === 'wallet' && walletBalance < selectedPackage.price) {
+      const insufficientAmount = selectedPackage.price - walletBalance;
+      const errorMsg = `Insufficient wallet balance. You need ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(insufficientAmount)} more. Please top up your wallet first or choose bank transfer.`;
+      setError(errorMsg);
+      showError(errorMsg);
+      return;
+    }
+
     try {
       setIsCreating(true);
       setError(null);
@@ -241,7 +309,8 @@ const CreateContract: React.FC = () => {
         daysOfWeeks: schedule.daysOfWeeks, // Must be 1-127, validated above
         startTime: schedule.startTime, // Format: HH:mm (validated above)
         endTime: schedule.endTime, // Format: HH:mm (validated above)
-        isOnline: schedule.isOnline
+        isOnline: schedule.isOnline,
+        paymentMethod: paymentMethod // Add payment method to contract
       };
 
       // Optional fields
@@ -276,7 +345,11 @@ const CreateContract: React.FC = () => {
       const result = await createContract(contractData);
 
       if (result.success) {
-        showSuccess('Contract created successfully!');
+        if (paymentMethod === 'wallet') {
+          showSuccess('Contract created successfully! Payment deducted from your wallet.');
+        } else {
+          showSuccess('Contract created successfully! Please complete bank transfer to activate the contract.');
+        }
         // Navigate to payment page or contract detail
         navigate(`/contracts/${result.data?.contractId || ''}`);
       } else {
@@ -657,46 +730,63 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
-              {/* Schedule Notice */}
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-yellow-900 mb-1">Schedule Will Be Arranged by Staff</h4>
-                    <p className="text-sm text-yellow-800">
-                      The schedule (days of week and time slots) will be arranged by our staff after you create the contract. 
-                      You will be notified once the schedule is confirmed.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Days of Week Selection - Disabled (visible but not editable) */}
+              {/* Days of Week Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Days of Week
-                  <span className="ml-2 text-xs text-gray-500">(Will be arranged by staff)</span>
+                  Select Days of Week <span className="text-red-500">*</span>
+                  <span className="ml-2 text-xs text-gray-500">(Maximum 3 days)</span>
                 </label>
-                <div className="grid grid-cols-4 md:grid-cols-7 gap-3 opacity-60">
+                <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
                   {[
-                    { label: 'Sun', value: 1, day: 'Sunday' },
-                    { label: 'Mon', value: 2, day: 'Monday' },
-                    { label: 'Tue', value: 4, day: 'Tuesday' },
-                    { label: 'Wed', value: 8, day: 'Wednesday' },
-                    { label: 'Thu', value: 16, day: 'Thursday' },
-                    { label: 'Fri', value: 32, day: 'Friday' },
-                    { label: 'Sat', value: 64, day: 'Saturday' }
+                    { label: 'Sun', value: 1, day: 'Sunday' },       // Backend: Sunday = 1 (bit 0)
+                    { label: 'Mon', value: 2, day: 'Monday' },      // Backend: Monday = 2 (bit 1)
+                    { label: 'Tue', value: 4, day: 'Tuesday' },     // Backend: Tuesday = 4 (bit 2)
+                    { label: 'Wed', value: 8, day: 'Wednesday' },  // Backend: Wednesday = 8 (bit 3)
+                    { label: 'Thu', value: 16, day: 'Thursday' },  // Backend: Thursday = 16 (bit 4)
+                    { label: 'Fri', value: 32, day: 'Friday' },     // Backend: Friday = 32 (bit 5)
+                    { label: 'Sat', value: 64, day: 'Saturday' }    // Backend: Saturday = 64 (bit 6)
                   ].map((day) => {
                     const isSelected = (schedule.daysOfWeeks & day.value) === day.value;
+                    // Count selected days
+                    const selectedDaysCount = [
+                      (schedule.daysOfWeeks & 1) !== 0,
+                      (schedule.daysOfWeeks & 2) !== 0,
+                      (schedule.daysOfWeeks & 4) !== 0,
+                      (schedule.daysOfWeeks & 8) !== 0,
+                      (schedule.daysOfWeeks & 16) !== 0,
+                      (schedule.daysOfWeeks & 32) !== 0,
+                      (schedule.daysOfWeeks & 64) !== 0
+                    ].filter(Boolean).length;
+                    
+                    const isDisabled = !isSelected && selectedDaysCount >= 3;
+                    
                     return (
                       <button
                         key={day.value}
                         type="button"
-                        disabled
-                        className={`p-3 rounded-lg border-2 cursor-not-allowed ${
+                        onClick={() => {
+                          if (isSelected) {
+                            // Deselect day
+                            setSchedule(prev => ({
+                              ...prev,
+                              daysOfWeeks: prev.daysOfWeeks & ~day.value
+                            }));
+                          } else if (selectedDaysCount < 3) {
+                            // Select day
+                            setSchedule(prev => ({
+                              ...prev,
+                              daysOfWeeks: prev.daysOfWeeks | day.value
+                            }));
+                          }
+                          setError(null);
+                        }}
+                        disabled={isDisabled}
+                        className={`p-3 rounded-lg border-2 transition-all ${
                           isSelected
-                            ? 'border-blue-300 bg-blue-100 text-blue-600 font-semibold'
-                            : 'border-gray-200 bg-gray-50 text-gray-400'
+                            ? 'border-blue-500 bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200'
+                            : isDisabled
+                            ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
                         }`}
                       >
                         <div className="text-center">
@@ -706,38 +796,73 @@ const CreateContract: React.FC = () => {
                     );
                   })}
                 </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Selected: {[
+                    (schedule.daysOfWeeks & 1) !== 0 && 'Sunday',
+                    (schedule.daysOfWeeks & 2) !== 0 && 'Monday',
+                    (schedule.daysOfWeeks & 4) !== 0 && 'Tuesday',
+                    (schedule.daysOfWeeks & 8) !== 0 && 'Wednesday',
+                    (schedule.daysOfWeeks & 16) !== 0 && 'Thursday',
+                    (schedule.daysOfWeeks & 32) !== 0 && 'Friday',
+                    (schedule.daysOfWeeks & 64) !== 0 && 'Saturday'
+                  ].filter(Boolean).join(', ') || 'No days selected'}
+                  {[
+                    (schedule.daysOfWeeks & 1) !== 0,
+                    (schedule.daysOfWeeks & 2) !== 0,
+                    (schedule.daysOfWeeks & 4) !== 0,
+                    (schedule.daysOfWeeks & 8) !== 0,
+                    (schedule.daysOfWeeks & 16) !== 0,
+                    (schedule.daysOfWeeks & 32) !== 0,
+                    (schedule.daysOfWeeks & 64) !== 0
+                  ].filter(Boolean).length === 3 && ' (Maximum reached)'}
+                </p>
               </div>
 
-              {/* Time Selection - Disabled (visible but not editable) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="opacity-60">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Start Time
-                    <span className="ml-2 text-xs text-gray-500">(Will be arranged by staff)</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={schedule.startTime}
-                    onChange={() => {}}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Must be after 16:00</p>
+              {/* Time Slot Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Time Slot <span className="text-red-500">*</span>
+                  <span className="ml-2 text-xs text-gray-500">(1.5 hours per slot)</span>
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {TIME_SLOTS.map((slot) => {
+                    const isSelected = schedule.startTime === slot.from && schedule.endTime === slot.to;
+                    return (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => {
+                          setSchedule(prev => ({
+                            ...prev,
+                            startTime: slot.from,
+                            endTime: slot.to
+                          }));
+                          setError(null);
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all text-left ${
+                          isSelected
+                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">{slot.label}</span>
+                          {isSelected && (
+                            <CheckCircle className="w-5 h-5 text-blue-600" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">1.5 hours</p>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="opacity-60">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    End Time
-                    <span className="ml-2 text-xs text-gray-500">(Will be arranged by staff)</span>
-                  </label>
-                  <input
-                    type="time"
-                    value={schedule.endTime}
-                    onChange={() => {}}
-                    disabled
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed"
-                  />
-                  <p className="mt-1 text-xs text-gray-400">Must be before 22:00</p>
-                </div>
+                {!schedule.startTime || !schedule.endTime ? (
+                  <p className="mt-2 text-xs text-red-600">Please select a time slot</p>
+                ) : (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Selected: {schedule.startTime} - {schedule.endTime} (1.5 hours)
+                  </p>
+                )}
               </div>
 
               {/* Online/Offline Selection */}
@@ -770,7 +895,7 @@ const CreateContract: React.FC = () => {
                         setError('Child must have a center assigned for offline sessions');
                         return;
                       }
-                      setSchedule(prev => ({ ...prev, isOnline: false }));
+                      setSchedule(prev => ({ ...prev, isOnline: false, videoCallPlatform: undefined }));
                     }}
                     disabled={!selectedChild.centerId}
                     className={`p-4 rounded-lg border-2 transition-all ${
@@ -788,6 +913,54 @@ const CreateContract: React.FC = () => {
                   <p className="mt-2 text-sm text-red-600">Child must have a center assigned for offline sessions</p>
                 )}
               </div>
+
+              {/* Video Call Platform Selection - Required when Online is selected */}
+              {schedule.isOnline && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Video Call Platform <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSchedule(prev => ({ ...prev, videoCallPlatform: 'Google Meet' }));
+                        setError(null);
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        schedule.videoCallPlatform === 'Google Meet'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className="font-semibold">Google Meet</div>
+                        <div className="text-xs mt-1">meet.google.com</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSchedule(prev => ({ ...prev, videoCallPlatform: 'Zoom' }));
+                        setError(null);
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        schedule.videoCallPlatform === 'Zoom'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className="font-semibold">Zoom</div>
+                        <div className="text-xs mt-1">zoom.us</div>
+                      </div>
+                    </button>
+                  </div>
+                  {!schedule.videoCallPlatform && (
+                    <p className="mt-2 text-xs text-red-600">Please select a video call platform</p>
+                  )}
+                </div>
+              )}
 
               {/* Offline Location Input - Required when Offline is selected */}
               {!schedule.isOnline && (
@@ -830,9 +1003,62 @@ const CreateContract: React.FC = () => {
                       return;
                     }
                     
+                    // Validate days of week - at least 1 day must be selected
+                    const selectedDaysCount = [
+                      (schedule.daysOfWeeks & 1) !== 0,
+                      (schedule.daysOfWeeks & 2) !== 0,
+                      (schedule.daysOfWeeks & 4) !== 0,
+                      (schedule.daysOfWeeks & 8) !== 0,
+                      (schedule.daysOfWeeks & 16) !== 0,
+                      (schedule.daysOfWeeks & 32) !== 0,
+                      (schedule.daysOfWeeks & 64) !== 0
+                    ].filter(Boolean).length;
+                    
+                    if (selectedDaysCount === 0) {
+                      const msg = 'Please select at least 1 day of the week';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    if (selectedDaysCount > 3) {
+                      const msg = 'Maximum 3 days can be selected';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    // Validate time slot is selected
+                    if (!schedule.startTime || !schedule.endTime) {
+                      const msg = 'Please select a time slot';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    // Validate that selected time slot is one of the available slots (1.5 hours duration)
+                    const isValidSlot = TIME_SLOTS.some(
+                      slot => slot.from === schedule.startTime && slot.to === schedule.endTime
+                    );
+                    
+                    if (!isValidSlot) {
+                      const msg = 'Please select a valid time slot';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
                     // Validate offline location if offline is selected
                     if (!schedule.isOnline && (!schedule.offlineAddress || schedule.offlineAddress.trim() === '')) {
                       const msg = 'Please enter a location for offline sessions';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    // Validate video call platform if online is selected
+                    if (schedule.isOnline && !schedule.videoCallPlatform) {
+                      const msg = 'Please select a video call platform (Google Meet or Zoom)';
                       setError(msg);
                       showError(msg);
                       return;
@@ -860,6 +1086,143 @@ const CreateContract: React.FC = () => {
             </h2>
 
             <div className="space-y-6">
+              {/* Payment Method Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Payment Method <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Wallet Payment */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod('wallet');
+                      setError(null);
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      paymentMethod === 'wallet'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Wallet className={`w-6 h-6 ${paymentMethod === 'wallet' ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <div>
+                        <div className="font-semibold">Pay with Wallet</div>
+                        <div className="text-xs mt-1">Instant payment from your wallet</div>
+                      </div>
+                      {paymentMethod === 'wallet' && (
+                        <CheckCircle className="w-5 h-5 text-blue-600 ml-auto" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Bank Transfer */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod('bank_transfer');
+                      setError(null);
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      paymentMethod === 'bank_transfer'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Building2 className={`w-6 h-6 ${paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <div>
+                        <div className="font-semibold">Bank Transfer</div>
+                        <div className="text-xs mt-1">Direct bank transfer</div>
+                      </div>
+                      {paymentMethod === 'bank_transfer' && (
+                        <CheckCircle className="w-5 h-5 text-blue-600 ml-auto" />
+                      )}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Wallet Balance Info - Only show if wallet payment is selected */}
+              {paymentMethod === 'wallet' && (
+                <div className={`p-4 rounded-lg border-2 ${
+                  walletBalance >= selectedPackage.price
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Wallet Balance</p>
+                      <p className={`text-2xl font-bold ${
+                        walletBalance >= selectedPackage.price ? 'text-green-700' : 'text-red-700'
+                      }`}>
+                        {walletLoading ? (
+                          <span className="text-sm">Loading...</span>
+                        ) : (
+                          new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletBalance)
+                        )}
+                      </p>
+                    </div>
+                    {walletBalance < selectedPackage.price && (
+                      <button
+                        onClick={() => navigate('/wallet/topup')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                      >
+                        Top Up
+                      </button>
+                    )}
+                  </div>
+                  {walletBalance < selectedPackage.price && (
+                    <p className="mt-2 text-sm text-red-700">
+                      Insufficient balance. You need{' '}
+                      <strong>
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price - walletBalance)}
+                      </strong>{' '}
+                      more to create this contract.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Bank Transfer Info - Only show if bank transfer is selected */}
+              {paymentMethod === 'bank_transfer' && (
+                <div className="p-4 rounded-lg border-2 bg-blue-50 border-blue-200">
+                  <h4 className="font-semibold text-gray-900 mb-3">Bank Transfer Information</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Bank Name:</span>
+                      <span className="font-medium">Vietcombank</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Account Number:</span>
+                      <span className="font-medium font-mono">1234567890</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Account Holder:</span>
+                      <span className="font-medium">Math Bridge Education</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="font-bold text-blue-700">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price)}
+                      </span>
+                    </div>
+                    <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                      <p className="text-xs text-gray-600 mb-1">Transfer Content:</p>
+                      <p className="font-mono text-sm font-semibold">
+                        CONTRACT {user?.id?.substring(0, 8).toUpperCase() || 'PAYMENT'}
+                      </p>
+                    </div>
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-xs text-yellow-800">
+                        <strong>Note:</strong> After completing the bank transfer, please contact support with your transaction reference. Your contract will be activated after payment confirmation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Contract Summary */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="font-bold text-gray-900 mb-4">Contract Summary</h3>
@@ -881,14 +1244,42 @@ const CreateContract: React.FC = () => {
                     <span className="font-medium">{selectedPackage.durationDays} days</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Schedule:</span>
-                    <span className="font-medium text-yellow-600">
-                      Will be arranged by staff
+                    <span className="text-gray-600">Days:</span>
+                    <span className="font-medium">
+                      {[
+                        (schedule.daysOfWeeks & 1) !== 0 && 'Sun',
+                        (schedule.daysOfWeeks & 2) !== 0 && 'Mon',
+                        (schedule.daysOfWeeks & 4) !== 0 && 'Tue',
+                        (schedule.daysOfWeeks & 8) !== 0 && 'Wed',
+                        (schedule.daysOfWeeks & 16) !== 0 && 'Thu',
+                        (schedule.daysOfWeeks & 32) !== 0 && 'Fri',
+                        (schedule.daysOfWeeks & 64) !== 0 && 'Sat'
+                      ].filter(Boolean).join(', ') || 'Not selected'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Time Slot:</span>
+                    <span className="font-medium">
+                      {schedule.startTime && schedule.endTime 
+                        ? `${schedule.startTime} - ${schedule.endTime} (1.5 hours)`
+                        : 'Not selected'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Type:</span>
                     <span className="font-medium">{schedule.isOnline ? 'Online' : 'Offline'}</span>
+                  </div>
+                  {schedule.isOnline && schedule.videoCallPlatform && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Platform:</span>
+                      <span className="font-medium">{schedule.videoCallPlatform}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Payment Method:</span>
+                    <span className="font-medium">
+                      {paymentMethod === 'wallet' ? 'Wallet' : 'Bank Transfer'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Tutor:</span>
@@ -919,7 +1310,7 @@ const CreateContract: React.FC = () => {
                 </button>
                 <button
                   onClick={handlePayment}
-                  disabled={isCreating}
+                  disabled={isCreating || (paymentMethod === 'wallet' && walletBalance < selectedPackage.price)}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {isCreating ? (
@@ -930,7 +1321,9 @@ const CreateContract: React.FC = () => {
                   ) : (
                     <>
                       <CreditCard className="w-5 h-5" />
-                      <span>Create Contract & Pay</span>
+                      <span>
+                        {paymentMethod === 'wallet' ? 'Create Contract & Pay' : 'Create Contract'}
+                      </span>
                     </>
                   )}
                 </button>

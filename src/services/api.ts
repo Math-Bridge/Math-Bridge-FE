@@ -79,13 +79,13 @@ class ApiService {
         // Ensure token is not empty and is a valid string
         const cleanToken = token.trim();
         if (cleanToken) {
-          console.log('Adding auth token to request:', { 
-            url, 
+        console.log('Adding auth token to request:', { 
+          url, 
             tokenLength: cleanToken.length, 
             tokenStart: cleanToken.substring(0, 20) + '...' 
-          });
-          config.headers = {
-            ...config.headers,
+        });
+        config.headers = {
+          ...config.headers,
             'Authorization': `Bearer ${cleanToken}`,
           } as HeadersInit;
         } else {
@@ -137,26 +137,53 @@ class ApiService {
           responseData: data,
           responseText: text.substring(0, 500), // First 500 chars
           hasToken: !!localStorage.getItem('authToken'),
-          requestHeaders: config.headers
+          requestHeaders: config.headers,
+          requestBody: config.body ? (() => {
+            try {
+              return JSON.parse(config.body as string);
+            } catch {
+              return config.body;
+            }
+          })() : null
         });
         
         // Extract error message from response
         let errorMessage = `HTTP error! status: ${response.status}`;
+        let errorDetails: any = null;
+        
         if (data) {
+          // Try multiple possible error message fields
           if (data.error) {
-            errorMessage = data.error;
+            errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+            errorDetails = data.error;
           } else if (data.message) {
-            errorMessage = data.message;
+            errorMessage = typeof data.message === 'string' ? data.message : JSON.stringify(data.message);
+            errorDetails = data.message;
+          } else if (data.errors) {
+            // Handle validation errors array
+            if (Array.isArray(data.errors)) {
+              errorMessage = data.errors.join(', ');
+            } else if (typeof data.errors === 'object') {
+              errorMessage = Object.values(data.errors).flat().join(', ');
+            }
+            errorDetails = data.errors;
           } else if (typeof data === 'string') {
             errorMessage = data;
+            errorDetails = data;
+          } else {
+            // If we can't find a message, use the whole data object
+            errorMessage = JSON.stringify(data);
+            errorDetails = data;
           }
         } else if (text) {
           errorMessage = text.substring(0, 200); // First 200 chars of text response
+          errorDetails = text;
         }
         
         return {
           success: false,
           error: errorMessage,
+          errorDetails: errorDetails,
         };
       }
 
@@ -647,7 +674,7 @@ export interface CreateContractRequest {
   centerId?: string;
   startDate: string;
   endDate: string;
-  daysOfWeeks?: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  daysOfWeeks?: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64 (matches backend C# DayOfWeek enum)
   startTime?: string; // Format: "HH:mm"
   endTime?: string; // Format: "HH:mm"
   isOnline: boolean;
@@ -656,6 +683,8 @@ export interface CreateContractRequest {
   offlineLongitude?: number;
   videoCallPlatform?: string;
   maxDistanceKm?: number;
+  paymentMethod?: 'wallet' | 'bank_transfer'; // Payment method selection
+  status?: string;
 }
 
 export async function createContract(data: CreateContractRequest) {
@@ -705,13 +734,20 @@ export async function createContract(data: CreateContractRequest) {
     StartTime: cleanData.startTime, // Format: HH:mm (TimeOnly)
     EndTime: cleanData.endTime, // Format: HH:mm (TimeOnly)
     IsOnline: cleanData.isOnline,
-    MaxDistanceKm: cleanData.maxDistanceKm ?? (cleanData.isOnline ? 0 : 10)
+    MaxDistanceKm: cleanData.maxDistanceKm ?? (cleanData.isOnline ? 0 : 10),
+    Status: cleanData.status || 'pending' // Backend requires Status field - default to 'pending' for new contracts
   };
   
-  // MainTutorId is required by backend DTO, but entity allows nullable
-  // For now, we send empty GUID and backend should handle validation
-  // Note: Backend may return error if MainTutorId is empty GUID and validation fails
-  requestData.MainTutorId = cleanData.mainTutorId || '00000000-0000-0000-0000-000000000000';
+  // MainTutorId is optional - only send if it's a valid GUID (not empty/null)
+  // If MainTutorId is empty GUID or null, don't send it (backend allows nullable)
+  if (cleanData.mainTutorId && 
+      cleanData.mainTutorId !== '00000000-0000-0000-0000-000000000000' && 
+      cleanData.mainTutorId !== null &&
+      typeof cleanData.mainTutorId === 'string' &&
+      cleanData.mainTutorId.trim() !== '') {
+    requestData.MainTutorId = cleanData.mainTutorId;
+  }
+  // Otherwise, don't include MainTutorId - backend will set it to null
   
   // Optional fields - only include if provided
   if (cleanData.substituteTutor1Id) {
@@ -732,25 +768,30 @@ export async function createContract(data: CreateContractRequest) {
   if (cleanData.offlineLongitude !== undefined) {
     requestData.OfflineLongitude = cleanData.offlineLongitude;
   }
-  if (cleanData.videoCallPlatform) {
-    requestData.VideoCallPlatform = cleanData.videoCallPlatform;
+  // VideoCallPlatform - include if provided and isOnline is true
+  // Backend DTO has JsonPropertyName("videoCallPlatform") which expects camelCase in JSON
+  if (cleanData.videoCallPlatform && cleanData.isOnline) {
+    requestData.videoCallPlatform = cleanData.videoCallPlatform; // Send with camelCase to match JsonPropertyName
+    console.log('videoCallPlatform included in request:', cleanData.videoCallPlatform);
+  } else if (cleanData.isOnline && !cleanData.videoCallPlatform) {
+    console.warn('Warning: isOnline is true but videoCallPlatform is not provided');
   }
   
-  // Note: Backend validation requires MainTutorId to be a valid tutor
-  // If MainTutorId is empty GUID, backend will return "Invalid main tutor" error
-  // This is expected behavior until backend allows nullable MainTutorId for pending contracts
-  if (!requestData.MainTutorId) {
-    return Promise.resolve({
-      success: false,
-      error: 'Main tutor ID is required by backend',
-      data: null
-    });
+  // Add payment method if provided
+  if (cleanData.paymentMethod) {
+    requestData.PaymentMethod = cleanData.paymentMethod;
   }
   
   // Log the request data for debugging (excluding sensitive info)
   console.log('Creating contract with data:', {
     ...requestData,
-    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'N/A'
+    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'null (not sent)',
+    CenterId: requestData.CenterId ? `${requestData.CenterId.substring(0, 8)}...` : 'null (not sent)',
+    DaysOfWeeks: requestData.DaysOfWeeks,
+    Status: requestData.Status,
+    IsOnline: requestData.IsOnline,
+    videoCallPlatform: requestData.videoCallPlatform || 'not included',
+    FullRequestBody: JSON.stringify(requestData) // Full request body for debugging
   });
   
   return apiService.request<{ contractId: string }>(`/contracts`, {
@@ -963,4 +1004,476 @@ export async function getCourseModules(courseId: string) {
 
 export async function getCourseReviews(courseId: string) {
   return apiService.request<any[]>(`/courses/${courseId}/reviews`);
+}
+
+// Tutor Availability API
+export interface TutorAvailability {
+  availabilityId?: string;
+  tutorId?: string;
+  daysOfWeek: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  availableFrom: string; // TimeOnly format: "HH:mm"
+  availableUntil: string; // TimeOnly format: "HH:mm"
+  effectiveFrom: string; // DateOnly format: "YYYY-MM-DD"
+  effectiveUntil?: string | null; // DateOnly format: "YYYY-MM-DD" or null
+  canTeachOnline: boolean;
+  canTeachOffline: boolean;
+  status?: string;
+  createdDate?: string;
+  updatedDate?: string | null;
+  isBooked?: boolean | null;
+}
+
+export interface CreateTutorAvailabilityRequest {
+  TutorId?: string; // Optional, backend will use from token if not provided
+  DaysOfWeek: number;
+  AvailableFrom: string; // "HH:mm"
+  AvailableUntil: string; // "HH:mm"
+  EffectiveFrom: string; // "YYYY-MM-DD"
+  EffectiveUntil?: string | null; // "YYYY-MM-DD" or null
+  CanTeachOnline: boolean;
+  CanTeachOffline: boolean;
+}
+
+export interface UpdateTutorAvailabilityRequest extends CreateTutorAvailabilityRequest {
+  AvailabilityId: string;
+}
+
+export interface BulkCreateTutorAvailabilityRequest {
+  availabilities: CreateTutorAvailabilityRequest[];
+}
+
+export interface UpdateAvailabilityStatusRequest {
+  status: string; // e.g., "active", "inactive", "suspended"
+}
+
+// GET /api/tutor-availabilities/my-availabilities
+export async function getMyAvailabilities(activeOnly?: boolean) {
+  const query = activeOnly ? '?activeOnly=true' : '';
+  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/my-availabilities${query}`);
+}
+
+// GET /api/tutor-availabilities/{id}
+export async function getTutorAvailabilityById(id: string) {
+  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}`);
+}
+
+// GET /api/tutor-availabilities/tutor/{tutorId}
+export async function getTutorAvailabilitiesByTutorId(tutorId: string) {
+  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/tutor/${tutorId}`);
+}
+
+// POST /api/tutor-availabilities
+export async function createTutorAvailability(data: CreateTutorAvailabilityRequest) {
+  return apiService.request<TutorAvailability>(`/tutor-availabilities`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// PUT /api/tutor-availabilities/{id}
+export async function updateTutorAvailability(id: string, data: CreateTutorAvailabilityRequest) {
+  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// DELETE /api/tutor-availabilities/{id}
+export async function deleteTutorAvailability(id: string) {
+  return apiService.request<void>(`/tutor-availabilities/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+// PATCH /api/tutor-availabilities/{id}/status
+export async function updateTutorAvailabilityStatus(id: string, data: UpdateAvailabilityStatusRequest) {
+  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+// POST /api/tutor-availabilities/bulk
+export async function bulkCreateTutorAvailabilities(data: BulkCreateTutorAvailabilityRequest) {
+  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/bulk`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// GET /api/tutor-availabilities/dayflags
+export async function getDayFlags() {
+  return apiService.request<any>(`/tutor-availabilities/dayflags`);
+}
+
+// GET /api/tutor-availabilities/search-tutors
+export async function searchTutorsByAvailability(params?: {
+  daysOfWeek?: number;
+  availableFrom?: string;
+  availableUntil?: string;
+  canTeachOnline?: boolean;
+  canTeachOffline?: boolean;
+  centerId?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, value.toString());
+      }
+    });
+  }
+  const query = queryParams.toString();
+  return apiService.request<any[]>(`/tutor-availabilities/search-tutors${query ? `?${query}` : ''}`);
+}
+
+// ============================================
+// STAFF API FUNCTIONS
+// ============================================
+
+// Reschedule Management
+export interface RescheduleRequest {
+  requestId: string;
+  bookingId: string;
+  contractId: string;
+  parentId: string;
+  parentName: string;
+  childName: string;
+  requestedDate: string;
+  requestedTimeSlot: string;
+  requestedTutorId?: string;
+  requestedTutorName?: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdDate: string;
+}
+
+export interface ApproveRescheduleRequest {
+  newSessionDate?: string;
+  newTimeSlot?: string;
+  newTutorId?: string;
+  notes?: string;
+}
+
+export interface RejectRescheduleRequest {
+  reason: string;
+}
+
+export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
+  const query = status ? `?status=${status}` : '';
+  return apiService.request<RescheduleRequest[]>(`/reschedule${query}`);
+}
+
+export async function approveRescheduleRequest(requestId: string, data: ApproveRescheduleRequest) {
+  return apiService.request<{ message: string }>(`/reschedule/${requestId}/approve`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function rejectRescheduleRequest(requestId: string, data: RejectRescheduleRequest) {
+  return apiService.request<{ message: string }>(`/reschedule/${requestId}/reject`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// Staff Dashboard Stats
+export interface StaffStats {
+  pendingContracts: number;
+  activeTutors: number;
+  totalCenters: number;
+  unreadMessages: number;
+  upcomingSessions: number;
+  completedSessions: number;
+  rescheduleRequests: number;
+  newParentRequests: number;
+}
+
+export async function getStaffStats() {
+  // TODO: Replace with actual API endpoint when available
+  // For now, calculate from contracts and reschedule requests
+  try {
+    const [contractsRes, rescheduleRes] = await Promise.all([
+      apiService.request<Contract[]>('/contracts'),
+      getRescheduleRequests('pending'),
+    ]);
+
+    const pendingContracts = contractsRes.success && contractsRes.data
+      ? contractsRes.data.filter(c => c.status === 'pending' || !c.mainTutorId).length
+      : 0;
+
+    const rescheduleRequests = rescheduleRes.success && rescheduleRes.data
+      ? rescheduleRes.data.length
+      : 0;
+
+    return {
+      success: true,
+      data: {
+        pendingContracts,
+        activeTutors: 0, // TODO: Get from tutor API
+        totalCenters: 0, // TODO: Get from center API
+        unreadMessages: 0, // TODO: Get from chat API
+        upcomingSessions: 0, // TODO: Get from sessions API
+        completedSessions: 0, // TODO: Get from sessions API
+        rescheduleRequests,
+        newParentRequests: 0, // TODO: Get from parent requests API
+      } as StaffStats,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'Failed to fetch staff stats',
+      data: null,
+    };
+  }
+}
+
+// Contract Management for Staff
+export async function getAllContracts(status?: string) {
+  // TODO: Replace with actual staff endpoint when available
+  // For now, this might need to be implemented in backend
+  const query = status ? `?status=${status}` : '';
+  return apiService.request<Contract[]>(`/contracts${query}`);
+}
+
+export async function assignTutorToContract(contractId: string, tutorId: string) {
+  return apiService.request<{ message: string }>(`/contracts/${contractId}/assign-tutor`, {
+    method: 'PUT',
+    body: JSON.stringify({ tutorId }),
+  });
+}
+
+export interface Tutor {
+  userId: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  specialties?: string[];
+  rating?: number;
+  centerId?: string;
+  centerName?: string;
+}
+
+export async function getAvailableTutors(params?: {
+  centerId?: string;
+  daysOfWeek?: number;
+  startTime?: string;
+  endTime?: string;
+  isOnline?: boolean;
+}) {
+  // Use existing searchTutorsByAvailability function
+  return searchTutorsByAvailability({
+    daysOfWeek: params?.daysOfWeek,
+    availableFrom: params?.startTime,
+    canTeachOnline: params?.isOnline,
+    centerId: params?.centerId,
+  });
+}
+
+// ============================================
+// WALLET API FUNCTIONS
+// ============================================
+
+export interface WalletTransaction {
+  id: string;
+  transactionId?: string;
+  type: 'deposit' | 'withdrawal' | 'payment' | 'refund';
+  amount: number;
+  description: string;
+  date: string;
+  status: 'completed' | 'pending' | 'failed';
+  method?: string;
+  paymentMethod?: string;
+  transactionType?: string;
+}
+
+export interface WalletData {
+  balance: number;
+  totalDeposits?: number;
+  totalSpent?: number;
+  transactions: WalletTransaction[];
+}
+
+// SePay Payment APIs
+export interface SePayPaymentRequest {
+  amount: number;
+  description: string;
+}
+
+export interface SePayPaymentResponse {
+  success: boolean;
+  message: string;
+  qrCodeUrl: string;
+  orderReference: string;
+  walletTransactionId: string;
+  amount: number;
+  bankInfo: string;
+  transferContent: string;
+}
+
+export interface PaymentStatus {
+  status: 'Paid' | 'Unpaid' | 'Pending';
+  message: string;
+  success: boolean;
+  paidAt?: string;
+  amountPaid?: number;
+}
+
+export async function createSePayPayment(data: SePayPaymentRequest) {
+  // Validate input
+  if (!data.amount || data.amount <= 0) {
+    return Promise.resolve({
+      success: false,
+      error: 'Amount must be greater than 0',
+      data: null
+    });
+  }
+
+  if (!data.description || data.description.trim() === '') {
+    data.description = 'Top up wallet';
+  }
+
+  // Ensure amount is a number (not string) and convert to decimal if needed
+  const amountValue = typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount;
+  
+  if (isNaN(amountValue) || amountValue <= 0) {
+    return Promise.resolve({
+      success: false,
+      error: 'Amount must be a valid number greater than 0',
+      data: null
+    });
+  }
+
+  // Ensure amount is within valid range
+  if (amountValue < 10000) {
+    return Promise.resolve({
+      success: false,
+      error: 'Amount must be at least 10,000 VND',
+      data: null
+    });
+  }
+
+  if (amountValue > 50000000) {
+    return Promise.resolve({
+      success: false,
+      error: 'Amount must not exceed 50,000,000 VND',
+      data: null
+    });
+  }
+
+  // Ensure Amount is sent as a number (not string) - backend expects decimal
+  // JavaScript numbers are automatically serialized correctly in JSON
+  const requestBody = {
+    Amount: amountValue, // This will be serialized as number in JSON
+    Description: data.description.trim() || 'Top up wallet',
+  };
+
+  console.log('Creating SePay payment with request:', {
+    ...requestBody,
+    AmountType: typeof requestBody.Amount,
+    AmountValue: requestBody.Amount,
+    AmountStringified: JSON.stringify(requestBody.Amount),
+    DescriptionLength: requestBody.Description.length,
+    DescriptionValue: requestBody.Description,
+    FullRequestBody: JSON.stringify(requestBody)
+  });
+
+  try {
+    const result = await apiService.request<SePayPaymentResponse>(`/SePay/create-payment`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('SePay payment response:', result);
+
+    // If result has error, extract detailed message
+    if (!result.success && result.error) {
+      // Try to get more details from responseData if available
+      const errorDetails = (result as any).errorDetails || result.error;
+      return {
+        ...result,
+        error: errorDetails
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error creating SePay payment:', error);
+    
+    // Extract detailed error message from response
+    let errorMessage = error?.message || 'Failed to create payment request';
+    let errorDetails: any = error;
+    
+    // Check if error has response data
+    if (error?.response?.data) {
+      const responseData = error.response.data;
+      console.error('Error response data:', responseData);
+      
+      // Try to extract message from different possible formats
+      if (responseData.message) {
+        errorMessage = responseData.message;
+      } else if (responseData.error) {
+        errorMessage = responseData.error;
+      } else if (responseData.errors) {
+        // Handle validation errors
+        const validationErrors = Array.isArray(responseData.errors) 
+          ? responseData.errors.map((e: any) => e.message || e).join(', ')
+          : JSON.stringify(responseData.errors);
+        errorMessage = validationErrors;
+      } else if (typeof responseData === 'string') {
+        errorMessage = responseData;
+      } else {
+        errorMessage = JSON.stringify(responseData);
+      }
+      
+      errorDetails = responseData;
+    } else if (error?.response?.data?.message) {
+      errorMessage = error.response.data.message;
+      errorDetails = error.response.data;
+    } else if (error?.response?.data?.error) {
+      errorMessage = error.response.data.error;
+      errorDetails = error.response.data;
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+      errorDetails: errorDetails,
+      data: null
+    };
+  }
+}
+
+export async function checkSePayPaymentStatus(transactionId: string) {
+  return apiService.request<PaymentStatus>(`/SePay/payment-status/${transactionId}`);
+}
+
+export async function getSePayPaymentDetails(transactionId: string) {
+  return apiService.request<SePayPaymentResponse>(`/SePay/payment-details/${transactionId}`);
+}
+
+// Get wallet transactions with filters
+export async function getWalletTransactions(params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  type?: string;
+}) {
+  const queryParams = new URLSearchParams();
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.type) queryParams.append('type', params.type);
+  
+  const query = queryParams.toString();
+  const userStr = localStorage.getItem('user');
+  const userId = userStr ? JSON.parse(userStr).id : '';
+  
+  return apiService.request<{ transactions: WalletTransaction[]; total: number }>(
+    `/users/${userId}/wallet/transactions${query ? `?${query}` : ''}`
+  );
 }

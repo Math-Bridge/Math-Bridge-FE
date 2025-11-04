@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FileText, 
   Plus, 
@@ -12,13 +12,18 @@ import {
   DollarSign,
   ArrowLeft,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  Filter
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getContractsByParent, apiService } from '../../../services/api';
+import { getContractsByParent, getChildrenByParent } from '../../../services/api';
+import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
+import { Child } from '../../../services/api';
 
 interface Contract {
   id: string;
+  childId: string;
   childName: string;
   tutorName: string;
   subject: string;
@@ -36,121 +41,165 @@ interface Contract {
 
 const ContractsManagement: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showError } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled'>('all');
+  const [selectedChildId, setSelectedChildId] = useState<string>('all');
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get parent ID from user or localStorage
+      const parentId = user?.id || (() => {
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr).id : null;
+      })();
+
+      if (!parentId) {
+        const errorMsg = 'User information not found. Please log in again.';
+        console.error('Parent ID not found');
+        setError(errorMsg);
+        showError(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch children and contracts in parallel
+      const [childrenResponse, contractsResponse] = await Promise.all([
+        getChildrenByParent(parentId).catch(err => {
+          console.error('Error fetching children:', err);
+          return { success: false, error: 'Failed to fetch children', data: null };
+        }),
+        getContractsByParent(parentId).catch(err => {
+          console.error('Error fetching contracts:', err);
+          return { success: false, error: 'Failed to fetch contracts', data: null };
+        })
+      ]);
+
+      // Set children
+      if (childrenResponse.success && childrenResponse.data) {
+        const childrenData = Array.isArray(childrenResponse.data) ? childrenResponse.data : [];
+        const mappedChildren = childrenData
+          .filter((child: any) => {
+            const status = child.Status || child.status || 'active';
+            return status !== 'deleted';
+          })
+          .map((child: any) => ({
+            childId: child.ChildId || child.childId || '',
+            fullName: child.FullName || child.fullName || '',
+            schoolId: child.SchoolId || child.schoolId || '',
+            schoolName: child.SchoolName || child.schoolName || '',
+            grade: child.Grade || child.grade || '',
+            status: child.Status || child.status || 'active'
+          }));
+        setChildren(mappedChildren);
+      }
+
+      // Set contracts
+      if (contractsResponse.success && contractsResponse.data) {
+        console.log(`[ContractsManagement] Received ${contractsResponse.data.length} contracts`);
+        // Map API response to component interface
+        const mappedContracts = await Promise.all(contractsResponse.data.map(async (contract: any) => {
+          // Remove reschedule_count if present to avoid errors
+          const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+          
+          // Build schedule string from DaysOfWeeksDisplay and time
+          const formatTime = (timeStr: string) => {
+            if (!timeStr) return '';
+            return timeStr.split(':').slice(0, 2).join(':');
+          };
+          
+          let schedule = '';
+          if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
+            const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
+            const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
+            const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
+            if (startTime && endTime) {
+              schedule = `${days}, ${startTime} - ${endTime}`;
+            } else if (startTime) {
+              schedule = `${days}, ${startTime}`;
+            } else {
+              schedule = days || 'Schedule not set';
+            }
+          } else {
+            schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
+          }
+          
+          // Get package info if needed
+          let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
+          let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
+          
+          const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
+          
+          return {
+            id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
+            childId: cleanContract.ChildId || cleanContract.childId || '',
+            childName: cleanContract.ChildName || cleanContract.childName || 'N/A',
+            tutorName: cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned',
+            subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
+            packageName: cleanContract.PackageName || cleanContract.packageName || 'Package not specified',
+            totalSessions: totalSessions || 0,
+            completedSessions: completedSessions || 0,
+            price: price || 0,
+            status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
+            startDate: cleanContract.StartDate || cleanContract.startDate || '',
+            endDate: cleanContract.EndDate || cleanContract.endDate || '',
+            schedule: schedule,
+            centerName: cleanContract.CenterName || cleanContract.centerName || 'Online',
+            createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
+          };
+        }));
+        console.log('Mapped contracts:', mappedContracts);
+        setContracts(mappedContracts);
+      } else {
+        // Handle error from contracts API
+        const errorMsg = contractsResponse.error || 'Failed to load contracts. Please try again later.';
+        console.error('Failed to fetch contracts:', contractsResponse.error);
+        
+        // Check if it's a backend NullReferenceException (500 error)
+        const isBackendError = contractsResponse.error?.includes('Object reference') || 
+                               contractsResponse.error?.includes('500') ||
+                               contractsResponse.error?.includes('Internal Server Error');
+        
+        setError(isBackendError 
+          ? 'Backend system error: Some contracts may have missing data. Please contact support.'
+          : errorMsg
+        );
+        setContracts([]);
+        
+        // Show error toast
+        if (isBackendError) {
+          showError('System error while loading contracts. This is a backend issue that needs to be fixed. Please contact support.');
+        } else {
+          showError(errorMsg);
+        }
+      }
+    } catch (error: any) {
+      const errorMsg = error?.message || 'An error occurred while loading data. Please try again later.';
+      console.error('Error fetching data:', error);
+      setError(errorMsg);
+      setContracts([]);
+      showError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, showError]);
 
   useEffect(() => {
-    const fetchContracts = async () => {
-      try {
-        // Get parent ID from localStorage
-        const userStr = localStorage.getItem('user');
-        const parentId = userStr ? JSON.parse(userStr).id : null;
+    fetchData();
+  }, [fetchData]);
 
-        if (!parentId) {
-          console.error('Parent ID not found');
-          setLoading(false);
-          return;
-        }
-
-        console.log(`[ContractsManagement] Fetching contracts for parent ID: ${parentId}`);
-        const response = await getContractsByParent(parentId);
-        
-        if (response.success && response.data) {
-          console.log(`[ContractsManagement] Received ${response.data.length} contracts`);
-          // Map API response to component interface
-          // Fetch package info for each contract to get totalSessions and price
-          const mappedContracts = await Promise.all(response.data.map(async (contract: any) => {
-            // Remove reschedule_count if present to avoid errors
-            const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
-            
-            // Build schedule string from DaysOfWeeksDisplay and time
-            // Format time from "HH:mm:ss" or "HH:mm" to "HH:mm"
-            const formatTime = (timeStr: string) => {
-              if (!timeStr) return '';
-              // Remove seconds if present (HH:mm:ss -> HH:mm)
-              return timeStr.split(':').slice(0, 2).join(':');
-            };
-            
-            let schedule = '';
-            if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
-              const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
-              const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
-              const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
-              if (startTime && endTime) {
-                schedule = `${days}, ${startTime} - ${endTime}`;
-              } else if (startTime) {
-                schedule = `${days}, ${startTime}`;
-              } else {
-                schedule = days || 'Schedule not set';
-              }
-            } else {
-              schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
-            }
-            
-            // Fetch package info to get totalSessions and price if not in contract
-            let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
-            let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
-            
-            if ((!totalSessions || !price) && (cleanContract.PackageId || cleanContract.packageId)) {
-              try {
-                const packageId = cleanContract.PackageId || cleanContract.packageId;
-                const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
-                if (packageResponse.success && packageResponse.data) {
-                  const pkg = packageResponse.data;
-                  if (!totalSessions) {
-                    totalSessions = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0;
-                  }
-                  if (!price) {
-                    price = pkg.Price || pkg.price || 0;
-                  }
-                }
-              } catch (error) {
-                console.error('Failed to fetch package info for contract:', error);
-              }
-            }
-            
-            // CompletedSessions not in ContractDto - need to calculate from Sessions count
-            // TODO: Backend should provide this count or fetch from /contracts/{id}/sessions
-            const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
-            
-            return {
-              id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
-              childName: cleanContract.ChildName || cleanContract.childName || 'N/A',
-              tutorName: cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned',
-              subject: cleanContract.Subject || cleanContract.subject || 'Mathematics', // Default subject if not provided
-              packageName: cleanContract.PackageName || cleanContract.packageName || 'Package not specified',
-              totalSessions: totalSessions || 0,
-              completedSessions: completedSessions || 0,
-              price: price || 0,
-              status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
-              startDate: cleanContract.StartDate || cleanContract.startDate || '',
-              endDate: cleanContract.EndDate || cleanContract.endDate || '',
-              schedule: schedule,
-              centerName: cleanContract.CenterName || cleanContract.centerName || 'Online',
-              createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
-            };
-          }));
-          console.log('Mapped contracts:', mappedContracts);
-          setContracts(mappedContracts);
-        } else {
-          console.error('Failed to fetch contracts:', response.error);
-          setContracts([]);
-        }
-      } catch (error) {
-        console.error('Error fetching contracts:', error);
-        setContracts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchContracts();
-  }, []);
-
-  const filteredContracts = contracts.filter(contract => 
-    filter === 'all' || contract.status === filter
-  );
+  const filteredContracts = contracts.filter(contract => {
+    const statusMatch = filter === 'all' || contract.status === filter;
+    const childMatch = selectedChildId === 'all' || contract.childId === selectedChildId;
+    return statusMatch && childMatch;
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -198,6 +247,10 @@ const ContractsManagement: React.FC = () => {
     navigate(`/contracts/${contractId}/feedback`);
   };
 
+  const handleRetry = () => {
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -229,26 +282,51 @@ const ContractsManagement: React.FC = () => {
 
         {/* Filter Tabs */}
         <div className="mb-6">
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
-              { key: 'all', label: 'All', count: contracts.length },
-              { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
-              { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
-              { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
-              { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setFilter(tab.key as any)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  filter === tab.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            {/* Status Filter */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+              {[
+                { key: 'all', label: 'All', count: contracts.length },
+                { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
+                { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
+                { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
+                { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key as any)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    filter === tab.key
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
+
+            {/* Child Filter */}
+            {children.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select
+                  value={selectedChildId}
+                  onChange={(e) => setSelectedChildId(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All Children ({contracts.length})</option>
+                  {children.map((child) => {
+                    const childContractsCount = contracts.filter(c => c.childId === child.childId).length;
+                    return (
+                      <option key={child.childId} value={child.childId}>
+                        {child.fullName} ({childContractsCount})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -380,8 +458,38 @@ const ContractsManagement: React.FC = () => {
           ))}
         </div>
 
+        {/* Error State */}
+        {error && contracts.length === 0 && (
+          <div className="text-center py-12">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Failed to Load Contracts
+            </h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              {error.includes('Object reference') || error.includes('500')
+                ? 'System error while processing contracts. Please try again later or contact support.'
+                : error}
+            </p>
+            <div className="flex items-center justify-center space-x-4">
+              <button
+                onClick={handleRetry}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <RefreshCw className="w-5 h-5" />
+                <span>Retry</span>
+              </button>
+              <button
+                onClick={handleCreateContract}
+                className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Create New Contract
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
-        {filteredContracts.length === 0 && (
+        {!error && filteredContracts.length === 0 && (
           <div className="text-center py-12">
             <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">

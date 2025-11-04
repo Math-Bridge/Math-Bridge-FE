@@ -4,6 +4,7 @@ import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllCente
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
+
 interface ChildFormProps {
   child?: {
     childId: string;
@@ -100,15 +101,16 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
         // 2. Wrapped in data: result.data = { data: [...] }
         // 3. Wrapped in array property: result.data = { centers: [...] }
         let centersData: any[] = [];
+        const data = result.data as any;
         
-        if (Array.isArray(result.data)) {
-          centersData = result.data;
-        } else if (result.data.data && Array.isArray(result.data.data)) {
-          centersData = result.data.data;
-        } else if (result.data.centers && Array.isArray(result.data.centers)) {
-          centersData = result.data.centers;
-        } else if (result.data.items && Array.isArray(result.data.items)) {
-          centersData = result.data.items;
+        if (Array.isArray(data)) {
+          centersData = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          centersData = data.data;
+        } else if (data.centers && Array.isArray(data.centers)) {
+          centersData = data.centers;
+        } else if (data.items && Array.isArray(data.items)) {
+          centersData = data.items;
         }
         
         setCenters(centersData);
@@ -133,15 +135,16 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
         // 2. Wrapped in data: result.data = { data: [...] }
         // 3. Wrapped in array property: result.data = { schools: [...] }
         let schoolsData: any[] = [];
+        const data = result.data as any;
         
-        if (Array.isArray(result.data)) {
-          schoolsData = result.data;
-        } else if (result.data.data && Array.isArray(result.data.data)) {
-          schoolsData = result.data.data;
-        } else if (result.data.schools && Array.isArray(result.data.schools)) {
-          schoolsData = result.data.schools;
-        } else if (result.data.items && Array.isArray(result.data.items)) {
-          schoolsData = result.data.items;
+        if (Array.isArray(data)) {
+          schoolsData = data;
+        } else if (data.data && Array.isArray(data.data)) {
+          schoolsData = data.data;
+        } else if (data.schools && Array.isArray(data.schools)) {
+          schoolsData = data.schools;
+        } else if (data.items && Array.isArray(data.items)) {
+          schoolsData = data.items;
         }
         
         setSchools(schoolsData);
@@ -356,9 +359,9 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 disabled={loadingData}
               >
                 <option value="">
-                  {loadingData ? t('loading') || 'Loading...' : t('selectSchool')}
+                  {loadingData ? 'Loading...' : t('selectSchool')}
                 </option>
-                {schools.map((school) => {
+                {schools.map((school: any) => {
                   const schoolId = school.SchoolId || school.schoolId || school.id;
                   const schoolName = school.SchoolName || school.schoolName || school.name || 'Unknown School';
                   return (
@@ -404,9 +407,9 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
                 disabled={loadingData}
               >
                 <option value="">
-                  {loadingData ? t('loading') || 'Loading...' : t('selectCenter')}
+                  {loadingData ? 'Loading...' : t('selectCenter')}
                 </option>
-                {centers.map((center) => {
+                {centers.map((center: any) => {
                   const centerId = center.CenterId || center.centerId || center.id;
                   const centerName = center.Name || center.name || 'Unknown Center';
                   return (

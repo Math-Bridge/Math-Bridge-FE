@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../../hooks/useTranslation';
+import { useToast } from '../../../contexts/ToastContext';
+import ConfirmDialog from '../../common/ConfirmDialog';
 import { getChildrenByParent, softDeleteChild, updateChild } from '../../../services/api';
 
 interface Child {
@@ -48,6 +50,11 @@ const ChildManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; childId: string | null }>({
+    isOpen: false,
+    childId: null
+  });
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     const fetchChildren = async () => {
@@ -110,20 +117,33 @@ const ChildManagement: React.FC = () => {
     setShowAddForm(true);
   };
 
-  const handleDeleteChild = async (childId: string) => {
-    if (window.confirm(t('confirmDeleteChild'))) {
-      try {
-        const response = await softDeleteChild(childId);
-        if (response.success) {
-          setChildren(prev => prev.filter(child => child.id !== childId));
-        } else {
-          alert(response.error || 'Failed to delete child');
-        }
-      } catch (error) {
-        console.error('Error deleting child:', error);
-        alert('Failed to delete child');
+  const handleDeleteClick = (childId: string) => {
+    setDeleteConfirm({ isOpen: true, childId });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.childId) return;
+
+    try {
+      const response = await softDeleteChild(deleteConfirm.childId);
+      if (response.success) {
+        showSuccess('Child deleted successfully!');
+        setChildren(prev => prev.filter(child => child.id !== deleteConfirm.childId));
+      } else {
+        const errorMsg = response.error || 'Failed to delete child';
+        showError(errorMsg);
       }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to delete child';
+      console.error('Error deleting child:', error);
+      showError(errorMsg);
+    } finally {
+      setDeleteConfirm({ isOpen: false, childId: null });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ isOpen: false, childId: null });
   };
 
   const handleSaveChild = async (childData: Omit<Child, 'id'>) => {
@@ -138,13 +158,14 @@ const ChildManagement: React.FC = () => {
         });
         
         if (response.success) {
+          showSuccess('Child updated successfully!');
           setChildren(prev => prev.map(child => 
             child.id === editingChild.id 
               ? { ...child, ...childData }
               : child
           ));
         } else {
-          alert(response.error || 'Failed to update child');
+          showError(response.error || 'Failed to update child');
           return;
         }
       } else {
@@ -158,8 +179,9 @@ const ChildManagement: React.FC = () => {
       setShowAddForm(false);
       setEditingChild(null);
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save child';
       console.error('Error saving child:', error);
-      alert('Failed to save child');
+      showError(errorMsg);
     }
   };
 
@@ -307,7 +329,7 @@ const ChildManagement: React.FC = () => {
                     <span className="text-sm">Progress</span>
                   </button>
                   <button
-                    onClick={() => handleDeleteChild(child.id)}
+                    onClick={() => handleDeleteClick(child.id)}
                     className="px-3 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -345,6 +367,17 @@ const ChildManagement: React.FC = () => {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title={t('confirmDeleteChild') || 'Confirm Delete'}
+        message={t('confirmDelete') || 'Are you sure you want to delete this child? This action cannot be undone.'}
+        confirmText={t('delete') || 'Delete'}
+        cancelText={t('cancel') || 'Cancel'}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        type="danger"
+      />
     </div>
   );
 };

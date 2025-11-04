@@ -18,17 +18,8 @@ import {
   Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-interface StaffStats {
-  pendingContracts: number;
-  activeTutors: number;
-  totalCenters: number;
-  unreadMessages: number;
-  upcomingSessions: number;
-  completedSessions: number;
-  rescheduleRequests: number;
-  newParentRequests: number;
-}
+import { getStaffStats, StaffStats } from '../../../services/api';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface RecentActivity {
   id: string;
@@ -41,6 +32,7 @@ interface RecentActivity {
 
 const StaffDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [stats, setStats] = useState<StaffStats>({
     pendingContracts: 0,
     activeTutors: 0,
@@ -57,23 +49,22 @@ const StaffDashboard: React.FC = () => {
   useEffect(() => {
     const fetchStaffData = async () => {
       try {
-        // TODO: Replace with actual API endpoint when available
-        // For now, set default values instead of mock data
-        setStats({
-          pendingContracts: 0,
-          activeTutors: 0,
-          totalCenters: 0,
-          unreadMessages: 0,
-          upcomingSessions: 0,
-          completedSessions: 0,
-          rescheduleRequests: 0,
-          newParentRequests: 0
-        });
+        setLoading(true);
+        
+        // Fetch staff stats
+        const statsResult = await getStaffStats();
+        if (statsResult.success && statsResult.data) {
+          setStats(statsResult.data);
+        } else {
+          console.error('Failed to fetch staff stats:', statsResult.error);
+          showError(statsResult.error || 'Failed to load staff statistics');
+        }
 
         // TODO: Replace with actual activities API endpoint when available
         setRecentActivities([]);
       } catch (error) {
         console.error('Error fetching staff data:', error);
+        showError('Failed to load dashboard data');
         setStats({
           pendingContracts: 0,
           activeTutors: 0,
@@ -91,7 +82,7 @@ const StaffDashboard: React.FC = () => {
     };
 
     fetchStaffData();
-  }, []);
+  }, [showError]);
 
   const quickActions = [
     {

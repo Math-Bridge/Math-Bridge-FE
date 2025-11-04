@@ -4,6 +4,8 @@ export { default as ParentProfilePage } from './ParentProfilePage';
 export { default as MyChildrenPage } from './MyChildrenPage';
 export { default as ParentWalletPage } from './ParentWalletPage';
 export { default as WalletPage } from './WalletPage';
+export { default as TopUpPage } from './TopUpPage';
+export { default as TransactionHistoryPage } from './TransactionHistoryPage';
 export { default as ContractsPage } from './ContractsPage';
 export { default as PackageSelectionPage } from './PackageSelectionPage';
 export { default as CreateContractPage } from './CreateContractPage';

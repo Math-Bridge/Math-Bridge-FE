@@ -160,7 +160,7 @@ const ParentProfile: React.FC = () => {
         });
       } else {
         showError(response.error || 'Failed to load profile data');
-      }
+    }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load profile data';
       console.error('Error fetching user data:', err);
@@ -343,10 +343,10 @@ const ParentProfile: React.FC = () => {
                         Email Address
                       </label>
                       {/* Email is read-only - cannot be changed via this endpoint */}
-                      <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-xl">
-                        <Mail className="h-5 w-5 text-slate-400" />
+                        <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-xl">
+                          <Mail className="h-5 w-5 text-slate-400" />
                         <span className="text-slate-900">{formData.email || 'Not available'}</span>
-                      </div>
+                        </div>
                       <p className="mt-1 text-xs text-slate-500">Email cannot be changed here</p>
                     </div>
 

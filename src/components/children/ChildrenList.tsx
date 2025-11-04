@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { User, Plus, Loader } from 'lucide-react';
 import ChildCard from './ChildCard';
+import ConfirmDialog from '../common/ConfirmDialog';
 import { Child, getChildrenByParent, softDeleteChild, updateChild, getSchoolById } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useToast } from '../../contexts/ToastContext';
 
 interface ChildrenListProps {
   onAddChild?: () => void;
@@ -21,8 +23,13 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; childId: string | null }>({
+    isOpen: false,
+    childId: null
+  });
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { showSuccess, showError } = useToast();
 
   useEffect(() => {
     if (user?.id) {
@@ -121,27 +128,39 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
     }
   };
 
-  const handleDeleteChild = async (childId: string) => {
-    if (!window.confirm(t('confirmDelete'))) {
-      return;
-    }
+  const handleDeleteClick = (childId: string) => {
+    setDeleteConfirm({ isOpen: true, childId });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm.childId) return;
 
     try {
-      const result = await softDeleteChild(childId);
+      const result = await softDeleteChild(deleteConfirm.childId);
       if (result.success) {
+        showSuccess('Child deleted successfully!');
         // Refresh the children list
         await fetchChildren();
         if (onDeleteChild) {
-          onDeleteChild(childId);
+          onDeleteChild(deleteConfirm.childId);
         }
       } else {
-        setError(result.error || 'Failed to delete child');
+        const errorMsg = result.error || 'Failed to delete child';
+        showError(errorMsg);
+        setError(errorMsg);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while deleting child';
+      showError(errorMessage);
       setError(errorMessage);
       console.error('Error:', err);
+    } finally {
+      setDeleteConfirm({ isOpen: false, childId: null });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ isOpen: false, childId: null });
   };
 
   const handleLinkCenter = async (childId: string) => {
@@ -222,12 +241,23 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
               key={child.childId}
               child={child}
               onEdit={handleEditChild}
-              onDelete={handleDeleteChild}
+              onDelete={handleDeleteClick}
               onLinkCenter={handleLinkCenter}
             />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title={t('confirmDeleteChild') || 'Confirm Delete'}
+        message={t('confirmDelete') || 'Are you sure you want to delete this child? This action cannot be undone.'}
+        confirmText={t('delete') || 'Delete'}
+        cancelText={t('cancel') || 'Cancel'}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        type="danger"
+      />
     </div>
   );
 };

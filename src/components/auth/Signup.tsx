@@ -3,9 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck, CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useToast } from '../../contexts/ToastContext';
 
 const Signup: React.FC = () => {
   const { t } = useTranslation();
+  const { showSuccess, showError } = useToast();
   const resendVerification = async (email: string) => {
     try {
       const response = await fetch('https://api.vibe88.tech/api/auth/resend-verification', {
@@ -14,12 +16,12 @@ const Signup: React.FC = () => {
         body: JSON.stringify({ Email: email })
       });
       if (response.ok) {
-        alert(t('verificationEmailSentAgain'));
+        showSuccess(t('verificationEmailSentAgain'));
       } else {
-        alert(t('failedToResendVerification'));
+        showError(t('failedToResendVerification'));
       }
     } catch (error) {
-      alert(t('errorResendingEmail'));
+      showError(t('errorResendingEmail'));
     }
   };
   const [formData, setFormData] = useState({

@@ -8,28 +8,16 @@ import {
   X, 
   Home,
   BookOpen,
-  Bell,
-  Users,
   Wallet,
-  Plus,
-  CreditCard,
-  TrendingUp,
   ChevronDown,
   FileText,
-  GraduationCap,
   Settings,
-  Calendar
+  Users,
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
 import SettingsModal from './SettingsModal';
 import { useTranslation } from '../../hooks/useTranslation';
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  date: string;
-}
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -39,16 +27,12 @@ const Header: React.FC = () => {
   
   // State management
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [walletLoading, setWalletLoading] = useState(true);
-  const [walletError, setWalletError] = useState<string | null>(null);
 
   // Refs for click outside detection
-  const walletDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // Navigation items configuration based on user role
@@ -56,21 +40,24 @@ const Header: React.FC = () => {
     if (user?.role === 'tutor') {
       return [
         { name: 'Dashboard', href: '/tutor/dashboard', icon: Home },
-        { name: 'My Availabilities', href: '/tutor/dashboard', icon: Calendar },
-        { name: 'My Sessions', href: '/tutor/dashboard', icon: BookOpen },
-        // { name: 'Centers', href: '/centers', icon: Users },
-        { name: 'Profile', href: '/user-profile', icon: User },
       ];
-    } else {
-      // Default navigation for Parent and other roles
+    } else if (user?.role === 'staff') {
+      // Staff has no navigation items - they stay in dashboard
+      return [];
+    } else if (user?.role === 'parent') {
+      // Navigation for Parent role
       return [
         { name: 'Home', href: '/home', icon: Home },
         { name: 'My Children', href: '/my-children', icon: Users },
         { name: 'Contracts', href: '/contracts', icon: FileText },
-        // { name: 'Tutors', href: '/tutors', icon: GraduationCap },
-        // { name: 'Centers', href: '/centers', icon: Users },
         { name: 'Packages', href: '/packages', icon: BookOpen },
-        { name: 'Progress', href: '/progress', icon: TrendingUp },
+      ];
+    } else {
+      // Default navigation for other roles (admin, etc.)
+      return [
+        { name: 'Home', href: '/home', icon: Home },
+        { name: 'Contracts', href: '/contracts', icon: FileText },
+        { name: 'Packages', href: '/packages', icon: BookOpen },
       ];
     }
   };
@@ -82,43 +69,47 @@ const Header: React.FC = () => {
     const fetchWallet = async () => {
       if (!isAuthenticated) return;
       
+      // Only fetch wallet for parent role (not tutor, not staff)
+      if (user?.role === 'tutor' || user?.role === 'staff') {
+        return;
+      }
+      
       setWalletLoading(true);
-      setWalletError(null);
       
       try {
         const userStr = localStorage.getItem('user');
         const userId = userStr ? JSON.parse(userStr).id : '';
         
         if (!userId) {
-          throw new Error('User not found');
+          console.warn('User ID not found for wallet fetch');
+          setWalletBalance(0);
+          return;
         }
 
         const res = await apiService.getUserWallet(userId);
         
         if (res.success && res.data) {
-          setWalletBalance(res.data.balance || 0);
-          setRecentTransactions(res.data.transactions?.slice(0, 5) || []);
+          const balance = res.data.balance || 0;
+          setWalletBalance(balance);
+          console.log('Wallet balance loaded:', balance);
         } else {
-          throw new Error(res.error || 'Failed to load wallet');
+          console.error('Failed to load wallet:', res.error);
+          setWalletBalance(0);
         }
       } catch (error) {
-        setWalletError(error instanceof Error ? error.message : 'Failed to load wallet');
+        console.error('Error fetching wallet:', error);
         setWalletBalance(0);
-        setRecentTransactions([]);
       } finally {
         setWalletLoading(false);
       }
     };
 
     fetchWallet();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role]);
 
   // Click outside handler
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (walletDropdownRef.current && !walletDropdownRef.current.contains(event.target as Node)) {
-        setIsWalletDropdownOpen(false);
-      }
       if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
         setIsUserDropdownOpen(false);
       }
@@ -132,7 +123,6 @@ const Header: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsWalletDropdownOpen(false);
         setIsUserDropdownOpen(false);
         setIsMobileMenuOpen(false);
       }
@@ -152,7 +142,6 @@ const Header: React.FC = () => {
   };
 
   const closeAllDropdowns = () => {
-    setIsWalletDropdownOpen(false);
     setIsUserDropdownOpen(false);
     setIsMobileMenuOpen(false);
   };
@@ -178,15 +167,12 @@ const Header: React.FC = () => {
                 <img src={logo} alt="MathBridge Logo" className="h-10 w-10 object-contain" />
                 <span className="absolute -top-1 -right-1 text-xs text-blue-600">π</span>
               </div>
-              <div>
-                <span className="text-xl font-bold text-gray-900">MathBridge</span>
-                <div className="text-xs text-blue-600 font-mono">∫ f(x)dx = success</div>
-              </div>
+              <span className="text-xl font-bold text-gray-900">MathBridge</span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          {isAuthenticated && (
+          {isAuthenticated && navigationItems.length > 0 && (
             <nav className="hidden md:flex space-x-4" role="navigation" aria-label="Main navigation">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.href;
@@ -213,168 +199,34 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-2 sm:space-x-4">
             {isAuthenticated ? (
               <>
-                {/* Wallet Section - Only show for non-tutor users */}
-                {user?.role !== 'tutor' && (
-                <div className="relative" ref={walletDropdownRef}>
+                {/* Wallet - Simplified for non-tutor and non-staff users */}
+                {user?.role !== 'tutor' && user?.role !== 'staff' && (
                   <button
-                    onClick={() => {
-                      setIsWalletDropdownOpen(!isWalletDropdownOpen);
-                      setIsUserDropdownOpen(false);
-                    }}
-                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-gray-200 hover:border-blue-200"
-                    aria-expanded={isWalletDropdownOpen}
-                    aria-haspopup="true"
-                    aria-label={`Wallet balance: $${walletBalance.toFixed(2)}`}
+                    onClick={() => navigate('/wallet')}
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                    aria-label="Wallet"
                   >
                     <Wallet className="h-4 w-4" aria-hidden="true" />
-                    <div className="hidden sm:flex flex-col items-start">
-                      <span className="text-xs text-gray-500 font-mono">Balance</span>
-                      <span className="text-sm font-semibold">
-                        {walletLoading ? '...' : `$${walletBalance.toFixed(2)}`}
-                      </span>
-                    </div>
-                    <span className="sm:hidden text-sm font-semibold">
-                      {walletLoading ? '...' : `$${walletBalance.toFixed(2)}`}
+                    <span className="text-sm font-semibold">
+                      {walletLoading ? (
+                        <span className="text-gray-400">...</span>
+                      ) : (
+                        <span>
+                          {new Intl.NumberFormat('vi-VN', { 
+                            style: 'currency', 
+                            currency: 'VND' 
+                          }).format(walletBalance)}
+                        </span>
+                      )}
                     </span>
-                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
-                      isWalletDropdownOpen ? 'rotate-180' : ''
-                    }`} aria-hidden="true" />
                   </button>
-
-                  {/* Wallet Dropdown */}
-                  {isWalletDropdownOpen && (
-                    <div 
-                      className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50"
-                      role="menu"
-                      aria-orientation="vertical"
-                    >
-                      <div className="p-4">
-                        {/* Wallet Header */}
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-2">
-                            <Wallet className="h-5 w-5 text-blue-900" aria-hidden="true" />
-                            <span className="font-semibold text-gray-900">My Wallet</span>
-                          </div>
-                          <button
-                            onClick={() => setIsWalletDropdownOpen(false)}
-                            className="p-1 hover:bg-gray-100 rounded transition-colors"
-                            aria-label="Close wallet menu"
-                          >
-                            <X className="h-4 w-4 text-gray-500" />
-                          </button>
-                        </div>
-
-                        {walletLoading ? (
-                          <div className="text-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900 mx-auto"></div>
-                            <p className="text-sm text-gray-500 mt-2">Loading wallet...</p>
-                          </div>
-                        ) : walletError ? (
-                          <div className="text-center py-8">
-                            <p className="text-sm text-red-600">{walletError}</p>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Balance Display */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm text-gray-600 font-mono">Current Balance</p>
-                                  <p className="text-2xl font-bold text-blue-900">${walletBalance.toFixed(2)}</p>
-                                  <p className="text-xs text-gray-500 mt-1">Available to spend</p>
-                                </div>
-                                <TrendingUp className="h-8 w-8 text-green-500" aria-hidden="true" />
-                              </div>
-                            </div>
-
-                            {/* Quick Actions */}
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                              <button 
-                                onClick={() => {
-                                  closeAllDropdowns();
-                                  navigate('/wallet/topup');
-                                }}
-                                className="flex items-center justify-center space-x-2 p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                                role="menuitem"
-                              >
-                                <Plus className="h-4 w-4 text-blue-900" aria-hidden="true" />
-                                <span className="text-sm font-medium text-blue-900">Top Up</span>
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  closeAllDropdowns();
-                                  navigate('/wallet/history');
-                                }}
-                                className="flex items-center justify-center space-x-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                                role="menuitem"
-                              >
-                                <CreditCard className="h-4 w-4 text-gray-700" aria-hidden="true" />
-                                <span className="text-sm font-medium text-gray-700">History</span>
-                              </button>
-                            </div>
-
-                            {/* Recent Transactions */}
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-900 mb-2">Recent Transactions</h4>
-                              <div className="space-y-2 max-h-40 overflow-y-auto">
-                                {recentTransactions.length > 0 ? (
-                                  recentTransactions.map((transaction) => (
-                                    <div key={transaction.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium text-gray-900 truncate">
-                                          {transaction.description}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{transaction.date}</p>
-                                      </div>
-                                      <div className={`text-sm font-semibold ${
-                                        transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                                      }`}>
-                                        {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
-                                      </div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-xs text-gray-500 text-center py-4">No recent transactions</p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* View All Link */}
-                            <div className="mt-4 pt-3 border-t border-gray-100">
-                              <button
-                                onClick={() => {
-                                  closeAllDropdowns();
-                                  navigate('/user-wallet');
-                                }}
-                                className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                                role="menuitem"
-                              >
-                                View Full Wallet →
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 )}
-
-                {/* Notifications */}
-                <button 
-                  className="p-2 text-gray-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200 relative"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" aria-hidden="true" />
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" aria-hidden="true"></span>
-                </button>
 
                 {/* User Menu */}
                 <div className="relative" ref={userDropdownRef}>
                   <button
                     onClick={() => {
                       setIsUserDropdownOpen(!isUserDropdownOpen);
-                      setIsWalletDropdownOpen(false);
                     }}
                     className="flex items-center space-x-2 p-2 text-gray-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
                     aria-expanded={isUserDropdownOpen}
@@ -401,101 +253,17 @@ const Header: React.FC = () => {
                         <div className="text-xs text-blue-600 mt-1 capitalize">{user?.role || 'Parent'}</div>
                       </div>
                       <div className="py-1">
-                        {user?.role === 'tutor' ? (
-                          <>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/tutor/dashboard'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <Home className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              Tutor Dashboard
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/user-profile'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('profile')}
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/centers'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              My Centers
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/user-profile'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('profile')}
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/my-children'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <Users className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('myChildren')}
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/contracts'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <FileText className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('myContracts')}
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/wallet'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <Wallet className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('wallet')}
-                            </button>
-                            <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                              onClick={() => { 
-                                closeAllDropdowns(); 
-                                navigate('/progress'); 
-                              }}
-                              role="menuitem"
-                            >
-                              <TrendingUp className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                              {t('progressReports')}
-                            </button>
-                          </>
-                        )}
+                        <button
+                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                          onClick={() => { 
+                            closeAllDropdowns(); 
+                            navigate('/user-profile'); 
+                          }}
+                          role="menuitem"
+                        >
+                          <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                          {t('profile')}
+                        </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                           onClick={() => { 
@@ -525,7 +293,6 @@ const Header: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(!isMobileMenuOpen);
-                    setIsWalletDropdownOpen(false);
                     setIsUserDropdownOpen(false);
                   }}
                   className="md:hidden p-2 text-gray-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
@@ -561,46 +328,6 @@ const Header: React.FC = () => {
         {/* Mobile Navigation */}
         {isAuthenticated && isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
-            {/* Mobile Wallet Section - Only show for non-tutor users */}
-            {user?.role !== 'tutor' && (
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <Wallet className="h-4 w-4 text-blue-900" aria-hidden="true" />
-                  <span className="text-sm font-medium text-blue-900">Wallet Balance</span>
-                </div>
-                <span className="text-lg font-bold text-blue-900">
-                  {walletLoading ? '...' : `$${walletBalance.toFixed(2)}`}
-                </span>
-              </div>
-              {!walletLoading && !walletError && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button 
-                    onClick={() => {
-                      closeAllDropdowns();
-                      navigate('/wallet/topup');
-                    }}
-                    className="flex items-center justify-center space-x-1 p-2 bg-blue-100 hover:bg-blue-200 rounded text-xs font-medium text-blue-900 transition-colors"
-                  >
-                    <Plus className="h-3 w-3" aria-hidden="true" />
-                    <span>Top Up</span>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      closeAllDropdowns();
-                      navigate('/user-wallet');
-                    }}
-                    className="flex items-center justify-center space-x-1 p-2 bg-blue-100 hover:bg-blue-200 rounded text-xs font-medium text-blue-900 transition-colors"
-                  >
-                    <CreditCard className="h-3 w-3" aria-hidden="true" />
-                    <span>View Wallet</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* Mobile Navigation Items */}
             <nav className="space-y-2" role="navigation" aria-label="Mobile navigation">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.href;

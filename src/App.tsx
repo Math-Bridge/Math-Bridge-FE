@@ -28,6 +28,8 @@ import {
   MyChildrenPage,
   ParentWalletPage,
   WalletPage,
+  TopUpPage,
+  TransactionHistoryPage,
   ContractsPage,
   PackageSelectionPage,
   CreateContractPage,
@@ -35,7 +37,10 @@ import {
   TutorDetailPage,
   ProgressReportsPage,
   AdminDashboardPage,
-  StaffDashboardPage
+  StaffDashboardPage,
+  ContractManagementPage,
+  TutorMatchingPage,
+  RescheduleManagementPage,
 } from './pages/features';
 
 // Protected Route Component (supports role-based guard)
@@ -90,12 +95,16 @@ const RoleBasedRedirect: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
   
-  // Redirect tutor to tutor dashboard
+  // Redirect based on user role
   if (user?.role === 'tutor') {
     return <Navigate to="/tutor/dashboard" replace />;
   }
   
-  // Default redirect for other roles
+  if (user?.role === 'staff') {
+    return <Navigate to="/staff" replace />;
+  }
+  
+  // Default redirect for other roles (parent, admin, etc.)
   return <Navigate to="/home" replace />;
 };
 
@@ -146,12 +155,12 @@ function App() {
             } />
             <Route path="wallet/topup" element={
               <ProtectedRoute>
-                <ParentWalletPage />
+                <TopUpPage />
               </ProtectedRoute>
             } />
             <Route path="wallet/history" element={
               <ProtectedRoute>
-                <ParentWalletPage />
+                <TransactionHistoryPage />
               </ProtectedRoute>
             } />
             
@@ -254,6 +263,21 @@ function App() {
             <Route path="staff" element={
               <ProtectedRoute>
                 <StaffDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/contracts" element={
+              <ProtectedRoute>
+                <ContractManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/tutor-matching" element={
+              <ProtectedRoute>
+                <TutorMatchingPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/reschedules" element={
+              <ProtectedRoute>
+                <RescheduleManagementPage />
               </ProtectedRoute>
             } />
           </Route>

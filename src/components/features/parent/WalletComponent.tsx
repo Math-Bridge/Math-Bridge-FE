@@ -43,9 +43,6 @@ const WalletComponent: React.FC = () => {
     recentTransactions: []
   });
   const [loading, setLoading] = useState(true);
-  const [showDepositForm, setShowDepositForm] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositMethod, setDepositMethod] = useState('bank_transfer');
 
   useEffect(() => {
     const fetchWalletData = async () => {
@@ -105,27 +102,8 @@ const WalletComponent: React.FC = () => {
   }, []);
 
   const handleDeposit = () => {
-    if (!depositAmount || parseFloat(depositAmount) <= 0) return;
-    
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: 'deposit',
-      amount: parseFloat(depositAmount),
-      description: `${depositMethod} deposit`,
-      date: new Date().toISOString(),
-      status: 'pending',
-      method: depositMethod
-    };
-
-    setWalletData(prev => ({
-      ...prev,
-      balance: prev.balance + parseFloat(depositAmount),
-      totalDeposits: prev.totalDeposits + parseFloat(depositAmount),
-      recentTransactions: [newTransaction, ...prev.recentTransactions]
-    }));
-
-    setDepositAmount('');
-    setShowDepositForm(false);
+    // Navigate to TopUp page instead of showing modal
+    navigate('/wallet/topup');
   };
 
   const getTransactionIcon = (type: string) => {
@@ -185,7 +163,7 @@ const WalletComponent: React.FC = () => {
             </div>
             <div className="text-right">
               <button
-                onClick={() => setShowDepositForm(true)}
+                onClick={() => navigate('/wallet/topup')}
                 className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center space-x-2"
               >
                 <Plus className="w-5 h-5" />
@@ -238,56 +216,6 @@ const WalletComponent: React.FC = () => {
           </div>
         </div>
 
-        {/* Deposit Form Modal */}
-        {showDepositForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">{t('addFunds')}</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
-                  <input
-                    type="number"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('depositMethod')}</label>
-                  <select
-                    value={depositMethod}
-                    onChange={(e) => setDepositMethod(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="bank_transfer">{t('bankTransfer')}</option>
-                    <option value="credit_card">{t('creditCard')}</option>
-                    <option value="mobile_banking">Mobile Banking</option>
-                    <option value="e_wallet">E-Wallet</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex space-x-3 mt-6">
-                <button
-                  onClick={() => setShowDepositForm(false)}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeposit}
-                  className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  {t('addFunds')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Transaction History */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">

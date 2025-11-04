@@ -40,6 +40,8 @@ const Login: React.FC = () => {
           const user = JSON.parse(savedUser);
           if (user.role === 'tutor') {
             navigate('/tutor/dashboard', { replace: true });
+          } else if (user.role === 'staff') {
+            navigate('/staff', { replace: true });
           } else {
             navigate('/home', { replace: true });
           }
@@ -79,6 +81,9 @@ const Login: React.FC = () => {
             if (user.role === 'tutor') {
               console.log(" Google login success → navigating to /tutor/dashboard");
               navigate("/tutor/dashboard", { replace: true });
+            } else if (user.role === 'staff') {
+              console.log("Google login success → navigating to /staff");
+              navigate("/staff", { replace: true });
             } else {
               console.log("Google login success → navigating to /home");
               navigate("/home", { replace: true });
