@@ -30,6 +30,8 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [loading, setLoading] = useState(false);
 
+  // BE bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  // (According to BE controller comment and /dayflags endpoint)
   const daysOfWeekOptions = [
     { bit: 1, label: 'Sunday', short: 'Sun' },
     { bit: 2, label: 'Monday', short: 'Mon' },
@@ -158,7 +160,31 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
       
       // Determine if we should create multiple availabilities or update existing
       if (availability?.availabilityId) {
-        // For update, we'll update to the first selected slot (or use bulk update if needed)
+        // For update, we need to handle multiple slots differently
+        // If only one slot selected, update directly
+        if (slotObjects.length === 1) {
+          const slot = slotObjects[0];
+          const requestData: CreateTutorAvailabilityRequest = {
+            TutorId: user.id,
+            DaysOfWeek: formData.daysOfWeek,
+            AvailableFrom: slot.from,
+            AvailableUntil: slot.to,
+            EffectiveFrom: formData.effectiveFrom,
+            EffectiveUntil: formData.effectiveUntil || null,
+            CanTeachOnline: true,
+            CanTeachOffline: true,
+          };
+
+          const result = await updateTutorAvailability(availability.availabilityId, requestData);
+          if (result.success) {
+            showSuccess('Availability updated successfully!');
+            onSuccess();
+            onClose();
+          } else {
+            showError(result.error || 'Failed to update availability');
+          }
+        } else {
+          // Multiple slots selected - combine into one availability with range
         const firstSlot = slotObjects[0];
         const lastSlot = slotObjects[slotObjects.length - 1];
         
@@ -180,6 +206,7 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
           onClose();
         } else {
           showError(result.error || 'Failed to update availability');
+          }
         }
       } else {
         // For create, create one availability per slot or combine consecutive slots
@@ -207,7 +234,8 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
           }
         } else {
           // Multiple availabilities - use bulk create
-          const result = await bulkCreateTutorAvailabilities({ availabilities: requests });
+          // bulkCreateTutorAvailabilities will handle wrapping in { requests: [...] }
+          const result = await bulkCreateTutorAvailabilities(requests);
           if (result.success) {
             showSuccess(`${requests.length} availabilities created successfully!`);
             onSuccess();
@@ -226,8 +254,12 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={(e) => {
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}>
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-bold text-gray-900">
             {availability ? 'Edit Availability' : 'Add Availability'}
@@ -293,7 +325,7 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({ availability, onClo
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">{slot.label}</span>
                       {isSelected && (
-                        <span className="text-white">✓</span>
+                        <span className="text-white text-lg">✓</span>
                       )}
                     </div>
                   </button>

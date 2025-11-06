@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiService, DashboardStats, Activity } from '../../services/api';
+import { apiService, DashboardStats } from '../../services/api';
 import { useTranslation } from '../../hooks/useTranslation';
 import { 
   Calculator, 
@@ -11,14 +11,12 @@ import {
   UserPlus
 } from 'lucide-react';
 import StatsCard from './StatsCard';
-import ActivityFeed from './ActivityFeed';
 import QuickActions from './QuickActions';
 import { LoadingSpinner } from '../common';
 
 const Home: React.FC = () => {
   const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,15 +31,6 @@ const Home: React.FC = () => {
           setStats(statsResponse.data);
         } else {
           throw new Error(statsResponse.error || 'Failed to load dashboard stats');
-        }
-
-        // Fetch recent activities from API
-        const activitiesResponse = await apiService.getRecentActivities();
-        if (activitiesResponse.success && activitiesResponse.data) {
-          setActivities(activitiesResponse.data);
-        } else {
-          // If activities fail, set empty array instead of throwing
-          setActivities([]);
         }
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -131,30 +120,25 @@ const Home: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8">
-        {/* Chart Placeholder */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover-lift animate-slide-in-left">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 animate-fade-in">{t('overviewAnalytics')}</h2>
-            <button className="flex items-center space-x-2 text-blue-900 hover:text-blue-700">
-              <PieChart className="h-5 w-5 animate-rotate" />
-              <span className="text-sm">{t('viewDetails')}</span>
-            </button>
+      {/* Chart Placeholder */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover-lift animate-slide-in-left mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 animate-fade-in">{t('overviewAnalytics')}</h2>
+          <button className="flex items-center space-x-2 text-blue-900 hover:text-blue-700">
+            <PieChart className="h-5 w-5 animate-rotate" />
+            <span className="text-sm">{t('viewDetails')}</span>
+          </button>
+        </div>
+        <div className="h-64 bg-blue-50 rounded-lg flex items-center justify-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 opacity-50 flex items-center justify-center">
+            <span className="text-6xl text-blue-300 animate-math-symbols">π</span>
           </div>
-          <div className="h-64 bg-blue-50 rounded-lg flex items-center justify-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 opacity-50 flex items-center justify-center">
-              <span className="text-6xl text-blue-300 animate-math-symbols">π</span>
-            </div>
-            <div className="text-center">
-              <PieChart className="h-12 w-12 text-blue-400 mx-auto mb-4 animate-pulse-slow" />
-              <p className="text-gray-600">{t('analyticsChart')}</p>
-              <p className="text-sm text-gray-500">{t('chartIntegrationComingSoon')}</p>
-            </div>
+          <div className="text-center">
+            <PieChart className="h-12 w-12 text-blue-400 mx-auto mb-4 animate-pulse-slow" />
+            <p className="text-gray-600">{t('analyticsChart')}</p>
+            <p className="text-sm text-gray-500">{t('chartIntegrationComingSoon')}</p>
           </div>
         </div>
-
-        {/* Recent Activity */}
-        <ActivityFeed activities={activities} />
       </div>
 
       {/* Quick Actions */}

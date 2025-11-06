@@ -105,8 +105,8 @@ const TutorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-6">
+      <div className="w-full px-2 sm:px-4 lg:px-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
           <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
@@ -166,9 +166,9 @@ const TutorDashboard: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left sidebar: Quick Actions */}
-          <aside className="lg:col-span-1">
+          <aside className="lg:col-span-3">
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 lg:sticky lg:top-24">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-3">
@@ -196,7 +196,7 @@ const TutorDashboard: React.FC = () => {
           </aside>
 
           {/* Right content */}
-          <main className="lg:col-span-3">
+          <main className="lg:col-span-9">
             {renderRightPane()}
           </main>
         </div>

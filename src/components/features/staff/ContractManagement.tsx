@@ -12,11 +12,20 @@ import {
   Eye,
   UserPlus,
   AlertCircle,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
-import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor } from '../../../services/api';
+import { useNavigate } from 'react-router-dom';
+import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
-const ContractManagement: React.FC = () => {
+interface ContractManagementProps {
+  hideBackButton?: boolean;
+}
+
+const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton = false }) => {
+  const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [filteredContracts, setFilteredContracts] = useState<Contract[]>([]);
@@ -27,6 +36,9 @@ const ContractManagement: React.FC = () => {
   const [showTutorModal, setShowTutorModal] = useState(false);
   const [availableTutors, setAvailableTutors] = useState<Tutor[]>([]);
   const [loadingTutors, setLoadingTutors] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     fetchContracts();
@@ -36,12 +48,74 @@ const ContractManagement: React.FC = () => {
     filterContracts();
   }, [contracts, searchTerm, statusFilter]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  // Fetch tutor name by userId
+  const fetchTutorName = async (tutorId: string): Promise<string | null> => {
+    try {
+      const result = await apiService.getUserById(tutorId);
+      if (result.success && result.data) {
+        const user = result.data;
+        return user.fullName || user.FullName || user.name || user.Name || null;
+      }
+    } catch (error) {
+      console.error('Error fetching tutor name:', error);
+    }
+    return null;
+  };
+
   const fetchContracts = async () => {
     try {
       setLoading(true);
       const result = await getAllContracts();
       if (result.success && result.data) {
-        setContracts(result.data);
+        // Map backend response (PascalCase) to frontend format (camelCase)
+        const mappedContracts = await Promise.all(
+          result.data.map(async (contract: any) => {
+            // Handle MainTutorName - backend may return null or empty string
+            let mainTutorName = contract.mainTutorName || contract.MainTutorName || '';
+            const mainTutorId = contract.mainTutorId || contract.MainTutorId;
+            
+            // If we have tutorId but no tutorName, fetch it from API
+            if (mainTutorId && !mainTutorName) {
+              console.log('Fetching tutor name for tutorId:', mainTutorId);
+              const fetchedName = await fetchTutorName(mainTutorId);
+              if (fetchedName) {
+                mainTutorName = fetchedName;
+                console.log('Fetched tutor name:', fetchedName);
+              } else {
+                console.warn('Could not fetch tutor name for tutorId:', mainTutorId);
+              }
+            }
+            
+            return {
+              contractId: contract.contractId || contract.ContractId,
+              childId: contract.childId || contract.ChildId,
+              childName: contract.childName || contract.ChildName,
+              packageId: contract.packageId || contract.PackageId,
+              packageName: contract.packageName || contract.PackageName,
+              mainTutorId: mainTutorId || null,
+              mainTutorName: mainTutorName || null,
+              centerId: contract.centerId || contract.CenterId,
+              centerName: contract.centerName || contract.CenterName,
+              startDate: contract.startDate || contract.StartDate,
+              endDate: contract.endDate || contract.EndDate,
+              timeSlot: contract.timeSlot || (contract.StartTime && contract.EndTime 
+                ? `${contract.StartTime} - ${contract.EndTime}` 
+                : contract.startTime && contract.endTime 
+                ? `${contract.startTime} - ${contract.endTime}` 
+                : ''),
+              isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
+              status: contract.status || contract.Status,
+            };
+          })
+        );
+        
+        console.log('Mapped contracts:', mappedContracts);
+        console.log('Sample contract with tutor:', mappedContracts.find(c => c.mainTutorId));
+        setContracts(mappedContracts);
       } else {
         showError(result.error || 'Failed to load contracts');
       }
@@ -74,6 +148,12 @@ const ContractManagement: React.FC = () => {
 
     setFilteredContracts(filtered);
   };
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
 
   const handleAssignTutor = async (contract: Contract) => {
     setSelectedContract(contract);
@@ -108,18 +188,53 @@ const ContractManagement: React.FC = () => {
     if (!selectedContract) return;
 
     try {
+      setLoadingTutors(true); // Show loading state
       const result = await assignTutorToContract(selectedContract.contractId, tutorId);
       if (result.success) {
         showSuccess('Tutor assigned successfully');
+        // Close modal and cleanup
         setShowTutorModal(false);
         setSelectedContract(null);
-        fetchContracts();
+        setAvailableTutors([]);
+        // Wait a bit for backend to update, then refresh
+        setTimeout(() => {
+          fetchContracts();
+        }, 500);
       } else {
         showError(result.error || 'Failed to assign tutor');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning tutor:', error);
-      showError('Failed to assign tutor');
+      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to assign tutor';
+      showError(errorMsg);
+    } finally {
+      setLoadingTutors(false);
+    }
+  };
+
+  const handleUpdateStatus = async (contractId: string, newStatus: 'active' | 'completed' | 'cancelled') => {
+    if (!window.confirm(`Are you sure you want to change status to "${newStatus}"?`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus(contractId);
+      const result = await updateContractStatus(contractId, newStatus);
+      if (result.success) {
+        showSuccess(`Contract status updated to ${newStatus}`);
+        // Refresh contracts after update
+        setTimeout(() => {
+          fetchContracts();
+        }, 300);
+      } else {
+        showError(result.error || 'Failed to update contract status');
+      }
+    } catch (error: any) {
+      console.error('Error updating contract status:', error);
+      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to update contract status';
+      showError(errorMsg);
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -154,6 +269,15 @@ const ContractManagement: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
+          {!hideBackButton && (
+            <button
+              onClick={() => navigate('/staff')}
+              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2 mb-6"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Dashboard</span>
+            </button>
+          )}
           <h1 className="text-3xl font-bold text-gray-900">Contract Management</h1>
           <p className="text-gray-600 mt-2">Review and manage contracts</p>
         </div>
@@ -189,8 +313,7 @@ const ContractManagement: React.FC = () => {
         </div>
 
         {/* Contracts List */}
-        <div className="space-y-4">
-          {filteredContracts.length === 0 ? (
+        {paginatedContracts.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Contracts Found</h3>
@@ -201,63 +324,88 @@ const ContractManagement: React.FC = () => {
               </p>
             </div>
           ) : (
-            filteredContracts.map((contract) => (
+          <React.Fragment key="contracts-list">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {paginatedContracts.map((contract) => (
               <div
                 key={contract.contractId}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow flex flex-col"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <h3 className="text-lg font-bold text-gray-900">{contract.packageName}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(contract.status)}`}>
-                        {contract.status}
-                      </span>
+                <div className="flex flex-col flex-1">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-bold text-gray-900 truncate pr-2">{contract.packageName}</h3>
+                    <div className="flex items-center space-x-2">
+                      {contract.status === 'cancelled' ? (
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(contract.status)}`}>
+                          {contract.status}
+                        </span>
+                      ) : (
+                        <>
+                          <select
+                            value={contract.status}
+                            onChange={(e) => {
+                              const newStatus = e.target.value as 'active' | 'completed' | 'cancelled';
+                              if (newStatus !== contract.status && (newStatus === 'active' || newStatus === 'completed' || newStatus === 'cancelled')) {
+                                handleUpdateStatus(contract.contractId, newStatus);
+                              }
+                            }}
+                            disabled={updatingStatus === contract.contractId}
+                            className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 border-0 cursor-pointer ${getStatusColor(contract.status)} disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                          >
+                            <option value="pending" disabled={contract.status !== 'pending'}>Pending</option>
+                            <option value="active" disabled={contract.status === 'completed' || contract.status === 'cancelled'}>Active</option>
+                            <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled'}>Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          {updatingStatus === contract.contractId && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          )}
+                        </>
+                      )}
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <User className="w-5 h-5" />
+                  <div className="space-y-3 mb-4 flex-1">
+                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                      <User className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">Child:</span>
-                        <span>{contract.childName}</span>
+                      <span className="truncate">{contract.childName}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Calendar className="w-5 h-5" />
+                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                      <Calendar className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">Period:</span>
-                        <span>
+                      <span className="text-xs">
                           {new Date(contract.startDate).toLocaleDateString()} -{' '}
                           {new Date(contract.endDate).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Clock className="w-5 h-5" />
+                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                      <Clock className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">Time:</span>
-                        <span>{contract.timeSlot || 'Not set'}</span>
+                      <span className="truncate">{contract.timeSlot || 'Not set'}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
+                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
                         {contract.isOnline ? (
                           <span className="text-blue-600">Online</span>
                         ) : (
                           <>
-                            <MapPin className="w-5 h-5" />
-                            <span>{contract.centerName || 'Offline'}</span>
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{contract.centerName || 'Offline'}</span>
                           </>
                         )}
                       </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2 text-gray-600 mb-4">
-                      <UserPlus className="w-5 h-5" />
+                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                      <UserPlus className="w-4 h-4 flex-shrink-0" />
                       <span className="font-medium">Tutor:</span>
-                      <span>{contract.mainTutorName || 'Not assigned'}</span>
+                      <span className="truncate">{contract.mainTutorName || 'Not assigned'}</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-col space-y-2 ml-4">
+                  <div className="flex flex-col space-y-2 mt-auto pt-4 border-t border-gray-200">
                     {!contract.mainTutorId && (
                       <button
                         onClick={() => handleAssignTutor(contract)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                        className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
                       >
                         <UserPlus className="w-4 h-4" />
                         <span>Assign Tutor</span>
@@ -265,7 +413,7 @@ const ContractManagement: React.FC = () => {
                     )}
                     <button
                       onClick={() => window.open(`/contracts/${contract.contractId}`, '_blank')}
-                      className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                      className="w-full px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2 text-sm"
                     >
                       <Eye className="w-4 h-4" />
                       <span>View Details</span>
@@ -273,9 +421,71 @@ const ContractManagement: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))
+              ))}
+            </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredContracts.length)} of {filteredContracts.length} contracts
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1);
+                      
+                      if (!showPage) {
+                        // Show ellipsis
+                        if (page === currentPage - 2 || page === currentPage + 2) {
+                          return (
+                            <span key={page} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+                      
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
           )}
-        </div>
       </div>
 
       {/* Tutor Selection Modal */}
@@ -317,8 +527,12 @@ const ContractManagement: React.FC = () => {
                   {availableTutors.map((tutor) => (
                     <div
                       key={tutor.userId}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer"
-                      onClick={() => handleSelectTutor(tutor.userId)}
+                      className={`border border-gray-200 rounded-lg p-4 transition-all ${
+                        loadingTutors 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
+                      }`}
+                      onClick={() => !loadingTutors && handleSelectTutor(tutor.userId)}
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -331,14 +545,15 @@ const ContractManagement: React.FC = () => {
                             </p>
                           )}
                         </div>
-                        <button
+                          <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectTutor(tutor.userId);
                           }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          disabled={loadingTutors}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Assign
+                          {loadingTutors ? 'Assigning...' : 'Assign'}
                         </button>
                       </div>
                     </div>
@@ -354,5 +569,10 @@ const ContractManagement: React.FC = () => {
 };
 
 export default ContractManagement;
+
+
+
+
+
 
 

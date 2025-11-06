@@ -646,13 +646,13 @@ export async function searchSchools(request: SchoolSearchRequest) {
 export interface Contract {
   contractId: string;
   childId: string;
-  childName: string;
+  childName?: string | null;
   packageId: string;
-  packageName: string;
-  mainTutorId: string;
-  mainTutorName: string;
-  centerId?: string;
-  centerName?: string;
+  packageName?: string | null;
+  mainTutorId?: string | null;
+  mainTutorName?: string | null;
+  centerId?: string | null;
+  centerName?: string | null;
   startDate: string;
   endDate: string;
   timeSlot: string;
@@ -738,24 +738,32 @@ export async function createContract(data: CreateContractRequest) {
     Status: cleanData.status || 'pending' // Backend requires Status field - default to 'pending' for new contracts
   };
   
-  // MainTutorId is optional - only send if it's a valid GUID (not empty/null)
-  // If MainTutorId is empty GUID or null, don't send it (backend allows nullable)
+  // MainTutorId - always send, use null if empty/invalid (don't leave field empty)
   if (cleanData.mainTutorId && 
       cleanData.mainTutorId !== '00000000-0000-0000-0000-000000000000' && 
       cleanData.mainTutorId !== null &&
       typeof cleanData.mainTutorId === 'string' &&
       cleanData.mainTutorId.trim() !== '') {
     requestData.MainTutorId = cleanData.mainTutorId;
+  } else {
+    requestData.MainTutorId = null; // Explicitly send null instead of omitting field
   }
-  // Otherwise, don't include MainTutorId - backend will set it to null
   
-  // Optional fields - only include if provided
-  if (cleanData.substituteTutor1Id) {
-    requestData.SubstituteTutor1Id = cleanData.substituteTutor1Id;
-  }
-  if (cleanData.substituteTutor2Id) {
-    requestData.SubstituteTutor2Id = cleanData.substituteTutor2Id;
-  }
+  // SubstituteTutor1Id - always send, use null if not provided
+  requestData.SubstituteTutor1Id = (cleanData.substituteTutor1Id && 
+    cleanData.substituteTutor1Id !== '00000000-0000-0000-0000-000000000000' &&
+    typeof cleanData.substituteTutor1Id === 'string' &&
+    cleanData.substituteTutor1Id.trim() !== '')
+    ? cleanData.substituteTutor1Id 
+    : null;
+  
+  // SubstituteTutor2Id - always send, use null if not provided
+  requestData.SubstituteTutor2Id = (cleanData.substituteTutor2Id && 
+    cleanData.substituteTutor2Id !== '00000000-0000-0000-0000-000000000000' &&
+    typeof cleanData.substituteTutor2Id === 'string' &&
+    cleanData.substituteTutor2Id.trim() !== '')
+    ? cleanData.substituteTutor2Id 
+    : null;
   if (cleanData.centerId) {
     requestData.CenterId = cleanData.centerId;
   }
@@ -785,7 +793,9 @@ export async function createContract(data: CreateContractRequest) {
   // Log the request data for debugging (excluding sensitive info)
   console.log('Creating contract with data:', {
     ...requestData,
-    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'null (not sent)',
+    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'null',
+    SubstituteTutor1Id: requestData.SubstituteTutor1Id ? `${requestData.SubstituteTutor1Id.substring(0, 8)}...` : 'null',
+    SubstituteTutor2Id: requestData.SubstituteTutor2Id ? `${requestData.SubstituteTutor2Id.substring(0, 8)}...` : 'null',
     CenterId: requestData.CenterId ? `${requestData.CenterId.substring(0, 8)}...` : 'null (not sent)',
     DaysOfWeeks: requestData.DaysOfWeeks,
     Status: requestData.Status,
@@ -1010,7 +1020,7 @@ export async function getCourseReviews(courseId: string) {
 export interface TutorAvailability {
   availabilityId?: string;
   tutorId?: string;
-  daysOfWeek: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  daysOfWeek: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64 (BE format)
   availableFrom: string; // TimeOnly format: "HH:mm"
   availableUntil: string; // TimeOnly format: "HH:mm"
   effectiveFrom: string; // DateOnly format: "YYYY-MM-DD"
@@ -1034,48 +1044,252 @@ export interface CreateTutorAvailabilityRequest {
   CanTeachOffline: boolean;
 }
 
-export interface UpdateTutorAvailabilityRequest extends CreateTutorAvailabilityRequest {
-  AvailabilityId: string;
+// BE UpdateTutorScheduleRequest has all optional fields
+export interface UpdateTutorAvailabilityRequest {
+  DaysOfWeek?: number;
+  AvailableFrom?: string; // "HH:mm"
+  AvailableUntil?: string; // "HH:mm"
+  EffectiveFrom?: string; // "YYYY-MM-DD"
+  EffectiveUntil?: string | null; // "YYYY-MM-DD" or null
+  CanTeachOnline?: boolean;
+  CanTeachOffline?: boolean;
+  IsBooked?: boolean;
 }
 
 export interface BulkCreateTutorAvailabilityRequest {
   availabilities: CreateTutorAvailabilityRequest[];
 }
 
+// Backend expects array directly, not wrapped in object
+type BulkCreateTutorAvailabilityRequestArray = CreateTutorAvailabilityRequest[];
+
 export interface UpdateAvailabilityStatusRequest {
-  status: string; // e.g., "active", "inactive", "suspended"
+  Status: string; // BE expects PascalCase: "active", "inactive", "deleted"
 }
 
 // GET /api/tutor-availabilities/my-availabilities
 export async function getMyAvailabilities(activeOnly?: boolean) {
   const query = activeOnly ? '?activeOnly=true' : '';
-  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/my-availabilities${query}`);
+  const result = await apiService.request<any[]>(`/tutor-availabilities/my-availabilities${query}`);
+  
+  if (result.success && result.data) {
+    // Debug: Log raw response from BE
+    console.log('[getMyAvailabilities] Raw API response:', result.data);
+    if (result.data.length > 0) {
+      const sampleItem = result.data[0];
+      console.log('[getMyAvailabilities] Sample raw item from BE:', sampleItem);
+      console.log('[getMyAvailabilities] All keys in raw item:', Object.keys(sampleItem));
+      console.log('[getMyAvailabilities] All daysOfWeek fields in raw item:', {
+        daysOfWeek: sampleItem.daysOfWeek,
+        days_of_week: sampleItem.days_of_week,
+        DaysOfWeek: sampleItem.DaysOfWeek,
+        DaysOfWeeks: sampleItem.DaysOfWeeks,
+        daysOfWeeks: sampleItem.daysOfWeeks, // camelCase version
+        days_of_weeks: sampleItem.days_of_weeks,
+      });
+      // Log the actual value if found
+      const foundValue = sampleItem.daysOfWeek ?? sampleItem.days_of_week ?? sampleItem.DaysOfWeek ?? sampleItem.DaysOfWeeks ?? sampleItem.daysOfWeeks ?? sampleItem.days_of_weeks;
+      console.log('[getMyAvailabilities] Found daysOfWeek value:', foundValue, 'Type:', typeof foundValue);
+    }
+    
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability[] = result.data.map((item: any, index: number) => {
+      // Try all possible field names - BE might serialize DaysOfWeeks as daysOfWeeks (camelCase) or DaysOfWeeks (PascalCase)
+      const daysOfWeekValue = item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0;
+      
+      // Debug: Log mapping for each item
+      if (index < 3) { // Log first 3 items
+        console.log(`[getMyAvailabilities] Mapping item ${index + 1}:`, {
+          allKeys: Object.keys(item),
+          rawDaysOfWeek: {
+            daysOfWeek: item.daysOfWeek,
+            daysOfWeeks: item.daysOfWeeks, // camelCase (most likely)
+            days_of_week: item.days_of_week,
+            DaysOfWeek: item.DaysOfWeek,
+            DaysOfWeeks: item.DaysOfWeeks, // PascalCase
+            days_of_weeks: item.days_of_weeks,
+          },
+          mappedDaysOfWeek: daysOfWeekValue,
+          binary: daysOfWeekValue.toString(2),
+        });
+      }
+      
+      return {
+        availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+        tutorId: item.tutorId || item.tutor_id || item.TutorId,
+        daysOfWeek: daysOfWeekValue, // BE uses DaysOfWeeks (PascalCase)
+        availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+        availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+        effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+        effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+        canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+        canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+        status: item.status || item.Status || 'active',
+        createdDate: item.createdDate || item.created_date || item.CreatedDate,
+        updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+        isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+      };
+    });
+    
+    console.log('[getMyAvailabilities] Mapped data:', mappedData);
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // GET /api/tutor-availabilities/{id}
 export async function getTutorAvailabilityById(id: string) {
-  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}`);
+  const result = await apiService.request<any>(`/tutor-availabilities/${id}`);
+  
+  if (result.success && result.data) {
+    const item = result.data;
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability = {
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    };
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // GET /api/tutor-availabilities/tutor/{tutorId}
 export async function getTutorAvailabilitiesByTutorId(tutorId: string) {
-  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/tutor/${tutorId}`);
+  const result = await apiService.request<any[]>(`/tutor-availabilities/tutor/${tutorId}`);
+  
+  if (result.success && result.data) {
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability[] = result.data.map((item: any) => ({
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    }));
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // POST /api/tutor-availabilities
 export async function createTutorAvailability(data: CreateTutorAvailabilityRequest) {
-  return apiService.request<TutorAvailability>(`/tutor-availabilities`, {
+  const result = await apiService.request<any>(`/tutor-availabilities`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
+  
+  if (result.success && result.data) {
+    const item = result.data;
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability = {
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    };
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // PUT /api/tutor-availabilities/{id}
-export async function updateTutorAvailability(id: string, data: CreateTutorAvailabilityRequest) {
-  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}`, {
+// BE expects UpdateTutorScheduleRequest with optional fields (PascalCase)
+export async function updateTutorAvailability(id: string, data: UpdateTutorAvailabilityRequest | CreateTutorAvailabilityRequest) {
+  // Convert to BE format (PascalCase, optional fields)
+  const requestBody: any = {};
+  if ('DaysOfWeek' in data && data.DaysOfWeek !== undefined) requestBody.DaysOfWeek = data.DaysOfWeek;
+  if ('AvailableFrom' in data && data.AvailableFrom !== undefined) requestBody.AvailableFrom = data.AvailableFrom;
+  if ('AvailableUntil' in data && data.AvailableUntil !== undefined) requestBody.AvailableUntil = data.AvailableUntil;
+  if ('EffectiveFrom' in data && data.EffectiveFrom !== undefined) requestBody.EffectiveFrom = data.EffectiveFrom;
+  if ('EffectiveUntil' in data) requestBody.EffectiveUntil = data.EffectiveUntil ?? null;
+  if ('CanTeachOnline' in data && data.CanTeachOnline !== undefined) requestBody.CanTeachOnline = data.CanTeachOnline;
+  if ('CanTeachOffline' in data && data.CanTeachOffline !== undefined) requestBody.CanTeachOffline = data.CanTeachOffline;
+  if ('IsBooked' in data && data.IsBooked !== undefined) requestBody.IsBooked = data.IsBooked;
+  
+  const result = await apiService.request<any>(`/tutor-availabilities/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestBody),
   });
+  
+  if (result.success && result.data) {
+    const item = result.data;
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability = {
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    };
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // DELETE /api/tutor-availabilities/{id}
@@ -1086,19 +1300,85 @@ export async function deleteTutorAvailability(id: string) {
 }
 
 // PATCH /api/tutor-availabilities/{id}/status
+// BE expects: { Status: "active" | "inactive" | "deleted" } (PascalCase)
 export async function updateTutorAvailabilityStatus(id: string, data: UpdateAvailabilityStatusRequest) {
-  return apiService.request<TutorAvailability>(`/tutor-availabilities/${id}/status`, {
+  // Ensure Status is PascalCase as BE expects
+  const requestBody = {
+    Status: data.Status,
+  };
+  const result = await apiService.request<any>(`/tutor-availabilities/${id}/status`, {
     method: 'PATCH',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestBody),
   });
+  
+  if (result.success && result.data) {
+    const item = result.data;
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability = {
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    };
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // POST /api/tutor-availabilities/bulk
-export async function bulkCreateTutorAvailabilities(data: BulkCreateTutorAvailabilityRequest) {
-  return apiService.request<TutorAvailability[]>(`/tutor-availabilities/bulk`, {
+// Backend expects array directly: List<CreateTutorScheduleRequest>
+export async function bulkCreateTutorAvailabilities(data: BulkCreateTutorAvailabilityRequest | CreateTutorAvailabilityRequest[]) {
+  // Backend expects array directly, not wrapped in object
+  // If data is an array, use it directly
+  // If data is an object with 'availabilities' field, extract the array
+  const requestsArray = Array.isArray(data) ? data : data.availabilities;
+  
+  const result = await apiService.request<any[]>(`/tutor-availabilities/bulk`, {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(requestsArray),
   });
+  
+  if (result.success && result.data) {
+    // Map snake_case from backend to camelCase for frontend
+    const mappedData: TutorAvailability[] = result.data.map((item: any) => ({
+      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
+      tutorId: item.tutorId || item.tutor_id || item.TutorId,
+      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
+      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
+      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
+      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
+      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
+      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
+      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
+      status: item.status || item.Status || 'active',
+      createdDate: item.createdDate || item.created_date || item.CreatedDate,
+      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
+      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
+    }));
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
 }
 
 // GET /api/tutor-availabilities/dayflags
@@ -1126,7 +1406,6 @@ export async function searchTutorsByAvailability(params?: {
   const query = queryParams.toString();
   return apiService.request<any[]>(`/tutor-availabilities/search-tutors${query ? `?${query}` : ''}`);
 }
-
 // ============================================
 // STAFF API FUNCTIONS
 // ============================================
@@ -1160,8 +1439,22 @@ export interface RejectRescheduleRequest {
 }
 
 export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
-  const query = status ? `?status=${status}` : '';
-  return apiService.request<RescheduleRequest[]>(`/reschedule${query}`);
+  // NOTE: Backend doesn't have GET endpoint for reschedule requests yet
+  // The RescheduleController only has POST (Create) and PUT (Approve/Reject)
+  // Return empty array for now until backend implements GET endpoint
+  console.warn('GET /reschedule endpoint not implemented in backend. Returning empty array.');
+  
+  return {
+    success: true,
+    data: [] as RescheduleRequest[],
+    error: null,
+  };
+  
+  // Uncomment when backend implements GET endpoint:
+  // const query = status ? `?status=${status}` : '';
+  // return apiService.request<RescheduleRequest[]>(`/reschedule${query}`, {
+  //   method: 'GET',
+  // });
 }
 
 export async function approveRescheduleRequest(requestId: string, data: ApproveRescheduleRequest) {
@@ -1238,9 +1531,24 @@ export async function getAllContracts(status?: string) {
 }
 
 export async function assignTutorToContract(contractId: string, tutorId: string) {
-  return apiService.request<{ message: string }>(`/contracts/${contractId}/assign-tutor`, {
+  // Backend endpoint is /assign-tutors (plural) and expects mainTutorId (PascalCase)
+  return apiService.request<{ message: string }>(`/contracts/${contractId}/assign-tutors`, {
     method: 'PUT',
-    body: JSON.stringify({ tutorId }),
+    body: JSON.stringify({ 
+      mainTutorId: tutorId,
+      substituteTutor1Id: null,
+      substituteTutor2Id: null,
+    }),
+  });
+}
+
+export async function updateContractStatus(contractId: string, status: 'active' | 'completed' | 'cancelled') {
+  // Backend endpoint expects Status (PascalCase)
+  return apiService.request<{ message: string }>(`/contracts/${contractId}/status`, {
+    method: 'PUT',
+    body: JSON.stringify({ 
+      Status: status,
+    }),
   });
 }
 
@@ -1253,6 +1561,199 @@ export interface Tutor {
   rating?: number;
   centerId?: string;
   centerName?: string;
+  verificationStatus?: string;
+  university?: string;
+  major?: string;
+  hourlyRate?: number;
+  bio?: string;
+}
+
+// Get all tutors (for staff verification management)
+// Use /tutor-verifications endpoint to get all tutor verifications
+export async function getAllTutors() {
+  try {
+    // Try GET /api/tutor-verifications first
+    const result = await apiService.request<any[]>(`/tutor-verifications`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map the response to Tutor format
+      const tutors: Tutor[] = result.data.map((verification: any) => {
+        // Tutor verification response may have User or Tutor nested object
+        const tutor = verification.user || verification.tutor || verification;
+        return {
+          userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id || verification.userId,
+          fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name,
+          email: tutor.email || tutor.Email,
+          phone: tutor.phone || tutor.phoneNumber || tutor.PhoneNumber,
+          verificationStatus: verification.status || verification.Status || tutor.verificationStatus || tutor.VerificationStatus || 'pending',
+          university: tutor.university || tutor.University,
+          major: tutor.major || tutor.Major,
+          hourlyRate: tutor.hourlyRate || tutor.HourlyRate || tutor.hourly_rate,
+          bio: tutor.bio || tutor.Bio,
+          specialties: tutor.specialties || tutor.Specialties,
+          rating: tutor.rating || tutor.Rating,
+          centerId: tutor.centerId || tutor.CenterId || tutor.center_id,
+          centerName: tutor.centerName || tutor.CenterName || tutor.center_name,
+        };
+      });
+      
+      return {
+        success: true,
+        data: tutors,
+      };
+    }
+    
+    return result;
+  } catch (error) {
+    // Fallback to searchTutorsByAvailability if tutor-verifications endpoint doesn't work
+    console.warn('Failed to fetch from /tutor-verifications, falling back to searchTutorsByAvailability');
+    const result = await searchTutorsByAvailability();
+    
+    if (result.success && result.data) {
+      const tutors: Tutor[] = result.data.map((tutor: any) => ({
+        userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id,
+        fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name,
+        email: tutor.email || tutor.Email,
+        phone: tutor.phone || tutor.phoneNumber || tutor.PhoneNumber,
+        verificationStatus: tutor.verificationStatus || tutor.VerificationStatus || tutor.TutorVerification?.Status || tutor.status,
+        university: tutor.university || tutor.University,
+        major: tutor.major || tutor.Major,
+        hourlyRate: tutor.hourlyRate || tutor.HourlyRate || tutor.hourly_rate,
+        bio: tutor.bio || tutor.Bio,
+        specialties: tutor.specialties || tutor.Specialties,
+        rating: tutor.rating || tutor.Rating,
+        centerId: tutor.centerId || tutor.CenterId || tutor.center_id,
+        centerName: tutor.centerName || tutor.CenterName || tutor.center_name,
+      }));
+      
+      return {
+        success: true,
+        data: tutors,
+      };
+    }
+    
+    return result;
+  }
+}
+
+// Verify tutor (approve verification)
+// Use PATCH /api/tutor-verifications/{id}/approve
+// First need to get verification ID from userId
+export async function verifyTutor(tutorId: string) {
+  try {
+    // Try to get verification by userId first
+    const verificationResult = await apiService.request<any>(`/tutor-verifications/user/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    if (verificationResult.success && verificationResult.data) {
+      // If verification exists, use its ID
+      const verificationId = verificationResult.data.id || verificationResult.data.Id || verificationResult.data.verificationId;
+      if (verificationId) {
+        return apiService.request<{ message: string }>(`/tutor-verifications/${verificationId}/approve`, {
+          method: 'PATCH',
+        });
+      }
+    }
+    
+    // If no verification found, try direct approve with userId (if backend supports it)
+    // Fallback to old endpoints
+    try {
+      const response = await apiService.request<{ message: string }>(`/users/${tutorId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' }),
+      });
+      if (response.success) {
+        return response;
+      }
+    } catch (error) {
+      console.log('Trying /tutors endpoint for verify');
+    }
+    
+    return apiService.request<{ message: string }>(`/tutors/${tutorId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'approved' }),
+    });
+  } catch (error) {
+    // Fallback to old endpoints
+    try {
+      const response = await apiService.request<{ message: string }>(`/users/${tutorId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'approved' }),
+      });
+      if (response.success) {
+        return response;
+      }
+    } catch (err) {
+      console.log('Trying /tutors endpoint for verify');
+    }
+    
+    return apiService.request<{ message: string }>(`/tutors/${tutorId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'approved' }),
+    });
+  }
+}
+
+// Reject tutor verification
+// Use PATCH /api/tutor-verifications/{id}/reject
+// First need to get verification ID from userId
+export async function rejectTutorVerification(tutorId: string) {
+  try {
+    // Try to get verification by userId first
+    const verificationResult = await apiService.request<any>(`/tutor-verifications/user/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    if (verificationResult.success && verificationResult.data) {
+      // If verification exists, use its ID
+      const verificationId = verificationResult.data.id || verificationResult.data.Id || verificationResult.data.verificationId;
+      if (verificationId) {
+        return apiService.request<{ message: string }>(`/tutor-verifications/${verificationId}/reject`, {
+          method: 'PATCH',
+        });
+      }
+    }
+    
+    // If no verification found, try direct reject with userId (if backend supports it)
+    // Fallback to old endpoints
+    try {
+      const response = await apiService.request<{ message: string }>(`/users/${tutorId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      if (response.success) {
+        return response;
+      }
+    } catch (error) {
+      console.log('Trying /tutors endpoint for reject');
+    }
+    
+    return apiService.request<{ message: string }>(`/tutors/${tutorId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected' }),
+    });
+  } catch (error) {
+    // Fallback to old endpoints
+    try {
+      const response = await apiService.request<{ message: string }>(`/users/${tutorId}/verify`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'rejected' }),
+      });
+      if (response.success) {
+        return response;
+      }
+    } catch (err) {
+      console.log('Trying /tutors endpoint for reject');
+    }
+    
+    return apiService.request<{ message: string }>(`/tutors/${tutorId}/verify`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected' }),
+    });
+  }
 }
 
 export async function getAvailableTutors(params?: {
@@ -1362,20 +1863,21 @@ export async function createSePayPayment(data: SePayPaymentRequest) {
     });
   }
 
+  // Backend expects camelCase (amount, description) based on JsonNamingPolicy.CamelCase
   // Ensure Amount is sent as a number (not string) - backend expects decimal
   // JavaScript numbers are automatically serialized correctly in JSON
   const requestBody = {
-    Amount: amountValue, // This will be serialized as number in JSON
-    Description: data.description.trim() || 'Top up wallet',
+    amount: amountValue, // camelCase to match backend JsonNamingPolicy.CamelCase
+    description: data.description.trim() || 'Top up wallet', // camelCase
   };
 
   console.log('Creating SePay payment with request:', {
     ...requestBody,
-    AmountType: typeof requestBody.Amount,
-    AmountValue: requestBody.Amount,
-    AmountStringified: JSON.stringify(requestBody.Amount),
-    DescriptionLength: requestBody.Description.length,
-    DescriptionValue: requestBody.Description,
+    AmountType: typeof requestBody.amount,
+    AmountValue: requestBody.amount,
+    AmountStringified: JSON.stringify(requestBody.amount),
+    DescriptionLength: requestBody.description.length,
+    DescriptionValue: requestBody.description,
     FullRequestBody: JSON.stringify(requestBody)
   });
 
@@ -1476,4 +1978,114 @@ export async function getWalletTransactions(params?: {
   return apiService.request<{ transactions: WalletTransaction[]; total: number }>(
     `/users/${userId}/wallet/transactions${query ? `?${query}` : ''}`
   );
+}
+
+// ============================================
+// SESSION API FUNCTIONS
+// ============================================
+
+export interface Session {
+  bookingId: string;
+  contractId: string;
+  sessionDate: string; // DateOnly format: YYYY-MM-DD
+  startTime: string; // DateTime ISO string
+  endTime: string; // DateTime ISO string
+  tutorName?: string;
+  studentName?: string;
+  childName?: string;
+  isOnline: boolean;
+  videoCallPlatform?: string;
+  videoCallLink?: string;
+  offlineAddress?: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
+}
+
+// Get sessions for parent
+// Backend gets parentId from JWT token (User.FindFirst("sub")), no need to pass in route
+export async function getParentSessions(parentId?: string) {
+  // Backend endpoint: GET /api/sessions/parent
+  // Backend gets parentId from JWT token, so we don't pass it in the route
+  const result = await apiService.request<any[]>(`/sessions/parent`, {
+    method: 'GET',
+  });
+  
+  if (result.success && result.data) {
+    // Map BE SessionDto to FE Session interface
+    // BE SessionDto has: BookingId, ContractId, SessionDate, StartTime, EndTime, TutorName, IsOnline, VideoCallPlatform, OfflineAddress, Status
+    // BE does not have ChildName/StudentName - need to get from Contract if needed
+    const mappedData: Session[] = result.data.map((item: any) => ({
+      bookingId: item.bookingId || item.BookingId || item.booking_id,
+      contractId: item.contractId || item.ContractId || item.contract_id,
+      sessionDate: item.sessionDate || item.SessionDate || item.session_date || '',
+      startTime: item.startTime || item.StartTime || item.start_time || '',
+      endTime: item.endTime || item.EndTime || item.end_time || '',
+      tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
+      studentName: item.studentName || item.StudentName || item.student_name || undefined,
+      childName: item.childName || item.ChildName || item.child_name || undefined,
+      isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
+      videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
+      videoCallLink: item.videoCallLink || item.VideoCallLink || item.video_call_link || undefined,
+      offlineAddress: item.offlineAddress || item.OfflineAddress || item.offline_address || undefined,
+      status: (item.status || item.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled',
+    }));
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
+}
+
+// Get session by ID
+export async function getSessionById(bookingId: string) {
+  const result = await apiService.request<any>(`/sessions/${bookingId}`);
+  
+  if (result.success && result.data) {
+    // Map BE SessionDto to FE Session interface
+    // BE SessionDto has: BookingId, ContractId, SessionDate, StartTime, EndTime, TutorName, IsOnline, VideoCallPlatform, OfflineAddress, Status
+    const mappedData: Session = {
+      bookingId: result.data.bookingId || result.data.BookingId || result.data.booking_id || bookingId,
+      contractId: result.data.contractId || result.data.ContractId || result.data.contract_id || '',
+      sessionDate: result.data.sessionDate || result.data.SessionDate || result.data.session_date || '',
+      startTime: result.data.startTime || result.data.StartTime || result.data.start_time || '',
+      endTime: result.data.endTime || result.data.EndTime || result.data.end_time || '',
+      tutorName: result.data.tutorName || result.data.TutorName || result.data.tutor_name || '',
+      studentName: result.data.studentName || result.data.StudentName || result.data.student_name || undefined,
+      childName: result.data.childName || result.data.ChildName || result.data.child_name || undefined,
+      isOnline: result.data.isOnline ?? result.data.IsOnline ?? result.data.is_online ?? false,
+      videoCallPlatform: result.data.videoCallPlatform || result.data.VideoCallPlatform || result.data.video_call_platform || undefined,
+      videoCallLink: result.data.videoCallLink || result.data.VideoCallLink || result.data.video_call_link || undefined,
+      offlineAddress: result.data.offlineAddress || result.data.OfflineAddress || result.data.offline_address || undefined,
+      status: (result.data.status || result.data.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled',
+    };
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
+}
+
+// Get sessions for tutor
+// NOTE: Backend does NOT have this endpoint yet
+// Backend only has GET /api/sessions/parent for parent sessions
+// If you need tutor sessions, you may need to:
+// 1. Create a new endpoint in BE: GET /api/sessions/tutor
+// 2. Or filter sessions by tutorId from contracts
+// For now, this function will return an error
+export async function getTutorSessions() {
+  console.warn('getTutorSessions: Backend endpoint /sessions/tutor does not exist yet');
+  return {
+    success: false,
+    error: 'Backend endpoint /sessions/tutor does not exist. Please implement it in the backend.',
+    data: undefined,
+  };
+  // Uncomment when backend endpoint is available:
+  // return apiService.request<Session[]>('/sessions/tutor', { method: 'GET' });
 }

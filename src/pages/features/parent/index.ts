@@ -1,5 +1,6 @@
 // Parent pages exports
 export { default as ParentHomePage } from './ParentHomePage';
+export { default as ParentSchedulePage } from './ParentSchedulePage';
 export { default as ParentProfilePage } from './ParentProfilePage';
 export { default as MyChildrenPage } from './MyChildrenPage';
 export { default as ParentWalletPage } from './ParentWalletPage';

@@ -738,24 +738,25 @@ const CreateContract: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
                   {[
-                    { label: 'Sun', value: 1, day: 'Sunday' },       // Backend: Sunday = 1 (bit 0)
-                    { label: 'Mon', value: 2, day: 'Monday' },      // Backend: Monday = 2 (bit 1)
-                    { label: 'Tue', value: 4, day: 'Tuesday' },     // Backend: Tuesday = 4 (bit 2)
-                    { label: 'Wed', value: 8, day: 'Wednesday' },  // Backend: Wednesday = 8 (bit 3)
-                    { label: 'Thu', value: 16, day: 'Thursday' },  // Backend: Thursday = 16 (bit 4)
-                    { label: 'Fri', value: 32, day: 'Friday' },     // Backend: Friday = 32 (bit 5)
-                    { label: 'Sat', value: 64, day: 'Saturday' }    // Backend: Saturday = 64 (bit 6)
+                    // BE bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+                    { label: 'Sun', value: 1, day: 'Sunday' },
+                    { label: 'Mon', value: 2, day: 'Monday' },
+                    { label: 'Tue', value: 4, day: 'Tuesday' },
+                    { label: 'Wed', value: 8, day: 'Wednesday' },
+                    { label: 'Thu', value: 16, day: 'Thursday' },
+                    { label: 'Fri', value: 32, day: 'Friday' },
+                    { label: 'Sat', value: 64, day: 'Saturday' }
                   ].map((day) => {
                     const isSelected = (schedule.daysOfWeeks & day.value) === day.value;
                     // Count selected days
                     const selectedDaysCount = [
-                      (schedule.daysOfWeeks & 1) !== 0,
-                      (schedule.daysOfWeeks & 2) !== 0,
-                      (schedule.daysOfWeeks & 4) !== 0,
-                      (schedule.daysOfWeeks & 8) !== 0,
-                      (schedule.daysOfWeeks & 16) !== 0,
-                      (schedule.daysOfWeeks & 32) !== 0,
-                      (schedule.daysOfWeeks & 64) !== 0
+                      (schedule.daysOfWeeks & 1) !== 0,  // Sun
+                      (schedule.daysOfWeeks & 2) !== 0,  // Mon
+                      (schedule.daysOfWeeks & 4) !== 0,  // Tue
+                      (schedule.daysOfWeeks & 8) !== 0,  // Wed
+                      (schedule.daysOfWeeks & 16) !== 0, // Thu
+                      (schedule.daysOfWeeks & 32) !== 0, // Fri
+                      (schedule.daysOfWeeks & 64) !== 0  // Sat
                     ].filter(Boolean).length;
                     
                     const isDisabled = !isSelected && selectedDaysCount >= 3;
@@ -823,7 +824,7 @@ const CreateContract: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Time Slot <span className="text-red-500">*</span>
                   <span className="ml-2 text-xs text-gray-500">(1.5 hours per slot)</span>
-                </label>
+                  </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {TIME_SLOTS.map((slot) => {
                     const isSelected = schedule.startTime === slot.from && schedule.endTime === slot.to;
@@ -850,7 +851,7 @@ const CreateContract: React.FC = () => {
                           {isSelected && (
                             <CheckCircle className="w-5 h-5 text-blue-600" />
                           )}
-                        </div>
+                </div>
                         <p className="text-xs text-gray-500 mt-1">1.5 hours</p>
                       </button>
                     );

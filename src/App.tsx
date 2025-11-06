@@ -21,9 +21,9 @@ import { PackageList } from './components/package';
 import PackageDetailPage from './pages/PackageDetailPage';
 import PackageFormPage from './pages/PackageFormPage';
 
-// Features Pages
 import {
   ParentHomePage,
+  ParentSchedulePage,
   ParentProfilePage,
   MyChildrenPage,
   ParentWalletPage,
@@ -146,6 +146,11 @@ function App() {
             <Route path="parent-profile" element={
               <ProtectedRoute>
                 <ParentProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="parent/schedule" element={
+              <ProtectedRoute>
+                <ParentSchedulePage />
               </ProtectedRoute>
             } />
             <Route path="my-children" element={

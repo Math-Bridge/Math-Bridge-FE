@@ -13,6 +13,7 @@ import {
   FileText,
   Settings,
   Users,
+  Calendar,
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
@@ -51,6 +52,7 @@ const Header: React.FC = () => {
         { name: 'My Children', href: '/my-children', icon: Users },
         { name: 'Contracts', href: '/contracts', icon: FileText },
         { name: 'Packages', href: '/packages', icon: BookOpen },
+        { name: 'Schedule', href: '/parent/schedule', icon: Calendar },
       ];
     } else {
       // Default navigation for other roles (admin, etc.)
@@ -146,6 +148,30 @@ const Header: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  // Get home path based on user role
+  const getHomePath = () => {
+    if (!isAuthenticated || !user) {
+      return '/home';
+    }
+    
+    switch (user.role) {
+      case 'parent':
+        return '/home';
+      case 'tutor':
+        return '/tutor/dashboard';
+      case 'staff':
+        return '/staff';
+      case 'admin':
+        return '/admin';
+      default:
+        return '/home';
+    }
+  };
+
+  const handleLogoClick = () => {
+    navigate(getHomePath());
+  };
+
   const isAuthPage = ['/login', '/signup', '/forgot-password'].includes(location.pathname);
 
   if (isAuthPage) {
@@ -158,17 +184,17 @@ const Header: React.FC = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link 
-              to="/home" 
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity duration-200"
+            <button
+              onClick={handleLogoClick}
+              className="flex items-center space-x-2 hover:opacity-80 transition-opacity duration-200 cursor-pointer"
               aria-label="MathBridge Home"
             >
               <div className="relative">
                 <img src={logo} alt="MathBridge Logo" className="h-10 w-10 object-contain" />
                 <span className="absolute -top-1 -right-1 text-xs text-blue-600">π</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">MathBridge</span>
-            </Link>
+                <span className="text-xl font-bold text-gray-900">MathBridge</span>
+            </button>
           </div>
 
           {/* Desktop Navigation */}
@@ -207,7 +233,7 @@ const Header: React.FC = () => {
                     aria-label="Wallet"
                   >
                     <Wallet className="h-4 w-4" aria-hidden="true" />
-                    <span className="text-sm font-semibold">
+                      <span className="text-sm font-semibold">
                       {walletLoading ? (
                         <span className="text-gray-400">...</span>
                       ) : (
@@ -216,7 +242,7 @@ const Header: React.FC = () => {
                             style: 'currency', 
                             currency: 'VND' 
                           }).format(walletBalance)}
-                        </span>
+                      </span>
                       )}
                     </span>
                   </button>
@@ -253,17 +279,17 @@ const Header: React.FC = () => {
                         <div className="text-xs text-blue-600 mt-1 capitalize">{user?.role || 'Parent'}</div>
                       </div>
                       <div className="py-1">
-                        <button
-                          className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                          onClick={() => { 
-                            closeAllDropdowns(); 
-                            navigate('/user-profile'); 
-                          }}
-                          role="menuitem"
-                        >
-                          <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
-                          {t('profile')}
-                        </button>
+                            <button
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                              onClick={() => { 
+                                closeAllDropdowns(); 
+                                navigate('/user-profile'); 
+                              }}
+                              role="menuitem"
+                            >
+                              <User className="h-4 w-4 mr-3 text-gray-500" aria-hidden="true" />
+                              {t('profile')}
+                            </button>
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
                           onClick={() => { 

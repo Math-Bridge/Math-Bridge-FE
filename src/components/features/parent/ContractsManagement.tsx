@@ -13,7 +13,9 @@ import {
   ArrowLeft,
   RefreshCw,
   MessageSquare,
-  Filter
+  Filter,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getContractsByParent, getChildrenByParent } from '../../../services/api';
@@ -49,9 +51,11 @@ const ContractsManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled'>('all');
   const [selectedChildId, setSelectedChildId] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 3;
 
   const fetchData = useCallback(async () => {
-    try {
+      try {
       setLoading(true);
       setError(null);
 
@@ -61,14 +65,14 @@ const ContractsManagement: React.FC = () => {
         return userStr ? JSON.parse(userStr).id : null;
       })();
 
-      if (!parentId) {
+        if (!parentId) {
         const errorMsg = 'User information not found. Please log in again.';
-        console.error('Parent ID not found');
+          console.error('Parent ID not found');
         setError(errorMsg);
         showError(errorMsg);
-        setLoading(false);
-        return;
-      }
+          setLoading(false);
+          return;
+        }
 
       // Fetch children and contracts in parallel
       const [childrenResponse, contractsResponse] = await Promise.all([
@@ -78,7 +82,19 @@ const ContractsManagement: React.FC = () => {
         }),
         getContractsByParent(parentId).catch(err => {
           console.error('Error fetching contracts:', err);
-          return { success: false, error: 'Failed to fetch contracts', data: null };
+          // Check if it's a NullReferenceException from backend
+          const errorMessage = err?.message || err?.error || String(err);
+          const isNullRefError = errorMessage.includes('Object reference') || 
+                                errorMessage.includes('NullReferenceException') ||
+                                errorMessage.includes('null');
+          
+          return { 
+            success: false, 
+            error: isNullRefError 
+              ? 'Backend error: Some contracts have missing data. Please contact support to fix the data issue.'
+              : 'Failed to fetch contracts', 
+            data: null 
+          };
         })
       ]);
 
@@ -104,91 +120,99 @@ const ContractsManagement: React.FC = () => {
       // Set contracts
       if (contractsResponse.success && contractsResponse.data) {
         console.log(`[ContractsManagement] Received ${contractsResponse.data.length} contracts`);
-        // Map API response to component interface
+          // Map API response to component interface
         const mappedContracts = await Promise.all(contractsResponse.data.map(async (contract: any) => {
-          // Remove reschedule_count if present to avoid errors
-          const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+            // Remove reschedule_count if present to avoid errors
+            const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
           
-          // Build schedule string from DaysOfWeeksDisplay and time
-          const formatTime = (timeStr: string) => {
-            if (!timeStr) return '';
-            return timeStr.split(':').slice(0, 2).join(':');
-          };
-          
-          let schedule = '';
-          if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
-            const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
-            const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
-            const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
-            if (startTime && endTime) {
-              schedule = `${days}, ${startTime} - ${endTime}`;
-            } else if (startTime) {
-              schedule = `${days}, ${startTime}`;
+          // Safe access to navigation properties with fallback
+          const childName = cleanContract.ChildName || cleanContract.childName || 'N/A';
+          const tutorName = cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned';
+          const packageName = cleanContract.PackageName || cleanContract.packageName || 'Package not specified';
+          const centerName = cleanContract.CenterName || cleanContract.centerName || 'Online';
+            
+            // Build schedule string from DaysOfWeeksDisplay and time
+            const formatTime = (timeStr: string) => {
+              if (!timeStr) return '';
+              return timeStr.split(':').slice(0, 2).join(':');
+            };
+            
+            let schedule = '';
+            if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
+              const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
+              const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
+              const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
+              if (startTime && endTime) {
+                schedule = `${days}, ${startTime} - ${endTime}`;
+              } else if (startTime) {
+                schedule = `${days}, ${startTime}`;
+              } else {
+                schedule = days || 'Schedule not set';
+              }
             } else {
-              schedule = days || 'Schedule not set';
+              schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
             }
-          } else {
-            schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
-          }
-          
+            
           // Get package info if needed
-          let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
-          let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
-          
-          const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
-          
-          return {
-            id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
+            let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
+            let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
+            
+            const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
+            
+            return {
+              id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
             childId: cleanContract.ChildId || cleanContract.childId || '',
-            childName: cleanContract.ChildName || cleanContract.childName || 'N/A',
-            tutorName: cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned',
+            childName: childName,
+            tutorName: tutorName,
             subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
-            packageName: cleanContract.PackageName || cleanContract.packageName || 'Package not specified',
-            totalSessions: totalSessions || 0,
-            completedSessions: completedSessions || 0,
-            price: price || 0,
-            status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
-            startDate: cleanContract.StartDate || cleanContract.startDate || '',
-            endDate: cleanContract.EndDate || cleanContract.endDate || '',
-            schedule: schedule,
-            centerName: cleanContract.CenterName || cleanContract.centerName || 'Online',
-            createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
-          };
-        }));
-        console.log('Mapped contracts:', mappedContracts);
-        setContracts(mappedContracts);
-      } else {
+            packageName: packageName,
+              totalSessions: totalSessions || 0,
+              completedSessions: completedSessions || 0,
+              price: price || 0,
+              status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
+              startDate: cleanContract.StartDate || cleanContract.startDate || '',
+              endDate: cleanContract.EndDate || cleanContract.endDate || '',
+              schedule: schedule,
+            centerName: centerName,
+              createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
+            };
+          }));
+          console.log('Mapped contracts:', mappedContracts);
+          setContracts(mappedContracts);
+        } else {
         // Handle error from contracts API
         const errorMsg = contractsResponse.error || 'Failed to load contracts. Please try again later.';
         console.error('Failed to fetch contracts:', contractsResponse.error);
         
         // Check if it's a backend NullReferenceException (500 error)
         const isBackendError = contractsResponse.error?.includes('Object reference') || 
+                               contractsResponse.error?.includes('NullReferenceException') ||
                                contractsResponse.error?.includes('500') ||
-                               contractsResponse.error?.includes('Internal Server Error');
+                               contractsResponse.error?.includes('Internal Server Error') ||
+                               contractsResponse.error?.includes('missing data');
         
         setError(isBackendError 
-          ? 'Backend system error: Some contracts may have missing data. Please contact support.'
+          ? 'Backend system error: Some contracts may have missing data. This is a backend data issue that needs to be fixed. Please contact support or try again later.'
           : errorMsg
         );
-        setContracts([]);
+          setContracts([]);
         
         // Show error toast
         if (isBackendError) {
-          showError('System error while loading contracts. This is a backend issue that needs to be fixed. Please contact support.');
+          showError('System error while loading contracts. This is a backend data issue. Please contact support or try again later.');
         } else {
           showError(errorMsg);
         }
-      }
+        }
     } catch (error: any) {
       const errorMsg = error?.message || 'An error occurred while loading data. Please try again later.';
       console.error('Error fetching data:', error);
       setError(errorMsg);
-      setContracts([]);
+        setContracts([]);
       showError(errorMsg);
-    } finally {
-      setLoading(false);
-    }
+      } finally {
+        setLoading(false);
+      }
   }, [user?.id, showError]);
 
   useEffect(() => {
@@ -200,6 +224,17 @@ const ContractsManagement: React.FC = () => {
     const childMatch = selectedChildId === 'all' || contract.childId === selectedChildId;
     return statusMatch && childMatch;
   });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, selectedChildId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -284,40 +319,53 @@ const ContractsManagement: React.FC = () => {
         <div className="mb-6">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             {/* Status Filter */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-              {[
-                { key: 'all', label: 'All', count: contracts.length },
-                { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
-                { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
-                { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
-                { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFilter(tab.key as any)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    filter === tab.key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+            {[
+              { key: 'all', label: 'All', count: contracts.length },
+              { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
+              { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
+              { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
+              { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setFilter(tab.key as any)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  filter === tab.key
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label} ({tab.count})
+              </button>
+            ))}
             </div>
 
             {/* Child Filter */}
             {children.length > 0 && (
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
+              <div className="flex items-center space-x-3">
+                <Filter className="w-5 h-5 text-gray-400" />
+                <div className="relative">
                 <select
                   value={selectedChildId}
                   onChange={(e) => setSelectedChildId(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="appearance-none px-4 py-2.5 pr-10 border-2 border-blue-500 rounded-lg text-sm font-medium bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[180px]"
                 >
-                  <option value="all">All Children ({contracts.length})</option>
+                    <option value="all">
+                      All Children ({(() => {
+                        const statusFiltered = filter === 'all' 
+                          ? contracts 
+                          : contracts.filter(c => c.status === filter);
+                        return statusFiltered.length;
+                      })()})
+                    </option>
                   {children.map((child) => {
-                    const childContractsCount = contracts.filter(c => c.childId === child.childId).length;
+                      const childContractsCount = (() => {
+                        const statusFiltered = filter === 'all' 
+                          ? contracts 
+                          : contracts.filter(c => c.status === filter);
+                        return statusFiltered.filter(c => c.childId === child.childId).length;
+                      })();
                     return (
                       <option key={child.childId} value={child.childId}>
                         {child.fullName} ({childContractsCount})
@@ -325,6 +373,12 @@ const ContractsManagement: React.FC = () => {
                     );
                   })}
                 </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -332,7 +386,7 @@ const ContractsManagement: React.FC = () => {
 
         {/* Contracts List */}
         <div className="space-y-4">
-          {filteredContracts.map((contract) => (
+          {paginatedContracts.map((contract) => (
             <div key={contract.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center space-x-4">
@@ -457,6 +511,68 @@ const ContractsManagement: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredContracts.length)} of {filteredContracts.length} contracts
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Show first page, last page, current page, and pages around current
+                  const showPage = 
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1);
+                  
+                  if (!showPage) {
+                    // Show ellipsis
+                    if (page === currentPage - 2 || page === currentPage + 2) {
+                      return (
+                        <span key={page} className="px-2 text-gray-400">
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  }
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Error State */}
         {error && contracts.length === 0 && (

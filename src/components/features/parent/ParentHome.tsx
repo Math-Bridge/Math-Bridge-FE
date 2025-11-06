@@ -13,14 +13,14 @@ import {
   Wallet,
   FileText,
   BarChart3,
-  MessageCircle,
-  Bell
+  MessageCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { 
   apiService, 
   getContractsByParent
 } from '../../../services/api';
+import ScheduleCalendarWidget from './ScheduleCalendarWidget';
 
 interface UpcomingSession {
   id: string;
@@ -31,14 +31,6 @@ interface UpcomingSession {
   duration: string;
 }
 
-interface RecentActivity {
-  id: string;
-  type: 'session' | 'contract' | 'payment';
-  title: string;
-  description: string;
-  time: string;
-  status: 'completed' | 'pending' | 'active';
-}
 
 interface PopularPackage {
   id: string;
@@ -60,7 +52,6 @@ const ParentHome: React.FC = () => {
   // API Data States
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [popularPackages, setPopularPackages] = useState<PopularPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -127,49 +118,6 @@ const ParentHome: React.FC = () => {
             }
           });
         setUpcomingSessions(sessions);
-
-        // Create recent activities from contracts
-        const activities: RecentActivity[] = [];
-        contracts
-          .slice(0, 3) // Limit to 3 recent activities
-          .forEach((contract: any) => {
-            const createdAt = contract.CreatedAt || contract.createdAt || contract.StartDate || contract.startDate;
-            const status = (contract.Status || contract.status || '').toLowerCase();
-            const packageName = contract.PackageName || contract.packageName || 'Package';
-            const childName = contract.ChildName || contract.childName || 'N/A';
-            
-            let timeAgo = 'Recently';
-            if (createdAt) {
-              const created = new Date(createdAt);
-              const now = new Date();
-              const diffMs = now.getTime() - created.getTime();
-              const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-              
-              if (diffDays === 0) {
-                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                if (diffHours === 0) {
-                  const diffMins = Math.floor(diffMs / (1000 * 60));
-                  timeAgo = diffMins <= 1 ? 'Just now' : `${diffMins} minutes ago`;
-                } else {
-                  timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                }
-              } else if (diffDays === 1) {
-                timeAgo = '1 day ago';
-              } else {
-                timeAgo = `${diffDays} days ago`;
-              }
-            }
-
-            activities.push({
-              id: contract.ContractId || contract.contractId || contract.id || '',
-              type: 'contract',
-              title: 'Contract Created',
-              description: `${packageName} for ${childName}`,
-              time: timeAgo,
-              status: status === 'active' ? 'active' : status === 'completed' ? 'completed' : 'pending'
-            });
-          });
-        setRecentActivities(activities);
       }
 
       // Fetch packages for popular packages section
@@ -195,28 +143,6 @@ const ParentHome: React.FC = () => {
             };
           });
         setPopularPackages(mappedPackages);
-      }
-
-      // Try to fetch recent activities from API (if endpoint exists)
-      try {
-        const activitiesResponse = await apiService.getRecentActivities();
-        if (activitiesResponse.success && activitiesResponse.data && activitiesResponse.data.length > 0) {
-          // Use API activities if available, otherwise use contract-based activities
-          const mappedActivities = activitiesResponse.data.map((activity: any) => ({
-            id: activity.Id || activity.id || String(activity.id || ''),
-            type: (activity.Type || activity.type || 'session').toLowerCase() as 'session' | 'contract' | 'payment',
-            title: activity.Title || activity.title || 'Activity',
-            description: activity.Description || activity.description || '',
-            time: activity.Time || activity.time || 'Recently',
-            status: (activity.Status || activity.status || 'pending').toLowerCase() as 'completed' | 'pending' | 'active'
-          }));
-          if (mappedActivities.length > 0) {
-            setRecentActivities(mappedActivities.slice(0, 3));
-          }
-        }
-      } catch (err) {
-        // If activities endpoint doesn't exist, use contract-based activities (already set above)
-        console.log('Recent activities endpoint not available, using contract-based activities');
       }
 
     } catch (err) {
@@ -249,6 +175,13 @@ const ParentHome: React.FC = () => {
       onClick: () => navigate('/packages')
     },
     {
+      title: 'Study Schedule',
+      description: 'View your child\'s study schedule',
+      icon: Calendar,
+      color: 'orange',
+      onClick: () => navigate('/parent/schedule')
+    },
+    {
       title: t('createContract'),
       description: t('bookSessions'),
       icon: FileText,
@@ -259,7 +192,7 @@ const ParentHome: React.FC = () => {
       title: t('viewProgress'),
       description: t('trackProgress'),
       icon: TrendingUp,
-      color: 'orange',
+      color: 'yellow',
       onClick: () => navigate('/progress')
     }
   ];
@@ -351,94 +284,9 @@ const ParentHome: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Activities */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                  <Bell className="h-6 w-6 text-blue-500 mr-2" />
-                  Recent Activities
-                </h2>
-                <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                  View All
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {recentActivities.length === 0 && !isLoading ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No recent activities</p>
-                  </div>
-                ) : (
-                  recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      activity.type === 'session' ? 'bg-blue-100' :
-                      activity.type === 'contract' ? 'bg-purple-100' :
-                      'bg-green-100'
-                    }`}>
-                      {activity.type === 'session' && <BookOpen className="w-4 h-4 text-blue-600" />}
-                      {activity.type === 'contract' && <FileText className="w-4 h-4 text-purple-600" />}
-                      {activity.type === 'payment' && <Wallet className="w-4 h-4 text-green-600" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{activity.title}</p>
-                      <p className="text-sm text-gray-600">{activity.description}</p>
-                      <div className="flex items-center mt-1">
-                        <Clock className="w-3 h-3 text-gray-400 mr-1" />
-                        <span className="text-xs text-gray-500">{activity.time}</span>
-                        <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                          activity.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {activity.status}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming Sessions */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <Calendar className="h-6 w-6 text-green-500 mr-2" />
-                Upcoming Sessions
-              </h2>
-
-              <div className="space-y-4">
-                {upcomingSessions.length === 0 && !isLoading ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No upcoming sessions</p>
-                  </div>
-                ) : (
-                  upcomingSessions.map((session) => (
-                    <div key={session.id} className="p-4 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="font-medium text-gray-900">{session.childName}</h3>
-                        <span className="text-xs text-green-600 font-medium">{session.duration}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{session.subject}</p>
-                      <p className="text-sm text-gray-500 mb-2">with {session.tutorName}</p>
-                      <p className="text-sm font-medium text-green-700">{session.date}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <button className="w-full mt-4 p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                View All Sessions
-              </button>
-            </div>
-          </div>
+        {/* Schedule Calendar */}
+        <div className="w-full">
+          <ScheduleCalendarWidget compact={false} />
         </div>
 
         {/* Popular Packages Section */}

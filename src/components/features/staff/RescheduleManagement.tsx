@@ -4,24 +4,31 @@ import {
   Calendar,
   Clock,
   User,
-  AlertCircle,
   CheckCircle,
   XCircle,
   Search,
   Filter,
   FileText,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   getRescheduleRequests,
   RescheduleRequest,
   approveRescheduleRequest,
   rejectRescheduleRequest,
   ApproveRescheduleRequest,
-  RejectRescheduleRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
-const RescheduleManagement: React.FC = () => {
+interface RescheduleManagementProps {
+  hideBackButton?: boolean;
+}
+
+const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackButton = false }) => {
+  const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [requests, setRequests] = useState<RescheduleRequest[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<RescheduleRequest[]>([]);
@@ -32,6 +39,8 @@ const RescheduleManagement: React.FC = () => {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     fetchRequests();
@@ -41,18 +50,32 @@ const RescheduleManagement: React.FC = () => {
     filterRequests();
   }, [requests, searchTerm, statusFilter]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
   const fetchRequests = async () => {
     try {
       setLoading(true);
       const result = await getRescheduleRequests();
       if (result.success && result.data) {
         setRequests(result.data);
+        // Show info if no data (backend endpoint not implemented)
+        if (result.data.length === 0) {
+          console.info('No reschedule requests found. Backend GET endpoint may not be implemented yet.');
+        }
       } else {
-        showError(result.error || 'Failed to load reschedule requests');
+        // Don't show error if it's just empty result
+        const errorMsg = result.error as string | null | undefined;
+        if (errorMsg && typeof errorMsg === 'string' && errorMsg.indexOf('not implemented') === -1) {
+          showError(errorMsg || 'Failed to load reschedule requests');
+        }
+        setRequests([]);
       }
     } catch (error) {
       console.error('Error fetching requests:', error);
-      showError('Failed to load reschedule requests');
+      // Don't show error toast - backend endpoint may not exist
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -78,6 +101,12 @@ const RescheduleManagement: React.FC = () => {
 
     setFilteredRequests(filtered);
   };
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
   const handleApprove = async (data: ApproveRescheduleRequest) => {
     if (!selectedRequest) return;
@@ -152,6 +181,15 @@ const RescheduleManagement: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
+          {!hideBackButton && (
+            <button
+              onClick={() => navigate('/staff')}
+              className="px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2 mb-6"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Dashboard</span>
+            </button>
+          )}
           <h1 className="text-3xl font-bold text-gray-900">Reschedule Requests</h1>
           <p className="text-gray-600 mt-2">Review and manage reschedule requests</p>
         </div>
@@ -186,8 +224,7 @@ const RescheduleManagement: React.FC = () => {
         </div>
 
         {/* Requests List */}
-        <div className="space-y-4">
-          {filteredRequests.length === 0 ? (
+        {paginatedRequests.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
               <RefreshCw className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reschedule Requests</h3>
@@ -198,67 +235,67 @@ const RescheduleManagement: React.FC = () => {
               </p>
             </div>
           ) : (
-            filteredRequests.map((request) => (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {paginatedRequests.map((request) => (
               <div
                 key={request.requestId}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow flex flex-col"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-4">
-                      <h3 className="text-lg font-bold text-gray-900">
-                        Request from {request.parentName}
+                <div className="flex flex-col flex-1">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-bold text-gray-900 truncate pr-2">
+                      {request.parentName}
                       </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(request.status)}`}>
                         {request.status}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <User className="w-5 h-5" />
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                        <User className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">Child:</span>
-                        <span>{request.childName}</span>
+                        <span className="truncate">{request.childName}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Calendar className="w-5 h-5" />
-                        <span className="font-medium">Requested Date:</span>
+                      <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                        <Calendar className="w-4 h-4 flex-shrink-0" />
+                        <span className="font-medium">Date:</span>
                         <span>{new Date(request.requestedDate).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Clock className="w-5 h-5" />
-                        <span className="font-medium">Time Slot:</span>
-                        <span>{request.requestedTimeSlot}</span>
+                      <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                        <Clock className="w-4 h-4 flex-shrink-0" />
+                        <span className="font-medium">Time:</span>
+                        <span className="truncate">{request.requestedTimeSlot}</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <FileText className="w-5 h-5" />
+                      <div className="flex items-center space-x-2 text-gray-600 text-sm">
+                        <FileText className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">Created:</span>
                         <span>{new Date(request.createdDate).toLocaleDateString()}</span>
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-1">Reason:</p>
-                      <p className="text-gray-600">{request.reason}</p>
+                    <div className="bg-gray-50 rounded-lg p-3 mb-4 flex-1">
+                      <p className="text-xs font-medium text-gray-700 mb-1">Reason:</p>
+                      <p className="text-xs text-gray-600 line-clamp-3">{request.reason}</p>
                     </div>
 
                     {request.requestedTutorName && (
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <User className="w-5 h-5" />
-                        <span className="font-medium">Requested Tutor:</span>
-                        <span>{request.requestedTutorName}</span>
+                      <div className="flex items-center space-x-2 text-gray-600 text-sm mb-4">
+                        <User className="w-4 h-4 flex-shrink-0" />
+                        <span className="font-medium">Tutor:</span>
+                        <span className="truncate">{request.requestedTutorName}</span>
                       </div>
                     )}
-                  </div>
 
                   {request.status === 'pending' && (
-                    <div className="flex flex-col space-y-2 ml-4">
+                    <div className="flex flex-col space-y-2 mt-auto pt-4 border-t border-gray-200">
                       <button
                         onClick={() => {
                           setSelectedRequest(request);
                           setShowApproveModal(true);
                         }}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                        className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm"
                       >
                         <CheckCircle className="w-4 h-4" />
                         <span>Approve</span>
@@ -268,7 +305,7 @@ const RescheduleManagement: React.FC = () => {
                           setSelectedRequest(request);
                           setShowRejectModal(true);
                         }}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                        className="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2 text-sm"
                       >
                         <XCircle className="w-4 h-4" />
                         <span>Reject</span>
@@ -277,9 +314,71 @@ const RescheduleManagement: React.FC = () => {
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </div>
+              ))}
+            </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredRequests.length)} of {filteredRequests.length} requests
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1);
+                      
+                      if (!showPage) {
+                        // Show ellipsis
+                        if (page === currentPage - 2 || page === currentPage + 2) {
+                          return (
+                            <span key={page} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+                      
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Approve Modal */}
@@ -382,5 +481,10 @@ const RescheduleManagement: React.FC = () => {
 };
 
 export default RescheduleManagement;
+
+
+
+
+
 
 
