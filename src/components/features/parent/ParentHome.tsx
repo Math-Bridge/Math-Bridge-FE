@@ -281,12 +281,12 @@ const ParentHome: React.FC = () => {
                 </div>
               </button>
             ))}
+            </div>
           </div>
-        </div>
 
-        {/* Schedule Calendar */}
+          {/* Schedule Calendar */}
         <div className="w-full">
-          <ScheduleCalendarWidget compact={false} />
+            <ScheduleCalendarWidget compact={false} />
         </div>
 
         {/* Popular Packages Section */}

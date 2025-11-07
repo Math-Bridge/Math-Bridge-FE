@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar } from 'lucide-react';
-import { getParentSessions, Session } from '../../../services/api';
+import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, ChevronDown, User } from 'lucide-react';
+import { getParentSessions, getSessionsByChildId, Session, getChildrenByParent, Child } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -12,32 +12,90 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
   const { showError } = useToast();
   const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
-    fetchSessions();
+    fetchChildren();
   }, [user?.id]);
 
-  const fetchSessions = async () => {
+  const fetchChildren = async () => {
     if (!user?.id) return;
     
     try {
       setLoading(true);
-      // BE gets parentId from JWT token, no need to pass it
-      const result = await getParentSessions();
-      if (result.success && result.data) {
-        setSessions(result.data);
-      } else {
-        // Don't show error for widget, just log it
-        console.warn('Failed to load sessions:', result.error);
+      const childrenRes = await getChildrenByParent(user.id);
+
+      if (childrenRes.success && childrenRes.data) {
+        const childrenData = Array.isArray(childrenRes.data) ? childrenRes.data : [];
+        const mappedChildren = childrenData
+          .filter((child: any) => {
+            const status = child.Status || child.status || 'active';
+            return status !== 'deleted';
+          })
+          .map((child: any) => ({
+            childId: child.ChildId || child.childId || '',
+            fullName: child.FullName || child.fullName || '',
+            schoolId: child.SchoolId || child.schoolId || '',
+            schoolName: child.SchoolName || child.schoolName || '',
+            grade: child.Grade || child.grade || '',
+            status: child.Status || child.status || 'active'
+          }));
+        setChildren(mappedChildren);
+
+        // Auto-select first child if only one child
+        if (mappedChildren.length === 1) {
+          setSelectedChildId(mappedChildren[0].childId);
+        }
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      console.error('Error fetching children:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Fetch sessions when child is selected
+  const fetchSessionsForChild = async (childId: string) => {
+    if (!childId) {
+      setSessions([]);
+      return;
+    }
+
+    setLoadingSessions(true);
+    try {
+      const sessionsRes = await getSessionsByChildId(childId);
+      
+      if (sessionsRes.success && sessionsRes.data) {
+        setSessions(sessionsRes.data);
+      } else {
+        // Don't show error for widget, just log it
+        console.warn('Failed to load sessions:', sessionsRes.error);
+        setSessions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      setSessions([]);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchChildren();
+  }, [user?.id]);
+
+  // Fetch sessions when child is selected
+  useEffect(() => {
+    if (selectedChildId) {
+      fetchSessionsForChild(selectedChildId);
+    } else {
+      setSessions([]);
+    }
+  }, [selectedChildId]);
 
   const formatDate = (date: Date): string => {
     return date.toISOString().split('T')[0];
@@ -147,7 +205,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
     return sessionDate >= new Date() && s.status === 'scheduled';
   }).length;
 
-  if (loading) {
+  if (loading || loadingSessions) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-center min-h-[200px]">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -159,12 +217,29 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
     // Compact widget view
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <Calendar className="w-5 h-5 text-blue-600 mr-2" />
             Schedule
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {children.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedChildId || ''}
+                  onChange={(e) => setSelectedChildId(e.target.value || null)}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-1.5 pr-8 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
+                >
+                  <option value="">Select child...</option>
+                  {children.map((child) => (
+                    <option key={child.childId} value={child.childId}>
+                      {child.fullName}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
+              </div>
+            )}
             <button
               onClick={goToPreviousWeek}
               className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -188,8 +263,17 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
           </div>
         </div>
 
-        {/* Week view */}
-        <div className="space-y-1">
+        {!selectedChildId && (
+          <div className="text-center py-8">
+            <User className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-600">Please select a child to view schedule</p>
+          </div>
+        )}
+
+        {selectedChildId && (
+          <>
+            {/* Week view */}
+            <div className="space-y-1">
           {/* First row - 4 days */}
           <div className="grid grid-cols-4 gap-1">
             {/* Day headers */}
@@ -311,12 +395,14 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
           </div>
         </div>
 
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Upcoming sessions this week</span>
-            <span className="font-semibold text-blue-600">{upcomingSessionsThisWeek}</span>
-          </div>
-        </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Upcoming sessions this week</span>
+                <span className="font-semibold text-blue-600">{upcomingSessionsThisWeek}</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   }
@@ -324,12 +410,29 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
   // Full view (same as compact but with more details)
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h3 className="text-xl font-semibold text-gray-900 flex items-center">
           <Calendar className="w-6 h-6 text-blue-600 mr-2" />
           Schedule
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {children.length > 0 && (
+            <div className="relative">
+              <select
+                value={selectedChildId || ''}
+                onChange={(e) => setSelectedChildId(e.target.value || null)}
+                className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
+              >
+                <option value="">Select a child...</option>
+                {children.map((child) => (
+                  <option key={child.childId} value={child.childId}>
+                    {child.fullName}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          )}
           <button
             onClick={goToPreviousWeek}
             className="p-2 hover:bg-gray-100 rounded transition-colors"
@@ -351,8 +454,16 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
         </div>
       </div>
 
-      {/* Week view */}
-      <div className="space-y-2">
+      {!selectedChildId ? (
+        <div className="text-center py-12">
+          <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">Please select a child</h4>
+          <p className="text-gray-600">Choose a child from the dropdown above to view their study schedule.</p>
+        </div>
+      ) : (
+        <>
+          {/* Week view */}
+          <div className="space-y-2">
         {/* First row - 4 days */}
         <div className="grid grid-cols-4 gap-2">
           {/* Day headers */}
@@ -512,12 +623,14 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200">
-        <div className="flex items-center justify-between">
-          <span className="text-gray-600">Upcoming sessions this week</span>
-          <span className="font-semibold text-blue-600">{upcomingSessionsThisWeek}</span>
-        </div>
-      </div>
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Upcoming sessions this week</span>
+              <span className="font-semibold text-blue-600">{upcomingSessionsThisWeek}</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

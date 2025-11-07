@@ -1,29 +1,63 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown } from 'lucide-react';
 import {
   getParentSessions,
+  getSessionsByChildId,
   Session,
+  getChildrenByParent,
+  Child,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../hooks/useAuth';
 
 const StudySchedule: React.FC = () => {
   const { showError } = useToast();
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadingSessions, setLoadingSessions] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
-  const fetchData = async () => {
+  const fetchChildren = async () => {
+    if (!user?.id) {
+      setError('User not authenticated');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const res = await getParentSessions();
-      if (res.success && res.data) {
-        setSessions(res.data);
+      const childrenRes = await getChildrenByParent(user.id);
+
+      if (childrenRes.success && childrenRes.data) {
+        const childrenData = Array.isArray(childrenRes.data) ? childrenRes.data : [];
+        const mappedChildren = childrenData
+          .filter((child: any) => {
+            const status = child.Status || child.status || 'active';
+            return status !== 'deleted';
+          })
+          .map((child: any) => ({
+            childId: child.ChildId || child.childId || '',
+            fullName: child.FullName || child.fullName || '',
+            schoolId: child.SchoolId || child.schoolId || '',
+            schoolName: child.SchoolName || child.schoolName || '',
+            grade: child.Grade || child.grade || '',
+            status: child.Status || child.status || 'active'
+          }));
+        setChildren(mappedChildren);
+
+        // Auto-select first child if only one child
+        if (mappedChildren.length === 1) {
+          setSelectedChildId(mappedChildren[0].childId);
+        }
       } else {
-        const errorMsg = res.error || 'Failed to load sessions';
+        const errorMsg = childrenRes.error || 'Failed to load children';
         setError(errorMsg);
         showError(errorMsg);
       }
@@ -36,9 +70,45 @@ const StudySchedule: React.FC = () => {
     }
   };
 
+  // Fetch sessions when child is selected
+  const fetchSessionsForChild = async (childId: string) => {
+    if (!childId) {
+      setSessions([]);
+      return;
+    }
+
+    setLoadingSessions(true);
+    try {
+      const sessionsRes = await getSessionsByChildId(childId);
+      
+      if (sessionsRes.success && sessionsRes.data) {
+        setSessions(sessionsRes.data);
+      } else {
+        const errorMsg = sessionsRes.error || 'Failed to load sessions';
+        setError(errorMsg);
+        setSessions([]);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMsg);
+      setSessions([]);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchChildren();
+  }, [user?.id]);
+
+  // Fetch sessions when child is selected
+  useEffect(() => {
+    if (selectedChildId) {
+      fetchSessionsForChild(selectedChildId);
+    } else {
+      setSessions([]);
+    }
+  }, [selectedChildId]);
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session);
@@ -142,7 +212,7 @@ const StudySchedule: React.FC = () => {
 
   const daysInWeek = getDaysInWeek(currentDate);
 
-  if (loading) {
+  if (loading || loadingSessions) {
     return (
       <div className="p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
         <div className="flex flex-col items-center justify-center py-12">
@@ -177,21 +247,51 @@ const StudySchedule: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
         {/* Header */}
         <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-white border-b border-gray-100">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900">Study Schedule</h3>
-            <p className="text-sm text-gray-600 mt-2">View your children's study schedule</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900">Study Schedule</h3>
+              <p className="text-sm text-gray-600 mt-2">View your children's study schedule</p>
+            </div>
+            {/* Children Selector */}
+            {children.length > 0 && (
+              <div className="relative">
+                <select
+                  value={selectedChildId || ''}
+                  onChange={(e) => setSelectedChildId(e.target.value || null)}
+                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2.5 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
+                >
+                  <option value="">Select a child...</option>
+                  {children.map((child) => (
+                    <option key={child.childId} value={child.childId}>
+                      {child.fullName}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            )}
           </div>
         </div>
 
         <div className="p-6">
-          {sessions.length === 0 ? (
+          {!selectedChildId ? (
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6">
+                <User className="w-10 h-10 text-blue-600" />
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-2">Please select a child</h4>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Choose a child from the dropdown above to view their study schedule.
+              </p>
+            </div>
+          ) : sessions.length === 0 ? (
             <div className="text-center py-16">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
                 <Calendar className="w-10 h-10 text-gray-400" />
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-2">No sessions</h4>
               <p className="text-gray-600 max-w-md mx-auto">
-                Your children don't have any study sessions scheduled yet.
+                {children.find(c => c.childId === selectedChildId)?.fullName || 'This child'} doesn't have any study sessions scheduled yet.
               </p>
             </div>
           ) : (

@@ -2040,6 +2040,45 @@ export async function getParentSessions(parentId?: string) {
   return result;
 }
 
+// Get sessions by child ID
+// Backend endpoint: GET /api/sessions/child/{childId}
+// Backend gets parentId from JWT token, so we only pass childId
+export async function getSessionsByChildId(childId: string) {
+  const result = await apiService.request<any[]>(`/sessions/child/${childId}`, {
+    method: 'GET',
+  });
+  
+  if (result.success && result.data) {
+    // Map BE SessionDto to FE Session interface
+    // BE SessionDto has: BookingId, ContractId, SessionDate, StartTime, EndTime, TutorName, ChildName, PackageName, IsOnline, VideoCallPlatform, OfflineAddress, Status
+    const mappedData: Session[] = result.data.map((item: any) => ({
+      bookingId: item.bookingId || item.BookingId || item.booking_id,
+      contractId: item.contractId || item.ContractId || item.contract_id,
+      sessionDate: item.sessionDate || item.SessionDate || item.session_date || '',
+      startTime: item.startTime || item.StartTime || item.start_time || '',
+      endTime: item.endTime || item.EndTime || item.end_time || '',
+      tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
+      // Backend SessionDto may have ChildName field
+      childName: item.childName || item.ChildName || item.child_name || item.studentName || item.StudentName || item.student_name || undefined,
+      studentName: item.studentName || item.StudentName || item.student_name || item.childName || item.ChildName || item.child_name || undefined,
+      packageName: item.packageName || item.PackageName || item.package_name || undefined,
+      isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
+      videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
+      videoCallLink: item.videoCallLink || item.VideoCallLink || item.video_call_link || undefined,
+      offlineAddress: item.offlineAddress || item.OfflineAddress || item.offline_address || undefined,
+      status: (item.status || item.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled',
+    }));
+    
+    return {
+      success: true,
+      data: mappedData,
+      error: null,
+    };
+  }
+  
+  return result;
+}
+
 // Get session by ID
 export async function getSessionById(bookingId: string) {
   const result = await apiService.request<any>(`/sessions/${bookingId}`);
