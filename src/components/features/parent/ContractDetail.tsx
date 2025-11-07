@@ -13,7 +13,6 @@ import {
   RefreshCw,
   MessageSquare,
   BookOpen,
-  TrendingUp,
   Award
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -244,12 +243,10 @@ const ContractDetail: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
             <span className="font-semibold">Back to Contracts</span>
           </button>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{contract.packageName}</h1>
-              <p className="text-gray-600 mt-2">
-                {contract.subject} • {contract.childName} • {contract.tutorName}
-              </p>
+              <p className="text-gray-600 mt-2">{contract.subject}</p>
             </div>
             <div className="flex items-center space-x-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
@@ -265,6 +262,65 @@ const ContractDetail: React.FC = () => {
                   <span>Reschedule</span>
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Children and Tutor Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Children Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border-2 border-blue-200 p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-1">Children</p>
+                  <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
+                  <p className="text-sm text-gray-600 mt-1">Learner</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor Card */}
+            <div className={`rounded-xl shadow-sm border-2 p-6 ${
+              contract.tutorName === 'Tutor not assigned' 
+                ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200' 
+                : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+            }`}>
+              <div className="flex items-center space-x-4">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
+                  contract.tutorName === 'Tutor not assigned' 
+                    ? 'bg-gray-400' 
+                    : 'bg-purple-500'
+                }`}>
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${
+                    contract.tutorName === 'Tutor not assigned' 
+                      ? 'text-gray-600' 
+                      : 'text-purple-700'
+                  }`}>
+                    Tutor
+                  </p>
+                  <h2 className={`text-2xl font-bold ${
+                    contract.tutorName === 'Tutor not assigned' 
+                      ? 'text-gray-500' 
+                      : 'text-gray-900'
+                  }`}>
+                    {contract.tutorName}
+                  </h2>
+                  {contract.tutorName !== 'Tutor not assigned' && contract.tutorRating > 0 && (
+                    <div className="flex items-center space-x-1 mt-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="text-sm font-medium text-gray-700">{contract.tutorRating.toFixed(1)}</span>
+                    </div>
+                  )}
+                  {contract.tutorName === 'Tutor not assigned' && (
+                    <p className="text-sm text-gray-500 mt-1">Not assigned yet</p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -471,50 +527,67 @@ const ContractDetail: React.FC = () => {
         {activeTab === 'tutor' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Tutor Information</h3>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <User className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Name</p>
-                    <p className="font-medium">{contract.tutorName}</p>
-                  </div>
+              <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
+                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-white" />
                 </div>
-                <div className="flex items-center space-x-3">
-                  <MessageSquare className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-medium">{contract.tutorEmail}</p>
-                  </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Tutor Information</h3>
+                  <p className="text-sm text-gray-500">Contact & Profile Details</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Phone</p>
-                    <p className="font-medium">{contract.tutorPhone}</p>
-                  </div>
+              </div>
+              <div className="space-y-5">
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Tutor Name</p>
+                  <p className="text-xl font-bold text-gray-900">{contract.tutorName}</p>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Star className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Rating</p>
-                    <div className="flex items-center space-x-2">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < Math.floor(contract.tutorRating)
-                                ? 'text-yellow-400 fill-current'
-                                : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className="font-medium">{contract.tutorRating}</span>
+                {contract.tutorEmail && (
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
+                      <p className="text-base text-gray-900 break-all">{contract.tutorEmail}</p>
                     </div>
                   </div>
-                </div>
+                )}
+                {contract.tutorPhone && (
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
+                      <p className="text-base text-gray-900">{contract.tutorPhone}</p>
+                    </div>
+                  </div>
+                )}
+                {contract.tutorRating > 0 && (
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Star className="w-5 h-5 text-yellow-600 fill-current" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-700 mb-2">Rating</p>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-5 h-5 ${
+                                i < Math.floor(contract.tutorRating)
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-lg font-bold text-gray-900">{contract.tutorRating.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

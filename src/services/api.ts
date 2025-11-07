@@ -2011,8 +2011,7 @@ export async function getParentSessions(parentId?: string) {
   
   if (result.success && result.data) {
     // Map BE SessionDto to FE Session interface
-    // BE SessionDto has: BookingId, ContractId, SessionDate, StartTime, EndTime, TutorName, IsOnline, VideoCallPlatform, OfflineAddress, Status
-    // BE does not have ChildName/StudentName - need to get from Contract if needed
+    // BE SessionDto has: BookingId, ContractId, SessionDate, StartTime, EndTime, TutorName, ChildName, PackageName, IsOnline, VideoCallPlatform, OfflineAddress, Status
     const mappedData: Session[] = result.data.map((item: any) => ({
       bookingId: item.bookingId || item.BookingId || item.booking_id,
       contractId: item.contractId || item.ContractId || item.contract_id,
@@ -2020,8 +2019,10 @@ export async function getParentSessions(parentId?: string) {
       startTime: item.startTime || item.StartTime || item.start_time || '',
       endTime: item.endTime || item.EndTime || item.end_time || '',
       tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
-      studentName: item.studentName || item.StudentName || item.student_name || undefined,
-      childName: item.childName || item.ChildName || item.child_name || undefined,
+      // Backend SessionDto has ChildName field (line 17 in SessionDto.cs)
+      childName: item.childName || item.ChildName || item.child_name || item.studentName || item.StudentName || item.student_name || undefined,
+      studentName: item.studentName || item.StudentName || item.student_name || item.childName || item.ChildName || item.child_name || undefined,
+      packageName: item.packageName || item.PackageName || item.package_name || undefined,
       isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
       videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
       videoCallLink: item.videoCallLink || item.VideoCallLink || item.video_call_link || undefined,
