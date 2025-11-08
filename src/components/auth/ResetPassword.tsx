@@ -19,7 +19,6 @@ const ResetPassword: React.FC = () => {
 
   useEffect(() => {
     const code = searchParams.get('oobCode');
-    console.log('Reset Password - oobCode from URL:', code);
     
     if (!code) {
       setErrors({ general: 'Invalid or expired reset link. Please request a new password reset.' });
@@ -86,23 +85,20 @@ const ResetPassword: React.FC = () => {
 
     for (const format of formats) {
       try {
-        console.log(`Trying format: ${format.method} ${format.url}`, format.body);
-        
         const response = await fetch(format.url, {
           method: format.method,
           headers: { 'Content-Type': 'application/json' },
           body: format.body ? JSON.stringify(format.body) : undefined
         });
         
-        console.log(`Response status: ${response.status}`);
-        
         if (response.ok) {
           const data = await response.text();
-          console.log('Success response:', data);
           return { success: true, data };
         }
       } catch (error) {
-        console.log(`Format failed:`, error);
+        if (import.meta.env.DEV) {
+          console.error('Password reset format failed:', error);
+        }
         continue;
       }
     }
@@ -119,30 +115,26 @@ const ResetPassword: React.FC = () => {
     setErrors({});
     
     try {
-      console.log('Starting password reset with oobCode:', oobCode);
-      
       const response = await apiService.resetPassword({
         oobCode,
         newPassword: formData.password
       });
       
       if (response.success) {
-        console.log('Standard API reset successful');
         setIsSuccess(true);
       } else {
-        console.log('Standard API failed, trying alternative formats');
         const alternativeResponse = await tryMultipleResetFormats(oobCode, formData.password);
         
         if (alternativeResponse.success) {
-          console.log('Alternative format successful');
           setIsSuccess(true);
         } else {
-          console.log('All formats failed');
           setErrors({ general: alternativeResponse.error || 'Unable to reset password. Please try again.' });
         }
       }
     } catch (error) {
-      console.error('Reset password error:', error);
+      if (import.meta.env.DEV) {
+        console.error('Reset password error:', error);
+      }
       setErrors({ general: 'Connection error. Please check your internet and try again.' });
     } finally {
       setIsLoading(false);

@@ -66,9 +66,6 @@ const Login: React.FC = () => {
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
-      console.log("🔹 Google user:", result.user.email);
-      console.log("🔹 Firebase ID token (first 30 chars):", idToken.substring(0, 30) + "...");
-
       // Use useAuth.googleLogin instead of direct API call
       const loginResult = await googleLogin(idToken);
       
@@ -79,34 +76,32 @@ const Login: React.FC = () => {
           try {
             const user = JSON.parse(savedUser);
             if (user.role === 'tutor') {
-              console.log(" Google login success → navigating to /tutor/dashboard");
               navigate("/tutor/dashboard", { replace: true });
             } else if (user.role === 'staff') {
-              console.log("Google login success → navigating to /staff");
               navigate("/staff", { replace: true });
             } else {
-              console.log("Google login success → navigating to /home");
               navigate("/home", { replace: true });
             }
           } catch (error) {
-            console.log("Google login success → navigating to /home (fallback)");
             navigate("/home", { replace: true });
           }
         } else {
-          console.log("Google login success → navigating to /home");
           navigate("/home", { replace: true });
         }
         
         // Show warning if temporary session was created
         if (loginResult.error && loginResult.error.includes('temporary session')) {
-          // You could show a toast notification here
-          console.warn("⚠️ Temporary session created:", loginResult.error);
+          if (import.meta.env.DEV) {
+            console.warn("⚠️ Temporary session created:", loginResult.error);
+          }
         }
       } else {
         setErrors({ general: loginResult.error || "Google login failed" });
       }
     } catch (error: any) {
-      console.error("❌ Google login error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Google login error:", error);
+      }
       setErrors({ general: error.message || "Google login failed" });
     } finally {
       setIsGoogleLoading(false);

@@ -128,10 +128,7 @@ const TopUpComponent: React.FC = () => {
         description: 'Top up wallet',
       };
 
-      console.log('Creating payment request:', request);
       const result = await createSePayPayment(request);
-      
-      console.log('Payment request result:', result);
       
       if (result.success && result.data) {
         setPaymentResponse(result.data);

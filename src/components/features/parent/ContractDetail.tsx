@@ -13,11 +13,16 @@ import {
   RefreshCw,
   MessageSquare,
   BookOpen,
-  Award
+  Award,
+  Copy,
+  X,
+  CreditCard,
+  Heart
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface Session {
   id: string;
@@ -40,7 +45,7 @@ interface ContractDetail {
   totalSessions: number;
   completedSessions: number;
   price: number;
-  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
   startDate: string;
   endDate: string;
   schedule: string;
@@ -57,10 +62,21 @@ const ContractDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id: contractId } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'tutor'>('overview');
+  
+  // Payment states
+  const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingAttempts, setPollingAttempts] = useState(0);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState<string>('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showThankYouPopup, setShowThankYouPopup] = useState(false);
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -117,7 +133,9 @@ const ContractDetail: React.FC = () => {
               }
             }
           } catch (error) {
-            console.error('Error fetching package details:', error);
+            if (import.meta.env.DEV) {
+              console.error('Error fetching package details:', error);
+            }
           }
         }
 
@@ -150,7 +168,7 @@ const ContractDetail: React.FC = () => {
           totalSessions: totalSessions,
           completedSessions: contractData.CompletedSessions || contractData.completedSessions || 0,
           price: price,
-          status: (contractData.Status || contractData.status || 'pending').toLowerCase() as 'pending' | 'active' | 'completed' | 'cancelled',
+          status: (contractData.Status || contractData.status || 'pending').toLowerCase() as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid',
           startDate: contractData.StartDate || contractData.startDate || '',
           endDate: contractData.EndDate || contractData.endDate || '',
           schedule: schedule,
@@ -165,7 +183,9 @@ const ContractDetail: React.FC = () => {
 
         setContract(mappedContract);
       } catch (err) {
-        console.error('Error fetching contract:', err);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching contract:', err);
+        }
         setError('Failed to load contract details');
       } finally {
         setLoading(false);
@@ -174,6 +194,127 @@ const ContractDetail: React.FC = () => {
 
     fetchContract();
   }, [contractId, user?.id]);
+
+  // Poll contract status when direct payment is active
+  useEffect(() => {
+    if (contractId && isPolling && paymentResponse) {
+      let attemptCount = 0;
+      const interval = setInterval(async () => {
+        try {
+          attemptCount += 1;
+          setPollingAttempts(attemptCount);
+          
+          // Stop polling after max attempts
+          if (attemptCount >= MAX_POLLING_ATTEMPTS) {
+            clearInterval(interval);
+            setIsPolling(false);
+            setPaymentStatusMessage('Payment checking timeout. Please check your contract status manually or contact support if payment was completed.');
+            if (import.meta.env.DEV) {
+              console.warn('Polling stopped after max attempts');
+            }
+            return;
+          }
+
+          const contractResult = await getContractById(contractId);
+          if (contractResult.success && contractResult.data) {
+            const contractData = contractResult.data;
+            const contractStatus = contractData.Status?.toLowerCase() || contractData.status?.toLowerCase() || '';
+            
+            // Check if contract status changed to 'active' or 'pending' (payment may be processed)
+            if (contractStatus === 'active') {
+              clearInterval(interval);
+              setIsPolling(false);
+              setPollingAttempts(0);
+              setPaymentStatusMessage('');
+              // Close payment modal first
+              setPaymentResponse(null);
+              // Show thank you popup
+              setShowThankYouPopup(true);
+              showSuccess('Payment successful! Contract has been activated.');
+              // Refresh contract data to update UI
+              const refreshResult = await getContractById(contractId);
+              if (refreshResult.success && refreshResult.data) {
+                // Update contract status in state
+                setContract(prev => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    status: 'active'
+                  };
+                });
+              }
+            } else if (contractStatus === 'pending' && attemptCount > 2) {
+              setPaymentStatusMessage('Payment received! Contract is pending staff activation. You can close this window and check back later.');
+            } else if (contractStatus === 'unpaid') {
+              setPaymentStatusMessage('Waiting for payment confirmation...');
+            } else if (contractStatus === 'cancelled') {
+              clearInterval(interval);
+              setIsPolling(false);
+              setPaymentStatusMessage('Contract was cancelled. Please contact support.');
+              showError('Contract was cancelled. Please contact support.');
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.error('Failed to fetch contract:', contractResult.error);
+            }
+            if (attemptCount % 12 === 0) {
+              setPaymentStatusMessage('Having trouble checking payment status. Please check manually if payment was completed.');
+            }
+          }
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Error checking contract status:', error);
+          }
+          if (attemptCount % 12 === 0) {
+            setPaymentStatusMessage('Error checking payment status. Please check manually.');
+          }
+        }
+      }, 5000); // Check every 5 seconds
+
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      if (!isPolling) {
+        setPollingAttempts(0);
+        setPaymentStatusMessage('');
+      }
+    }
+  }, [contractId, isPolling, paymentResponse, showSuccess, showError]);
+
+  // Handle payment button click
+  const handlePayment = async () => {
+    if (!contractId || !contract) {
+      showError('Contract information is missing');
+      return;
+    }
+
+    try {
+      setIsCreatingPayment(true);
+      setError(null);
+      
+      const paymentResult = await createContractDirectPayment(contractId);
+      
+      if (paymentResult.success && paymentResult.data) {
+        if (paymentResult.data.qrCodeUrl) {
+          setPaymentResponse(paymentResult.data);
+          setIsPolling(true);
+          showSuccess('Payment QR code generated successfully! Please scan to complete payment.');
+        } else {
+          showError('Failed to generate QR code URL. Please contact support.');
+        }
+      } else {
+        showError(paymentResult.error || 'Failed to create payment QR code. Please contact support.');
+      }
+    } catch (paymentError) {
+      if (import.meta.env.DEV) {
+        console.error('Error creating direct payment:', paymentError);
+      }
+      showError('Failed to create payment QR code. Please contact support.');
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -185,6 +326,8 @@ const ContractDetail: React.FC = () => {
         return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'unpaid':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -198,6 +341,8 @@ const ContractDetail: React.FC = () => {
         return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'rescheduled':
+        return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -253,15 +398,6 @@ const ContractDetail: React.FC = () => {
                 <CheckCircle className="w-4 h-4 mr-1" />
                 <span className="capitalize">{contract.status}</span>
               </span>
-              {contract.status === 'active' && (
-                <button
-                  onClick={() => navigate(`/contracts/${contract.id}/reschedule`)}
-                  className="px-4 py-2 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors flex items-center space-x-2"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Reschedule</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -436,6 +572,25 @@ const ContractDetail: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="space-y-3">
+                  {contract.status === 'unpaid' && (
+                    <button
+                      onClick={handlePayment}
+                      disabled={isCreatingPayment}
+                      className="w-full flex items-center space-x-3 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed justify-center"
+                    >
+                      {isCreatingPayment ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5" />
+                          <span>Pay Now</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   {contract.status === 'active' && (
                     <button
                       onClick={() => navigate(`/contracts/${contract.id}/reschedule`)}
@@ -445,13 +600,15 @@ const ContractDetail: React.FC = () => {
                       <span>Request Reschedule</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => navigate(`/user/chat?tutor=${contract.tutorName}`)}
-                    className="w-full flex items-center space-x-3 p-3 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    <MessageSquare className="w-5 h-5" />
-                    <span>Chat with Tutor</span>
-                  </button>
+                  {contract.tutorName !== 'Tutor not assigned' && (
+                    <button
+                      onClick={() => navigate(`/user/chat?tutor=${contract.tutorName}`)}
+                      className="w-full flex items-center space-x-3 p-3 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      <span>Chat with Tutor</span>
+                    </button>
+                  )}
                   {contract.status === 'completed' && (
                     <button
                       onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
@@ -616,6 +773,315 @@ const ContractDetail: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Payment QR Code Modal */}
+      {paymentResponse && contractId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Payment QR Code</h3>
+              <button
+                onClick={() => {
+                  setPaymentResponse(null);
+                  setIsPolling(false);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Payment Status */}
+              {isPolling && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                    <span className="text-yellow-800 font-medium">Waiting for payment confirmation...</span>
+                  </div>
+                  {paymentStatusMessage && (
+                    <p className="text-sm text-yellow-700 mt-1">{paymentStatusMessage}</p>
+                  )}
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Checking status... (Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS})
+                  </p>
+                </div>
+              )}
+
+              {/* QR Code */}
+              <div className="text-center mb-6">
+                <p className="text-gray-600 mb-4">Scan QR code with your banking app</p>
+                <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg">
+                  <img
+                    src={paymentResponse.qrCodeUrl}
+                    alt="QR Code"
+                    className="w-64 h-64 mx-auto"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Details */}
+              <div className="space-y-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="text-xl font-bold text-blue-600">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}
+                      </span>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Content:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.transferContent}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.transferContent);
+                            setCopiedField('content');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'content' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Bank Information:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.bankInfo}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.bankInfo);
+                            setCopiedField('bank');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'bank' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Order Reference:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.orderReference}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.orderReference);
+                            setCopiedField('reference');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'reference' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Instructions */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                  <li>Scan the QR code above with your banking app, or</li>
+                  <li>Transfer manually using:
+                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                      <li>Amount: <strong>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</strong></li>
+                      <li>Transfer content: <strong className="font-mono">{paymentResponse.transferContent}</strong></li>
+                      <li>Bank info: <strong>{paymentResponse.bankInfo}</strong></li>
+                    </ul>
+                  </li>
+                  <li>After completing the transfer, the system will automatically detect and activate your contract</li>
+                  <li>This process usually takes 1-5 minutes after payment completion</li>
+                  <li>You can close this window and check your contract status later if needed</li>
+                </ol>
+              </div>
+
+              {/* Auto-checking status */}
+              {isPolling && (
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="text-gray-600">Auto-checking payment status...</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    The system will automatically detect when your payment is confirmed. 
+                    This may take a few minutes after you complete the transfer.
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                {isPolling && (
+                  <button
+                    onClick={async () => {
+                      // Manual check of contract status
+                      if (contractId) {
+                        try {
+                          const contractResult = await getContractById(contractId);
+                          if (contractResult.success && contractResult.data) {
+                            const contractData = contractResult.data;
+                            const contractStatus = contractData.Status?.toLowerCase() || contractData.status?.toLowerCase() || '';
+                            
+                            if (contractStatus === 'active') {
+                              setIsPolling(false);
+                              setPaymentStatusMessage('');
+                              setShowThankYouPopup(true);
+                              showSuccess('Payment successful! Contract has been activated.');
+                              // Refresh contract data
+                              const refreshResult = await getContractById(contractId);
+                              if (refreshResult.success && refreshResult.data) {
+                                setContract(prev => prev ? { ...prev, status: 'active' } : null);
+                              }
+                            } else if (contractStatus === 'pending') {
+                              showSuccess('Payment received! Contract is pending staff activation.');
+                              setPaymentStatusMessage('Payment received! Contract is pending staff activation.');
+                            } else {
+                              showError(`Contract status: ${contractData.Status || contractData.status}. Please wait for payment confirmation or contact support.`);
+                            }
+                          } else {
+                            showError('Failed to check contract status. Please try again.');
+                          }
+                        } catch (error) {
+                          if (import.meta.env.DEV) {
+                            console.error('Error manually checking contract status:', error);
+                          }
+                          showError('Error checking contract status. Please try again.');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Clock className="w-5 h-5" />
+                    Check Payment Status
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setPaymentResponse(null);
+                    setIsPolling(false);
+                    setPollingAttempts(0);
+                    setPaymentStatusMessage('');
+                  }}
+                  className={`px-4 py-3 ${isPolling ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg font-medium transition-colors`}
+                >
+                  {isPolling ? 'Close (Continue in Background)' : 'Close'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thank You Popup */}
+      {showThankYouPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-8 text-center">
+            <div className="mb-6">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-12 h-12 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Thank You!</h3>
+              <p className="text-gray-600 mb-4">
+                Your payment has been successfully processed.
+              </p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-green-800 font-medium">
+                  Your contract has been activated successfully!
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-blue-600 mb-4">
+                <Heart className="w-5 h-5 fill-current" />
+                <p className="text-sm">
+                  We appreciate your trust in our service.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  setShowThankYouPopup(false);
+                  setPaymentResponse(null);
+                  setIsPolling(false);
+                  setPollingAttempts(0);
+                  setPaymentStatusMessage('');
+                  // Refresh contract data
+                  if (contractId) {
+                    try {
+                      const refreshResult = await getContractById(contractId);
+                      if (refreshResult.success && refreshResult.data) {
+                        // Update contract in state
+                        setContract(prev => {
+                          if (!prev) return null;
+                          return {
+                            ...prev,
+                            status: 'active'
+                          };
+                        });
+                      }
+                    } catch (error) {
+                      if (import.meta.env.DEV) {
+                        console.error('Error refreshing contract:', error);
+                      }
+                    }
+                  }
+                }}
+                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              >
+                View Contract
+              </button>
+              <button
+                onClick={() => {
+                  setShowThankYouPopup(false);
+                  setPaymentResponse(null);
+                  setIsPolling(false);
+                  navigate('/contracts');
+                }}
+                className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Back to Contracts
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

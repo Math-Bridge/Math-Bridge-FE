@@ -81,6 +81,9 @@ const CreateContract: React.FC = () => {
   const [createdContractId, setCreatedContractId] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [pollingAttempts, setPollingAttempts] = useState(0);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState<string>('');
+  const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
 
   useEffect(() => {
     fetchData();
@@ -90,29 +93,79 @@ const CreateContract: React.FC = () => {
   // Poll contract status when direct payment is active
   useEffect(() => {
     if (createdContractId && isPolling && paymentResponse) {
+      let attemptCount = 0;
       const interval = setInterval(async () => {
         try {
+          attemptCount += 1;
+          setPollingAttempts(attemptCount);
+          
+          // Stop polling after max attempts
+          if (attemptCount >= MAX_POLLING_ATTEMPTS) {
+            clearInterval(interval);
+            setIsPolling(false);
+            setPaymentStatusMessage('Payment checking timeout. Please check your contract status manually or contact support if payment was completed.');
+            if (import.meta.env.DEV) {
+              console.warn('Polling stopped after max attempts');
+            }
+            return;
+          }
+
           const contractResult = await getContractById(createdContractId);
           if (contractResult.success && contractResult.data) {
             const contract = contractResult.data;
-            // Check if contract status changed to 'active' (payment successful)
-            if (contract.status === 'active' || contract.status === 'Active') {
+            const contractStatus = contract.status?.toLowerCase() || '';
+            
+            // Check if contract status changed to 'active' or 'pending' (payment may be processed)
+            // Note: Backend sets status to 'Pending' after payment webhook, then staff may activate it
+            if (contractStatus === 'active') {
+              clearInterval(interval);
               setIsPolling(false);
+              setPollingAttempts(0);
+              setPaymentStatusMessage('');
               showSuccess('Payment successful! Contract has been activated.');
               // Navigate to contract detail after 2 seconds
               setTimeout(() => {
                 navigate(`/contracts/${createdContractId}`);
               }, 2000);
+            } else if (contractStatus === 'pending' && attemptCount > 2) {
+              // After a few polling attempts, if status is 'pending', payment might be processed
+              // but contract is waiting for staff activation
+              setPaymentStatusMessage('Payment received! Contract is pending staff activation. You can close this window and check back later.');
+            } else if (contractStatus === 'unpaid') {
+              setPaymentStatusMessage('Waiting for payment confirmation...');
+            } else if (contractStatus === 'cancelled') {
+              clearInterval(interval);
+              setIsPolling(false);
+              setPaymentStatusMessage('Contract was cancelled. Please contact support.');
+              showError('Contract was cancelled. Please contact support.');
+            }
+          } else {
+            console.error('Failed to fetch contract:', contractResult.error);
+            // Don't stop polling on transient errors, but log them
+            if (attemptCount % 12 === 0) { // Every minute, show a warning
+              setPaymentStatusMessage('Having trouble checking payment status. Please check manually if payment was completed.');
             }
           }
         } catch (error) {
           console.error('Error checking contract status:', error);
+          // Don't stop polling on errors, but track them
+          if (attemptCount % 12 === 0) {
+            setPaymentStatusMessage('Error checking payment status. Please check manually.');
+          }
         }
       }, 5000); // Check every 5 seconds
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(interval);
+      };
+    } else {
+      // Reset polling attempts when polling stops
+      if (!isPolling) {
+        setPollingAttempts(0);
+        setPaymentStatusMessage('');
+      }
     }
-  }, [createdContractId, isPolling, paymentResponse, navigate, showSuccess]);
+  }, [createdContractId, isPolling, paymentResponse, navigate, showSuccess, showError]);
 
   // Refresh wallet balance when returning from top-up page
   useEffect(() => {
@@ -184,10 +237,11 @@ const CreateContract: React.FC = () => {
                       // Backend returns SchoolDto with PascalCase: SchoolName
                       const schoolData = schoolResponse.data as any;
                       schoolName = schoolData.SchoolName || schoolData.schoolName || '';
-                      console.log(`Fetched school name for ${schoolId}: ${schoolName}`);
                     }
                   } catch (error) {
-                    console.error('Failed to fetch school name for schoolId:', schoolId, error);
+                    if (import.meta.env.DEV) {
+                      console.error('Failed to fetch school name for schoolId:', schoolId, error);
+                    }
                   }
                 }
               }
@@ -210,9 +264,7 @@ const CreateContract: React.FC = () => {
       }
 
       // Fetch packages
-      console.log('Fetching packages...');
       const packagesResult = await apiService.getAllPackages();
-      console.log('Packages API response:', packagesResult);
       
       if (packagesResult.success && packagesResult.data) {
         // Handle different response formats: direct array, or wrapped in data property
@@ -225,8 +277,6 @@ const CreateContract: React.FC = () => {
           packagesData = dataObj.data || dataObj.items || dataObj.packages || [];
         }
         
-        console.log('Parsed packages array:', packagesData);
-        
         const mappedPackages = packagesData.map((pkg: any) => ({
           packageId: pkg.PackageId || pkg.packageId || pkg.id || '',
           packageName: pkg.PackageName || pkg.packageName || pkg.name || '',
@@ -237,10 +287,11 @@ const CreateContract: React.FC = () => {
           grade: pkg.Grade || pkg.grade || ''
         }));
         
-        console.log('Mapped packages:', mappedPackages);
         setPackages(mappedPackages);
       } else {
-        console.error('Failed to fetch packages:', packagesResult.error || 'Unknown error');
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch packages:', packagesResult.error || 'Unknown error');
+        }
         setError(packagesResult.error || 'Failed to load packages');
       }
 
@@ -397,39 +448,46 @@ const CreateContract: React.FC = () => {
             } else {
               // Contract created but wallet deduction failed
               showError(`Contract created but wallet deduction failed: ${deductResult.error || 'Unknown error'}. Please contact support.`);
-              console.error('Wallet deduction failed:', deductResult.error);
+              if (import.meta.env.DEV) {
+                console.error('Wallet deduction failed:', deductResult.error);
+              }
             }
           } catch (deductError) {
-            console.error('Error deducting wallet:', deductError);
+            if (import.meta.env.DEV) {
+              console.error('Error deducting wallet:', deductError);
+            }
             showError('Contract created but wallet deduction failed. Please contact support.');
           }
         } else if (paymentMethod === 'direct_payment' && contractId) {
           // Create direct payment with QR code
           try {
             setCreatedContractId(contractId);
-            console.log('Creating direct payment for contract:', contractId);
             const paymentResult = await createContractDirectPayment(contractId);
-            console.log('Direct payment result:', paymentResult);
             
             if (paymentResult.success && paymentResult.data) {
-              console.log('Payment response data:', paymentResult.data);
               if (paymentResult.data.qrCodeUrl) {
                 setPaymentResponse(paymentResult.data);
                 setIsPolling(true);
                 showSuccess('Contract created! Please scan QR code to complete payment.');
               } else {
-                console.error('QR code URL is missing from response:', paymentResult.data);
+                if (import.meta.env.DEV) {
+                  console.error('QR code URL is missing from response:', paymentResult.data);
+                }
                 showError('Failed to generate QR code URL. Please contact support.');
                 navigate(`/contracts/${contractId || ''}`);
               }
             } else {
-              console.error('Payment creation failed:', paymentResult.error);
+              if (import.meta.env.DEV) {
+                console.error('Payment creation failed:', paymentResult.error);
+              }
               showError(paymentResult.error || 'Failed to create payment QR code. Please contact support.');
               // Navigate to contract detail anyway
               navigate(`/contracts/${contractId || ''}`);
             }
           } catch (paymentError) {
-            console.error('Error creating direct payment:', paymentError);
+            if (import.meta.env.DEV) {
+              console.error('Error creating direct payment:', paymentError);
+            }
             showError('Contract created but failed to generate payment QR code. Please contact support.');
             // Navigate to contract detail anyway
             navigate(`/contracts/${contractId || ''}`);
@@ -692,7 +750,6 @@ const CreateContract: React.FC = () => {
                              pkg.grade.toLowerCase() === selectedChild.grade.toLowerCase();
                     })
                     .map((pkg) => {
-                      console.log('Rendering package:', pkg);
                       return (
                         <div
                           key={pkg.packageId}
@@ -1431,9 +1488,17 @@ const CreateContract: React.FC = () => {
             <div className="p-6">
               {/* Payment Status */}
               {isPolling && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-yellow-600" />
-                  <span className="text-yellow-800 font-medium">Waiting for payment...</span>
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-yellow-600" />
+                    <span className="text-yellow-800 font-medium">Waiting for payment confirmation...</span>
+                  </div>
+                  {paymentStatusMessage && (
+                    <p className="text-sm text-yellow-700 mt-1">{paymentStatusMessage}</p>
+                  )}
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Checking status... (Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS})
+                  </p>
                 </div>
               )}
 
@@ -1547,33 +1612,87 @@ const CreateContract: React.FC = () => {
               {/* Payment Instructions */}
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
-                  <li>Scan QR code with your banking app</li>
-                  <li>Amount: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</li>
-                  <li>Use the transfer content: <strong>{paymentResponse.transferContent}</strong></li>
-                  <li>Contract will be activated automatically after payment confirmation</li>
-                </ul>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                  <li>Scan the QR code above with your banking app, or</li>
+                  <li>Transfer manually using:
+                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                      <li>Amount: <strong>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</strong></li>
+                      <li>Transfer content: <strong className="font-mono">{paymentResponse.transferContent}</strong></li>
+                      <li>Bank info: <strong>{paymentResponse.bankInfo}</strong></li>
+                    </ul>
+                  </li>
+                  <li>After completing the transfer, the system will automatically detect and activate your contract</li>
+                  <li>This process usually takes 1-5 minutes after payment completion</li>
+                  <li>You can close this window and check your contract status later if needed</li>
+                </ol>
               </div>
 
               {/* Auto-checking status */}
               {isPolling && (
-                <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                  <span className="text-gray-600">Auto-checking payment status...</span>
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="text-gray-600">Auto-checking payment status...</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    The system will automatically detect when your payment is confirmed. 
+                    This may take a few minutes after you complete the transfer.
+                  </p>
                 </div>
               )}
 
               {/* Action Buttons */}
               <div className="flex gap-3">
+                {isPolling && (
+                  <button
+                    onClick={async () => {
+                      // Manual check of contract status
+                      if (createdContractId) {
+                        try {
+                          const contractResult = await getContractById(createdContractId);
+                          if (contractResult.success && contractResult.data) {
+                            const contract = contractResult.data;
+                            const contractStatus = contract.status?.toLowerCase() || '';
+                            
+                            if (contractStatus === 'active') {
+                              setIsPolling(false);
+                              setPaymentStatusMessage('');
+                              showSuccess('Payment successful! Contract has been activated.');
+                              setTimeout(() => {
+                                navigate(`/contracts/${createdContractId}`);
+                              }, 2000);
+                            } else if (contractStatus === 'pending') {
+                              showSuccess('Payment received! Contract is pending staff activation.');
+                              setPaymentStatusMessage('Payment received! Contract is pending staff activation.');
+                            } else {
+                              showError(`Contract status: ${contract.status}. Please wait for payment confirmation or contact support.`);
+                            }
+                          } else {
+                            showError('Failed to check contract status. Please try again.');
+                          }
+                        } catch (error) {
+                          console.error('Error manually checking contract status:', error);
+                          showError('Error checking contract status. Please try again.');
+                        }
+                      }
+                    }}
+                    className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Clock className="w-5 h-5" />
+                    Check Payment Status
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setPaymentResponse(null);
                     setIsPolling(false);
+                    setPollingAttempts(0);
+                    setPaymentStatusMessage('');
                     navigate(`/contracts/${createdContractId}`);
                   }}
-                  className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                  className={`px-4 py-3 ${isPolling ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg font-medium transition-colors`}
                 >
-                  View Contract
+                  {isPolling ? 'View Contract (Continue in Background)' : 'View Contract'}
                 </button>
               </div>
             </div>

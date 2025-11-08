@@ -52,7 +52,9 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
         }
       }
     } catch (error) {
-      console.error('Error fetching children:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching children:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -72,12 +74,16 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
       if (sessionsRes.success && sessionsRes.data) {
         setSessions(sessionsRes.data);
       } else {
-        // Don't show error for widget, just log it
-        console.warn('Failed to load sessions:', sessionsRes.error);
+        // Don't show error for widget
+        if (import.meta.env.DEV) {
+          console.warn('Failed to load sessions:', sessionsRes.error);
+        }
         setSessions([]);
       }
     } catch (error) {
-      console.error('Error fetching sessions:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching sessions:', error);
+      }
       setSessions([]);
     } finally {
       setLoadingSessions(false);

@@ -6,6 +6,7 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+  errorDetails?: any;
 }
 
 export interface User {
@@ -79,20 +80,11 @@ class ApiService {
         // Ensure token is not empty and is a valid string
         const cleanToken = token.trim();
         if (cleanToken) {
-        console.log('Adding auth token to request:', { 
-          url, 
-            tokenLength: cleanToken.length, 
-            tokenStart: cleanToken.substring(0, 20) + '...' 
-        });
-        config.headers = {
-          ...config.headers,
+          config.headers = {
+            ...config.headers,
             'Authorization': `Bearer ${cleanToken}`,
           } as HeadersInit;
-        } else {
-          console.warn('Auth token is empty for request:', url);
         }
-      } else {
-        console.warn('No auth token found for request:', url);
       }
 
       const response = await fetch(url, config);
@@ -107,45 +99,27 @@ class ApiService {
       if (!response.ok) {
         // Handle 401 Unauthorized - token expired or invalid
         if (response.status === 401) {
-          const currentToken = localStorage.getItem('authToken');
-          console.warn('401 Unauthorized - Token authentication failed:', {
-            url,
-            hasToken: !!currentToken,
-            tokenLength: currentToken?.length || 0,
-            tokenPreview: currentToken ? `${currentToken.substring(0, 30)}...` : 'N/A',
-            responseText: text.substring(0, 200)
-          });
-          
           // Clear invalid token and user data
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
           
           // Redirect to login only if not already on login page
           if (!window.location.pathname.includes('/login')) {
-            console.log('Redirecting to login due to 401 Unauthorized error');
             setTimeout(() => {
               window.location.href = '/login';
             }, 1000);
           }
         }
         
-        // Log detailed error information for debugging
-        console.error('API Error Details:', {
-          url,
-          status: response.status,
-          statusText: response.statusText,
-          responseData: data,
-          responseText: text.substring(0, 500), // First 500 chars
-          hasToken: !!localStorage.getItem('authToken'),
-          requestHeaders: config.headers,
-          requestBody: config.body ? (() => {
-            try {
-              return JSON.parse(config.body as string);
-            } catch {
-              return config.body;
-            }
-          })() : null
-        });
+        // Log error information for debugging (only in development)
+        if (import.meta.env.DEV) {
+          console.error('API Error:', {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            error: data?.error || data?.message || text.substring(0, 200)
+          });
+        }
         
         // Extract error message from response
         let errorMessage = `HTTP error! status: ${response.status}`;
@@ -201,13 +175,10 @@ class ApiService {
 
   // Auth endpoints
   async login(credentials: LoginRequest): Promise<ApiResponse<{ user: User; token: string }>> {
-    console.log('API service login called with:', credentials);
-    const result = await this.request<{ user: User; token: string }>('/auth/login', {
+    return this.request<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
-    console.log('API login result:', result);
-    return result;
   }
 
   async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
@@ -225,15 +196,10 @@ class ApiService {
   }
 
   async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<{ message: string }>> {
-    console.log('API resetPassword called with:', data);
-    
-    const response = await this.request<{ message: string }>('/auth/reset-password', {
+    return this.request<{ message: string }>('/auth/reset-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
-    
-    console.log('API resetPassword response:', response);
-    return response;
   }
 
   async resendVerification(email: string): Promise<ApiResponse<{ message: string }>> {
@@ -793,7 +759,6 @@ export async function createContract(data: CreateContractRequest) {
   // Backend DTO has JsonPropertyName("videoCallPlatform") which expects camelCase in JSON
   if (cleanData.videoCallPlatform && cleanData.isOnline) {
     requestData.videoCallPlatform = cleanData.videoCallPlatform; // Send with camelCase to match JsonPropertyName
-    console.log('videoCallPlatform included in request:', cleanData.videoCallPlatform);
   } else if (cleanData.isOnline && !cleanData.videoCallPlatform) {
     console.warn('Warning: isOnline is true but videoCallPlatform is not provided');
   }
@@ -803,19 +768,7 @@ export async function createContract(data: CreateContractRequest) {
   // - wallet: frontend calls deductWallet after contract creation
   // - direct_payment: frontend calls createContractDirectPayment after contract creation
   
-  // Log the request data for debugging (excluding sensitive info)
-  console.log('Creating contract with data:', {
-    ...requestData,
-    MainTutorId: requestData.MainTutorId ? `${requestData.MainTutorId.substring(0, 8)}...` : 'null',
-    SubstituteTutor1Id: requestData.SubstituteTutor1Id ? `${requestData.SubstituteTutor1Id.substring(0, 8)}...` : 'null',
-    SubstituteTutor2Id: requestData.SubstituteTutor2Id ? `${requestData.SubstituteTutor2Id.substring(0, 8)}...` : 'null',
-    CenterId: requestData.CenterId ? `${requestData.CenterId.substring(0, 8)}...` : 'null (not sent)',
-    DaysOfWeeks: requestData.DaysOfWeeks,
-    Status: requestData.Status,
-    IsOnline: requestData.IsOnline,
-    videoCallPlatform: requestData.videoCallPlatform || 'not included',
-    FullRequestBody: JSON.stringify(requestData) // Full request body for debugging
-  });
+  // Create contract request
   
   return apiService.request<{ contractId: string }>(`/contracts`, {
     method: 'POST',
@@ -824,20 +777,14 @@ export async function createContract(data: CreateContractRequest) {
 }
 
 export async function getContractsByParent(parentId: string) {
-  console.log(`[API] Fetching contracts for parent: ${parentId}`);
-  
   const response = await apiService.request<Contract[]>(`/contracts/parents/${parentId}`);
   
   if (response.success && response.data) {
-    console.log(`[API] Successfully fetched ${response.data.length} contracts for parent ${parentId}`);
-    
     // Filter out reschedule_count field from response if present
     response.data = response.data.map((contract: any) => {
       const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
       return cleanContract;
     }) as Contract[];
-  } else {
-    console.error(`[API] Failed to fetch contracts for parent ${parentId}:`, response.error);
   }
   
   return response;
@@ -1074,7 +1021,7 @@ export interface BulkCreateTutorAvailabilityRequest {
 }
 
 // Backend expects array directly, not wrapped in object
-type BulkCreateTutorAvailabilityRequestArray = CreateTutorAvailabilityRequest[];
+// type BulkCreateTutorAvailabilityRequestArray = CreateTutorAvailabilityRequest[]; // Unused type
 
 export interface UpdateAvailabilityStatusRequest {
   Status: string; // BE expects PascalCase: "active", "inactive", "deleted"
@@ -1451,7 +1398,7 @@ export interface RejectRescheduleRequest {
   reason: string;
 }
 
-export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
+export async function getRescheduleRequests(_status?: 'pending' | 'approved' | 'rejected') {
   // NOTE: Backend doesn't have GET endpoint for reschedule requests yet
   // The RescheduleController only has POST (Create) and PUT (Approve/Reject)
   // Return empty array for now until backend implements GET endpoint
@@ -2000,8 +1947,6 @@ export async function createSePayPayment(data: SePayPaymentRequest) {
       },
     });
 
-    console.log('SePay payment response:', result);
-
     // If result has error, extract detailed message
     if (!result.success && result.error) {
       // Try to get more details from responseData if available
@@ -2116,11 +2061,14 @@ export interface Session {
   videoCallPlatform?: string;
   offlineAddress?: string;
   status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'processing';
+  videoConferenceLink?: string;
+  videoConferencePlatform?: string;
+  videoConferenceCode?: string;
 }
 
 // Get sessions for parent
 // Backend gets parentId from JWT token (User.FindFirst("sub")), no need to pass in route
-export async function getParentSessions(parentId?: string) {
+export async function getParentSessions(_parentId?: string) {
   // Backend endpoint: GET /api/sessions/parent
   // Backend gets parentId from JWT token, so we don't pass it in the route
   const result = await apiService.request<any[]>(`/sessions/parent`, {
@@ -2196,6 +2144,7 @@ export async function getSessionsByChildId(childId: string) {
 }
 
 // Get session by ID
+// Backend endpoint: GET /api/sessions/{bookingId}
 export async function getSessionById(bookingId: string) {
   const result = await apiService.request<any>(`/sessions/${bookingId}`);
   
@@ -2211,11 +2160,31 @@ export async function getSessionById(bookingId: string) {
       tutorName: result.data.tutorName || result.data.TutorName || result.data.tutor_name || '',
       studentName: result.data.studentName || result.data.StudentName || result.data.student_name || undefined,
       childName: result.data.childName || result.data.ChildName || result.data.child_name || undefined,
+      packageName: result.data.packageName || result.data.PackageName || result.data.package_name || undefined,
       isOnline: result.data.isOnline ?? result.data.IsOnline ?? result.data.is_online ?? false,
       videoCallPlatform: result.data.videoCallPlatform || result.data.VideoCallPlatform || result.data.video_call_platform || undefined,
       offlineAddress: result.data.offlineAddress || result.data.OfflineAddress || result.data.offline_address || undefined,
       status: (result.data.status || result.data.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'processing',
+      videoConferenceLink: result.data.videoConferenceLink || result.data.VideoConferenceLink || result.data.video_conference_link || undefined,
+      videoConferencePlatform: result.data.videoConferencePlatform || result.data.VideoConferencePlatform || result.data.video_conference_platform || undefined,
+      videoConferenceCode: result.data.videoConferenceCode || result.data.VideoConferenceCode || result.data.video_conference_code || undefined,
     };
+    
+    // If no video conference in session data, try to fetch it
+    if (!mappedData.videoConferenceLink && mappedData.isOnline) {
+      try {
+        const videoConferences = await getVideoConferencesByBooking(bookingId);
+        if (videoConferences.success && videoConferences.data && videoConferences.data.length > 0) {
+          const latestConference = videoConferences.data[0]; // Get the latest one
+          mappedData.videoConferenceLink = latestConference.meetingUri;
+          mappedData.videoConferencePlatform = latestConference.platform;
+          mappedData.videoConferenceCode = latestConference.meetingCode;
+        }
+      } catch (error) {
+        // Silently fail - video conference is optional
+        console.log('Could not fetch video conference:', error);
+      }
+    }
     
     return {
       success: true,
@@ -2227,45 +2196,11 @@ export async function getSessionById(bookingId: string) {
   return result;
 }
 
-// Get sessions for main tutor
-// Backend endpoint: GET /api/sessions/tutor/main?tutorId={tutorId} (optional, defaults to current user)
-export async function getTutorMainSessions(tutorId?: string) {
+// Get all sessions for tutor (no main/substitute distinction)
+// Backend endpoint: GET /api/sessions/tutor?tutorId={tutorId} (optional, defaults to current user)
+export async function getTutorSessions(tutorId?: string) {
   const queryParams = tutorId ? `?tutorId=${tutorId}` : '';
-  const result = await apiService.request<any[]>(`/sessions/tutor/main${queryParams}`, {
-    method: 'GET',
-  });
-  
-  if (result.success && result.data) {
-    const mappedData: Session[] = result.data.map((item: any) => ({
-      bookingId: item.bookingId || item.BookingId || item.booking_id,
-      contractId: item.contractId || item.ContractId || item.contract_id,
-      sessionDate: item.sessionDate || item.SessionDate || item.session_date || '',
-      startTime: item.startTime || item.StartTime || item.start_time || '',
-      endTime: item.endTime || item.EndTime || item.end_time || '',
-      tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
-      childName: item.childName || item.ChildName || item.child_name || undefined,
-      packageName: item.packageName || item.PackageName || item.package_name || undefined,
-      isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
-      videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
-      offlineAddress: item.offlineAddress || item.OfflineAddress || item.offline_address || undefined,
-      status: (item.status || item.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'processing',
-    }));
-    
-    return {
-      success: true,
-      data: mappedData,
-      error: null,
-    };
-  }
-  
-  return result;
-}
-
-// Get sessions for substitute tutor
-// Backend endpoint: GET /api/sessions/tutor/substitute?tutorId={tutorId} (optional, defaults to current user)
-export async function getTutorSubstituteSessions(tutorId?: string) {
-  const queryParams = tutorId ? `?tutorId=${tutorId}` : '';
-  const result = await apiService.request<any[]>(`/sessions/tutor/substitute${queryParams}`, {
+  const result = await apiService.request<any[]>(`/sessions/tutor${queryParams}`, {
     method: 'GET',
   });
   
@@ -2316,7 +2251,26 @@ export async function getSessionByIdForTutor(bookingId: string) {
       videoCallPlatform: result.data.videoCallPlatform || result.data.VideoCallPlatform || result.data.video_call_platform || undefined,
       offlineAddress: result.data.offlineAddress || result.data.OfflineAddress || result.data.offline_address || undefined,
       status: (result.data.status || result.data.Status || 'scheduled').toLowerCase() as 'scheduled' | 'completed' | 'cancelled' | 'rescheduled' | 'processing',
+      videoConferenceLink: result.data.videoConferenceLink || result.data.VideoConferenceLink || result.data.video_conference_link || undefined,
+      videoConferencePlatform: result.data.videoConferencePlatform || result.data.VideoConferencePlatform || result.data.video_conference_platform || undefined,
+      videoConferenceCode: result.data.videoConferenceCode || result.data.VideoConferenceCode || result.data.video_conference_code || undefined,
     };
+    
+    // If no video conference in session data, try to fetch it
+    if (!mappedData.videoConferenceLink) {
+      try {
+        const videoConferences = await getVideoConferencesByBooking(bookingId);
+        if (videoConferences.success && videoConferences.data && videoConferences.data.length > 0) {
+          const latestConference = videoConferences.data[0]; // Get the latest one
+          mappedData.videoConferenceLink = latestConference.meetingUri;
+          mappedData.videoConferencePlatform = latestConference.platform;
+          mappedData.videoConferenceCode = latestConference.meetingCode;
+        }
+      } catch (error) {
+        // Silently fail - video conference is optional
+        console.log('Could not fetch video conference:', error);
+      }
+    }
     
     return {
       success: true,
@@ -2336,6 +2290,58 @@ export async function updateSessionStatus(bookingId: string, status: 'completed'
     {
       method: 'PUT',
       body: JSON.stringify({ status }),
+    }
+  );
+  
+  return result;
+}
+
+// Video Conference Types
+export interface CreateVideoConferenceRequest {
+  bookingId: string;
+  contractId: string;
+  platform: 'Meet' | 'Zoom';
+}
+
+export interface VideoConferenceSession {
+  conferenceId: string;
+  bookingId: string;
+  contractId: string;
+  platform: string;
+  spaceName?: string;
+  spaceId?: string;
+  meetingUri?: string;
+  meetingCode?: string;
+  createdByUserId: string;
+  createdDate: string;
+  updatedDate?: string;
+}
+
+// Create video conference
+// Backend endpoint: POST /api/video-conferences
+export async function createVideoConference(request: CreateVideoConferenceRequest) {
+  const result = await apiService.request<VideoConferenceSession>(
+    `/video-conferences`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        bookingId: request.bookingId,
+        contractId: request.contractId,
+        platform: request.platform,
+      }),
+    }
+  );
+  
+  return result;
+}
+
+// Get video conferences by booking
+// Backend endpoint: GET /api/video-conferences/booking/{bookingId}
+export async function getVideoConferencesByBooking(bookingId: string) {
+  const result = await apiService.request<VideoConferenceSession[]>(
+    `/video-conferences/booking/${bookingId}`,
+    {
+      method: 'GET',
     }
   );
   

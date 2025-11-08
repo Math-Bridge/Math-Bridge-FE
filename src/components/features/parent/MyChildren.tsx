@@ -39,11 +39,12 @@ const MyChildren: React.FC = () => {
           dateOfBirth: childData.DateOfBirth || childData.dateOfBirth || undefined,
           status: childData.Status || childData.status || 'active'
         };
-        console.log('Mapped child for edit:', mappedChild);
         setEditingChild(mappedChild);
         setShowChildForm(true);
       } else {
-        console.error('Failed to fetch child:', result.error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch child:', result.error);
+        }
       }
     } catch (error) {
       console.error('Error fetching child:', error);

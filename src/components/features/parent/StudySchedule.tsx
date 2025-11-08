@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown, ExternalLink, Link as LinkIcon, Plus, Copy, Check } from 'lucide-react';
 import {
-  getParentSessions,
   getSessionsByChildId,
   Session,
   getChildrenByParent,
   Child,
+  getSessionById,
+  createVideoConference,
+  CreateVideoConferenceRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -22,6 +24,11 @@ const StudySchedule: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [creatingVideoConference, setCreatingVideoConference] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const { showSuccess } = useToast();
 
   const fetchChildren = async () => {
     if (!user?.id) {
@@ -110,16 +117,148 @@ const StudySchedule: React.FC = () => {
     }
   }, [selectedChildId]);
 
-  const handleSessionClick = (session: Session) => {
+  const fetchSessionDetail = async (bookingId: string, autoCreateLink: boolean = false) => {
+    try {
+      setLoadingDetail(true);
+      const result = await getSessionById(bookingId);
+      if (result.success && result.data) {
+        const session = result.data;
+        if (!session) {
+          showError('Session data is invalid');
+          return;
+        }
+        setSessionDetail(session);
+        
+        // Auto-create video conference link if session is online and has platform but no link yet
+        // Only auto-create on first load, not on refresh
+        if (autoCreateLink && session.isOnline && session.videoCallPlatform && !session.videoConferenceLink) {
+          // Determine platform from videoCallPlatform
+          const platform = session.videoCallPlatform.toLowerCase().includes('zoom') ? 'Zoom' : 
+                          session.videoCallPlatform.toLowerCase().includes('meet') ? 'Meet' : 
+                          'Zoom'; // Default to Zoom
+          
+          // Auto-create link (don't refresh after to avoid loop)
+          await handleCreateVideoConferenceAuto(session, platform, false);
+        }
+      } else {
+        showError(result.error || 'Failed to load session details');
+      }
+    } catch (error) {
+      console.error('Error fetching session detail:', error);
+      showError('Failed to load session details');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleSessionClick = async (session: Session) => {
     setSelectedSession(session);
+    await fetchSessionDetail(session.bookingId, true); // Pass true to enable auto-create
   };
 
   const handleCloseDetail = () => {
     setSelectedSession(null);
+    setSessionDetail(null);
+  };
+
+  const handleCreateVideoConferenceAuto = async (session: Session, platform: 'Zoom' | 'Meet', shouldRefresh: boolean = true) => {
+    if (!session) return;
+
+    try {
+      setCreatingVideoConference(true);
+      const request: CreateVideoConferenceRequest = {
+        bookingId: session.bookingId,
+        contractId: session.contractId,
+        platform: platform,
+      };
+
+      const result = await createVideoConference(request);
+      if (result.success && result.data) {
+        const videoConferenceData = result.data;
+        // Update session detail with video conference info
+        setSessionDetail(prev => prev ? {
+          ...prev,
+          videoConferenceLink: videoConferenceData.meetingUri,
+          videoConferencePlatform: videoConferenceData.platform,
+          videoConferenceCode: videoConferenceData.meetingCode,
+        } : null);
+        // Only refresh if requested (to avoid infinite loop)
+        if (shouldRefresh) {
+          await fetchSessionDetail(session.bookingId, false);
+        }
+      } else {
+        // Silently fail - don't show error for auto-create
+        if (import.meta.env.DEV) {
+          console.error('Auto-create video conference failed:', result.error);
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't show error for auto-create
+      if (import.meta.env.DEV) {
+        console.error('Error auto-creating video conference:', error);
+      }
+    } finally {
+      setCreatingVideoConference(false);
+    }
+  };
+
+  const handleCreateVideoConference = async () => {
+    if (!sessionDetail) return;
+
+    // Determine platform from session's videoCallPlatform
+    const platform = sessionDetail.videoCallPlatform?.toLowerCase().includes('zoom') ? 'Zoom' : 
+                    sessionDetail.videoCallPlatform?.toLowerCase().includes('meet') ? 'Meet' : 
+                    'Zoom'; // Default to Zoom
+
+    try {
+      setCreatingVideoConference(true);
+      const request: CreateVideoConferenceRequest = {
+        bookingId: sessionDetail.bookingId,
+        contractId: sessionDetail.contractId,
+        platform: platform,
+      };
+
+      const result = await createVideoConference(request);
+      if (result.success && result.data) {
+        showSuccess(`Video conference link created successfully on ${platform}!`);
+        // Update session detail with video conference info
+        setSessionDetail({
+          ...sessionDetail,
+          videoConferenceLink: result.data.meetingUri,
+          videoConferencePlatform: result.data.platform,
+          videoConferenceCode: result.data.meetingCode,
+        });
+        // Also refresh to get any other updates (don't auto-create again)
+        await fetchSessionDetail(sessionDetail.bookingId, false);
+      } else {
+        showError(result.error || 'Failed to create video conference');
+      }
+    } catch (error) {
+      console.error('Error creating video conference:', error);
+      showError('Failed to create video conference');
+    } finally {
+      setCreatingVideoConference(false);
+    }
+  };
+
+  const handleCopyLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      showSuccess('Link copied to clipboard!');
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      showError('Failed to copy link');
+    }
   };
 
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0];
+    // Use local date to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getDaysInWeek = (date: Date): Date[] => {
@@ -142,14 +281,36 @@ const StudySchedule: React.FC = () => {
   const getSessionsForDay = (date: Date): Session[] => {
     const dateStr = formatDate(date);
     return sessions.filter(session => {
-      if (!session.sessionDate) return false;
-      let sessionDateStr = session.sessionDate;
-      if (sessionDateStr.includes('T')) {
-        sessionDateStr = sessionDateStr.split('T')[0];
+      if (!session.sessionDate && !session.startTime) return false;
+      
+      // Try to parse sessionDate or startTime
+      let sessionDate: Date | null = null;
+      
+      if (session.sessionDate) {
+        // Parse sessionDate - handle both date strings and ISO strings
+        let dateToParse = session.sessionDate;
+        if (dateToParse.includes('T')) {
+          // ISO string - parse and use local date
+          sessionDate = new Date(dateToParse);
+        } else if (dateToParse.includes(' ')) {
+          // Date with time - parse and use local date
+          sessionDate = new Date(dateToParse);
+        } else {
+          // Just date string YYYY-MM-DD - parse as local date
+          const parts = dateToParse.split('-');
+          if (parts.length === 3) {
+            sessionDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          }
+        }
+      } else if (session.startTime) {
+        // Use startTime if sessionDate is not available
+        sessionDate = new Date(session.startTime);
       }
-      if (sessionDateStr.includes(' ')) {
-        sessionDateStr = sessionDateStr.split(' ')[0];
-      }
+      
+      if (!sessionDate) return false;
+      
+      // Compare dates using local date strings (avoid timezone issues)
+      const sessionDateStr = formatDate(sessionDate);
       return sessionDateStr === dateStr;
     });
   };
@@ -167,15 +328,106 @@ const StudySchedule: React.FC = () => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800 border-green-300';
+      case 'scheduled':
+      case 'processing':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-300';
       case 'rescheduled':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'scheduled':
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
+
+  // Render session card component
+  const renderSessionCard = (session: Session) => (
+    <div
+      key={session.bookingId}
+      className={`
+        group relative text-xs px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200
+        ${getStatusColor(session.status)}
+        ${selectedSession?.bookingId === session.bookingId ? 'ring-2 ring-blue-500 scale-105 shadow-md' : ''}
+      `}
+      onClick={() => handleSessionClick(session)}
+      title={`Click to view details: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}`}
+    >
+      <div className="font-semibold flex items-center gap-1.5 mb-1.5">
+        <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+        <span className="truncate">{formatTime(session.startTime)}</span>
+      </div>
+      <div className="text-[10px] opacity-80 ml-5 mb-2">to {formatTime(session.endTime)}</div>
+      {session.tutorName && (
+        <div className="flex items-center gap-1 mb-1.5">
+          <User className="w-3 h-3 opacity-70" />
+          <span className="text-[10px] truncate">{session.tutorName}</span>
+        </div>
+      )}
+      {(session.childName || session.studentName) && (
+        <div className="text-[10px] opacity-80 ml-5 mb-2">
+          Student: {session.childName || session.studentName}
+        </div>
+      )}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {session.isOnline ? (
+          <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="Online">
+            <Monitor className="w-2.5 h-2.5" />
+            <span>Online</span>
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="In-Person">
+            <MapPin className="w-2.5 h-2.5" />
+            <span>In-Person</span>
+          </span>
+        )}
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-5 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
+    </div>
+  );
+
+  // Render day cell component
+  const renderDayCell = (day: Date, dayName: string, index: number) => {
+    const daySessions = getSessionsForDay(day);
+    const dayOfMonth = day.getDate();
+    const isCurrentDay = isToday(day);
+
+    return (
+      <div key={index} className="flex flex-col">
+        {/* Day header */}
+        <div className="text-center py-2 mb-2">
+          <div className="font-bold text-gray-900 text-sm">{dayName}</div>
+        </div>
+        {/* Day cell */}
+        <div
+          className={`
+            min-h-[250px] p-3 rounded-lg flex flex-col transition-all duration-200 w-full
+            ${isCurrentDay
+              ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-md'
+              : 'bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm'
+            }
+          `}
+        >
+          <div className={`
+            text-lg font-bold mb-3 w-8 h-8 flex items-center justify-center rounded-lg
+            ${isCurrentDay ? 'bg-blue-600 text-white' : 'text-gray-900'}
+          `}>
+            {dayOfMonth}
+          </div>
+          <div className="space-y-2 flex-1 overflow-y-auto max-h-[200px] custom-scrollbar">
+            {daySessions.length === 0 ? (
+              <div className="text-xs text-gray-400 text-center py-8">
+                <Clock className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                <span>No sessions</span>
+              </div>
+            ) : (
+              daySessions.map(renderSessionCard)
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   const isToday = (date: Date): boolean => {
     const today = new Date();
@@ -337,176 +589,16 @@ const StudySchedule: React.FC = () => {
                 {/* First Row: Sunday - Wednesday (4 days) */}
                 <div className="grid grid-cols-4 gap-3 mb-3">
                   {daysInWeek.slice(0, 4).map((day, index) => {
-                    const daySessions = getSessionsForDay(day);
-                    const dayOfMonth = day.getDate();
-                    const isCurrentDay = isToday(day);
                     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday'];
-
-                    return (
-                      <div key={index} className="flex flex-col">
-                        {/* Day header */}
-                        <div className="text-center py-2 mb-2">
-                          <div className="font-bold text-gray-900 text-sm">{dayNames[index]}</div>
-                        </div>
-                        {/* Day cell */}
-                        <div
-                          className={`
-                            min-h-[250px] p-3 rounded-lg flex flex-col transition-all duration-200 w-full
-                            ${isCurrentDay
-                              ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-md'
-                              : 'bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                            }
-                          `}
-                        >
-                          <div className={`
-                            text-lg font-bold mb-3 w-8 h-8 flex items-center justify-center rounded-lg
-                            ${isCurrentDay ? 'bg-blue-600 text-white' : 'text-gray-900'}
-                          `}>
-                            {dayOfMonth}
-                          </div>
-                          <div className="space-y-2 flex-1 overflow-y-auto max-h-[200px] custom-scrollbar">
-                            {daySessions.length === 0 ? (
-                              <div className="text-xs text-gray-400 text-center py-8">
-                                <Clock className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                                <span>No sessions</span>
-                              </div>
-                            ) : (
-                              daySessions.map((session) => (
-                                <div
-                                  key={session.bookingId}
-                                  className={`
-                                    group relative text-xs px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200
-                                    ${getStatusColor(session.status)}
-                                    ${selectedSession?.bookingId === session.bookingId ? 'ring-2 ring-blue-500 scale-105 shadow-md' : ''}
-                                  `}
-                                  onClick={() => handleSessionClick(session)}
-                                  title={`Click to view details: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}`}
-                                >
-                                  <div className="font-semibold flex items-center gap-1.5 mb-1.5">
-                                    <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-                                    <span className="truncate">{formatTime(session.startTime)}</span>
-                                  </div>
-                                  <div className="text-[10px] opacity-80 ml-5 mb-2">to {formatTime(session.endTime)}</div>
-                                  {session.tutorName && (
-                                    <div className="flex items-center gap-1 mb-1.5">
-                                      <User className="w-3 h-3 opacity-70" />
-                                      <span className="text-[10px] truncate">{session.tutorName}</span>
-                                    </div>
-                                  )}
-                                  {(session.childName || session.studentName) && (
-                                    <div className="text-[10px] opacity-80 ml-5 mb-2">
-                                      Student: {session.childName || session.studentName}
-                                    </div>
-                                  )}
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {session.isOnline ? (
-                                      <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="Online">
-                                        <Monitor className="w-2.5 h-2.5" />
-                                        <span>Online</span>
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="In-Person">
-                                        <MapPin className="w-2.5 h-2.5" />
-                                        <span>In-Person</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-5 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
+                    return renderDayCell(day, dayNames[index], index);
                   })}
                 </div>
 
                 {/* Second Row: Thursday - Saturday (3 days) */}
                 <div className="grid grid-cols-3 gap-3">
                   {daysInWeek.slice(4, 7).map((day, index) => {
-                    const daySessions = getSessionsForDay(day);
-                    const dayOfMonth = day.getDate();
-                    const isCurrentDay = isToday(day);
                     const dayNames = ['Thursday', 'Friday', 'Saturday'];
-
-                    return (
-                      <div key={index + 4} className="flex flex-col">
-                        {/* Day header */}
-                        <div className="text-center py-2 mb-2">
-                          <div className="font-bold text-gray-900 text-sm">{dayNames[index]}</div>
-                        </div>
-                        {/* Day cell */}
-                        <div
-                          className={`
-                            min-h-[250px] p-3 rounded-lg flex flex-col transition-all duration-200 w-full
-                            ${isCurrentDay
-                              ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-md'
-                              : 'bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                            }
-                          `}
-                        >
-                          <div className={`
-                            text-lg font-bold mb-3 w-8 h-8 flex items-center justify-center rounded-lg
-                            ${isCurrentDay ? 'bg-blue-600 text-white' : 'text-gray-900'}
-                          `}>
-                            {dayOfMonth}
-                          </div>
-                          <div className="space-y-2 flex-1 overflow-y-auto max-h-[200px] custom-scrollbar">
-                            {daySessions.length === 0 ? (
-                              <div className="text-xs text-gray-400 text-center py-8">
-                                <Clock className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                                <span>No sessions</span>
-                              </div>
-                            ) : (
-                              daySessions.map((session) => (
-                                <div
-                                  key={session.bookingId}
-                                  className={`
-                                    group relative text-xs px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200
-                                    ${getStatusColor(session.status)}
-                                    ${selectedSession?.bookingId === session.bookingId ? 'ring-2 ring-blue-500 scale-105 shadow-md' : ''}
-                                  `}
-                                  onClick={() => handleSessionClick(session)}
-                                  title={`Click to view details: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}`}
-                                >
-                                  <div className="font-semibold flex items-center gap-1.5 mb-1.5">
-                                    <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-                                    <span className="truncate">{formatTime(session.startTime)}</span>
-                                  </div>
-                                  <div className="text-[10px] opacity-80 ml-5 mb-2">to {formatTime(session.endTime)}</div>
-                                  {session.tutorName && (
-                                    <div className="flex items-center gap-1 mb-1.5">
-                                      <User className="w-3 h-3 opacity-70" />
-                                      <span className="text-[10px] truncate">{session.tutorName}</span>
-                                    </div>
-                                  )}
-                                  {(session.childName || session.studentName) && (
-                                    <div className="text-[10px] opacity-80 ml-5 mb-2">
-                                      Student: {session.childName || session.studentName}
-                                    </div>
-                                  )}
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {session.isOnline ? (
-                                      <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="Online">
-                                        <Monitor className="w-2.5 h-2.5" />
-                                        <span>Online</span>
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="In-Person">
-                                        <MapPin className="w-2.5 h-2.5" />
-                                        <span>In-Person</span>
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-0 group-hover:opacity-5 transition-opacity duration-200 rounded-lg pointer-events-none"></div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
+                    return renderDayCell(day, dayNames[index], index + 4);
                   })}
                 </div>
               </div>
@@ -604,6 +696,102 @@ const StudySchedule: React.FC = () => {
                       </span>
                     </div>
                   </div>
+
+                  {/* Video Conference Link (Online Learning Link) */}
+                  {sessionDetail && sessionDetail.isOnline && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div className="bg-white p-4 rounded-xl border border-gray-200">
+                        <div className="flex items-start gap-3">
+                          <LinkIcon className="w-5 h-5 text-blue-500 mt-1" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Online Learning Link</p>
+                            {loadingDetail ? (
+                              <div className="flex items-center justify-center py-4">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                              </div>
+                            ) : sessionDetail.videoConferenceLink ? (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2">
+                                  <a
+                                    href={sessionDetail.videoConferenceLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                    Join Online Session
+                                  </a>
+                                  <button
+                                    onClick={() => handleCopyLink(sessionDetail.videoConferenceLink!)}
+                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                    title="Copy link"
+                                  >
+                                    {copiedLink ? (
+                                      <>
+                                        <Check className="w-4 h-4 text-green-600" />
+                                        <span className="text-xs">Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-4 h-4" />
+                                        <span className="text-xs">Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                                {sessionDetail.videoConferencePlatform && (
+                                  <p className="text-sm text-gray-600">
+                                    Platform: <span className="font-semibold">{sessionDetail.videoConferencePlatform}</span>
+                                  </p>
+                                )}
+                                {sessionDetail.videoConferenceCode && (
+                                  <p className="text-sm text-gray-600">
+                                    Meeting Code: <span className="font-mono font-semibold bg-gray-100 px-2 py-1 rounded">{sessionDetail.videoConferenceCode}</span>
+                                  </p>
+                                )}
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                  <p className="text-xs text-gray-500 break-all font-mono">
+                                    {sessionDetail.videoConferenceLink}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <p className="text-sm text-gray-500">
+                                  {sessionDetail.videoCallPlatform 
+                                    ? `No video conference link available yet. Platform: ${sessionDetail.videoCallPlatform}`
+                                    : 'No video conference link available yet.'}
+                                </p>
+                                <button
+                                  onClick={handleCreateVideoConference}
+                                  disabled={creatingVideoConference}
+                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {creatingVideoConference ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                      Creating link...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Plus className="w-4 h-4" />
+                                      Create Online Learning Link
+                                    </>
+                                  )}
+                                </button>
+                                {sessionDetail.videoCallPlatform && (
+                                  <p className="text-xs text-gray-400 text-center">
+                                    Will create link using {sessionDetail.videoCallPlatform} platform
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-6 flex items-center justify-end">
                     <button
                       onClick={handleCloseDetail}

@@ -119,7 +119,6 @@ const ContractsManagement: React.FC = () => {
 
       // Set contracts
       if (contractsResponse.success && contractsResponse.data) {
-        console.log(`[ContractsManagement] Received ${contractsResponse.data.length} contracts`);
           // Map API response to component interface
         const mappedContracts = await Promise.all(contractsResponse.data.map(async (contract: any) => {
             // Remove reschedule_count if present to avoid errors
@@ -177,12 +176,13 @@ const ContractsManagement: React.FC = () => {
               createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
             };
           }));
-          console.log('Mapped contracts:', mappedContracts);
           setContracts(mappedContracts);
         } else {
         // Handle error from contracts API
         const errorMsg = contractsResponse.error || 'Failed to load contracts. Please try again later.';
-        console.error('Failed to fetch contracts:', contractsResponse.error);
+        if (import.meta.env.DEV) {
+          console.error('Failed to fetch contracts:', contractsResponse.error);
+        }
         
         // Check if it's a backend NullReferenceException (500 error)
         const isBackendError = contractsResponse.error?.includes('Object reference') || 
