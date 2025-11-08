@@ -41,10 +41,10 @@ const TopUpComponent: React.FC = () => {
     if (paymentResponse && isPolling) {
       const interval = setInterval(async () => {
         try {
-          const status = await checkSePayPaymentStatus(paymentResponse.walletTransactionId);
-          if (status.success) {
-            setPaymentStatus(status);
-            if (status.status === 'Paid') {
+          const response = await checkSePayPaymentStatus(paymentResponse.walletTransactionId);
+          if (response.success && response.data) {
+            setPaymentStatus(response.data);
+            if (response.data.status === 'Paid') {
               setIsPolling(false);
               showSuccess('Payment successful! Amount has been updated to your wallet.');
               // Redirect to wallet page after 2 seconds
@@ -156,10 +156,10 @@ const TopUpComponent: React.FC = () => {
     if (!paymentResponse) return;
     
     try {
-      const status = await checkSePayPaymentStatus(paymentResponse.walletTransactionId);
-      if (status.success) {
-        setPaymentStatus(status);
-        if (status.status === 'Paid') {
+      const response = await checkSePayPaymentStatus(paymentResponse.walletTransactionId);
+      if (response.success && response.data) {
+        setPaymentStatus(response.data);
+        if (response.data.status === 'Paid') {
           showSuccess('Payment has been confirmed!');
           setTimeout(() => {
             navigate('/wallet');
@@ -167,6 +167,8 @@ const TopUpComponent: React.FC = () => {
         } else {
           showError('Payment not confirmed yet. Please try again later.');
         }
+      } else {
+        showError(response.error || 'Unable to check payment status');
       }
     } catch (error) {
       showError('Unable to check payment status');
