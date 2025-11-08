@@ -309,6 +309,19 @@ class ApiService {
     return this.request(`/users/${userId}/wallet`);
   }
 
+  async deductWallet(contractId: string): Promise<ApiResponse<{
+    transactionId: string;
+    amountDeducted: number;
+    newWalletBalance: number;
+    transactionStatus: string;
+    transactionDate: string;
+    message: string;
+  }>> {
+    return this.request(`/users/${contractId}/wallet/deduct`, {
+      method: 'POST',
+    });
+  }
+
   // User endpoints
   async getUserById(userId: string): Promise<ApiResponse<any>> {
     return this.request(`/users/${userId}`);

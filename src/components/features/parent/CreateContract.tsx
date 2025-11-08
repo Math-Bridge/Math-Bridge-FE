@@ -345,13 +345,33 @@ const CreateContract: React.FC = () => {
       const result = await createContract(contractData);
 
       if (result.success) {
-        if (paymentMethod === 'wallet') {
-          showSuccess('Contract created successfully! Payment deducted from your wallet.');
-        } else {
+        const contractId = result.data?.contractId;
+
+        // If payment method is wallet, deduct the wallet balance
+        if (paymentMethod === 'wallet' && contractId) {
+          try {
+            const deductResult = await apiService.deductWallet(contractId);
+
+            if (deductResult.success && deductResult.data) {
+              showSuccess(`Contract created successfully! ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deductResult.data.amountDeducted)} deducted from your wallet. New balance: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deductResult.data.newWalletBalance)}`);
+
+              // Update wallet balance in state
+              setWalletBalance(deductResult.data.newWalletBalance);
+            } else {
+              // Contract created but wallet deduction failed
+              showError(`Contract created but wallet deduction failed: ${deductResult.error || 'Unknown error'}. Please contact support.`);
+              console.error('Wallet deduction failed:', deductResult.error);
+            }
+          } catch (deductError) {
+            console.error('Error deducting wallet:', deductError);
+            showError('Contract created but wallet deduction failed. Please contact support.');
+          }
+        } else if (paymentMethod === 'bank_transfer') {
           showSuccess('Contract created successfully! Please complete bank transfer to activate the contract.');
         }
-        // Navigate to payment page or contract detail
-        navigate(`/contracts/${result.data?.contractId || ''}`);
+
+        // Navigate to contract detail
+        navigate(`/contracts/${contractId || ''}`);
       } else {
         // Check for specific backend errors
         const errorMsg = result.error || 'Failed to create contract';
