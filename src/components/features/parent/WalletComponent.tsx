@@ -4,7 +4,6 @@ import {
   Plus, 
   Minus, 
   CreditCard, 
-  History, 
   TrendingUp,
   DollarSign,
   Clock,
@@ -28,8 +27,6 @@ interface Transaction {
 
 interface WalletData {
   balance: number;
-  totalDeposits: number;
-  totalSpent: number;
   recentTransactions: Transaction[];
 }
 
@@ -38,11 +35,11 @@ const WalletComponent: React.FC = () => {
   const navigate = useNavigate();
   const [walletData, setWalletData] = useState<WalletData>({
     balance: 0,
-    totalDeposits: 0,
-    totalSpent: 0,
     recentTransactions: []
   });
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const pageSize = 5; // 5 transactions per page
 
   useEffect(() => {
     const fetchWalletData = async () => {
@@ -63,25 +60,54 @@ const WalletComponent: React.FC = () => {
           const walletResponse = response.data;
           setWalletData({
             balance: walletResponse.walletBalance || 0,
-            totalDeposits: walletResponse.totalDeposits || 0,
-            totalSpent: walletResponse.totalSpent || 0,
-            recentTransactions: (walletResponse.transactions || []).map((tx: any) => ({
-              id: tx.id || tx.transactionId || String(Date.now()),
-              type: tx.type || 'payment',
-              amount: tx.amount || 0,
-              description: tx.description || tx.note || '',
-              date: tx.date || tx.createdAt || new Date().toISOString(),
-              status: tx.status || 'completed',
-              method: tx.method || tx.paymentMethod
-            }))
+            recentTransactions: (walletResponse.transactions || [])
+              .filter((tx: any) => {
+                // Filter out pending transactions - only show completed
+                const status = (tx.status || '').toLowerCase();
+                return status === 'completed';
+              })
+              .map((tx: any) => {
+              // Determine transaction type - handle both camelCase and PascalCase from backend
+              let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+              const desc = (tx.description || tx.note || '').toLowerCase();
+              
+              // Map backend transaction types to frontend types
+              // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
+              if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+                transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
+              } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+                transactionType = 'deposit';
+              } else if (transactionType === 'refund') {
+                transactionType = 'refund';
+              } else if (transactionType === 'payment') {
+                transactionType = 'payment'; // Keep as payment
+              } else {
+                // If type is not set or unknown, try to infer from description
+                if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+                  transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
+                } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
+                  transactionType = 'deposit';
+                } else {
+                  transactionType = 'payment'; // Default to payment for contract payments
+                }
+              }
+              
+              return {
+                id: tx.id || tx.transactionId || String(Date.now()),
+                type: transactionType,
+                amount: tx.amount || 0,
+                description: tx.description || tx.note || '',
+                date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+                status: tx.status || 'completed',
+                method: tx.method || tx.paymentMethod
+              };
+            })
           });
         } else {
           console.error('Failed to fetch wallet data:', response.error);
           // Set default empty data instead of mock
           setWalletData({
             balance: 0,
-            totalDeposits: 0,
-            totalSpent: 0,
             recentTransactions: []
           });
         }
@@ -89,8 +115,6 @@ const WalletComponent: React.FC = () => {
         console.error('Error fetching wallet data:', error);
         setWalletData({
           balance: 0,
-          totalDeposits: 0,
-          totalSpent: 0,
           recentTransactions: []
         });
       } finally {
@@ -173,105 +197,97 @@ const WalletComponent: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{t('totalDeposits')}</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletData.totalDeposits)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-3 bg-red-100 rounded-lg">
-                <CreditCard className="w-6 h-6 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">{t('totalSpent')}</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletData.totalSpent)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <History className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">{walletData.recentTransactions.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-
         {/* Transaction History */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">{t('transactionHistory')}</h2>
-              <button
-                onClick={() => navigate('/parent/wallet/history')}
-                className="text-blue-600 hover:text-blue-800 font-medium"
-              >
-                View All
-              </button>
-            </div>
+            <h2 className="text-xl font-bold text-gray-900">{t('transactionHistory')}</h2>
           </div>
 
-          <div className="divide-y divide-gray-200">
-            {walletData.recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      transaction.type === 'deposit' ? 'bg-green-100' :
-                      transaction.type === 'payment' ? 'bg-blue-100' :
-                      transaction.type === 'refund' ? 'bg-purple-100' :
-                      'bg-red-100'
-                    }`}>
-                      {getTransactionIcon(transaction.type)}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{transaction.description}</p>
-                      <div className="flex items-center space-x-2 mt-1">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-sm text-gray-500">
-                          {new Date(transaction.date).toLocaleDateString('vi-VN')}
-                        </span>
-                        {transaction.method && (
-                          <span className="text-sm text-gray-500">• {transaction.method}</span>
-                        )}
+          {walletData.recentTransactions.length === 0 ? (
+            <div className="text-center py-12">
+              <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Transactions</h3>
+              <p className="text-gray-600 mb-6">You don't have any completed transactions yet</p>
+              <button
+                onClick={() => navigate('/wallet/topup')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Top Up Now
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-200">
+                {walletData.recentTransactions
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map((transaction) => (
+                    <div key={transaction.id} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            transaction.type === 'deposit' ? 'bg-green-100' :
+                            transaction.type === 'payment' ? 'bg-blue-100' :
+                            transaction.type === 'refund' ? 'bg-purple-100' :
+                            'bg-red-100'
+                          }`}>
+                            {getTransactionIcon(transaction.type)}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{transaction.description}</p>
+                            <div className="flex items-center space-x-2 mt-1">
+                              <Clock className="w-3 h-3 text-gray-400" />
+                              <span className="text-sm text-gray-500">
+                                {new Date(transaction.date).toLocaleDateString('vi-VN')}
+                              </span>
+                              {transaction.method && (
+                                <span className="text-sm text-gray-500">• {transaction.method}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${
+                            transaction.type === 'deposit' || transaction.type === 'refund'
+                              ? 'text-green-600'
+                              : transaction.type === 'payment' || transaction.type === 'withdrawal'
+                              ? 'text-red-600'
+                              : 'text-gray-600'
+                          }`}>
+                            {transaction.type === 'deposit' || transaction.type === 'refund' ? '+' : '-'}
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.abs(transaction.amount))}
+                          </p>
+                        </div>
                       </div>
                     </div>
+                  ))}
+              </div>
+
+              {/* Pagination */}
+              {Math.ceil(walletData.recentTransactions.length / pageSize) > 1 && (
+                <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Page {page} of {Math.ceil(walletData.recentTransactions.length / pageSize)}
                   </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${
-                      transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {transaction.amount > 0 ? '+' : ''}
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(transaction.amount)}
-                    </p>
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
-                      {transaction.status}
-                    </span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(walletData.recentTransactions.length / pageSize), p + 1))}
+                      disabled={page === Math.ceil(walletData.recentTransactions.length / pageSize)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

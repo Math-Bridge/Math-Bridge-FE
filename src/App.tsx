@@ -39,7 +39,6 @@ import {
   AdminDashboardPage,
   StaffDashboardPage,
   ContractManagementPage,
-  TutorMatchingPage,
   RescheduleManagementPage,
 } from './pages/features';
 
@@ -273,11 +272,6 @@ function App() {
             <Route path="staff/contracts" element={
               <ProtectedRoute>
                 <ContractManagementPage />
-              </ProtectedRoute>
-            } />
-            <Route path="staff/tutor-matching" element={
-              <ProtectedRoute>
-                <TutorMatchingPage />
               </ProtectedRoute>
             } />
             <Route path="staff/reschedules" element={

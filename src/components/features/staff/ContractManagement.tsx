@@ -113,8 +113,6 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
           })
         );
         
-        console.log('Mapped contracts:', mappedContracts);
-        console.log('Sample contract with tutor:', mappedContracts.find(c => c.mainTutorId));
         setContracts(mappedContracts);
       } else {
         showError(result.error || 'Failed to load contracts');
@@ -187,8 +185,15 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const handleSelectTutor = async (tutorId: string) => {
     if (!selectedContract) return;
 
+    // Validate tutorId
+    if (!tutorId || tutorId.trim() === '') {
+      showError('Invalid tutor ID');
+      return;
+    }
+
     try {
       setLoadingTutors(true); // Show loading state
+      console.log('Assigning tutor:', { contractId: selectedContract.contractId, tutorId });
       const result = await assignTutorToContract(selectedContract.contractId, tutorId);
       if (result.success) {
         showSuccess('Tutor assigned successfully');
@@ -212,7 +217,16 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
     }
   };
 
-  const handleUpdateStatus = async (contractId: string, newStatus: 'active' | 'completed' | 'cancelled') => {
+  const handleUpdateStatus = async (contractId: string, newStatus: 'active' | 'completed' | 'cancelled', contract?: Contract) => {
+    // Validate: Cannot activate contract without tutor assigned
+    if (newStatus === 'active') {
+      const contractToCheck = contract || contracts.find(c => c.contractId === contractId);
+      if (!contractToCheck?.mainTutorId) {
+        showError('Cannot activate contract. Please assign a tutor first.');
+        return;
+      }
+    }
+
     if (!window.confirm(`Are you sure you want to change status to "${newStatus}"?`)) {
       return;
     }
@@ -346,14 +360,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                             onChange={(e) => {
                               const newStatus = e.target.value as 'active' | 'completed' | 'cancelled';
                               if (newStatus !== contract.status && (newStatus === 'active' || newStatus === 'completed' || newStatus === 'cancelled')) {
-                                handleUpdateStatus(contract.contractId, newStatus);
+                                handleUpdateStatus(contract.contractId, newStatus, contract);
                               }
                             }}
                             disabled={updatingStatus === contract.contractId}
                             className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 border-0 cursor-pointer ${getStatusColor(contract.status)} disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           >
                             <option value="pending" disabled={contract.status !== 'pending'}>Pending</option>
-                            <option value="active" disabled={contract.status === 'completed' || contract.status === 'cancelled'}>Active</option>
+                            <option 
+                              value="active" 
+                              disabled={
+                                contract.status === 'completed' || 
+                                contract.status === 'cancelled' || 
+                                !contract.mainTutorId
+                              }
+                            >
+                              Active{!contract.mainTutorId ? ' (Assign tutor first)' : ''}
+                            </option>
                             <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled'}>Completed</option>
                             <option value="cancelled">Cancelled</option>
                           </select>
@@ -439,39 +462,62 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     <span>Previous</span>
                   </button>
                   <div className="flex items-center space-x-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                      // Show first page, last page, current page, and pages around current
-                      const showPage = 
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1);
-                      
-                      if (!showPage) {
-                        // Show ellipsis
-                        if (page === currentPage - 2 || page === currentPage + 2) {
+                    {(() => {
+                      const pages: (number | 'ellipsis-left' | 'ellipsis-right')[] = [];
+                      const showEllipsisLeft = currentPage > 3;
+                      const showEllipsisRight = currentPage < totalPages - 2;
+
+                      // Add first page
+                      pages.push(1);
+
+                      // Add ellipsis left if needed
+                      if (showEllipsisLeft) {
+                        pages.push('ellipsis-left');
+                      }
+
+                      // Add pages around current page
+                      const startPage = Math.max(2, currentPage - 1);
+                      const endPage = Math.min(totalPages - 1, currentPage + 1);
+                      for (let i = startPage; i <= endPage; i++) {
+                        if (i !== 1 && i !== totalPages) {
+                          pages.push(i);
+                        }
+                      }
+
+                      // Add ellipsis right if needed
+                      if (showEllipsisRight) {
+                        pages.push('ellipsis-right');
+                      }
+
+                      // Add last page if not already added
+                      if (totalPages > 1) {
+                        pages.push(totalPages);
+                      }
+
+                      return pages.map((page, index) => {
+                        if (page === 'ellipsis-left' || page === 'ellipsis-right') {
                           return (
-                            <span key={page} className="px-2 text-gray-400">
+                            <span key={`ellipsis-${page}-${index}`} className="px-2 text-gray-400">
                               ...
                             </span>
                           );
                         }
-                        return null;
-                      }
-                      
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => setCurrentPage(page)}
-                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
-                            currentPage === page
-                              ? 'bg-blue-600 text-white hover:bg-blue-700'
-                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
+
+                        return (
+                          <button
+                            key={`page-${page}`}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                              currentPage === page
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

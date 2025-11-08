@@ -10,7 +10,6 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  UserPlus,
   UserCheck,
   MapPin,
   BarChart3,
@@ -28,7 +27,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getStaffStats, StaffStats } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
-import TutorMatching from './TutorMatching';
 import ContractManagement from './ContractManagement';
 import RescheduleManagement from './RescheduleManagement';
 import TutorVerificationManagement from './TutorVerificationManagement';
@@ -60,7 +58,7 @@ const StaffDashboard: React.FC = () => {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'tutor-matching' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification'>('dashboard');
 
   useEffect(() => {
     const fetchStaffData = async () => {
@@ -103,7 +101,6 @@ const StaffDashboard: React.FC = () => {
   const navigationItems = [
     { name: 'Home', icon: Home, path: '/staff', view: 'dashboard' as const },
     { name: 'Tutor Verification', icon: UserCheck, path: '/staff/tutor-verification', view: 'tutor-verification' as const },
-    { name: 'Tutor Matching', icon: UserPlus, path: '/staff/tutor-matching', view: 'tutor-matching' as const },
     { name: 'Contract Management', icon: FileText, path: '/staff/contracts', view: 'contracts' as const },
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
     { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
@@ -150,8 +147,6 @@ const StaffDashboard: React.FC = () => {
     switch (currentView) {
       case 'tutor-verification':
         return <TutorVerificationManagement hideBackButton />;
-      case 'tutor-matching':
-        return <TutorMatching hideBackButton />;
       case 'contracts':
         return <ContractManagement hideBackButton />;
       case 'reschedules':
@@ -190,17 +185,10 @@ const StaffDashboard: React.FC = () => {
           </div>
 
       {/* Quick Action Buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <button
-          onClick={() => setCurrentView('tutor-matching')}
-          className="flex items-center justify-center px-6 py-4 bg-white border-2 border-blue-700 rounded-xl hover:bg-blue-50 hover:border-blue-800 transition-all shadow-sm"
-        >
-          <Star className="w-5 h-5 text-blue-800 mr-2" />
-          <span className="font-semibold text-gray-700">Tutor Matching</span>
-        </button>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
         <button
           onClick={() => setCurrentView('contracts')}
-          className="flex items-center justify-center px-6 py-4 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+          className="flex items-center justify-center px-6 py-4 bg-white border-2 border-blue-700 rounded-xl hover:bg-blue-50 hover:border-blue-800 transition-all shadow-sm"
         >
           <FileText className="w-5 h-5 text-blue-800 mr-2" />
           <span className="font-semibold text-gray-700">Contract Review</span>
@@ -248,14 +236,6 @@ const StaffDashboard: React.FC = () => {
                     <p className="text-sm text-gray-600">{stats.pendingContracts} pending contracts</p>
                     <p className="text-xs text-gray-500 mt-1">Today</p>
               </div>
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors" onClick={() => setCurrentView('tutor-matching')}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-gray-900">Tutor Matching</span>
-                      <span className="px-2 py-1 bg-green-200 text-green-800 text-xs font-semibold rounded">Low</span>
-              </div>
-                    <p className="text-sm text-gray-600">{stats.newParentRequests} requests</p>
-                    <p className="text-xs text-gray-500 mt-1">3 days left</p>
-            </div>
           </div>
         </div>
 
@@ -335,20 +315,6 @@ const StaffDashboard: React.FC = () => {
               </select>
             </div>
             <div className="space-y-3">
-              <button
-                onClick={() => setCurrentView('tutor-matching')}
-                className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-700 hover:bg-blue-50 transition-all text-left"
-              >
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <UserPlus className="w-5 h-5 text-blue-800" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Tutor Matching</p>
-                    <p className="text-sm text-gray-600">{stats.pendingContracts} contracts</p>
-                  </div>
-                </div>
-              </button>
                 <button
                 onClick={() => setCurrentView('contracts')}
                 className="w-full p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all text-left"

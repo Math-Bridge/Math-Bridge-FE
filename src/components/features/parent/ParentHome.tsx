@@ -18,7 +18,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { 
   apiService, 
-  getContractsByParent
+  getContractsByParent,
+  getTopRatedTutors,
+  Tutor,
+  TutorAchievement
 } from '../../../services/api';
 import ScheduleCalendarWidget from './ScheduleCalendarWidget';
 
@@ -53,6 +56,7 @@ const ParentHome: React.FC = () => {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [popularPackages, setPopularPackages] = useState<PopularPackage[]>([]);
+  const [topRatedTutors, setTopRatedTutors] = useState<Tutor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +84,15 @@ const ParentHome: React.FC = () => {
       const walletResponse = await apiService.getUserWallet(user.id);
       if (walletResponse.success && walletResponse.data) {
         setWalletBalance(walletResponse.data.walletBalance || 0);
+      }
+
+      // Fetch top rated tutors
+      const tutorsResponse = await getTopRatedTutors(3);
+      if (tutorsResponse.success && tutorsResponse.data) {
+        setTopRatedTutors(tutorsResponse.data);
+      } else {
+        console.error('Failed to fetch top rated tutors:', tutorsResponse.error);
+        setTopRatedTutors([]);
       }
 
       // Fetch contracts to create upcoming sessions and recent activities
@@ -358,134 +371,122 @@ const ParentHome: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                {
-                  id: '1',
-                  name: 'Dr. Sarah Wilson',
-                  specialty: 'Advanced Mathematics',
-                  rating: 4.9,
-                  students: 156,
-                  experience: '8 years',
-                  avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100',
-                  achievements: [
-                    {
-                      title: 'Outstanding Educator 2024',
-                      description: 'Awarded for exceptional teaching methods and student success rates',
-                      date: 'June 15, 2024',
-                      icon: 'award'
-                    },
-                    {
-                      title: 'Student Success Award',
-                      description: '95% of students improved their grades by at least one letter',
-                      date: 'March 15, 2024',
-                      icon: 'star'
-                    }
-                  ]
-                },
-                {
-                  id: '2',
-                  name: 'Prof. David Lee',
-                  specialty: 'Geometry & Trigonometry',
-                  rating: 4.8,
-                  students: 203,
-                  experience: '12 years',
-                  avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100',
-                  achievements: [
-                    {
-                      title: '100 Successful Students',
-                      description: 'Helped over 100 students achieve excellent results in mathematics',
-                      date: 'May 20, 2024',
-                      icon: 'trophy'
-                    },
-                    {
-                      title: 'Innovative Methods',
-                      description: 'Developed creative and effective teaching methods for geometry',
-                      date: 'April 10, 2024',
-                      icon: 'lightbulb'
-                    }
-                  ]
-                },
-                {
-                  id: '3',
-                  name: 'Dr. Maria Garcia',
-                  specialty: 'Calculus & Statistics',
-                  rating: 4.9,
-                  students: 189,
-                  experience: '10 years',
-                  avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100',
-                  achievements: [
-                    {
-                      title: 'Research Excellence',
-                      description: 'Published groundbreaking research in calculus education',
-                      date: 'July 5, 2024',
-                      icon: 'award'
-                    },
-                    {
-                      title: 'Innovative Methods',
-                      description: 'Developed creative and effective teaching methods for calculus',
-                      date: 'April 10, 2024',
-                      icon: 'lightbulb'
-                    }
-                  ]
-                }
-              ].map((tutor) => (
-                <div key={tutor.id} className="p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <img
-                      src={tutor.avatar}
-                      alt={tutor.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-yellow-200"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{tutor.name}</h3>
-                      <p className="text-sm text-gray-600">{tutor.specialty}</p>
-                    </div>
-                  </div>
+              {topRatedTutors.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-500">No tutors available at the moment.</p>
+                </div>
+              ) : (
+                topRatedTutors.map((tutor) => {
+                  // Get specialty from specialties array or major/university
+                  const specialty = tutor.specialties && tutor.specialties.length > 0 
+                    ? tutor.specialties.join(', ') 
+                    : tutor.major || tutor.university || 'Math Tutor';
                   
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium">{tutor.rating}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">{tutor.students} students</span>
-                    <span className="text-sm text-gray-500">{tutor.experience}</span>
-                  </div>
+                  // Format experience
+                  const experience = tutor.yearsOfExperience 
+                    ? `${tutor.yearsOfExperience} ${tutor.yearsOfExperience === 1 ? 'year' : 'years'}`
+                    : 'Experience not specified';
                   
-                  {/* Achievements Section */}
-                  <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                      <Target className="h-4 w-4 text-green-600 mr-1" />
-                      Recent Achievements
-                    </h4>
-                    <div className="space-y-2">
-                      {tutor.achievements.map((achievement, index) => (
-                        <div key={index} className="p-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                          <div className="flex items-start space-x-2">
-                            <div className="bg-green-600 rounded p-1">
-                              {achievement.icon === 'award' && <Target className="h-3 w-3 text-white" />}
-                              {achievement.icon === 'trophy' && <Star className="h-3 w-3 text-white" />}
-                              {achievement.icon === 'lightbulb' && <TrendingUp className="h-3 w-3 text-white" />}
-                              {achievement.icon === 'star' && <Star className="h-3 w-3 text-white" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-medium text-gray-900 text-xs mb-1">{achievement.title}</h5>
-                              <p className="text-xs text-gray-600 mb-1">{achievement.description}</p>
-                              <span className="text-xs text-gray-500">{achievement.date}</span>
-                            </div>
+                  // Default avatar if not provided
+                  const avatarUrl = tutor.profilePictureUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tutor.fullName) + '&background=random';
+                  
+                  // Get achievements or use empty array
+                  const achievements = tutor.achievements || [];
+                  
+                  // Helper function to get icon based on achievement type
+                  const getAchievementIcon = (type?: string) => {
+                    if (!type) return <Target className="h-3 w-3 text-white" />;
+                    switch (type.toLowerCase()) {
+                      case 'outstanding_educator':
+                      case 'research_excellence':
+                        return <Target className="h-3 w-3 text-white" />;
+                      case 'successful_students':
+                      case 'student_success':
+                        return <Star className="h-3 w-3 text-white" />;
+                      case 'innovative_methods':
+                        return <TrendingUp className="h-3 w-3 text-white" />;
+                      default:
+                        return <Target className="h-3 w-3 text-white" />;
+                    }
+                  };
+                  
+                  // Format date
+                  const formatDate = (dateStr: string) => {
+                    try {
+                      const date = new Date(dateStr);
+                      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                    } catch {
+                      return dateStr;
+                    }
+                  };
+                  
+                  return (
+                    <div key={tutor.userId} className="p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <img
+                          src={avatarUrl}
+                          alt={tutor.fullName}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-yellow-200"
+                          onError={(e) => {
+                            // Fallback to default avatar if image fails to load
+                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tutor.fullName) + '&background=random';
+                          }}
+                        />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900">{tutor.fullName}</h3>
+                          <p className="text-sm text-gray-600">{specialty}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-4 mb-3">
+                        {tutor.rating && (
+                          <div className="flex items-center space-x-1">
+                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                            <span className="text-sm font-medium">{tutor.rating.toFixed(1)}</span>
+                          </div>
+                        )}
+                        {tutor.studentCount && (
+                          <span className="text-sm text-gray-500">{tutor.studentCount} students</span>
+                        )}
+                        <span className="text-sm text-gray-500">{experience}</span>
+                      </div>
+                      
+                      {/* Achievements Section */}
+                      {achievements.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <Target className="h-4 w-4 text-green-600 mr-1" />
+                            Recent Achievements
+                          </h4>
+                          <div className="space-y-2">
+                            {achievements.slice(0, 2).map((achievement, index) => (
+                              <div key={index} className="p-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                                <div className="flex items-start space-x-2">
+                                  <div className="bg-green-600 rounded p-1">
+                                    {getAchievementIcon(achievement.type)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h5 className="font-medium text-gray-900 text-xs mb-1">{achievement.title}</h5>
+                                    <p className="text-xs text-gray-600 mb-1">{achievement.description}</p>
+                                    <span className="text-xs text-gray-500">{formatDate(achievement.date)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      ))}
+                      )}
+                      
+                      <button 
+                        onClick={() => navigate(`/tutors/${tutor.userId}`)}
+                        className="w-full px-3 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                      >
+                        View Profile
+                      </button>
                     </div>
-                  </div>
-                  
-                  <button 
-                    onClick={() => navigate(`/tutors/${tutor.id}`)}
-                    className="w-full px-3 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
-                  >
-                    View Profile
-                  </button>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

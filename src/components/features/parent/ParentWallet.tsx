@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Wallet, RefreshCw, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
@@ -10,11 +10,18 @@ const ParentWallet: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBalance, setShowBalance] = useState(true);
+  const [page, setPage] = useState(1);
+  const pageSize = 5; // 5 transactions per page
+  const isInitialLoadRef = useRef(true);
 
   useEffect(() => {
     const fetchWallet = async () => {
-      setLoading(true);
-      setError(null);
+      const isInitialLoad = isInitialLoadRef.current;
+      
+      if (isInitialLoad) {
+        setLoading(true);
+        setError(null);
+      }
       
       // Get userId from localStorage or context
       const user = localStorage.getItem('user');
@@ -25,17 +32,80 @@ const ParentWallet: React.FC = () => {
         userId = 'demo-user';
       }
 
-      const res = await apiService.getUserWallet(userId);
-      if (res.success && res.data) {
-        setBalance(res.data.walletBalance);
-        setTransactions(res.data.transactions);
-      } else {
-        setError(res.error || 'Failed to load wallet info');
+      try {
+        const res = await apiService.getUserWallet(userId);
+        if (res.success && res.data) {
+          setBalance(res.data.walletBalance);
+          // Map transactions with correct type handling
+          const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
+            // Determine transaction type - handle both camelCase and PascalCase from backend
+            let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+            const desc = (tx.description || tx.note || '').toLowerCase();
+            
+            // Map backend transaction types to frontend types
+            // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
+            if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+              transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
+            } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+              transactionType = 'deposit';
+            } else if (transactionType === 'refund') {
+              transactionType = 'refund';
+            } else if (transactionType === 'payment') {
+              transactionType = 'payment'; // Keep as payment
+            } else {
+              // If type is not set or unknown, try to infer from description
+              if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+                transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
+              } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
+                transactionType = 'deposit';
+              } else {
+                transactionType = 'payment'; // Default to payment for contract payments
+              }
+            }
+            
+            return {
+              id: tx.id || tx.transactionId || String(Date.now()),
+              transactionId: tx.transactionId || tx.id,
+              type: transactionType,
+              amount: tx.amount || 0,
+              description: tx.description || tx.note || '',
+              date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+              status: tx.status?.toLowerCase() || 'completed',
+              method: tx.method || tx.paymentMethod,
+            };
+          });
+          // Filter out pending transactions - only show completed
+          const completedTransactions = mappedTransactions.filter(t => 
+            t.status?.toLowerCase() === 'completed'
+          );
+          setTransactions(completedTransactions);
+          setError(null);
+        } else {
+          if (isInitialLoad) {
+            setError(res.error || 'Failed to load wallet info');
+          }
+        }
+      } catch (err) {
+        if (isInitialLoad) {
+          setError('Failed to load wallet info');
+        }
+      } finally {
+        if (isInitialLoad) {
+          setLoading(false);
+          isInitialLoadRef.current = false;
+        }
       }
-      setLoading(false);
     };
 
+    // Fetch initial wallet data
     fetchWallet();
+
+    // Check wallet balance every 5 seconds
+    const walletInterval = setInterval(() => {
+      fetchWallet();
+    }, 5000);
+
+    return () => clearInterval(walletInterval);
   }, []);
 
   const formatCurrency = (amount: number) => {
@@ -57,8 +127,11 @@ const ParentWallet: React.FC = () => {
     switch (type) {
       case 'deposit':
         return <TrendingUp className="h-5 w-5 text-green-500" />;
+      case 'payment':
       case 'withdrawal':
         return <TrendingDown className="h-5 w-5 text-red-500" />;
+      case 'refund':
+        return <Wallet className="h-5 w-5 text-purple-500" />;
       default:
         return <Wallet className="h-5 w-5 text-blue-500" />;
     }
@@ -67,11 +140,13 @@ const ParentWallet: React.FC = () => {
   const getTransactionColor = (type: string) => {
     switch (type) {
       case 'deposit':
+      case 'refund':
         return 'text-green-600';
+      case 'payment':
       case 'withdrawal':
         return 'text-red-600';
       default:
-        return 'text-blue-600';
+        return 'text-gray-600';
     }
   };
 
@@ -88,7 +163,51 @@ const ParentWallet: React.FC = () => {
     const res = await apiService.getUserWallet(userId);
     if (res.success && res.data) {
       setBalance(res.data.walletBalance);
-      setTransactions(res.data.transactions);
+      // Map transactions with correct type handling
+      const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
+        // Determine transaction type - handle both camelCase and PascalCase from backend
+        let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+        
+        // If type is not set, try to infer from description
+        if (!transactionType) {
+          const desc = (tx.description || tx.note || '').toLowerCase();
+          if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+            transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
+          } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup')) {
+            transactionType = 'deposit';
+          } else {
+            transactionType = 'payment'; // Default to payment
+          }
+        }
+        
+        // Ensure type is one of: deposit, withdrawal, payment, refund
+        if (!['deposit', 'withdrawal', 'payment', 'refund'].includes(transactionType)) {
+          // Map backend types to frontend types
+          if (transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+            transactionType = 'payment'; // Treat withdrawal/deduct as payment (deduction)
+          } else if (transactionType.includes('deposit') || transactionType.includes('top')) {
+            transactionType = 'deposit';
+          } else {
+            transactionType = 'payment'; // Default to payment for contract payments
+          }
+        }
+        
+        return {
+          id: tx.id || tx.transactionId || String(Date.now()),
+          transactionId: tx.transactionId || tx.id,
+          type: transactionType,
+          amount: tx.amount || 0,
+          description: tx.description || tx.note || '',
+          date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+          status: tx.status?.toLowerCase() || 'completed',
+          method: tx.method || tx.paymentMethod,
+        };
+      });
+      // Filter out pending transactions - only show completed
+      const completedTransactions = mappedTransactions.filter(t => 
+        t.status?.toLowerCase() === 'completed'
+      );
+      setTransactions(completedTransactions);
     } else {
       setError(res.error || 'Failed to refresh wallet');
     }
@@ -204,14 +323,8 @@ const ParentWallet: React.FC = () => {
 
         {/* Recent Transactions */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
-            <button
-              onClick={() => navigate('/wallet/history')}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-            >
-              View All
-            </button>
           </div>
 
           {transactions.length === 0 ? (
@@ -226,22 +339,56 @@ const ParentWallet: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {transactions.slice(0, 5).map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getTransactionIcon(transaction.type)}
-                    <div>
-                      <p className="font-medium text-gray-900">{transaction.description}</p>
-                      <p className="text-sm text-gray-500">{formatDate(transaction.date)}</p>
+            <>
+              <div className="space-y-4">
+                {transactions
+                  .slice((page - 1) * pageSize, page * pageSize)
+                  .map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        {getTransactionIcon(transaction.type)}
+                        <div>
+                          <p className="font-medium text-gray-900">{transaction.description}</p>
+                          <p className="text-sm text-gray-500">{formatDate(transaction.date)}</p>
+                        </div>
+                      </div>
+                      <div className={`font-semibold ${getTransactionColor(transaction.type)}`}>
+                        {transaction.type === 'deposit' || transaction.type === 'refund' 
+                          ? '+' 
+                          : transaction.type === 'payment' || transaction.type === 'withdrawal'
+                          ? '-'
+                          : '-'}
+                        {formatCurrency(Math.abs(transaction.amount))}
+                      </div>
                     </div>
+                  ))}
+              </div>
+
+              {/* Pagination */}
+              {Math.ceil(transactions.length / pageSize) > 1 && (
+                <div className="mt-6 pt-6 border-t border-gray-200 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Page {page} of {Math.ceil(transactions.length / pageSize)}
                   </div>
-                  <div className={`font-semibold ${getTransactionColor(transaction.type)}`}>
-                    {transaction.type === 'deposit' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setPage(p => Math.min(Math.ceil(transactions.length / pageSize), p + 1))}
+                      disabled={page === Math.ceil(transactions.length / pageSize)}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>

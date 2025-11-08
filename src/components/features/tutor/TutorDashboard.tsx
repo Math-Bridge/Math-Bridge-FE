@@ -5,7 +5,7 @@ import {
   BarChart3,
   User
 } from 'lucide-react';
-import { TutorAvailabilitiesManager } from '.';
+import { TutorSessions } from '.';
 
 // Removed TutorStats for simplified dashboard layout
 
@@ -21,8 +21,8 @@ const TutorDashboard: React.FC = () => {
     setLoading(false);
   }, []);
 
-  type ActionKey = 'availabilities' | 'profile' | 'sessions' | 'centers' | 'reports';
-  const [selectedAction, setSelectedAction] = useState<ActionKey>('availabilities');
+  type ActionKey = 'profile' | 'sessions' | 'centers' | 'reports';
+  const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const quickActions: Array<{
@@ -32,13 +32,6 @@ const TutorDashboard: React.FC = () => {
     icon: any;
     color: string;
   }> = [
-    {
-      key: 'availabilities',
-      title: 'My Availabilities',
-      description: 'Quản lý lịch dạy của bạn',
-      icon: Calendar,
-      color: 'bg-teal-500',
-    },
     {
       key: 'profile',
       title: 'Profile Settings',
@@ -71,16 +64,12 @@ const TutorDashboard: React.FC = () => {
 
   function renderRightPane() {
     switch (selectedAction) {
-      case 'availabilities':
-        return <TutorAvailabilitiesManager />;
       case 'profile':
         return (
           <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Profile Settings</div>
         );
       case 'sessions':
-        return (
-          <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Sessions</div>
-        );
+        return <TutorSessions />;
       case 'centers':
         return (
           <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Center Management</div>

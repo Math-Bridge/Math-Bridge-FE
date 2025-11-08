@@ -13,10 +13,13 @@ import {
   Clock,
   Calendar,
   Wallet,
-  Building2
+  Building2,
+  QrCode,
+  Copy,
+  X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getChildrenByParent, createContract, apiService, getSchoolById } from '../../../services/api';
+import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -73,12 +76,43 @@ const CreateContract: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'bank_transfer'>('wallet');
+  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct_payment'>('wallet');
+  const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
+  const [createdContractId, setCreatedContractId] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Poll contract status when direct payment is active
+  useEffect(() => {
+    if (createdContractId && isPolling && paymentResponse) {
+      const interval = setInterval(async () => {
+        try {
+          const contractResult = await getContractById(createdContractId);
+          if (contractResult.success && contractResult.data) {
+            const contract = contractResult.data;
+            // Check if contract status changed to 'active' (payment successful)
+            if (contract.status === 'active' || contract.status === 'Active') {
+              setIsPolling(false);
+              showSuccess('Payment successful! Contract has been activated.');
+              // Navigate to contract detail after 2 seconds
+              setTimeout(() => {
+                navigate(`/contracts/${createdContractId}`);
+              }, 2000);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking contract status:', error);
+        }
+      }, 5000); // Check every 5 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [createdContractId, isPolling, paymentResponse, navigate, showSuccess]);
 
   // Refresh wallet balance when returning from top-up page
   useEffect(() => {
@@ -357,6 +391,9 @@ const CreateContract: React.FC = () => {
 
               // Update wallet balance in state
               setWalletBalance(deductResult.data.newWalletBalance);
+              
+              // Navigate to contract detail
+              navigate(`/contracts/${contractId || ''}`);
             } else {
               // Contract created but wallet deduction failed
               showError(`Contract created but wallet deduction failed: ${deductResult.error || 'Unknown error'}. Please contact support.`);
@@ -366,12 +403,41 @@ const CreateContract: React.FC = () => {
             console.error('Error deducting wallet:', deductError);
             showError('Contract created but wallet deduction failed. Please contact support.');
           }
-        } else if (paymentMethod === 'bank_transfer') {
-          showSuccess('Contract created successfully! Please complete bank transfer to activate the contract.');
+        } else if (paymentMethod === 'direct_payment' && contractId) {
+          // Create direct payment with QR code
+          try {
+            setCreatedContractId(contractId);
+            console.log('Creating direct payment for contract:', contractId);
+            const paymentResult = await createContractDirectPayment(contractId);
+            console.log('Direct payment result:', paymentResult);
+            
+            if (paymentResult.success && paymentResult.data) {
+              console.log('Payment response data:', paymentResult.data);
+              if (paymentResult.data.qrCodeUrl) {
+                setPaymentResponse(paymentResult.data);
+                setIsPolling(true);
+                showSuccess('Contract created! Please scan QR code to complete payment.');
+              } else {
+                console.error('QR code URL is missing from response:', paymentResult.data);
+                showError('Failed to generate QR code URL. Please contact support.');
+                navigate(`/contracts/${contractId || ''}`);
+              }
+            } else {
+              console.error('Payment creation failed:', paymentResult.error);
+              showError(paymentResult.error || 'Failed to create payment QR code. Please contact support.');
+              // Navigate to contract detail anyway
+              navigate(`/contracts/${contractId || ''}`);
+            }
+          } catch (paymentError) {
+            console.error('Error creating direct payment:', paymentError);
+            showError('Contract created but failed to generate payment QR code. Please contact support.');
+            // Navigate to contract detail anyway
+            navigate(`/contracts/${contractId || ''}`);
+          }
+        } else {
+          // Navigate to contract detail
+          navigate(`/contracts/${contractId || ''}`);
         }
-
-        // Navigate to contract detail
-        navigate(`/contracts/${contractId || ''}`);
       } else {
         // Check for specific backend errors
         const errorMsg = result.error || 'Failed to create contract';
@@ -1138,26 +1204,26 @@ const CreateContract: React.FC = () => {
                     </div>
                   </button>
 
-                  {/* Bank Transfer */}
+                  {/* Direct Payment (QR Code) */}
                   <button
                     type="button"
                     onClick={() => {
-                      setPaymentMethod('bank_transfer');
+                      setPaymentMethod('direct_payment');
                       setError(null);
                     }}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      paymentMethod === 'bank_transfer'
+                      paymentMethod === 'direct_payment'
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
                     }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <Building2 className={`w-6 h-6 ${paymentMethod === 'bank_transfer' ? 'text-blue-600' : 'text-gray-400'}`} />
+                      <QrCode className={`w-6 h-6 ${paymentMethod === 'direct_payment' ? 'text-blue-600' : 'text-gray-400'}`} />
                       <div>
-                        <div className="font-semibold">Bank Transfer</div>
-                        <div className="text-xs mt-1">Direct bank transfer</div>
+                        <div className="font-semibold">Direct Payment</div>
+                        <div className="text-xs mt-1">Scan QR code to pay</div>
                       </div>
-                      {paymentMethod === 'bank_transfer' && (
+                      {paymentMethod === 'direct_payment' && (
                         <CheckCircle className="w-5 h-5 text-blue-600 ml-auto" />
                       )}
                     </div>
@@ -1206,39 +1272,24 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
-              {/* Bank Transfer Info - Only show if bank transfer is selected */}
-              {paymentMethod === 'bank_transfer' && (
+              {/* Direct Payment Info - Only show if direct payment is selected */}
+              {paymentMethod === 'direct_payment' && (
                 <div className="p-4 rounded-lg border-2 bg-blue-50 border-blue-200">
-                  <h4 className="font-semibold text-gray-900 mb-3">Bank Transfer Information</h4>
+                  <div className="flex items-center gap-2 mb-3">
+                    <QrCode className="w-5 h-5 text-blue-600" />
+                    <h4 className="font-semibold text-gray-900">Direct Payment with QR Code</h4>
+                  </div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Bank Name:</span>
-                      <span className="font-medium">Vietcombank</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Account Number:</span>
-                      <span className="font-medium font-mono">1234567890</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Account Holder:</span>
-                      <span className="font-medium">Math Bridge Education</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Amount:</span>
-                      <span className="font-bold text-blue-700">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price)}
-                      </span>
-                    </div>
+                    <p className="text-gray-600">
+                      After creating the contract, you will receive a QR code to scan and complete the payment. The contract will be activated automatically once payment is confirmed.
+                    </p>
                     <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                      <p className="text-xs text-gray-600 mb-1">Transfer Content:</p>
-                      <p className="font-mono text-sm font-semibold">
-                        CONTRACT {user?.id?.substring(0, 8).toUpperCase() || 'PAYMENT'}
-                      </p>
-                    </div>
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                      <p className="text-xs text-yellow-800">
-                        <strong>Note:</strong> After completing the bank transfer, please contact support with your transaction reference. Your contract will be activated after payment confirmation.
-                      </p>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-gray-600">Amount:</span>
+                        <span className="font-bold text-blue-700">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1299,7 +1350,7 @@ const CreateContract: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Payment Method:</span>
                     <span className="font-medium">
-                      {paymentMethod === 'wallet' ? 'Wallet' : 'Bank Transfer'}
+                      {paymentMethod === 'wallet' ? 'Wallet' : 'Direct Payment (QR Code)'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1343,7 +1394,7 @@ const CreateContract: React.FC = () => {
                     <>
                       <CreditCard className="w-5 h-5" />
                       <span>
-                        {paymentMethod === 'wallet' ? 'Create Contract & Pay' : 'Create Contract'}
+                        {paymentMethod === 'wallet' ? 'Create Contract & Pay' : 'Create Contract & Get QR Code'}
                       </span>
                     </>
                   )}
@@ -1358,6 +1409,177 @@ const CreateContract: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Direct Payment QR Code Modal */}
+      {paymentResponse && createdContractId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Payment QR Code</h3>
+              <button
+                onClick={() => {
+                  setPaymentResponse(null);
+                  setIsPolling(false);
+                  navigate(`/contracts/${createdContractId}`);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* Payment Status */}
+              {isPolling && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                  <span className="text-yellow-800 font-medium">Waiting for payment...</span>
+                </div>
+              )}
+
+              {/* QR Code */}
+              <div className="text-center mb-6">
+                <p className="text-gray-600 mb-4">Scan QR code with your banking app</p>
+                <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg">
+                  <img
+                    src={paymentResponse.qrCodeUrl}
+                    alt="QR Code"
+                    className="w-64 h-64 mx-auto"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Details */}
+              <div className="space-y-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Amount:</span>
+                      <span className="text-xl font-bold text-blue-600">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}
+                      </span>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Content:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.transferContent}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.transferContent);
+                            setCopiedField('content');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'content' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Bank Information:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.bankInfo}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.bankInfo);
+                            setCopiedField('bank');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'bank' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Order Reference:</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={paymentResponse.orderReference}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentResponse.orderReference);
+                            setCopiedField('reference');
+                            setTimeout(() => setCopiedField(null), 2000);
+                          }}
+                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                          title="Copy"
+                        >
+                          {copiedField === 'reference' ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <Copy className="w-5 h-5 text-gray-600" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Instructions */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
+                  <li>Scan QR code with your banking app</li>
+                  <li>Amount: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</li>
+                  <li>Use the transfer content: <strong>{paymentResponse.transferContent}</strong></li>
+                  <li>Contract will be activated automatically after payment confirmation</li>
+                </ul>
+              </div>
+
+              {/* Auto-checking status */}
+              {isPolling && (
+                <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  <span className="text-gray-600">Auto-checking payment status...</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setPaymentResponse(null);
+                    setIsPolling(false);
+                    navigate(`/contracts/${createdContractId}`);
+                  }}
+                  className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  View Contract
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -13,13 +13,13 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
+import { getAllTutors, Tutor } from '../../services/api';
 
-interface Tutor {
+interface TutorDisplay extends Tutor {
   id: string;
   name: string;
   subjects: string[];
   experience: string;
-  rating: number;
   totalReviews: number;
   location: string;
   avatarUrl: string;
@@ -31,7 +31,7 @@ interface Tutor {
 const TutorList: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [tutors, setTutors] = useState<TutorDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -40,91 +40,68 @@ const TutorList: React.FC = () => {
   const subjects = [t('allSubjects'), t('algebra'), t('geometry'), t('calculus'), t('statistics'), t('trigonometry'), t('preCalculus')];
 
   useEffect(() => {
-    // Simulate API call
-    setLoading(true);
-    setTimeout(() => {
-      setTutors([
-        {
-          id: '1',
-          name: 'Dr. Sarah Johnson',
-          subjects: ['Algebra', 'Geometry', 'Calculus'],
-          experience: '8 years',
-          rating: 4.9,
-          totalReviews: 127,
-          location: 'San Francisco, CA',
-          avatarUrl: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['Test Preparation', 'Advanced Calculus'],
-          languages: ['English', 'Spanish']
-        },
-        {
-          id: '2',
-          name: 'Prof. Michael Chen',
-          subjects: ['Statistics', 'Probability', 'Data Analysis'],
-          experience: '12 years',
-          rating: 4.8,
-          totalReviews: 89,
-          location: 'New York, NY',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['Data Science', 'Research Methods'],
-          languages: ['English', 'Mandarin']
-        },
-        {
-          id: '3',
-          name: 'Dr. Emily Rodriguez',
-          subjects: ['Trigonometry', 'Pre-Calculus', 'Algebra II'],
-          experience: '6 years',
-          rating: 4.7,
-          totalReviews: 156,
-          location: 'Los Angeles, CA',
-          avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['High School Math', 'SAT Prep'],
-          languages: ['English', 'Spanish', 'French']
-        },
-        {
-          id: '4',
-          name: 'Prof. David Kim',
-          subjects: ['Calculus', 'Linear Algebra', 'Differential Equations'],
-          experience: '10 years',
-          rating: 4.9,
-          totalReviews: 203,
-          location: 'Boston, MA',
-          avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['College Math', 'Engineering Math'],
-          languages: ['English', 'Korean']
-        },
-        {
-          id: '5',
-          name: 'Dr. Lisa Thompson',
-          subjects: ['Geometry', 'Algebra', 'Statistics'],
-          experience: '7 years',
-          rating: 4.6,
-          totalReviews: 98,
-          location: 'Chicago, IL',
-          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['Middle School Math', 'Tutoring'],
-          languages: ['English']
-        },
-        {
-          id: '6',
-          name: 'Prof. James Wilson',
-          subjects: ['Calculus', 'Statistics', 'Probability'],
-          experience: '15 years',
-          rating: 4.8,
-          totalReviews: 312,
-          location: 'Seattle, WA',
-          avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face',
-          isVerified: true,
-          specialties: ['Advanced Statistics', 'Research'],
-          languages: ['English', 'German']
+    const fetchTutors = async () => {
+      setLoading(true);
+      try {
+        const result = await getAllTutors();
+        if (result.success && result.data) {
+          // Map Tutor data to TutorDisplay format
+          const mappedTutors: TutorDisplay[] = result.data.map((tutor: Tutor) => {
+            // Get subjects from specialties or major
+            const tutorSubjects = tutor.specialties && tutor.specialties.length > 0 
+              ? tutor.specialties 
+              : tutor.major 
+                ? [tutor.major] 
+                : ['Math'];
+            
+            // Format experience
+            const experience = tutor.yearsOfExperience 
+              ? `${tutor.yearsOfExperience} years`
+              : 'Not specified';
+            
+            // Default avatar
+            const avatarUrl = tutor.profilePictureUrl || 
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName)}&background=random`;
+            
+            // Location from center or default
+            const location = tutor.centerName || 'Location not specified';
+            
+            // Languages (default to English if not specified)
+            const languages = ['English']; // Can be extended if backend provides this
+            
+            // Is verified
+            const isVerified = tutor.verificationStatus === 'approved' || tutor.verificationStatus === 'Approved';
+            
+            return {
+              ...tutor,
+              id: tutor.userId,
+              name: tutor.fullName,
+              subjects: tutorSubjects,
+              experience: experience,
+              rating: tutor.rating || 0,
+              totalReviews: tutor.studentCount || 0,
+              location: location,
+              avatarUrl: avatarUrl,
+              isVerified: isVerified,
+              specialties: tutor.specialties || [],
+              languages: languages,
+            };
+          });
+          
+          setTutors(mappedTutors);
+        } else {
+          console.error('Failed to fetch tutors:', result.error);
+          setTutors([]);
         }
-      ]);
-      setLoading(false);
-    }, 1000);
+      } catch (error) {
+        console.error('Error fetching tutors:', error);
+        setTutors([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTutors();
   }, []);
 
   const filteredTutors = tutors.filter(tutor => {
@@ -138,9 +115,11 @@ const TutorList: React.FC = () => {
   const sortedTutors = [...filteredTutors].sort((a, b) => {
     switch (sortBy) {
       case 'rating':
-        return b.rating - a.rating;
+        return (b.rating || 0) - (a.rating || 0);
       case 'experience':
-        return parseInt(b.experience) - parseInt(a.experience);
+        const expA = parseInt(a.experience) || 0;
+        const expB = parseInt(b.experience) || 0;
+        return expB - expA;
       default:
         return 0;
     }
@@ -229,6 +208,10 @@ const TutorList: React.FC = () => {
                   src={tutor.avatarUrl}
                   alt={tutor.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // Fallback to default avatar if image fails to load
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&background=random`;
+                  }}
                 />
                 {tutor.isVerified && (
                   <div className="absolute top-3 right-3 bg-green-500 text-white p-1 rounded-full">
@@ -239,13 +222,17 @@ const TutorList: React.FC = () => {
 
               {/* Tutor Info */}
               <div className="p-6">
-                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xl font-semibold text-gray-900">{tutor.name}</h3>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                    <span className="text-sm font-medium text-gray-900">{tutor.rating}</span>
-                    <span className="text-sm text-gray-500">({tutor.totalReviews})</span>
-                  </div>
+                  {tutor.rating > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                      <span className="text-sm font-medium text-gray-900">{tutor.rating.toFixed(1)}</span>
+                      {tutor.totalReviews > 0 && (
+                        <span className="text-sm text-gray-500">({tutor.totalReviews})</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 mb-4">

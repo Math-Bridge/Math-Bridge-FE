@@ -404,11 +404,17 @@ const ContractDetail: React.FC = () => {
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div
                       className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${(contract.completedSessions / contract.totalSessions) * 100}%` }}
+                      style={{ 
+                        width: contract.totalSessions > 0 
+                          ? `${Math.min((contract.completedSessions / contract.totalSessions) * 100, 100)}%`
+                          : '0%'
+                      }}
                     ></div>
                   </div>
                   <p className="text-sm text-gray-600 mt-2">
-                    {Math.round((contract.completedSessions / contract.totalSessions) * 100)}% complete
+                    {contract.totalSessions > 0
+                      ? `${Math.round((contract.completedSessions / contract.totalSessions) * 100)}% complete`
+                      : '0% complete'}
                   </p>
                 </div>
               </div>

@@ -27,15 +27,16 @@ const TransactionHistoryComponent: React.FC = () => {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('completed'); // Default to completed only
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 20;
+  const pageSize = 5; // 5 transactions per page
 
   useEffect(() => {
     fetchTransactions();
-  }, [page, statusFilter, typeFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, typeFilter, searchTerm]); // Removed statusFilter since it's always 'completed'
 
   const fetchTransactions = async () => {
     try {
@@ -55,30 +56,63 @@ const TransactionHistoryComponent: React.FC = () => {
         let allTransactions = walletRes.data.transactions || [];
         
         // Map to WalletTransaction format
-        const mappedTransactions = allTransactions.map((tx: any) => ({
-          id: tx.id || tx.transactionId || String(Date.now()),
-          transactionId: tx.transactionId || tx.id,
-          type: tx.type || tx.transactionType?.toLowerCase() || 'payment',
-          amount: tx.amount || 0,
-          description: tx.description || tx.note || '',
-          date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-          status: tx.status?.toLowerCase() || 'completed',
-          method: tx.method || tx.paymentMethod,
-        }));
+        const mappedTransactions = allTransactions.map((tx: any) => {
+          // Determine transaction type - handle both camelCase and PascalCase from backend
+          let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+          const desc = (tx.description || tx.note || '').toLowerCase();
+          
+          // Map backend transaction types to frontend types
+          // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
+          if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+            transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
+          } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+            transactionType = 'deposit';
+          } else if (transactionType === 'refund') {
+            transactionType = 'refund';
+          } else if (transactionType === 'payment') {
+            transactionType = 'payment'; // Keep as payment
+          } else {
+            // If type is not set or unknown, try to infer from description
+            if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+              transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
+            } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
+              transactionType = 'deposit';
+            } else {
+              transactionType = 'payment'; // Default to payment for contract payments
+            }
+          }
+          
+          return {
+            id: tx.id || tx.transactionId || String(Date.now()),
+            transactionId: tx.transactionId || tx.id,
+            type: transactionType,
+            amount: tx.amount || 0,
+            description: tx.description || tx.note || '',
+            date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+            status: tx.status?.toLowerCase() || 'completed',
+            method: tx.method || tx.paymentMethod,
+          };
+        });
 
-        // Apply filters
-        let filtered = mappedTransactions;
-        if (statusFilter !== 'all') {
-          filtered = filtered.filter(t => t.status === statusFilter);
-        }
+        // Apply filters - Only show completed transactions
+        let filtered = mappedTransactions.filter(t => {
+          // Always filter to show only completed transactions
+          const isCompleted = (t.status?.toLowerCase() === 'completed');
+          return isCompleted;
+        });
+
+        // Apply type filter if not 'all'
         if (typeFilter !== 'all') {
           filtered = filtered.filter(t => t.type === typeFilter);
         }
+
+        // Apply search term filter
         if (searchTerm) {
           const term = searchTerm.toLowerCase();
           filtered = filtered.filter(t =>
             t.description.toLowerCase().includes(term) ||
-            t.id.toLowerCase().includes(term)
+            t.id.toLowerCase().includes(term) ||
+            t.transactionId?.toLowerCase().includes(term)
           );
         }
 
@@ -90,17 +124,20 @@ const TransactionHistoryComponent: React.FC = () => {
         setTransactions(paginatedTransactions);
         setTotalPages(Math.ceil(filtered.length / pageSize));
       } else {
-        // Fallback: try getWalletTransactions API
+        // Fallback: try getWalletTransactions API - Only get completed transactions
         const result = await getWalletTransactions({
           page,
           pageSize,
-          status: statusFilter !== 'all' ? statusFilter : undefined,
+          status: 'completed', // Always filter for completed only
           type: typeFilter !== 'all' ? typeFilter : undefined,
         });
 
         if (result.success && result.data) {
-          setTransactions(result.data.transactions || []);
-          setTotalPages(Math.ceil((result.data.total || 0) / pageSize));
+          // Ensure only 5 transactions per page - slice if API returns more
+          const apiTransactions = result.data.transactions || [];
+          const paginatedApiTransactions = apiTransactions.slice(0, pageSize);
+          setTransactions(paginatedApiTransactions);
+          setTotalPages(Math.ceil((result.data.total || apiTransactions.length) / pageSize));
         } else {
           setTransactions([]);
         }
@@ -187,16 +224,9 @@ const TransactionHistoryComponent: React.FC = () => {
     }
   };
 
-  const filteredTransactions = transactions.filter((tx) => {
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      return (
-        tx.description.toLowerCase().includes(term) ||
-        tx.id.toLowerCase().includes(term)
-      );
-    }
-    return true;
-  });
+  // Transactions are already filtered to completed only in fetchTransactions
+  // Only apply search term filter if needed (already done in fetchTransactions)
+  const filteredTransactions = transactions;
 
   if (loading) {
     return (
@@ -234,25 +264,19 @@ const TransactionHistoryComponent: React.FC = () => {
                 type="text"
                 placeholder="Search transactions..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1); // Reset to first page when search changes
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+            {/* Status filter hidden - Only showing completed transactions */}
             <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-              >
-                <option value="all">All Status</option>
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="failed">Failed</option>
-              </select>
+              <div className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <span>Status: Completed Only</span>
+              </div>
             </div>
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -292,11 +316,11 @@ const TransactionHistoryComponent: React.FC = () => {
               <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Transactions</h3>
               <p className="text-gray-600 mb-6">
-                {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                  ? 'Try adjusting your filters'
-                  : "You don't have any transactions yet"}
+                {searchTerm || typeFilter !== 'all'
+                  ? 'No completed transactions match your filters. Try adjusting your search or type filter.'
+                  : "You don't have any completed transactions yet"}
               </p>
-              {!searchTerm && statusFilter === 'all' && typeFilter === 'all' && (
+              {!searchTerm && typeFilter === 'all' && (
                 <button
                   onClick={() => navigate('/wallet/topup')}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -347,9 +371,15 @@ const TransactionHistoryComponent: React.FC = () => {
                         <div className={`text-lg font-bold ${
                           transaction.type === 'deposit' || transaction.type === 'refund'
                             ? 'text-green-600'
-                            : 'text-red-600'
+                            : transaction.type === 'payment' || transaction.type === 'withdrawal'
+                            ? 'text-red-600'
+                            : 'text-gray-600'
                         }`}>
-                          {transaction.type === 'deposit' || transaction.type === 'refund' ? '+' : '-'}
+                          {transaction.type === 'deposit' || transaction.type === 'refund' 
+                            ? '+' 
+                            : transaction.type === 'payment' || transaction.type === 'withdrawal'
+                            ? '-'
+                            : '-'}
                           {formatCurrency(Math.abs(transaction.amount))}
                         </div>
                       </div>

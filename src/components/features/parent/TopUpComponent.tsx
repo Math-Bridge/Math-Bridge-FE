@@ -16,6 +16,7 @@ import {
   SePayPaymentRequest,
   SePayPaymentResponse,
   PaymentStatus,
+  apiService,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -26,18 +27,43 @@ const TopUpComponent: React.FC = () => {
   const { user } = useAuth();
   
   const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('Top up wallet');
   const [loading, setLoading] = useState(false);
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
 
   // Quick amount options
   const quickAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
 
+  // Check wallet balance every 5 seconds
   useEffect(() => {
-    // Poll payment status if payment is pending
+    const fetchWalletBalance = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const res = await apiService.getUserWallet(user.id);
+        if (res.success && res.data) {
+          const balance = res.data.walletBalance || 0;
+          setWalletBalance(balance);
+        }
+      } catch (error) {
+        console.error('Error fetching wallet balance:', error);
+      }
+    };
+
+    // Fetch initial balance
+    fetchWalletBalance();
+
+    // Check balance every 5 seconds
+    const balanceInterval = setInterval(fetchWalletBalance, 5000);
+
+    return () => clearInterval(balanceInterval);
+  }, [user?.id]);
+
+  // Poll payment status if payment is pending
+  useEffect(() => {
     if (paymentResponse && isPolling) {
       const interval = setInterval(async () => {
         try {
@@ -47,6 +73,17 @@ const TopUpComponent: React.FC = () => {
             if (response.data.status === 'Paid') {
               setIsPolling(false);
               showSuccess('Payment successful! Amount has been updated to your wallet.');
+              // Refresh wallet balance immediately
+              if (user?.id) {
+                try {
+                  const res = await apiService.getUserWallet(user.id);
+                  if (res.success && res.data) {
+                    setWalletBalance(res.data.walletBalance || 0);
+                  }
+                } catch (error) {
+                  console.error('Error fetching wallet balance:', error);
+                }
+              }
               // Redirect to wallet page after 2 seconds
               setTimeout(() => {
                 navigate('/wallet');
@@ -56,11 +93,11 @@ const TopUpComponent: React.FC = () => {
         } catch (error) {
           console.error('Error checking payment status:', error);
         }
-      }, 3000); // Check every 3 seconds
+      }, 5000); // Check every 5 seconds
 
       return () => clearInterval(interval);
     }
-  }, [paymentResponse, isPolling, navigate, showSuccess]);
+  }, [paymentResponse, isPolling, navigate, showSuccess, user?.id]);
 
   const handleAmountSelect = (selectedAmount: number) => {
     setAmount(selectedAmount.toString());
@@ -88,7 +125,7 @@ const TopUpComponent: React.FC = () => {
       setLoading(true);
       const request: SePayPaymentRequest = {
         amount: amountNum,
-        description: description || 'Top up wallet',
+        description: 'Top up wallet',
       };
 
       console.log('Creating payment request:', request);
@@ -131,8 +168,7 @@ const TopUpComponent: React.FC = () => {
             '2. Stable network connection\n' +
             '3. Try again in a few minutes\n\n' +
             'If the problem persists, please contact support with the following information:\n' +
-            `- Amount: ${formatCurrency(amountNum)}\n` +
-            `- Description: ${description || 'Top up wallet'}`;
+            `- Amount: ${formatCurrency(amountNum)}`;
         }
         
         showError(userMessage);
@@ -227,6 +263,22 @@ const TopUpComponent: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Current Wallet Balance */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-blue-600 font-medium">Current Wallet Balance</p>
+                  <p className="text-2xl font-bold text-blue-900 mt-1">
+                    {formatCurrency(walletBalance)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-blue-600">Auto-updating every 5s</p>
+                  <RefreshCw className="w-4 h-4 text-blue-600 mt-1 animate-spin" />
+                </div>
+              </div>
+            </div>
 
             {/* QR Code */}
             <div className="mb-6 text-center">
@@ -435,20 +487,6 @@ const TopUpComponent: React.FC = () => {
                 = {formatCurrency(parseFloat(amount))}
               </p>
             )}
-          </div>
-
-          {/* Description */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Note (optional):
-            </label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter note..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
           </div>
 
           {/* Payment Method Info */}
