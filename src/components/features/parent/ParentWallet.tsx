@@ -27,7 +27,7 @@ const ParentWallet: React.FC = () => {
 
       const res = await apiService.getUserWallet(userId);
       if (res.success && res.data) {
-        setBalance(res.data.balance);
+        setBalance(res.data.walletBalance);
         setTransactions(res.data.transactions);
       } else {
         setError(res.error || 'Failed to load wallet info');
@@ -87,7 +87,7 @@ const ParentWallet: React.FC = () => {
 
     const res = await apiService.getUserWallet(userId);
     if (res.success && res.data) {
-      setBalance(res.data.balance);
+      setBalance(res.data.walletBalance);
       setTransactions(res.data.transactions);
     } else {
       setError(res.error || 'Failed to refresh wallet');

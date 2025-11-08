@@ -91,7 +91,7 @@ const Header: React.FC = () => {
         const res = await apiService.getUserWallet(userId);
         
         if (res.success && res.data) {
-          const balance = res.data.balance || 0;
+          const balance = res.data.walletBalance || 0;
           setWalletBalance(balance);
           console.log('Wallet balance loaded:', balance);
         } else {

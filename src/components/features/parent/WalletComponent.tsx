@@ -62,7 +62,7 @@ const WalletComponent: React.FC = () => {
           // Map API response to component interface
           const walletResponse = response.data;
           setWalletData({
-            balance: walletResponse.balance || 0,
+            balance: walletResponse.walletBalance || 0,
             totalDeposits: walletResponse.totalDeposits || 0,
             totalSpent: walletResponse.totalSpent || 0,
             recentTransactions: (walletResponse.transactions || []).map((tx: any) => ({

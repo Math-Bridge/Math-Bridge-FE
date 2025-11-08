@@ -79,7 +79,7 @@ const ParentHome: React.FC = () => {
       // Fetch wallet balance
       const walletResponse = await apiService.getUserWallet(user.id);
       if (walletResponse.success && walletResponse.data) {
-        setWalletBalance(walletResponse.data.balance || 0);
+        setWalletBalance(walletResponse.data.walletBalance || 0);
       }
 
       // Fetch contracts to create upcoming sessions and recent activities

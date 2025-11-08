@@ -87,7 +87,7 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            setWalletBalance(walletResult.data.balance || 0);
+            setWalletBalance(walletResult.data.walletBalance || 0);
           }
         } catch (err) {
           console.error('Error refreshing wallet balance:', err);
@@ -216,7 +216,7 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            setWalletBalance(walletResult.data.balance || 0);
+            setWalletBalance(walletResult.data.walletBalance || 0);
           }
         } catch (err) {
           console.error('Error fetching wallet balance:', err);
