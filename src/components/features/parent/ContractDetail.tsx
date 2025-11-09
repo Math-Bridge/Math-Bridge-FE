@@ -871,7 +871,7 @@ const ContractDetail: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">
-                {paymentConfirmed ? 'Payment Confirmed' : 'Payment QR Code'}
+                Payment QR Code
               </h3>
               <button
                 onClick={() => {
@@ -919,21 +919,7 @@ const ContractDetail: React.FC = () => {
                 </div>
               )}
 
-              {/* Payment Status - After Confirmation */}
-              {isPolling && paymentConfirmed && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-blue-600" />
-                    <span className="text-blue-800 font-medium">Payment Confirmed</span>
-                  </div>
-                  {paymentStatusMessage && (
-                    <p className="text-sm text-blue-700 mt-1">{paymentStatusMessage}</p>
-                  )}
-                  <p className="text-xs text-blue-600 mt-1">
-                    Waiting for staff to activate contract... (Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS})
-                  </p>
-                </div>
-              )}
+              {/* Payment Status - After Confirmation - Hidden, only show Thank You banner */}
 
               {/* QR Code - Hide after payment is confirmed */}
               {!paymentConfirmed && (
