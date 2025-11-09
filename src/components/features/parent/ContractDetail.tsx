@@ -156,6 +156,17 @@ const ContractDetail: React.FC = () => {
           schedule = contractData.timeSlot || contractData.schedule || 'Schedule not set';
         }
 
+        // Map status correctly from backend - ensure it's lowercase and trimmed
+        const rawStatus = contractData.Status || contractData.status || 'pending';
+        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+        
+        // Validate status is one of the allowed values
+        const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+          ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+        const contractStatus = validStatuses.includes(normalizedStatus as any) 
+          ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
+          : 'pending'; // Default to pending if status is invalid
+
         // Map to frontend format
         const mappedContract: ContractDetail = {
           id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
@@ -168,7 +179,7 @@ const ContractDetail: React.FC = () => {
           totalSessions: totalSessions,
           completedSessions: contractData.CompletedSessions || contractData.completedSessions || 0,
           price: price,
-          status: (contractData.Status || contractData.status || 'pending').toLowerCase() as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid',
+          status: contractStatus,
           startDate: contractData.StartDate || contractData.startDate || '',
           endDate: contractData.EndDate || contractData.endDate || '',
           schedule: schedule,
@@ -218,9 +229,18 @@ const ContractDetail: React.FC = () => {
           const contractResult = await getContractById(contractId);
           if (contractResult.success && contractResult.data) {
             const contractData = contractResult.data;
-            const contractStatus = contractData.Status?.toLowerCase() || contractData.status?.toLowerCase() || '';
+            const contractStatus = (contractData.Status || contractData.status || '').toLowerCase().trim();
             
-            // Check if contract status changed to 'active' or 'pending' (payment may be processed)
+            // Update contract status in state to reflect current backend status
+            setContract(prev => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                status: contractStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'
+              };
+            });
+            
+            // Check if contract status changed to 'active' (payment processed and activated)
             if (contractStatus === 'active') {
               clearInterval(interval);
               setIsPolling(false);
@@ -231,27 +251,32 @@ const ContractDetail: React.FC = () => {
               // Show thank you popup
               setShowThankYouPopup(true);
               showSuccess('Payment successful! Contract has been activated.');
-              // Refresh contract data to update UI
-              const refreshResult = await getContractById(contractId);
-              if (refreshResult.success && refreshResult.data) {
-                // Update contract status in state
-                setContract(prev => {
-                  if (!prev) return null;
-                  return {
-                    ...prev,
-                    status: 'active'
-                  };
-                });
-              }
-            } else if (contractStatus === 'pending' && attemptCount > 2) {
+            } 
+            // If status is 'pending' after payment attempt, payment was received but contract not activated yet
+            else if (contractStatus === 'pending' && attemptCount > 5) {
+              // Payment received but contract needs staff activation
+              clearInterval(interval);
+              setIsPolling(false);
               setPaymentStatusMessage('Payment received! Contract is pending staff activation. You can close this window and check back later.');
-            } else if (contractStatus === 'unpaid') {
-              setPaymentStatusMessage('Waiting for payment confirmation...');
-            } else if (contractStatus === 'cancelled') {
+              // Allow user to close payment modal
+            } 
+            // If status is still 'unpaid' after many attempts, payment might not have gone through
+            else if (contractStatus === 'unpaid' && attemptCount > 20) {
+              setPaymentStatusMessage('Payment is still pending. Please check your bank transaction or try again. You can close this window and check back later.');
+              // Don't stop polling completely, but reduce frequency or allow manual check
+            } 
+            // If contract was cancelled
+            else if (contractStatus === 'cancelled') {
               clearInterval(interval);
               setIsPolling(false);
               setPaymentStatusMessage('Contract was cancelled. Please contact support.');
               showError('Contract was cancelled. Please contact support.');
+            }
+            // If status changed to 'completed', stop polling
+            else if (contractStatus === 'completed') {
+              clearInterval(interval);
+              setIsPolling(false);
+              setPaymentStatusMessage('');
             }
           } else {
             if (import.meta.env.DEV) {
@@ -299,7 +324,30 @@ const ContractDetail: React.FC = () => {
         if (paymentResult.data.qrCodeUrl) {
           setPaymentResponse(paymentResult.data);
           setIsPolling(true);
+          setPollingAttempts(0);
+          setPaymentStatusMessage('');
           showSuccess('Payment QR code generated successfully! Please scan to complete payment.');
+          
+          // Refresh contract status immediately after creating payment
+          try {
+            const refreshResult = await getContractById(contractId);
+            if (refreshResult.success && refreshResult.data) {
+              const contractData = refreshResult.data;
+              const rawStatus = contractData.Status || contractData.status || 'pending';
+              const normalizedStatus = String(rawStatus).toLowerCase().trim();
+              const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+                ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+              const contractStatus = validStatuses.includes(normalizedStatus as any) 
+                ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
+                : 'pending';
+              
+              setContract(prev => prev ? { ...prev, status: contractStatus } : null);
+            }
+          } catch (refreshError) {
+            if (import.meta.env.DEV) {
+              console.error('Error refreshing contract after payment creation:', refreshError);
+            }
+          }
         } else {
           showError('Failed to generate QR code URL. Please contact support.');
         }
@@ -974,23 +1022,29 @@ const ContractDetail: React.FC = () => {
                           const contractResult = await getContractById(contractId);
                           if (contractResult.success && contractResult.data) {
                             const contractData = contractResult.data;
-                            const contractStatus = contractData.Status?.toLowerCase() || contractData.status?.toLowerCase() || '';
+                            const rawStatus = contractData.Status || contractData.status || 'pending';
+                            const normalizedStatus = String(rawStatus).toLowerCase().trim();
+                            const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+                              ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+                            const contractStatus = validStatuses.includes(normalizedStatus as any) 
+                              ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
+                              : 'pending';
+                            
+                            // Update contract status in state
+                            setContract(prev => prev ? { ...prev, status: contractStatus } : null);
                             
                             if (contractStatus === 'active') {
                               setIsPolling(false);
                               setPaymentStatusMessage('');
                               setShowThankYouPopup(true);
                               showSuccess('Payment successful! Contract has been activated.');
-                              // Refresh contract data
-                              const refreshResult = await getContractById(contractId);
-                              if (refreshResult.success && refreshResult.data) {
-                                setContract(prev => prev ? { ...prev, status: 'active' } : null);
-                              }
                             } else if (contractStatus === 'pending') {
                               showSuccess('Payment received! Contract is pending staff activation.');
                               setPaymentStatusMessage('Payment received! Contract is pending staff activation.');
+                            } else if (contractStatus === 'unpaid') {
+                              setPaymentStatusMessage('Payment is still pending. Please check your bank transaction or try again.');
                             } else {
-                              showError(`Contract status: ${contractData.Status || contractData.status}. Please wait for payment confirmation or contact support.`);
+                              showError(`Contract status: ${contractStatus}. Please wait for payment confirmation or contact support.`);
                             }
                           } else {
                             showError('Failed to check contract status. Please try again.');
@@ -1058,17 +1112,26 @@ const ContractDetail: React.FC = () => {
                   setIsPolling(false);
                   setPollingAttempts(0);
                   setPaymentStatusMessage('');
-                  // Refresh contract data
+                  // Refresh contract data with proper status mapping
                   if (contractId) {
                     try {
                       const refreshResult = await getContractById(contractId);
                       if (refreshResult.success && refreshResult.data) {
-                        // Update contract in state
+                        const contractData = refreshResult.data;
+                        const rawStatus = contractData.Status || contractData.status || 'pending';
+                        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+                        const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+                          ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+                        const contractStatus = validStatuses.includes(normalizedStatus as any) 
+                          ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
+                          : 'pending';
+                        
+                        // Update contract in state with correct status from backend
                         setContract(prev => {
                           if (!prev) return null;
                           return {
                             ...prev,
-                            status: 'active'
+                            status: contractStatus
                           };
                         });
                       }
