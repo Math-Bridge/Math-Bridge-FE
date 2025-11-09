@@ -97,8 +97,8 @@ const ContractDetail: React.FC = () => {
         if (directResponse.success && directResponse.data) {
           contractData = directResponse.data;
         } else {
-          // Fallback: Get from parent's contracts list
-          if (user?.id) {
+          // Fallback: Get from parent's contracts list (only for parent role)
+          if (user?.id && user?.role === 'parent') {
             const parentContractsResponse = await getContractsByParent(user.id);
             if (parentContractsResponse.success && parentContractsResponse.data) {
               contractData = parentContractsResponse.data.find((c: any) => 
@@ -365,12 +365,22 @@ const ContractDetail: React.FC = () => {
             {error || 'Contract not found'}
           </h3>
           <p className="text-gray-600 mb-6">The contract you're looking for doesn't exist or couldn't be loaded</p>
-          <button
-            onClick={() => navigate('/contracts')}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Back to Contracts
-          </button>
+          {user?.role !== 'staff' && (
+            <button
+              onClick={() => navigate('/contracts')}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Back to Contracts
+            </button>
+          )}
+          {user?.role === 'staff' && (
+            <button
+              onClick={() => navigate(-1)}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          )}
         </div>
       </div>
     );
@@ -378,16 +388,22 @@ const ContractDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      {/* Back Button - Top Left Corner (Only for non-staff roles) */}
+      {user?.role !== 'staff' && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+          <button
+            onClick={() => navigate('/contracts')}
+            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back to Contracts</span>
+          </button>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/contracts')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-semibold">Back to Contracts</span>
-          </button>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{contract.packageName}</h1>
@@ -1067,17 +1083,19 @@ const ContractDetail: React.FC = () => {
               >
                 View Contract
               </button>
-              <button
-                onClick={() => {
-                  setShowThankYouPopup(false);
-                  setPaymentResponse(null);
-                  setIsPolling(false);
-                  navigate('/contracts');
-                }}
-                className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Back to Contracts
-              </button>
+              {user?.role !== 'staff' && (
+                <button
+                  onClick={() => {
+                    setShowThankYouPopup(false);
+                    setPaymentResponse(null);
+                    setIsPolling(false);
+                    navigate('/contracts');
+                  }}
+                  className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Back to Contracts
+                </button>
+              )}
             </div>
           </div>
         </div>
