@@ -43,6 +43,10 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
   const [tutorsCurrentPage, setTutorsCurrentPage] = useState(1);
   const [showTutorModal, setShowTutorModal] = useState(false);
   const itemsPerPage = 6;
+  // Selected tutors for assignment
+  const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor2, setSelectedSubstituteTutor2] = useState<Tutor | null>(null);
 
   useEffect(() => {
     fetchContracts();
@@ -74,6 +78,10 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
     setShowTutorModal(true);
     setTutorsCurrentPage(1);
     setSearchTerm('');
+    // Reset selected tutors when opening modal
+    setSelectedMainTutor(null);
+    setSelectedSubstituteTutor1(null);
+    setSelectedSubstituteTutor2(null);
     await fetchAvailableTutors(contract);
   };
 
@@ -111,24 +119,66 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
     }
   };
 
-  const handleAssignTutor = async (tutorId: string) => {
+  const handleSelectTutorForRole = (tutor: Tutor, role: 'main' | 'substitute1' | 'substitute2') => {
+    if (role === 'main') {
+      setSelectedMainTutor(tutor);
+    } else if (role === 'substitute1') {
+      setSelectedSubstituteTutor1(tutor);
+    } else if (role === 'substitute2') {
+      setSelectedSubstituteTutor2(tutor);
+    }
+  };
+
+  const handleConfirmAssignment = async () => {
     if (!selectedContract) return;
 
+    // Validate all tutors are selected
+    if (!selectedMainTutor) {
+      showError('Please select a main tutor');
+      return;
+    }
+
+    if (!selectedSubstituteTutor1) {
+      showError('Please select substitute tutor 1');
+      return;
+    }
+
+    if (!selectedSubstituteTutor2) {
+      showError('Please select substitute tutor 2');
+      return;
+    }
+
+    // Validate all tutors are different
+    if (selectedMainTutor.userId === selectedSubstituteTutor1.userId ||
+        selectedMainTutor.userId === selectedSubstituteTutor2.userId ||
+        selectedSubstituteTutor1.userId === selectedSubstituteTutor2.userId) {
+      showError('All tutors must be different');
+      return;
+    }
+
     try {
-      const result = await assignTutorToContract(selectedContract.contractId, tutorId);
+      const result = await assignTutorToContract(
+        selectedContract.contractId,
+        selectedMainTutor.userId,
+        selectedSubstituteTutor1.userId,
+        selectedSubstituteTutor2.userId
+      );
       if (result.success) {
-        showSuccess('Tutor assigned successfully');
+        showSuccess('Tutors assigned successfully');
         setShowTutorModal(false);
         setSelectedContract(null);
         setAvailableTutors([]);
         setSearchTerm('');
+        setSelectedMainTutor(null);
+        setSelectedSubstituteTutor1(null);
+        setSelectedSubstituteTutor2(null);
         fetchContracts();
       } else {
-        showError(result.error || 'Failed to assign tutor');
+        showError(result.error || 'Failed to assign tutors');
       }
     } catch (error) {
-      console.error('Error assigning tutor:', error);
-      showError('Failed to assign tutor');
+      console.error('Error assigning tutors:', error);
+      showError('Failed to assign tutors');
     }
   };
 
@@ -396,6 +446,9 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
               setSelectedContract(null);
               setAvailableTutors([]);
               setSearchTerm('');
+              setSelectedMainTutor(null);
+              setSelectedSubstituteTutor1(null);
+              setSelectedSubstituteTutor2(null);
             }
           }}
         >
@@ -406,21 +459,13 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Assign Tutor</h2>
-                  <p className="text-gray-600 mt-1">
+                  <h2 className="text-2xl font-bold text-gray-900">Assign Tutors</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
                     {selectedContract.packageName} - {selectedContract.childName}
                   </p>
-                  <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                    <span>
-                      {(selectedContract as any).daysOfWeeksDisplay || selectedContract.timeSlot || 'Time not set'}
-                      {(selectedContract as any).startTime && (selectedContract as any).endTime && (
-                        <span className="ml-1">
-                          ({(selectedContract as any).startTime} - {(selectedContract as any).endTime})
-                        </span>
-                      )}
-                    </span>
-                    <span>{selectedContract.isOnline ? 'Online' : 'Offline'}</span>
-                  </div>
+                  <p className="text-red-600 mt-2 text-sm font-medium">
+                    * Please select 1 main tutor and 2 substitute tutors (all must be different)
+                  </p>
                 </div>
                 <button
                   onClick={() => {
@@ -428,143 +473,220 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                     setSelectedContract(null);
                     setAvailableTutors([]);
                     setSearchTerm('');
+                    setSelectedMainTutor(null);
+                    setSelectedSubstituteTutor1(null);
+                    setSelectedSubstituteTutor2(null);
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
-                  </div>
-                </div>
+              </div>
+            </div>
 
             <div className="p-6">
-                {/* Search */}
+              {/* Search */}
               <div className="relative mb-6">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
                   placeholder="Search tutors by name, email, or phone..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
 
-                {/* Tutors List */}
-                {loadingTutors ? (
+              {/* Tutors List */}
+              {loadingTutors && !availableTutors.length ? (
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading available tutors...</p>
-                  </div>
-                ) : filteredTutors.length === 0 ? (
+                  <p className="text-gray-600">Loading available tutors...</p>
+                </div>
+              ) : filteredTutors.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600">
-                      {searchTerm ? 'No tutors match your search' : 'No available tutors found'}
-                    </p>
-                  </div>
-                ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    {paginatedTutors.map((tutor) => (
-                      <div
-                        key={tutor.userId}
-                        className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all"
-                      >
-                        <div className="flex items-start justify-between">
+                  <p className="text-gray-600">
+                    {searchTerm ? 'No tutors match your search' : 'No available tutors found'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Main Tutor Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Main Tutor
+                    </h3>
+                    {selectedMainTutor ? (
+                      <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-500 rounded-lg">
+                        <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900">{tutor.fullName}</h3>
-                            <p className="text-sm text-gray-600 mt-1">{tutor.email}</p>
-                            {tutor.phone && (
-                              <p className="text-sm text-gray-500 mt-1">{tutor.phone}</p>
-                            )}
-                            {tutor.centerName && (
-                              <div className="flex items-center space-x-1 text-sm text-gray-500 mt-2">
-                                <MapPin className="w-4 h-4" />
-                                <span>{tutor.centerName}</span>
-                              </div>
-                            )}
-                            {tutor.rating && (
-                              <div className="flex items-center space-x-1 text-sm text-yellow-600 mt-1">
-                                <span>⭐</span>
-                                <span>{tutor.rating.toFixed(1)}</span>
-                              </div>
+                            <h4 className="font-semibold text-gray-900">{selectedMainTutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedMainTutor.email}</p>
+                            {selectedMainTutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedMainTutor.centerName}
+                              </p>
                             )}
                           </div>
                           <button
-                            onClick={() => handleAssignTutor(tutor.userId)}
-                            className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 flex-shrink-0"
+                            onClick={() => setSelectedMainTutor(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <UserPlus className="w-4 h-4" />
-                            <span>Assign</span>
+                            Change
                           </button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  {/* Tutors Pagination */}
-                  {tutorsTotalPages > 1 && (
-                    <div className="flex items-center justify-between border-t border-gray-200 pt-4 mt-6">
-                      <div className="text-sm text-gray-600">
-                        Showing {tutorsStartIndex + 1} to {Math.min(tutorsEndIndex, filteredTutors.length)} of {filteredTutors.length} tutors
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredTutors
+                          .filter(t => 
+                            t.userId !== selectedSubstituteTutor1?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-blue-500 hover:bg-blue-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'main')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => setTutorsCurrentPage(p => Math.max(1, p - 1))}
-                          disabled={tutorsCurrentPage === 1}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                          <span>Previous</span>
-                        </button>
-                        <div className="flex items-center space-x-1">
-                          {Array.from({ length: tutorsTotalPages }, (_, i) => i + 1).map((page) => {
-                            // Show first page, last page, current page, and pages around current
-                            const showPage = 
-                              page === 1 ||
-                              page === tutorsTotalPages ||
-                              (page >= tutorsCurrentPage - 1 && page <= tutorsCurrentPage + 1);
-                            
-                            if (!showPage) {
-                              // Show ellipsis
-                              if (page === tutorsCurrentPage - 2 || page === tutorsCurrentPage + 2) {
-                                return (
-                                  <span key={page} className="px-2 text-gray-400">
-                                    ...
-                                  </span>
-                                );
-                              }
-                              return null;
-                            }
-                            
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setTutorsCurrentPage(page)}
-                                className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
-                                  tutorsCurrentPage === page
-                                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                                }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          })}
+                    )}
+                  </div>
+
+                  {/* Substitute Tutor 1 Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 1
+                    </h3>
+                    {selectedSubstituteTutor1 ? (
+                      <div className="mb-3 p-4 bg-green-50 border-2 border-green-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor1.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor1.email}</p>
+                            {selectedSubstituteTutor1.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedSubstituteTutor1.centerName}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor1(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setTutorsCurrentPage(p => Math.min(tutorsTotalPages, p + 1))}
-                          disabled={tutorsCurrentPage === tutorsTotalPages}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-                        >
-                          <span>Next</span>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-green-500 hover:bg-green-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </>
-            )}
-          </div>
+
+                  {/* Substitute Tutor 2 Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 2
+                    </h3>
+                    {selectedSubstituteTutor2 ? (
+                      <div className="mb-3 p-4 bg-purple-50 border-2 border-purple-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor2.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor2.email}</p>
+                            {selectedSubstituteTutor2.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedSubstituteTutor2.centerName}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor2(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor1?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-purple-500 hover:bg-purple-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Confirm Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={handleConfirmAssignment}
+                      disabled={!selectedMainTutor || !selectedSubstituteTutor1 || !selectedSubstituteTutor2}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    >
+                      Confirm Assignment
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
         </div>
       </div>
       )}

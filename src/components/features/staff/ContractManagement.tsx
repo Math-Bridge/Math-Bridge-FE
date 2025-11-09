@@ -38,6 +38,10 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  // Selected tutors for assignment
+  const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor2, setSelectedSubstituteTutor2] = useState<Tutor | null>(null);
 
   useEffect(() => {
     fetchContracts();
@@ -196,6 +200,10 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const handleAssignTutor = async (contract: Contract) => {
     setSelectedContract(contract);
     setShowTutorModal(true);
+    // Reset selected tutors when opening modal
+    setSelectedMainTutor(null);
+    setSelectedSubstituteTutor1(null);
+    setSelectedSubstituteTutor2(null);
     await fetchAvailableTutors(contract);
   };
 
@@ -222,35 +230,76 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
     }
   };
 
-  const handleSelectTutor = async (tutorId: string) => {
+  const handleSelectTutorForRole = (tutor: Tutor, role: 'main' | 'substitute1' | 'substitute2') => {
+    if (role === 'main') {
+      setSelectedMainTutor(tutor);
+    } else if (role === 'substitute1') {
+      setSelectedSubstituteTutor1(tutor);
+    } else if (role === 'substitute2') {
+      setSelectedSubstituteTutor2(tutor);
+    }
+  };
+
+  const handleConfirmAssignment = async () => {
     if (!selectedContract) return;
 
-    // Validate tutorId
-    if (!tutorId || tutorId.trim() === '') {
-      showError('Invalid tutor ID');
+    // Validate all tutors are selected
+    if (!selectedMainTutor) {
+      showError('Please select a main tutor');
+      return;
+    }
+
+    if (!selectedSubstituteTutor1) {
+      showError('Please select substitute tutor 1');
+      return;
+    }
+
+    if (!selectedSubstituteTutor2) {
+      showError('Please select substitute tutor 2');
+      return;
+    }
+
+    // Validate all tutors are different
+    if (selectedMainTutor.userId === selectedSubstituteTutor1.userId ||
+        selectedMainTutor.userId === selectedSubstituteTutor2.userId ||
+        selectedSubstituteTutor1.userId === selectedSubstituteTutor2.userId) {
+      showError('All tutors must be different');
       return;
     }
 
     try {
-      setLoadingTutors(true); // Show loading state
-      console.log('Assigning tutor:', { contractId: selectedContract.contractId, tutorId });
-      const result = await assignTutorToContract(selectedContract.contractId, tutorId);
+      setLoadingTutors(true);
+      console.log('Assigning tutors:', {
+        contractId: selectedContract.contractId,
+        mainTutorId: selectedMainTutor.userId,
+        substituteTutor1Id: selectedSubstituteTutor1.userId,
+        substituteTutor2Id: selectedSubstituteTutor2.userId,
+      });
+      const result = await assignTutorToContract(
+        selectedContract.contractId,
+        selectedMainTutor.userId,
+        selectedSubstituteTutor1.userId,
+        selectedSubstituteTutor2.userId
+      );
       if (result.success) {
-        showSuccess('Tutor assigned successfully');
+        showSuccess('Tutors assigned successfully');
         // Close modal and cleanup
         setShowTutorModal(false);
         setSelectedContract(null);
         setAvailableTutors([]);
+        setSelectedMainTutor(null);
+        setSelectedSubstituteTutor1(null);
+        setSelectedSubstituteTutor2(null);
         // Wait a bit for backend to update, then refresh
         setTimeout(() => {
           fetchContracts();
         }, 500);
       } else {
-        showError(result.error || 'Failed to assign tutor');
+        showError(result.error || 'Failed to assign tutors');
       }
     } catch (error: any) {
-      console.error('Error assigning tutor:', error);
-      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to assign tutor';
+      console.error('Error assigning tutors:', error);
+      const errorMsg = error?.response?.data?.error || error?.message || 'Failed to assign tutors';
       showError(errorMsg);
     } finally {
       setLoadingTutors(false);
@@ -587,28 +636,36 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
       {/* Tutor Selection Modal */}
       {showTutorModal && selectedContract && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900">Assign Tutor</h2>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Assign Tutors</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
+                    Contract: {selectedContract.packageName} - {selectedContract.childName}
+                  </p>
+                  <p className="text-red-600 mt-2 text-sm font-medium">
+                    * Please select 1 main tutor and 2 substitute tutors (all must be different)
+                  </p>
+                </div>
                 <button
                   onClick={() => {
                     setShowTutorModal(false);
                     setSelectedContract(null);
                     setAvailableTutors([]);
+                    setSelectedMainTutor(null);
+                    setSelectedSubstituteTutor1(null);
+                    setSelectedSubstituteTutor2(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
-              <p className="text-gray-600 mt-2">
-                Contract: {selectedContract.packageName} - {selectedContract.childName}
-              </p>
             </div>
 
             <div className="p-6">
-              {loadingTutors ? (
+              {loadingTutors && !availableTutors.length ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600">Loading available tutors...</p>
@@ -619,41 +676,179 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                   <p className="text-gray-600">No available tutors found</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {availableTutors.map((tutor) => (
-                    <div
-                      key={tutor.userId}
-                      className={`border border-gray-200 rounded-lg p-4 transition-all ${
-                        loadingTutors 
-                          ? 'opacity-50 cursor-not-allowed' 
-                          : 'hover:border-blue-500 hover:bg-blue-50 cursor-pointer'
-                      }`}
-                      onClick={() => !loadingTutors && handleSelectTutor(tutor.userId)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{tutor.fullName}</h3>
-                          <p className="text-sm text-gray-600">{tutor.email}</p>
-                          {tutor.centerName && (
-                            <p className="text-sm text-gray-500 mt-1">
-                              <MapPin className="w-4 h-4 inline mr-1" />
-                              {tutor.centerName}
-                            </p>
-                          )}
-                        </div>
+                <div className="space-y-6">
+                  {/* Main Tutor Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Main Tutor
+                    </h3>
+                    {selectedMainTutor ? (
+                      <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedMainTutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedMainTutor.email}</p>
+                            {selectedMainTutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedMainTutor.centerName}
+                              </p>
+                            )}
+                          </div>
                           <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectTutor(tutor.userId);
-                          }}
-                          disabled={loadingTutors}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {loadingTutors ? 'Assigning...' : 'Assign'}
-                        </button>
+                            onClick={() => setSelectedMainTutor(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedSubstituteTutor1?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-blue-500 hover:bg-blue-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'main')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Substitute Tutor 1 Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 1
+                    </h3>
+                    {selectedSubstituteTutor1 ? (
+                      <div className="mb-3 p-4 bg-green-50 border-2 border-green-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor1.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor1.email}</p>
+                            {selectedSubstituteTutor1.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedSubstituteTutor1.centerName}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor1(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-green-500 hover:bg-green-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Substitute Tutor 2 Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 2
+                    </h3>
+                    {selectedSubstituteTutor2 ? (
+                      <div className="mb-3 p-4 bg-purple-50 border-2 border-purple-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor2.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor2.email}</p>
+                            {selectedSubstituteTutor2.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {selectedSubstituteTutor2.centerName}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor2(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor1?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-purple-500 hover:bg-purple-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                            {tutor.centerName && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                <MapPin className="w-4 h-4 inline mr-1" />
+                                {tutor.centerName}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Confirm Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={handleConfirmAssignment}
+                      disabled={loadingTutors || !selectedMainTutor || !selectedSubstituteTutor1 || !selectedSubstituteTutor2}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    >
+                      {loadingTutors ? 'Assigning Tutors...' : 'Confirm Assignment'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

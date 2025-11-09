@@ -1502,39 +1502,94 @@ export async function getAllContracts(status?: string) {
   return apiService.request<Contract[]>(`/contracts${query}`);
 }
 
-export async function assignTutorToContract(contractId: string, tutorId: string) {
-  // Validate tutorId is a valid GUID
-  if (!tutorId || tutorId.trim() === '') {
+export async function assignTutorToContract(
+  contractId: string, 
+  mainTutorId: string, 
+  substituteTutor1Id: string, 
+  substituteTutor2Id: string
+) {
+  // Validate all tutor IDs are provided
+  if (!mainTutorId || mainTutorId.trim() === '') {
     return {
       success: false,
-      error: 'Tutor ID is required',
+      error: 'Main tutor ID is required',
+      data: undefined
+    };
+  }
+
+  if (!substituteTutor1Id || substituteTutor1Id.trim() === '') {
+    return {
+      success: false,
+      error: 'Substitute tutor 1 ID is required',
+      data: undefined
+    };
+  }
+
+  if (!substituteTutor2Id || substituteTutor2Id.trim() === '') {
+    return {
+      success: false,
+      error: 'Substitute tutor 2 ID is required',
       data: undefined
     };
   }
 
   // Validate GUID format (basic check)
   const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const trimmedTutorId = tutorId.trim();
-  if (!guidRegex.test(trimmedTutorId)) {
-    console.error('Invalid GUID format for tutorId:', trimmedTutorId);
+  const trimmedMainTutorId = mainTutorId.trim();
+  const trimmedSubstituteTutor1Id = substituteTutor1Id.trim();
+  const trimmedSubstituteTutor2Id = substituteTutor2Id.trim();
+
+  if (!guidRegex.test(trimmedMainTutorId)) {
+    console.error('Invalid GUID format for mainTutorId:', trimmedMainTutorId);
     return {
       success: false,
-      error: 'Invalid tutor ID format',
+      error: 'Invalid main tutor ID format',
       data: undefined
     };
   }
 
-  // Backend endpoint is /assign-tutors (plural) and expects mainTutorId (camelCase in JSON)
+  if (!guidRegex.test(trimmedSubstituteTutor1Id)) {
+    console.error('Invalid GUID format for substituteTutor1Id:', trimmedSubstituteTutor1Id);
+    return {
+      success: false,
+      error: 'Invalid substitute tutor 1 ID format',
+      data: undefined
+    };
+  }
+
+  if (!guidRegex.test(trimmedSubstituteTutor2Id)) {
+    console.error('Invalid GUID format for substituteTutor2Id:', trimmedSubstituteTutor2Id);
+    return {
+      success: false,
+      error: 'Invalid substitute tutor 2 ID format',
+      data: undefined
+    };
+  }
+
+  // Validate that all tutors are different
+  if (trimmedMainTutorId === trimmedSubstituteTutor1Id || 
+      trimmedMainTutorId === trimmedSubstituteTutor2Id || 
+      trimmedSubstituteTutor1Id === trimmedSubstituteTutor2Id) {
+    return {
+      success: false,
+      error: 'All tutors must be different',
+      data: undefined
+    };
+  }
+
+  // Backend endpoint is /assign-tutors (plural) and expects mainTutorId, substituteTutor1Id, substituteTutor2Id (camelCase in JSON)
   // Backend uses JsonPropertyName to map camelCase to PascalCase
-  // Only send mainTutorId, don't send null values for optional fields
   const requestBody: any = {
-    mainTutorId: trimmedTutorId,
+    mainTutorId: trimmedMainTutorId,
+    substituteTutor1Id: trimmedSubstituteTutor1Id,
+    substituteTutor2Id: trimmedSubstituteTutor2Id,
   };
 
-  console.log('Assigning tutor to contract:', {
+  console.log('Assigning tutors to contract:', {
     contractId,
-    tutorId: trimmedTutorId.substring(0, 8) + '...',
-    requestBody: JSON.stringify(requestBody)
+    mainTutorId: trimmedMainTutorId.substring(0, 8) + '...',
+    substituteTutor1Id: trimmedSubstituteTutor1Id.substring(0, 8) + '...',
+    substituteTutor2Id: trimmedSubstituteTutor2Id.substring(0, 8) + '...',
   });
 
   try {
@@ -1544,7 +1599,7 @@ export async function assignTutorToContract(contractId: string, tutorId: string)
     });
 
     if (!result.success) {
-      console.error('Failed to assign tutor:', result.error);
+      console.error('Failed to assign tutors:', result.error);
     }
 
     return result;
@@ -1552,7 +1607,7 @@ export async function assignTutorToContract(contractId: string, tutorId: string)
     console.error('Error in assignTutorToContract:', error);
     return {
       success: false,
-      error: error?.message || 'Failed to assign tutor',
+      error: error?.message || 'Failed to assign tutors',
       data: undefined
     };
   }
