@@ -370,12 +370,9 @@ const CreateContract: React.FC = () => {
       const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
       const startDate = new Date(startDateStr);
       
-      // Calculate end date based on session count and 3 sessions per week
-      // Formula: endDate = startDate + (sessionCount / 3) weeks
-      const sessionsPerWeek = 3;
-      const weeksNeeded = Math.ceil(selectedPackage.sessionCount / sessionsPerWeek);
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + (weeksNeeded * 7));
+      // Calculate end date: 3 months from now (when creating contract)
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 3);
 
       // Format dates as YYYY-MM-DD
       const formatDate = (date: Date) => {
@@ -853,11 +850,8 @@ const CreateContract: React.FC = () => {
                       <p className="text-sm font-medium">Estimated End Date:</p>
                       <p className="text-lg font-bold">
                         {(() => {
-                          const startDate = new Date(schedule.startDate);
-                          const sessionsPerWeek = 3;
-                          const weeksNeeded = Math.ceil(selectedPackage.sessionCount / sessionsPerWeek);
-                          const endDate = new Date(startDate);
-                          endDate.setDate(endDate.getDate() + (weeksNeeded * 7));
+                          const endDate = new Date();
+                          endDate.setMonth(endDate.getMonth() + 3);
                           return endDate.toLocaleDateString('en-US', { 
                             year: 'numeric', 
                             month: 'long', 
@@ -866,7 +860,7 @@ const CreateContract: React.FC = () => {
                         })()}
                       </p>
                       <p className="text-xs mt-1">
-                        Based on {selectedPackage.sessionCount} sessions, 3 sessions/week = {Math.ceil(selectedPackage.sessionCount / 3)} weeks
+                        3 months from contract creation date
                       </p>
                     </div>
                   </div>
@@ -877,7 +871,7 @@ const CreateContract: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Days of Week <span className="text-red-500">*</span>
-                  <span className="ml-2 text-xs text-gray-500">(Maximum 3 days)</span>
+                  <span className="ml-2 text-xs text-gray-500">(Exactly 3 days required)</span>
                 </label>
                 <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
                   {[
@@ -950,15 +944,20 @@ const CreateContract: React.FC = () => {
                     (schedule.daysOfWeeks & 32) !== 0 && 'Friday',
                     (schedule.daysOfWeeks & 64) !== 0 && 'Saturday'
                   ].filter(Boolean).join(', ') || 'No days selected'}
-                  {[
-                    (schedule.daysOfWeeks & 1) !== 0,
-                    (schedule.daysOfWeeks & 2) !== 0,
-                    (schedule.daysOfWeeks & 4) !== 0,
-                    (schedule.daysOfWeeks & 8) !== 0,
-                    (schedule.daysOfWeeks & 16) !== 0,
-                    (schedule.daysOfWeeks & 32) !== 0,
-                    (schedule.daysOfWeeks & 64) !== 0
-                  ].filter(Boolean).length === 3 && ' (Maximum reached)'}
+                  {(() => {
+                    const count = [
+                      (schedule.daysOfWeeks & 1) !== 0,
+                      (schedule.daysOfWeeks & 2) !== 0,
+                      (schedule.daysOfWeeks & 4) !== 0,
+                      (schedule.daysOfWeeks & 8) !== 0,
+                      (schedule.daysOfWeeks & 16) !== 0,
+                      (schedule.daysOfWeeks & 32) !== 0,
+                      (schedule.daysOfWeeks & 64) !== 0
+                    ].filter(Boolean).length;
+                    if (count === 3) return ' (3 days selected - Required)';
+                    if (count < 3) return ` (${3 - count} more day${3 - count > 1 ? 's' : ''} required)`;
+                    return '';
+                  })()}
                 </p>
               </div>
 
@@ -1147,7 +1146,7 @@ const CreateContract: React.FC = () => {
                       return;
                     }
                     
-                    // Validate days of week - at least 1 day must be selected
+                    // Validate days of week - exactly 3 days must be selected
                     const selectedDaysCount = [
                       (schedule.daysOfWeeks & 1) !== 0,
                       (schedule.daysOfWeeks & 2) !== 0,
@@ -1158,15 +1157,10 @@ const CreateContract: React.FC = () => {
                       (schedule.daysOfWeeks & 64) !== 0
                     ].filter(Boolean).length;
                     
-                    if (selectedDaysCount === 0) {
-                      const msg = 'Please select at least 1 day of the week';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    if (selectedDaysCount > 3) {
-                      const msg = 'Maximum 3 days can be selected';
+                    if (selectedDaysCount !== 3) {
+                      const msg = selectedDaysCount < 3 
+                        ? `Please select exactly 3 days. Currently selected: ${selectedDaysCount} day${selectedDaysCount !== 1 ? 's' : ''}`
+                        : `Please select exactly 3 days. Currently selected: ${selectedDaysCount} days`;
                       setError(msg);
                       showError(msg);
                       return;

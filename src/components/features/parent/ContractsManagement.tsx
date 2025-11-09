@@ -33,7 +33,7 @@ interface Contract {
   totalSessions: number;
   completedSessions: number;
   price: number;
-  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
   startDate: string;
   endDate: string;
   schedule: string;
@@ -49,7 +49,7 @@ const ContractsManagement: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'>('all');
   const [selectedChildId, setSelectedChildId] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
@@ -246,6 +246,8 @@ const ContractsManagement: React.FC = () => {
         return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'unpaid':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -261,6 +263,8 @@ const ContractsManagement: React.FC = () => {
         return <CheckCircle className="w-4 h-4" />;
       case 'cancelled':
         return <XCircle className="w-4 h-4" />;
+      case 'unpaid':
+        return <DollarSign className="w-4 h-4" />;
       default:
         return <AlertCircle className="w-4 h-4" />;
     }
@@ -322,6 +326,7 @@ const ContractsManagement: React.FC = () => {
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             {[
               { key: 'all', label: 'All', count: contracts.length },
+              { key: 'unpaid', label: 'Unpaid', count: contracts.filter(c => c.status === 'unpaid').length },
               { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
               { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
               { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
