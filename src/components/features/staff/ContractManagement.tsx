@@ -5,7 +5,6 @@ import {
   Calendar,
   Clock,
   MapPin,
-  CheckCircle,
   XCircle,
   Search,
   Filter,
@@ -71,6 +70,11 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
       setLoading(true);
       const result = await getAllContracts();
       if (result.success && result.data) {
+        // Debug: Log raw contract data in development
+        if (import.meta.env.DEV) {
+          console.log('Raw contracts from API:', result.data);
+        }
+        
         // Map backend response (PascalCase) to frontend format (camelCase)
         const mappedContracts = await Promise.all(
           result.data.map(async (contract: any) => {
@@ -88,6 +92,38 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
               } else {
                 console.warn('Could not fetch tutor name for tutorId:', mainTutorId);
               }
+            }
+            
+            // Map status correctly from backend - handle all possible formats
+            // Backend may return status as: Status, status, or in various cases
+            let rawStatus = contract.Status || contract.status;
+            
+            // Handle null/undefined/empty cases
+            if (!rawStatus || rawStatus === null || rawStatus === undefined) {
+              rawStatus = 'pending';
+            }
+            
+            // Convert to string and normalize (lowercase, trim whitespace)
+            const normalizedStatus = String(rawStatus).toLowerCase().trim();
+            
+            // Validate status is one of the allowed values
+            const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+              ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+            
+            let contractStatus: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
+            if (validStatuses.includes(normalizedStatus as any)) {
+              contractStatus = normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
+            } else {
+              // Log warning if status is invalid for debugging
+              if (import.meta.env.DEV) {
+                console.warn(`Invalid contract status received: "${rawStatus}" (normalized: "${normalizedStatus}"). Defaulting to "pending". Contract ID: ${contract.contractId || contract.ContractId}`);
+              }
+              contractStatus = 'pending'; // Default to pending if status is invalid
+            }
+            
+            // Debug logging in development - log all status mappings
+            if (import.meta.env.DEV) {
+              console.log(`Contract ${contract.contractId || contract.ContractId}: Status - Raw: "${rawStatus}", Normalized: "${normalizedStatus}", Final: "${contractStatus}"`);
             }
             
             return {
@@ -108,7 +144,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                 ? `${contract.startTime} - ${contract.endTime}` 
                 : ''),
               isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
-              status: contract.status || contract.Status,
+              status: contractStatus,
             };
           })
         );
@@ -128,9 +164,13 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const filterContracts = () => {
     let filtered = [...contracts];
 
-    // Filter by status
+    // Filter by status - normalize comparison
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(c => c.status === statusFilter);
+      filtered = filtered.filter(c => {
+        const contractStatus = String(c.status || '').toLowerCase().trim();
+        const filterStatus = statusFilter.toLowerCase().trim();
+        return contractStatus === filterStatus;
+      });
     }
 
     // Filter by search term
@@ -164,7 +204,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
       setLoadingTutors(true);
       // Extract days of week from contract if available
       const result = await getAvailableTutors({
-        centerId: contract.centerId,
+        centerId: contract.centerId || undefined,
         isOnline: contract.isOnline,
         // daysOfWeek: contract.daysOfWeeks, // If available in Contract interface
       });
@@ -253,7 +293,8 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   };
 
   const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+    const normalizedStatus = String(status || '').toLowerCase().trim();
+    switch (normalizedStatus) {
       case 'active':
         return 'bg-green-100 text-green-800';
       case 'pending':
@@ -262,6 +303,8 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
         return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
+      case 'unpaid':
+        return 'bg-orange-100 text-orange-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -317,6 +360,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
               >
                 <option value="all">All Status</option>
+                <option value="unpaid">Unpaid</option>
                 <option value="pending">Pending</option>
                 <option value="active">Active</option>
                 <option value="completed">Completed</option>
@@ -351,7 +395,11 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     <div className="flex items-center space-x-2">
                       {contract.status === 'cancelled' ? (
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(contract.status)}`}>
-                          {contract.status}
+                          Cancelled
+                        </span>
+                      ) : contract.status === 'unpaid' ? (
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(contract.status)}`}>
+                          Unpaid
                         </span>
                       ) : (
                         <>
@@ -359,11 +407,12 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                             value={contract.status}
                             onChange={(e) => {
                               const newStatus = e.target.value as 'active' | 'completed' | 'cancelled';
+                              // Only allow updating to active, completed, or cancelled (not unpaid or pending)
                               if (newStatus !== contract.status && (newStatus === 'active' || newStatus === 'completed' || newStatus === 'cancelled')) {
                                 handleUpdateStatus(contract.contractId, newStatus, contract);
                               }
                             }}
-                            disabled={updatingStatus === contract.contractId}
+                            disabled={updatingStatus === contract.contractId || contract.status === 'unpaid'}
                             className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 border-0 cursor-pointer ${getStatusColor(contract.status)} disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           >
                             <option value="pending" disabled={contract.status !== 'pending'}>Pending</option>
@@ -372,13 +421,14 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                               disabled={
                                 contract.status === 'completed' || 
                                 contract.status === 'cancelled' || 
+                                contract.status === 'unpaid' ||
                                 !contract.mainTutorId
                               }
                             >
                               Active{!contract.mainTutorId ? ' (Assign tutor first)' : ''}
                             </option>
-                            <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled'}>Completed</option>
-                            <option value="cancelled">Cancelled</option>
+                            <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled' || contract.status === 'unpaid'}>Completed</option>
+                            <option value="cancelled" disabled={contract.status === 'unpaid'}>Cancelled</option>
                           </select>
                           {updatingStatus === contract.contractId && (
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>

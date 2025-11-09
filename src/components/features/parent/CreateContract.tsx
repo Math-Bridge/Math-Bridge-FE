@@ -13,7 +13,6 @@ import {
   Clock,
   Calendar,
   Wallet,
-  Building2,
   QrCode,
   Copy,
   X
@@ -129,10 +128,13 @@ const CreateContract: React.FC = () => {
               }, 2000);
             } else if (contractStatus === 'pending' && attemptCount > 2) {
               // After a few polling attempts, if status is 'pending', payment might be processed
-              // but contract is waiting for staff activation
+              // Backend webhook sets status to "Pending" (capital P) after payment, but frontend receives lowercase
+              // Contract is waiting for staff activation after payment confirmation
               setPaymentStatusMessage('Payment received! Contract is pending staff activation. You can close this window and check back later.');
             } else if (contractStatus === 'unpaid') {
-              setPaymentStatusMessage('Waiting for payment confirmation...');
+              // Contract is in "unpaid" status - waiting for payment
+              // This happens after createContractDirectPayment is called (backend sets status to "unpaid")
+              setPaymentStatusMessage('Waiting for payment confirmation... Please complete the payment using the QR code.');
             } else if (contractStatus === 'cancelled') {
               clearInterval(interval);
               setIsPolling(false);
@@ -174,7 +176,8 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            setWalletBalance(walletResult.data.walletBalance || 0);
+            // Backend returns wallet data with 'balance' property (camelCase)
+            setWalletBalance(walletResult.data.balance || 0);
           }
         } catch (err) {
           console.error('Error refreshing wallet balance:', err);
@@ -301,7 +304,8 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            setWalletBalance(walletResult.data.walletBalance || 0);
+            // Backend returns wallet data with 'balance' property (camelCase)
+            setWalletBalance(walletResult.data.balance || 0);
           }
         } catch (err) {
           console.error('Error fetching wallet balance:', err);
@@ -380,7 +384,10 @@ const CreateContract: React.FC = () => {
       };
 
       // Create contract request
-     
+      // Note: paymentMethod is used in frontend to determine payment flow after contract creation
+      // Backend doesn't store paymentMethod, but uses it to determine status handling:
+      // - wallet: contract created with "pending", then wallet is deducted
+      // - direct_payment: contract created with "pending", then SePayService updates to "unpaid" when creating payment
       const contractData: any = {
         parentId: user.id,
         childId: selectedChild.childId,
@@ -392,7 +399,7 @@ const CreateContract: React.FC = () => {
         startTime: schedule.startTime, // Format: HH:mm (validated above)
         endTime: schedule.endTime, // Format: HH:mm (validated above)
         isOnline: schedule.isOnline,
-        paymentMethod: paymentMethod // Add payment method to contract
+        paymentMethod: paymentMethod // Used in frontend to determine payment flow
       };
 
       // Optional fields
@@ -462,9 +469,30 @@ const CreateContract: React.FC = () => {
             const paymentResult = await createContractDirectPayment(contractId);
             
             if (paymentResult.success && paymentResult.data) {
-              if (paymentResult.data.qrCodeUrl) {
-                setPaymentResponse(paymentResult.data);
+              // Backend returns response with camelCase properties (Success -> success, QrCodeUrl -> qrCodeUrl, etc.)
+              // due to JsonNamingPolicy.CamelCase configuration, but handle both cases for safety
+              const paymentData = paymentResult.data as any;
+              
+              // Check if QR code URL exists (handle both camelCase and PascalCase)
+              const qrCodeUrl = paymentData.qrCodeUrl || paymentData.QrCodeUrl;
+              
+              if (qrCodeUrl) {
+                // Map response to match frontend interface (ensure camelCase)
+                const mappedPaymentResponse: SePayPaymentResponse = {
+                  success: paymentData.success ?? paymentData.Success ?? true,
+                  message: paymentData.message || paymentData.Message || 'Payment request created successfully',
+                  qrCodeUrl: qrCodeUrl,
+                  orderReference: paymentData.orderReference || paymentData.OrderReference || '',
+                  walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
+                  amount: paymentData.amount || paymentData.Amount || selectedPackage.price,
+                  bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
+                  transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
+                };
+                
+                setPaymentResponse(mappedPaymentResponse);
                 setIsPolling(true);
+                setPollingAttempts(0);
+                setPaymentStatusMessage('Waiting for payment confirmation...');
                 showSuccess('Contract created! Please scan QR code to complete payment.');
               } else {
                 if (import.meta.env.DEV) {
@@ -477,8 +505,9 @@ const CreateContract: React.FC = () => {
               if (import.meta.env.DEV) {
                 console.error('Payment creation failed:', paymentResult.error);
               }
-              showError(paymentResult.error || 'Failed to create payment QR code. Please contact support.');
-              // Navigate to contract detail anyway
+              const errorMessage = paymentResult.error || paymentResult.message || 'Failed to create payment QR code. Please contact support.';
+              showError(errorMessage);
+              // Navigate to contract detail anyway - contract was created, just payment setup failed
               navigate(`/contracts/${contractId || ''}`);
             }
           } catch (paymentError) {

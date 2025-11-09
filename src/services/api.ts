@@ -765,8 +765,20 @@ export async function createContract(data: CreateContractRequest) {
   
   // Payment method is not sent to backend - it's only used in frontend to determine payment flow
   // Backend doesn't need to know payment method as it's handled differently:
-  // - wallet: frontend calls deductWallet after contract creation
+  // - wallet: frontend calls deductWallet after contract creation (contract created with "pending" status)
   // - direct_payment: frontend calls createContractDirectPayment after contract creation
+  //   Backend SePayService will update contract status to "unpaid" when creating payment
+  
+  // Set status based on payment method:
+  // - For direct_payment: send "pending" (backend SePayService will change it to "unpaid")
+  // - For wallet: send "pending" (will be activated after wallet deduction)
+  if (cleanData.paymentMethod === 'direct_payment') {
+    // Contract will be created with "pending" status, then SePayService will update it to "unpaid"
+    requestData.Status = 'pending';
+  } else {
+    // Default to "pending" for wallet payment
+    requestData.Status = cleanData.status || 'pending';
+  }
   
   // Create contract request
   
