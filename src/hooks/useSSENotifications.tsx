@@ -4,6 +4,22 @@ import { EventSourcePolyfill } from 'event-source-polyfill';
 
 const SSE_URL = 'https://api.vibe88.tech/api/Notification/sse/connect';
 
+// Backend notification format from API
+export interface BackendNotification {
+  NotificationId?: string;
+  UserId?: string;
+  ContractId?: string;
+  BookingId?: string;
+  Title?: string;
+  Message?: string;
+  NotificationType?: string;
+  Status?: string;
+  CreatedDate?: string;
+  SentDate?: string | null;
+  IsRead?: boolean;
+}
+
+// Frontend notification format
 export interface SSENotification {
   id?: string;
   title?: string;
@@ -32,6 +48,34 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3 seconds
+
+  // Map backend notification format to frontend format
+  const mapBackendNotification = useCallback((backendData: BackendNotification): SSENotification => {
+    // Determine notification type based on NotificationType or default to 'info'
+    let type: 'info' | 'success' | 'warning' | 'error' = 'info';
+    
+    if (backendData.NotificationType) {
+      const notifType = backendData.NotificationType.toLowerCase();
+      if (notifType.includes('reminder') || notifType.includes('upcoming')) {
+        type = 'info';
+      } else if (notifType.includes('success') || notifType.includes('complete')) {
+        type = 'success';
+      } else if (notifType.includes('warning') || notifType.includes('cancel')) {
+        type = 'warning';
+      } else if (notifType.includes('error') || notifType.includes('fail')) {
+        type = 'error';
+      }
+    }
+
+    return {
+      id: backendData.NotificationId,
+      title: backendData.Title,
+      message: backendData.Message || 'New notification',
+      type,
+      timestamp: backendData.CreatedDate || backendData.SentDate || new Date().toISOString(),
+      data: backendData,
+    };
+  }, []);
 
   const handleNotification = useCallback((notification: SSENotification) => {
     console.log('SSE Notification received:', notification);
@@ -93,11 +137,18 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
       };
 
       eventSource.onmessage = (event) => {
+        console.log('SSE raw message received:', event.data);
         try {
-          const data = JSON.parse(event.data);
-          handleNotification(data);
+          const backendData = JSON.parse(event.data) as BackendNotification;
+          console.log('SSE parsed backend data:', backendData);
+          
+          // Map backend format to frontend format
+          const mappedNotification = mapBackendNotification(backendData);
+          console.log('SSE mapped notification:', mappedNotification);
+          
+          handleNotification(mappedNotification);
         } catch (error) {
-          console.error('Error parsing SSE message:', error);
+          console.error('Error parsing SSE message:', error, 'Raw data:', event.data);
           // If it's not JSON, treat it as a plain text message
           handleNotification({
             message: event.data,
@@ -107,12 +158,19 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
       };
 
       // Handle specific event types if the server sends them
-      eventSource.addEventListener('notification', (event) => {
+      eventSource.addEventListener('notification', (event: any) => {
+        console.log('SSE notification event received:', event.data);
         try {
-          const data = JSON.parse(event.data);
-          handleNotification(data);
+          const backendData = JSON.parse(event.data) as BackendNotification;
+          console.log('SSE notification event parsed:', backendData);
+          
+          // Map backend format to frontend format
+          const mappedNotification = mapBackendNotification(backendData);
+          console.log('SSE notification event mapped:', mappedNotification);
+          
+          handleNotification(mappedNotification);
         } catch (error) {
-          console.error('Error parsing notification event:', error);
+          console.error('Error parsing notification event:', error, 'Raw data:', event.data);
         }
       });
 
@@ -136,7 +194,7 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
     } catch (error) {
       console.error('Error creating SSE connection:', error);
     }
-  }, [handleNotification]);
+  }, [handleNotification, mapBackendNotification]);
 
   const disconnect = useCallback(() => {
     console.log('Disconnecting SSE');
