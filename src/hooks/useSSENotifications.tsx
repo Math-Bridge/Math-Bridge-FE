@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
+import { EventSourcePolyfill } from 'event-source-polyfill';
 
 const SSE_URL = 'https://api.vibe88.tech/api/Notification/sse/connect';
 
@@ -26,7 +27,7 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
   } = options;
 
   const { showInfo, showSuccess, showWarning, showError } = useToast();
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSourcePolyfill | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
@@ -66,7 +67,7 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
 
   const connect = useCallback(() => {
     // Don't reconnect if already connected
-    if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSource.CLOSED) {
+    if (eventSourceRef.current && eventSourceRef.current.readyState !== EventSourcePolyfill.CLOSED) {
       console.log('SSE already connected');
       return;
     }
@@ -76,9 +77,14 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
 
       // Get auth token for authenticated connection
       const token = localStorage.getItem('authToken');
-      const url = token ? `${SSE_URL}?token=${encodeURIComponent(token)}` : SSE_URL;
-
-      const eventSource = new EventSource(url);
+      
+      // Create EventSource with Bearer token in Authorization header
+      const eventSource = new EventSourcePolyfill(SSE_URL, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        heartbeatTimeout: 120000, // 2 minutes
+      });
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
@@ -162,7 +168,7 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
   return {
     connect,
     disconnect,
-    isConnected: eventSourceRef.current?.readyState === EventSource.OPEN,
+    isConnected: eventSourceRef.current?.readyState === EventSourcePolyfill.OPEN,
   };
 };
 
