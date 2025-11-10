@@ -33,6 +33,12 @@ const Login: React.FC = () => {
     setErrors({}); // Clear previous errors
     const result = await login(email, password);
     if (result.success) {
+      // Check if user needs to set up location
+      if (result.needsLocationSetup) {
+        navigate('/parent/profile', { replace: true, state: { needsLocation: true } });
+        return;
+      }
+
       // Get user role from localStorage to determine redirect
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
@@ -70,6 +76,12 @@ const Login: React.FC = () => {
       const loginResult = await googleLogin(idToken);
       
       if (loginResult.success) {
+        // Check if user needs to set up location
+        if (loginResult.needsLocationSetup) {
+          navigate('/parent/profile', { replace: true, state: { needsLocation: true } });
+          return;
+        }
+
         // Get user role from localStorage to determine redirect
         const savedUser = localStorage.getItem('user');
         if (savedUser) {

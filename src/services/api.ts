@@ -320,6 +320,14 @@ class ApiService {
     return this.request(`/location/autocomplete?input=${encodeURIComponent(input)}&country=${country}`);
   }
 
+  async getUserLocation(userId: string): Promise<ApiResponse<{
+    placeId?: string;
+    address?: string;
+    description?: string;
+  }>> {
+    return this.request(`/location/user/${userId}`);
+  }
+
   async saveAddress(placeId: string): Promise<ApiResponse<{
     success: boolean;
     message: string;
@@ -327,7 +335,7 @@ class ApiService {
   }>> {
     return this.request('/location/save-address', {
       method: 'POST',
-      body: JSON.stringify({ PlaceId: placeId }),
+      body: JSON.stringify({ placeId: placeId }),
     });
   }
 

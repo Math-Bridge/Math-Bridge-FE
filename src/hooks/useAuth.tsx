@@ -5,9 +5,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (signupData: any) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
+  googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
+  signup: (signupData: any) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -285,7 +285,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('authToken', token);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
-        return { success: true };
+        // New users always need to set up their location
+        return { success: true, needsLocationSetup: true };
       } else {
         return { success: false, error: response.error || 'Signup failed' };
       }
