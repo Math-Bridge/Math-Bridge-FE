@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { Layout } from './components/common';
+import { Layout, SSENotificationProvider } from './components/common';
 import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
 // import { UserHome } from './components/user'; // Replaced with ParentDashboardPage
@@ -113,8 +113,9 @@ function App() {
       <SettingsProvider>
         <ToastProvider>
           <AuthProvider>
-            <Routes>
-            <Route path="/" element={<Layout />}>
+            <SSENotificationProvider>
+              <Routes>
+              <Route path="/" element={<Layout />}>
               <Route index element={<RoleBasedRedirect />} />
               <Route path="login" element={<Login />} />
               <Route path="signup" element={<Signup />} />
@@ -281,6 +282,7 @@ function App() {
             } />
           </Route>
         </Routes>
+            </SSENotificationProvider>
           </AuthProvider>
         </ToastProvider>
       </SettingsProvider>

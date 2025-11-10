@@ -7,3 +7,6 @@ export { default as ErrorBoundary } from './ErrorBoundary';
 export { ToastContainer } from './Toast';
 export type { Toast, ToastType } from './Toast';
 export { default as ConfirmDialog } from './ConfirmDialog';
+export { SSENotificationProvider } from './SSENotificationProvider';
+export { default as CustomerSupportButton } from './CustomerSupportButton';
+export { default as CustomerSupportChat } from './CustomerSupportChat';
