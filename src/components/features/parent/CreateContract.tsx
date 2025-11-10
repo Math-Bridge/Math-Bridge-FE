@@ -82,6 +82,7 @@ const CreateContract: React.FC = () => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [pollingAttempts, setPollingAttempts] = useState(0);
   const [paymentStatusMessage, setPaymentStatusMessage] = useState<string>('');
+  const [paymentConfirmed, setPaymentConfirmed] = useState(false); // Track when payment is confirmed (status changed to pending)
   const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
 
   useEffect(() => {
@@ -121,6 +122,7 @@ const CreateContract: React.FC = () => {
               setIsPolling(false);
               setPollingAttempts(0);
               setPaymentStatusMessage('');
+              setPaymentConfirmed(false);
               showSuccess('Payment successful! Contract has been activated.');
               // Navigate to contract detail after 2 seconds
               setTimeout(() => {
@@ -130,7 +132,21 @@ const CreateContract: React.FC = () => {
               // After a few polling attempts, if status is 'pending', payment might be processed
               // Backend webhook sets status to "Pending" (capital P) after payment, but frontend receives lowercase
               // Contract is waiting for staff activation after payment confirmation
-              setPaymentStatusMessage('Payment received! Contract is pending staff activation. You can close this window and check back later.');
+              
+              // If payment was just confirmed (status changed from unpaid to pending), show thank you popup
+              if (!paymentConfirmed) {
+                setPaymentConfirmed(true);
+                showSuccess('Thank you! Your payment has been confirmed. The contract is pending staff activation.');
+                
+                // Reduce polling frequency after payment confirmed (check every 30 seconds instead of 5 seconds)
+                // Since payment is confirmed, we just need to wait for staff activation
+                // We'll continue polling but less frequently
+              }
+              
+              setPaymentStatusMessage('Payment confirmed! Contract is pending staff activation. You can close this window and check back later.');
+              
+              // Optionally stop polling after payment is confirmed (since we're just waiting for staff now)
+              // Or continue polling but less frequently - for now we'll continue polling to detect when contract becomes active
             } else if (contractStatus === 'unpaid') {
               // Contract is in "unpaid" status - waiting for payment
               // This happens after createContractDirectPayment is called (backend sets status to "unpaid")
@@ -139,6 +155,7 @@ const CreateContract: React.FC = () => {
               clearInterval(interval);
               setIsPolling(false);
               setPaymentStatusMessage('Contract was cancelled. Please contact support.');
+              setPaymentConfirmed(false);
               showError('Contract was cancelled. Please contact support.');
             }
           } else {
@@ -1495,11 +1512,14 @@ const CreateContract: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">Payment QR Code</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                Payment QR Code
+              </h3>
               <button
                 onClick={() => {
                   setPaymentResponse(null);
                   setIsPolling(false);
+                  setPaymentConfirmed(false);
                   navigate(`/contracts/${createdContractId}`);
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1509,8 +1529,24 @@ const CreateContract: React.FC = () => {
             </div>
 
             <div className="p-6">
+              {/* Payment Confirmed Success Message */}
+              {paymentConfirmed && (
+                <div className="mb-4 p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+                  <div className="flex items-center gap-3 mb-2">
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                    <h4 className="text-lg font-bold text-green-800">Thank You!</h4>
+                  </div>
+                  <p className="text-sm text-green-700 mb-2">
+                    Your payment has been successfully confirmed.
+                  </p>
+                  <p className="text-sm text-green-700">
+                    The contract is pending staff activation. You will receive a notification when the contract is activated.
+                  </p>
+                </div>
+              )}
+
               {/* Payment Status */}
-              {isPolling && (
+              {isPolling && !paymentConfirmed && (
                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-5 h-5 text-yellow-600" />
@@ -1525,133 +1561,161 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
-              {/* QR Code */}
-              <div className="text-center mb-6">
-                <p className="text-gray-600 mb-4">Scan QR code with your banking app</p>
-                <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg">
-                  <img
-                    src={paymentResponse.qrCodeUrl}
-                    alt="QR Code"
-                    className="w-64 h-64 mx-auto"
-                  />
+              {/* Payment Status - After Confirmation - Hidden, only show Thank You banner */}
+
+              {/* QR Code - Hide after payment is confirmed */}
+              {!paymentConfirmed && (
+                <div className="text-center mb-6">
+                  <p className="text-gray-600 mb-4">Scan QR code with your banking app</p>
+                  <div className="inline-block p-4 bg-white border-2 border-gray-200 rounded-lg">
+                    <img
+                      src={paymentResponse.qrCodeUrl}
+                      alt="QR Code"
+                      className="w-64 h-64 mx-auto"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Payment Details */}
-              <div className="space-y-4 mb-6">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Amount:</span>
-                      <span className="text-xl font-bold text-blue-600">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}
-                      </span>
-                    </div>
-
-                    <div className="border-t border-gray-200 pt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Content:</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={paymentResponse.transferContent}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                        />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(paymentResponse.transferContent);
-                            setCopiedField('content');
-                            setTimeout(() => setCopiedField(null), 2000);
-                          }}
-                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                          title="Copy"
-                        >
-                          {copiedField === 'content' ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Copy className="w-5 h-5 text-gray-600" />
-                          )}
-                        </button>
+              {/* Payment Details - Hide after payment is confirmed */}
+              {!paymentConfirmed && (
+                <div className="space-y-4 mb-6">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Amount:</span>
+                        <span className="text-xl font-bold text-blue-600">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}
+                        </span>
                       </div>
-                    </div>
 
-                    <div className="border-t border-gray-200 pt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Bank Information:</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={paymentResponse.bankInfo}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                        />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(paymentResponse.bankInfo);
-                            setCopiedField('bank');
-                            setTimeout(() => setCopiedField(null), 2000);
-                          }}
-                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                          title="Copy"
-                        >
-                          {copiedField === 'bank' ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Copy className="w-5 h-5 text-gray-600" />
-                          )}
-                        </button>
+                      <div className="border-t border-gray-200 pt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Content:</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={paymentResponse.transferContent}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(paymentResponse.transferContent);
+                              setCopiedField('content');
+                              setTimeout(() => setCopiedField(null), 2000);
+                            }}
+                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            title="Copy"
+                          >
+                            {copiedField === 'content' ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <Copy className="w-5 h-5 text-gray-600" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="border-t border-gray-200 pt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Order Reference:</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          readOnly
-                          value={paymentResponse.orderReference}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                        />
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(paymentResponse.orderReference);
-                            setCopiedField('reference');
-                            setTimeout(() => setCopiedField(null), 2000);
-                          }}
-                          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                          title="Copy"
-                        >
-                          {copiedField === 'reference' ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <Copy className="w-5 h-5 text-gray-600" />
-                          )}
-                        </button>
+                      <div className="border-t border-gray-200 pt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bank Information:</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={paymentResponse.bankInfo}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(paymentResponse.bankInfo);
+                              setCopiedField('bank');
+                              setTimeout(() => setCopiedField(null), 2000);
+                            }}
+                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            title="Copy"
+                          >
+                            {copiedField === 'bank' ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <Copy className="w-5 h-5 text-gray-600" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Order Reference:</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={paymentResponse.orderReference}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(paymentResponse.orderReference);
+                              setCopiedField('reference');
+                              setTimeout(() => setCopiedField(null), 2000);
+                            }}
+                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            title="Copy"
+                          >
+                            {copiedField === 'reference' ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <Copy className="w-5 h-5 text-gray-600" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Payment Instructions */}
-              <div className="bg-blue-50 rounded-lg p-4 mb-6">
-                <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-                  <li>Scan the QR code above with your banking app, or</li>
-                  <li>Transfer manually using:
-                    <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
-                      <li>Amount: <strong>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</strong></li>
-                      <li>Transfer content: <strong className="font-mono">{paymentResponse.transferContent}</strong></li>
-                      <li>Bank info: <strong>{paymentResponse.bankInfo}</strong></li>
-                    </ul>
-                  </li>
-                  <li>After completing the transfer, the system will automatically detect and activate your contract</li>
-                  <li>This process usually takes 1-5 minutes after payment completion</li>
-                  <li>You can close this window and check your contract status later if needed</li>
-                </ol>
-              </div>
+              {/* Payment Summary - Show simplified version after payment confirmed */}
+              {paymentConfirmed && (
+                <div className="space-y-4 mb-6">
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">Amount Paid:</span>
+                        <span className="text-xl font-bold text-green-700">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm pt-2 border-t border-green-200">
+                        <span className="text-gray-600">Order Reference:</span>
+                        <span className="font-mono text-gray-700">{paymentResponse.orderReference}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              {/* Auto-checking status */}
-              {isPolling && (
+              {/* Payment Instructions - Hide after payment is confirmed */}
+              {!paymentConfirmed && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
+                    <li>Scan the QR code above with your banking app, or</li>
+                    <li>Transfer manually using:
+                      <ul className="list-disc list-inside ml-4 mt-1 space-y-1">
+                        <li>Amount: <strong>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(paymentResponse.amount)}</strong></li>
+                        <li>Transfer content: <strong className="font-mono">{paymentResponse.transferContent}</strong></li>
+                        <li>Bank info: <strong>{paymentResponse.bankInfo}</strong></li>
+                      </ul>
+                    </li>
+                    <li>After completing the transfer, the system will automatically detect and activate your contract</li>
+                    <li>This process usually takes 1-5 minutes after payment completion</li>
+                    <li>You can close this window and check your contract status later if needed</li>
+                  </ol>
+                </div>
+              )}
+
+              {/* Auto-checking status - Only show when payment not confirmed */}
+              {isPolling && !paymentConfirmed && (
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
@@ -1664,9 +1728,23 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
+              {/* After payment confirmed - Next steps */}
+              {paymentConfirmed && (
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  <h3 className="font-semibold text-blue-900 mb-2">What's Next?</h3>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
+                    <li>Your payment has been successfully received</li>
+                    <li>The contract is now pending staff activation</li>
+                    <li>Our staff will review and activate your contract soon</li>
+                    <li>You will receive a notification when the contract is activated</li>
+                    <li>You can close this window and check your contract status later</li>
+                  </ul>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex gap-3">
-                {isPolling && (
+                {isPolling && !paymentConfirmed && (
                   <button
                     onClick={async () => {
                       // Manual check of contract status
@@ -1680,13 +1758,17 @@ const CreateContract: React.FC = () => {
                             if (contractStatus === 'active') {
                               setIsPolling(false);
                               setPaymentStatusMessage('');
+                              setPaymentConfirmed(false);
                               showSuccess('Payment successful! Contract has been activated.');
                               setTimeout(() => {
                                 navigate(`/contracts/${createdContractId}`);
                               }, 2000);
                             } else if (contractStatus === 'pending') {
-                              showSuccess('Payment received! Contract is pending staff activation.');
-                              setPaymentStatusMessage('Payment received! Contract is pending staff activation.');
+                              if (!paymentConfirmed) {
+                                setPaymentConfirmed(true);
+                                showSuccess('Thank you! Your payment has been confirmed. The contract is pending staff activation.');
+                              }
+                              setPaymentStatusMessage('Payment confirmed! Contract is pending staff activation.');
                             } else {
                               showError(`Contract status: ${contract.status}. Please wait for payment confirmation or contact support.`);
                             }
@@ -1711,11 +1793,18 @@ const CreateContract: React.FC = () => {
                     setIsPolling(false);
                     setPollingAttempts(0);
                     setPaymentStatusMessage('');
+                    setPaymentConfirmed(false);
                     navigate(`/contracts/${createdContractId}`);
                   }}
-                  className={`px-4 py-3 ${isPolling ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg font-medium transition-colors`}
+                  className={`flex-1 px-4 py-3 ${
+                    paymentConfirmed 
+                      ? 'bg-green-600 text-white hover:bg-green-700' 
+                      : isPolling 
+                        ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } rounded-lg font-medium transition-colors`}
                 >
-                  {isPolling ? 'View Contract (Continue in Background)' : 'View Contract'}
+                  {paymentConfirmed ? 'Close & View Contract' : (isPolling ? 'View Contract (Continue Checking)' : 'View Contract')}
                 </button>
               </div>
             </div>
