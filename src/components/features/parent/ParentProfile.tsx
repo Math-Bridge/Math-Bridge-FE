@@ -159,15 +159,43 @@ const ParentProfile: React.FC = () => {
         }
 
         console.log('Location saved successfully!');
+
+        // Update localStorage immediately before redirect
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              placeId: selectedPlaceId,
+              formattedAddress: locationInput
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            console.log('Updated user in localStorage before redirect:', updatedUser.placeId);
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
+
+        // Show success message and redirect after a short delay
+        showSuccess('Location updated successfully! Redirecting...');
+
+        // Use setTimeout to ensure success message is shown and state is updated before redirect
+        setTimeout(() => {
+          window.location.href = '/home';
+        }, 500);
+
+        return; // Exit early, don't execute code below
       }
 
+      // If no location was updated, just show success and refresh data
       showSuccess('Profile updated successfully!');
       setIsEditing(false);
       setSelectedPlaceId('');
       setLocationPredictions([]);
       setShowLocationDropdown(false);
+      setShowLocationBanner(false);
 
-      // Refresh user data to get latest from server
       console.log('Refreshing user data after save...');
       await fetchUserData();
       console.log('User data refreshed');
@@ -320,8 +348,10 @@ const ParentProfile: React.FC = () => {
         // Log the full response to see what fields are available
         console.log('Full user data from backend:', userData);
 
-        // Check multiple possible location field names
-        const userAddress = userData.Address ||
+        // Check multiple possible location field names including formattedAddress
+        const userAddress = userData.formattedAddress ||
+                           userData.FormattedAddress ||
+                           userData.Address ||
                            userData.address ||
                            userData.location ||
                            userData.Location ||
@@ -345,6 +375,23 @@ const ParentProfile: React.FC = () => {
         setFormData(mappedData);
         setOriginalData(mappedData);
         setLocationInput(userAddress);
+
+        // Update user in localStorage with placeId
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              placeId: userData.placeId || userData.PlaceId,
+              formattedAddress: userAddress
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            console.log('Updated user in localStorage with placeId:', updatedUser.placeId);
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
       } else {
         showError(response.error || 'Failed to load profile data');
       }

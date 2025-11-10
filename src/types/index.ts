@@ -36,6 +36,7 @@ export interface User {
   name: string;
   phone?: string;
   address?: string;
+  formattedAddress?: string;
   placeId?: string;
   createdAt: string;
   role?: string;
