@@ -212,8 +212,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem('authToken', token);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
-        // New users always need to set up their location
-        return { success: true, needsLocationSetup: true };
+        // Return success - user needs to verify email before accessing the app
+        return { success: true };
       } else {
         return { success: false, error: response.error || 'Signup failed' };
       }

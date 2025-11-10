@@ -94,11 +94,7 @@ const Signup: React.FC = () => {
     });
     
     if (result.success) {
-      // New users always need to set up location, redirect to profile
-      if (result.needsLocationSetup) {
-        navigate('/parent/profile', { replace: true, state: { needsLocation: true } });
-        return;
-      }
+      // Show email verification screen - users will set up profile after verifying email
       setUserEmail(formData.Email);
       setShowVerification(true);
     } else {
