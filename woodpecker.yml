@@ -7,43 +7,47 @@ when:
 steps:
   - name: Building FE
     image: bash
+    environment:
+      VITE_GEMINI_API_KEY:
+        from_secret: GEMINI_API_KEY
     commands:
       - apt-get update && apt-get install -y libatomic1
       - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-      - export NVM_DIR="$HOME/.nvm" # Or wherever nvm is installed
-      - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' # This loads nvm
-      - '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' # This loads nvm bash_completion
-      - nvm install node # Installs the latest version of Node.js
+      - export NVM_DIR="$HOME/.nvm"
+      - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
+      - '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
+      - nvm install node
       - nvm use node
       - corepack enable pnpm
       - pnpm install --no-frozen-lockfile
-      - pnpm add @mantine/core
       - pnpm build
+
   - name: Deploy FE
-    image: bash # Using the official bash Docker image
+    image: bash
     environment:
-      # Make Woodpecker secrets available as environment variables in this step
       SSHK:
         from_secret: SSH_KEY
       REMOTE_HOST: 192.168.2.245
       REMOTE_USER: root
-      REMOTE_TARGET_PATH: /root # e.g., /var/www/myapp
+      REMOTE_TARGET_PATH: /root
     commands:
-      - sudo apt-get update -y && sudo apt-get install -y openssh-client rsync
+      - apt-get update -y && apt-get install -y openssh-client rsync
 
       # Setup SSH
-      - sudo mkdir -p $WOODPECKER_WORKSPACE/.ssh
-      - echo "$SSHK" | sudo tee $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy > /dev/null
-      - sudo chmod 700 $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy
-      - ssh-keyscan -H $REMOTE_HOST | sudo tee -a $WOODPECKER_WORKSPACE/.ssh/known_hosts > /dev/null
+      - mkdir -p $HOME/.ssh
+      - echo "$SSHK" > $HOME/.ssh/id_rsa_deploy
+      - chmod 600 $HOME/.ssh/id_rsa_deploy
+      - ssh-keyscan -H $REMOTE_HOST >> $HOME/.ssh/known_hosts
+
       # Create target directory
-      - sudo ssh -i $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "sudo mkdir -p $REMOTE_TARGET_PATH/MathBridge-FE"
-      # Copy files using rsync (better than scp for directories)
-      # rsync -avz -e "sudo ssh -i $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no" ./dist/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_TARGET_PATH/MathBridge-FE/dist/
-      - sudo scp -i $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no -r ./dist/* $REMOTE_USER@$REMOTE_HOST:$REMOTE_TARGET_PATH/MathBridge-FE/dist/
+      - ssh -i $HOME/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "mkdir -p $REMOTE_TARGET_PATH/MathBridge-FE/dist"
+
+      # Copy files
+      - scp -i $HOME/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no -r ./dist/* $REMOTE_USER@$REMOTE_HOST:$REMOTE_TARGET_PATH/MathBridge-FE/dist/
+
       # Deploy with PM2
       - |
-        sudo ssh -i $WOODPECKER_WORKSPACE/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "
+        ssh -i $HOME/.ssh/id_rsa_deploy -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST "
           cd $REMOTE_TARGET_PATH/MathBridge-FE &&
           pm2 delete MathBridge_FE || true &&
           pm2 start npx --name MathBridge_FE -- serve -s /root/MathBridge-FE/dist -l 3000 &&

@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { Layout } from './components/common';
+import { Layout, SSENotificationProvider } from './components/common';
 import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
 // import { UserHome } from './components/user'; // Replaced with ParentDashboardPage
@@ -46,7 +46,7 @@ import {
 } from './pages/features';
 
 // Protected Route Component (supports role-based guard)
-const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[] }> = ({ children, requiredRole }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[]; skipLocationCheck?: boolean }> = ({ children, requiredRole, skipLocationCheck = false }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
   
   console.log('ProtectedRoute - isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
@@ -75,6 +75,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
       console.warn('Access denied due to role mismatch', { requiredRole: roles, userRole });
       return <Navigate to="/login" replace />;
     }
+  }
+
+  // Check if user needs to set up location (skip for profile pages)
+  if (!skipLocationCheck && user && !user.placeId) {
+    console.log('User missing placeId, redirecting to profile for location setup');
+    return <Navigate to="/user-profile" replace state={{ needsLocation: true }} />;
   }
 
   console.log('User authenticated (and role ok if required), showing protected content');
@@ -120,8 +126,9 @@ function App() {
       <SettingsProvider>
         <ToastProvider>
           <AuthProvider>
-            <Routes>
-            <Route path="/" element={<Layout />}>
+            <SSENotificationProvider>
+              <Routes>
+              <Route path="/" element={<Layout />}>
               <Route index element={<RoleBasedRedirect />} />
               <Route path="login" element={<Login />} />
               <Route path="signup" element={<Signup />} />
@@ -145,12 +152,12 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="user-profile" element={
-              <ProtectedRoute>
+              <ProtectedRoute skipLocationCheck={true}>
                 <ParentProfilePage />
               </ProtectedRoute>
             } />
             <Route path="parent-profile" element={
-              <ProtectedRoute>
+              <ProtectedRoute skipLocationCheck={true}>
                 <ParentProfilePage />
               </ProtectedRoute>
             } />
@@ -303,6 +310,7 @@ function App() {
             } />
           </Route>
         </Routes>
+            </SSENotificationProvider>
           </AuthProvider>
         </ToastProvider>
       </SettingsProvider>

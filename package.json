@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@google/generative-ai": "^0.24.1",
     "@react-oauth/google": "^0.12.2",
     "@supabase/supabase-js": "^2.57.4",
     "@tailwindcss/postcss": "^4.1.13",
+    "event-source-polyfill": "^1.0.31",
     "firebase": "^12.3.0",
     "google-auth-library": "^10.3.0",
     "googleapis": "^160.0.0",
@@ -25,6 +27,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@types/eventsource": "^1.1.15",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

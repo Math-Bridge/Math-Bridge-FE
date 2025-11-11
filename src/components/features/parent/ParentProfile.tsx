@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -8,29 +9,51 @@ import {
   X,
   Camera,
   Lock,
-  LogOut,
+  MapPin,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
+interface LocationPrediction {
+  placeId: string;
+  place_id?: string; // Add optional snake_case property for compatibility
+  description: string;
+  mainText: string;
+  secondaryText: string;
+}
+
 const ParentProfile: React.FC = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showLocationBanner, setShowLocationBanner] = useState(false);
+
+  // Location autocomplete state
+  const [locationInput, setLocationInput] = useState('');
+  const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [selectedPlaceId, setSelectedPlaceId] = useState('');
+  const locationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: ''
+    phone: '',
+    address: ''
   });
 
   const [originalData, setOriginalData] = useState(formData);
+
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -41,13 +64,16 @@ const ParentProfile: React.FC = () => {
   const handleEdit = () => {
     setIsEditing(true);
     setOriginalData(formData);
+    setLocationInput(formData.address || '');
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setFormData(originalData);
+    setLocationInput(originalData.address || '');
+    setLocationPredictions([]);
+    setShowLocationDropdown(false);
   };
-
 
   const handleSave = async () => {
     if (!user?.id) {
@@ -55,36 +81,124 @@ const ParentProfile: React.FC = () => {
       return;
     }
 
+    // If location is being edited and no place is selected, warn user
+    if (isEditing && locationInput && !selectedPlaceId && locationInput !== formData.address) {
+      showError('Please select a location from the dropdown');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Step 1: Update user basic info (FullName, PhoneNumber)
-      const updateData: any = {};
+      // Step 1: Fetch current user data from backend to get all fields
+      console.log('Fetching current user data before update...');
+      const currentUserResponse = await apiService.getUserById(user.id);
+
+      if (!currentUserResponse.success || !currentUserResponse.data) {
+        showError('Failed to fetch current user data');
+        setIsLoading(false);
+        return;
+      }
+
+      const currentUserData = currentUserResponse.data;
+      console.log('Current user data from backend:', currentUserData);
+
+      // Step 2: Build update data by taking current data and replacing edited fields
+      const updateData: Record<string, string> = {};
       
-      if (formData.name) {
+      // Always include Gender from current data (required field)
+      if (currentUserData.Gender || currentUserData.gender) {
+        updateData.Gender = currentUserData.Gender || currentUserData.gender;
+        console.log('Including Gender:', updateData.Gender);
+      }
+
+      // Use edited name if changed, otherwise use current
+      if (formData.name && formData.name.trim()) {
         updateData.FullName = formData.name;
+        console.log('Using edited name:', updateData.FullName);
+      } else if (currentUserData.FullName || currentUserData.fullName) {
+        updateData.FullName = currentUserData.FullName || currentUserData.fullName;
+        console.log('Using current name:', updateData.FullName);
       }
-      if (formData.phone) {
+
+      // Use edited phone if changed, otherwise use current
+      if (formData.phone && formData.phone.trim()) {
         updateData.PhoneNumber = formData.phone;
+        console.log('Using edited phone:', updateData.PhoneNumber);
+      } else if (currentUserData.PhoneNumber || currentUserData.phoneNumber) {
+        updateData.PhoneNumber = currentUserData.PhoneNumber || currentUserData.phoneNumber;
+        console.log('Using current phone:', updateData.PhoneNumber);
       }
       
-      // Update user info if there are changes
-      if (updateData.FullName || updateData.PhoneNumber) {
-        const response = await apiService.updateUser(user.id, updateData);
-        if (!response.success) {
-          const errorMsg = response.error || 'Failed to update profile';
-          showError(errorMsg);
+      // Update user info with complete data
+      console.log('Sending update to API with data:', updateData);
+      const response = await apiService.updateUser(user.id, updateData);
+
+      if (!response.success) {
+        const errorMsg = response.error || 'Failed to update profile';
+        console.error('Update failed:', errorMsg);
+        showError(errorMsg);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('User update successful!');
+
+      // Step 3: Save location if placeId is selected
+      if (selectedPlaceId) {
+        console.log('Saving location with placeId:', selectedPlaceId);
+        console.log('Location description:', locationInput);
+
+        const locationResponse = await apiService.saveAddress(selectedPlaceId);
+        console.log('Location save response:', locationResponse);
+
+        if (!locationResponse.success) {
+          showError(locationResponse.error || 'Failed to save location');
           setIsLoading(false);
           return;
         }
+
+        console.log('Location saved successfully!');
+
+        // Update localStorage immediately before redirect
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              placeId: selectedPlaceId,
+              formattedAddress: locationInput
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            console.log('Updated user in localStorage before redirect:', updatedUser.placeId);
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
+
+        // Show success message and redirect after a short delay
+        showSuccess('Location updated successfully! Redirecting...');
+
+        // Use setTimeout to ensure success message is shown and state is updated before redirect
+        setTimeout(() => {
+          window.location.href = '/home';
+        }, 500);
+
+        return; // Exit early, don't execute code below
       }
 
-
+      // If no location was updated, just show success and refresh data
       showSuccess('Profile updated successfully!');
       setIsEditing(false);
-      setOriginalData(formData);
-      // Refresh user data to get latest from server
+      setSelectedPlaceId('');
+      setLocationPredictions([]);
+      setShowLocationDropdown(false);
+      setShowLocationBanner(false);
+
+      console.log('Refreshing user data after save...');
       await fetchUserData();
+      console.log('User data refreshed');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to update profile. Please try again.';
       console.error('Error updating profile:', err);
@@ -131,14 +245,97 @@ const ParentProfile: React.FC = () => {
     showSuccess('Profile picture uploaded successfully!');
   };
 
-  // Fetch user data on component mount
-  useEffect(() => {
-    if (user?.id) {
-      fetchUserData();
-    }
-  }, [user?.id]);
+  // Location autocomplete handler
+  const handleLocationInputChange = async (value: string) => {
+    setLocationInput(value);
+    setSelectedPlaceId('');
 
-  const fetchUserData = async () => {
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+
+    if (value.trim().length < 3) {
+      setLocationPredictions([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+
+    locationTimeoutRef.current = setTimeout(async () => {
+      setIsLoadingLocation(true);
+      try {
+        const response = await apiService.getAddressAutocomplete(value, 'VN');
+        console.log('Raw API response:', response.data?.predictions); // Debugging log to inspect raw predictions
+        if (response.success && response.data?.predictions) {
+          const predictions = response.data.predictions.map((pred: {
+            placeId?: string;
+            place_id?: string;
+            description?: string;
+            mainText?: string;
+            main_text?: string;
+            secondaryText?: string;
+            secondary_text?: string;
+            structured_formatting?: {
+              main_text?: string;
+              secondary_text?: string;
+            };
+          }) => {
+            // Log the raw prediction to see its structure
+            console.log('Raw prediction object:', pred);
+
+            // The API might return either camelCase or snake_case, handle both
+            const predictionObj: LocationPrediction = {
+              placeId: pred.placeId || pred.place_id || '',
+              description: pred.description || '',
+              mainText: pred.mainText || pred.structured_formatting?.main_text || pred.main_text || '',
+              secondaryText: pred.secondaryText || pred.structured_formatting?.secondary_text || pred.secondary_text || ''
+            };
+
+            console.log('Mapped prediction:', predictionObj); // Debug log to verify mapping
+            return predictionObj;
+          });
+
+          console.log('All mapped predictions:', predictions);
+          setLocationPredictions(predictions);
+          setShowLocationDropdown(true);
+        }
+      } catch (error) {
+        console.error('Location autocomplete error:', error);
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    }, 500);
+  };
+
+  const handleLocationSelect = (prediction: LocationPrediction) => {
+    console.log('handleLocationSelect called with:', prediction);
+    console.log('prediction.placeId:', prediction.placeId);
+    console.log('prediction.place_id:', prediction.place_id);
+    console.log('prediction keys:', Object.keys(prediction));
+
+    const placeId = prediction.placeId || prediction.place_id || '';
+    console.log('Final placeId to use:', placeId);
+
+    setLocationInput(prediction.description);
+    setSelectedPlaceId(placeId);
+    setFormData(prev => ({ ...prev, address: prediction.description }));
+    setShowLocationDropdown(false);
+    setLocationPredictions([]);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch user data function
+  const fetchUserData = useCallback(async () => {
     if (!user?.id) return;
     
     try {
@@ -147,20 +344,57 @@ const ParentProfile: React.FC = () => {
       
       if (response.success && response.data) {
         const userData = response.data;
+
+        // Log the full response to see what fields are available
+        console.log('Full user data from backend:', userData);
+
+        // Check multiple possible location field names including formattedAddress
+        const userAddress = userData.formattedAddress ||
+                           userData.FormattedAddress ||
+                           userData.Address ||
+                           userData.address ||
+                           userData.location ||
+                           userData.Location ||
+                           userData.addressLine ||
+                           userData.AddressLine ||
+                           '';
+
+        console.log('Extracted address from user data:', userAddress);
+        console.log('PlaceId from user data:', userData.PlaceId || userData.placeId);
+
         // Map backend response to frontend format
-        setFormData({
+        const mappedData = {
           name: userData.FullName || userData.fullName || userData.name || '',
           email: userData.Email || userData.email || '',
-          phone: userData.PhoneNumber || userData.phoneNumber || userData.phone || ''
-        });
-        setOriginalData({
-          name: userData.FullName || userData.fullName || userData.name || '',
-          email: userData.Email || userData.email || '',
-          phone: userData.PhoneNumber || userData.phoneNumber || userData.phone || ''
-        });
+          phone: userData.PhoneNumber || userData.phoneNumber || userData.phone || '',
+          address: userAddress
+        };
+
+        console.log('Final mapped form data:', mappedData);
+
+        setFormData(mappedData);
+        setOriginalData(mappedData);
+        setLocationInput(userAddress);
+
+        // Update user in localStorage with placeId
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              placeId: userData.placeId || userData.PlaceId,
+              formattedAddress: userAddress
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            console.log('Updated user in localStorage with placeId:', updatedUser.placeId);
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
       } else {
         showError(response.error || 'Failed to load profile data');
-    }
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to load profile data';
       console.error('Error fetching user data:', err);
@@ -168,13 +402,49 @@ const ParentProfile: React.FC = () => {
     } finally {
       setIsFetching(false);
     }
-  };
+  }, [user?.id, showError]);
 
+  // Fetch user data on component mount
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserData();
+    }
+
+    // Check if redirected here for location setup
+    const state = location.state as { needsLocation?: boolean } | null;
+    if (state?.needsLocation) {
+      setShowLocationBanner(true);
+      setIsEditing(true);
+      setActiveTab('profile');
+    }
+  }, [user?.id, location.state, fetchUserData]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
+        {/* Location Setup Banner */}
+        {showLocationBanner && !formData.address && (
+          <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 rounded-lg shadow-sm animate-fade-in">
+            <div className="flex items-start">
+              <AlertCircle className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-900 mb-1">
+                  Welcome! Please set up your location
+                </h3>
+                <p className="text-blue-800 text-sm">
+                  To help us provide you with the best tutoring services, please add your location below. 
+                  Start typing your address and select from the suggestions.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowLocationBanner(false)}
+                className="text-blue-600 hover:text-blue-800 transition-colors ml-2"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header Section */}
         <div className="mb-8">
@@ -191,73 +461,57 @@ const ParentProfile: React.FC = () => {
 
         {/* Main Content - Only show when not fetching */}
         {!isFetching && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Sidebar Navigation */}
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <nav className="p-2">
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
+                      activeTab === 'profile'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <User className="w-5 h-5 mr-3" />
+                      <span className="font-medium">Profile</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
 
-          {/* Sidebar Navigation */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <nav className="p-2">
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
-                    activeTab === 'profile'
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5" />
-                    <span>Profile</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('security')}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
-                    activeTab === 'security'
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Lock className="h-5 w-5" />
-                    <span>Security</span>
-                  </div>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
-              </nav>
-
-              <div className="border-t border-slate-200 p-2 mt-2">
-                <button className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-all">
-                  <LogOut className="h-5 w-5" />
-                  <span>Sign Out</span>
-                </button>
+                  <button
+                    onClick={() => setActiveTab('security')}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all mt-2 ${
+                      activeTab === 'security'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Lock className="w-5 h-5 mr-3" />
+                      <span className="font-medium">Security</span>
+                    </div>
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </nav>
               </div>
             </div>
-          </div>
 
-          {/* Main Content Area */}
-          <div className="lg:col-span-9">
-
-            {/* Profile Tab */}
-            {activeTab === 'profile' && (
-              <div className="space-y-6">
-
-                {/* Profile Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                  <div className="h-32 bg-gradient-to-r from-blue-500 via-blue-600 to-cyan-500"></div>
-                  <div className="px-8 pb-8">
-                    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between -mt-16 mb-6">
-                      <div className="relative group">
-                        <div className="w-32 h-32 bg-white rounded-2xl shadow-lg p-2">
-                          <div className="w-full h-full bg-gradient-to-br from-blue-400 to-cyan-400 rounded-xl flex items-center justify-center">
-                            <User className="h-16 w-16 text-white" />
-                          </div>
-                        </div>
-                        <label className="absolute bottom-2 right-2 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors shadow-lg">
-                          <Camera className="h-5 w-5 text-white" />
+            {/* Content Area */}
+            <div className="lg:col-span-9">
+              {activeTab === 'profile' && (
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+                  {/* Avatar Section */}
+                  <div className="flex items-center space-x-6 mb-8 pb-8 border-b border-slate-200">
+                    <div className="relative">
+                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                        {formData.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                      {isEditing && (
+                        <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
+                          <Camera className="w-4 h-4" />
                           <input
                             type="file"
                             accept="image/*"
@@ -265,225 +519,277 @@ const ParentProfile: React.FC = () => {
                             className="hidden"
                           />
                         </label>
-                      </div>
-
-                      <div className="mt-4 sm:mt-0">
-                        {!isEditing ? (
-                          <button
-                            onClick={handleEdit}
-                            className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            <span>Edit Profile</span>
-                          </button>
-                        ) : (
-                          <div className="flex space-x-3">
-                            <button
-                              onClick={handleCancel}
-                              className="flex items-center space-x-2 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-all"
-                            >
-                              <X className="h-4 w-4" />
-                              <span>Cancel</span>
-                            </button>
-                            <button
-                              onClick={handleSave}
-                              disabled={isLoading}
-                              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {isLoading ? (
-                                <>
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="h-4 w-4" />
-                                  <span>Save Changes</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
-
-                    <div className="mb-6">
-                      <h2 className="text-2xl font-bold text-slate-900">{formData.name}</h2>
-                      <p className="text-slate-600 mt-1">Parent Account</p>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">{formData.name || 'User'}</h2>
+                      <p className="text-slate-600">{formData.email}</p>
                     </div>
                   </div>
-                </div>
 
-                {/* Personal Information Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-6">Personal Information</h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Form Fields */}
+                  <div className="space-y-6">
+                    {/* Name Field */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Full Name
                       </label>
-                      {isEditing ? (
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                         <input
                           type="text"
                           value={formData.name}
                           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                          disabled={!isEditing}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
+                            isEditing
+                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
+                          } transition-colors`}
+                          placeholder="Enter your full name"
                         />
-                      ) : (
-                        <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-xl">
-                          <User className="h-5 w-5 text-slate-400" />
-                          <span className="text-slate-900">{formData.name}</span>
-                        </div>
-                      )}
+                      </div>
                     </div>
 
+                    {/* Email Field */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Email Address
                       </label>
-                      {/* Email is read-only - cannot be changed via this endpoint */}
-                        <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-xl">
-                          <Mail className="h-5 w-5 text-slate-400" />
-                        <span className="text-slate-900">{formData.email || 'Not available'}</span>
-                        </div>
-                      <p className="mt-1 text-xs text-slate-500">Email cannot be changed here</p>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+                        <input
+                          type="email"
+                          value={formData.email}
+                          disabled
+                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-600"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">Email cannot be changed</p>
                     </div>
 
+                    {/* Phone Field */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
                         Phone Number
                       </label>
-                      {isEditing ? (
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
                         <input
                           type="tel"
                           value={formData.phone}
                           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                          disabled={!isEditing}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
+                            isEditing
+                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
+                          } transition-colors`}
+                          placeholder="Enter your phone number"
                         />
-                      ) : (
-                        <div className="flex items-center space-x-3 px-4 py-3 bg-slate-50 rounded-xl">
-                          <Phone className="h-5 w-5 text-slate-400" />
-                          <span className="text-slate-900">{formData.phone}</span>
-                        </div>
+                      </div>
+                    </div>
+
+                    {/* Location Field with Autocomplete */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Location
+                      </label>
+                      <div className="relative" ref={locationDropdownRef}>
+                        <MapPin className="absolute left-3 top-3 text-slate-400 w-5 h-5 z-10" />
+                        <input
+                          type="text"
+                          value={locationInput}
+                          onChange={(e) => handleLocationInputChange(e.target.value)}
+                          disabled={!isEditing}
+                          className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
+                            isEditing
+                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              : 'border-slate-200 bg-slate-50 text-slate-600'
+                          } transition-colors`}
+                          placeholder="Start typing your address..."
+                        />
+                        
+                        {/* Location Dropdown */}
+                        {isEditing && showLocationDropdown && (
+                          <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                            {isLoadingLocation ? (
+                              <div className="p-4 text-center text-slate-500">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                <p className="mt-2 text-sm">Searching...</p>
+                              </div>
+                            ) : locationPredictions.length > 0 ? (
+                              locationPredictions.map((prediction) => (
+                                <button
+                                  key={prediction.placeId}
+                                  onClick={() => handleLocationSelect(prediction)}
+                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                >
+                                  <div className="flex items-start">
+                                    <MapPin className="w-4 h-4 text-blue-600 mt-1 mr-2 flex-shrink-0" />
+                                    <div>
+                                      <p className="text-slate-900 font-medium">{prediction.mainText}</p>
+                                      <p className="text-sm text-slate-500">{prediction.secondaryText}</p>
+                                    </div>
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="p-4 text-center text-slate-500">
+                                <p className="text-sm">No locations found. Try a different search.</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isEditing && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          Type at least 3 characters to search for your location
+                        </p>
                       )}
                     </div>
+                  </div>
 
+                  {/* Action Buttons */}
+                  <div className="mt-8 pt-6 border-t border-slate-200 flex justify-end space-x-4">
+                    {!isEditing ? (
+                      <button
+                        onClick={handleEdit}
+                        className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                      >
+                        <Edit2 className="w-5 h-5 mr-2" />
+                        Edit Profile
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleCancel}
+                          disabled={isLoading}
+                          className="flex items-center px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        >
+                          <X className="w-5 h-5 mr-2" />
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          disabled={isLoading}
+                          className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {isLoading ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-5 h-5 mr-2" />
+                              Save Changes
+                            </>
+                          )}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Security Tab */}
-            {activeTab === 'security' && (
-              <div className="space-y-6">
+              {activeTab === 'security' && (
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-6">Security Settings</h3>
-
+                  <h2 className="text-2xl font-bold text-slate-900 mb-6">Security Settings</h2>
+                  
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-6 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                          <Lock className="h-6 w-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-slate-900">Password</h4>
-                          <p className="text-sm text-slate-600">Last changed 3 months ago</p>
-                        </div>
-                      </div>
+                    <div className="p-4 bg-slate-50 rounded-xl">
+                      <h3 className="font-semibold text-slate-900 mb-2">Password</h3>
+                      <p className="text-sm text-slate-600 mb-4">
+                        Change your password to keep your account secure
+                      </p>
                       <button
                         onClick={() => setShowPasswordModal(true)}
-                        className="px-4 py-2 text-blue-600 font-medium hover:bg-blue-50 rounded-lg transition-colors"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        Change
+                        Change Password
                       </button>
                     </div>
-
                   </div>
                 </div>
-              </div>
-            )}
-
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Password Change Modal */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full">
+              <h2 className="text-2xl font-bold text-slate-900 mb-6">Change Password</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Enter current password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Enter new password"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Confirm new password"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                  }}
+                  disabled={isLoading}
+                  className="px-6 py-3 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePasswordChange}
+                  disabled={isLoading}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isLoading ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-
-      {/* Password Change Modal */}
-      {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h3 className="text-xl font-semibold text-slate-900">Change Password</h3>
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Enter current password"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Enter new password"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  placeholder="Confirm new password"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 p-6 border-t border-slate-200">
-              <button
-                onClick={() => setShowPasswordModal(false)}
-                className="px-6 py-3 text-slate-700 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePasswordChange}
-                disabled={isLoading}
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Changing...' : 'Change Password'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 export default ParentProfile;
+

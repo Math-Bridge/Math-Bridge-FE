@@ -13,7 +13,11 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { login, googleLogin, isLoading } = useAuth();
+  const { login, googleLogin, isLoading }: {
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>,
+    googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>,
+    isLoading: boolean
+  } = useAuth();
   const navigate = useNavigate();
 
   const validateForm = () => {
@@ -33,6 +37,12 @@ const Login: React.FC = () => {
     setErrors({}); // Clear previous errors
     const result = await login(email, password);
     if (result.success) {
+      // Check if user needs to set up location
+      if (result.needsLocationSetup) {
+        navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+        return;
+      }
+
       // Get user role from localStorage to determine redirect
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
@@ -47,7 +57,7 @@ const Login: React.FC = () => {
           } else {
             navigate('/home', { replace: true });
           }
-        } catch (error) {
+        } catch {
           // Fallback to home if parsing fails
           navigate('/home', { replace: true });
         }
@@ -72,6 +82,12 @@ const Login: React.FC = () => {
       const loginResult = await googleLogin(idToken);
       
       if (loginResult.success) {
+        // Check if user needs to set up location
+        if (loginResult.needsLocationSetup) {
+          navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+          return;
+        }
+
         // Get user role from localStorage to determine redirect
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
@@ -86,26 +102,16 @@ const Login: React.FC = () => {
             } else {
               navigate("/home", { replace: true });
             }
-          } catch (error) {
+          } catch {
             navigate("/home", { replace: true });
           }
         } else {
           navigate("/home", { replace: true });
         }
-        
-        // Show warning if temporary session was created
-        if (loginResult.error && loginResult.error.includes('temporary session')) {
-          if (import.meta.env.DEV) {
-            console.warn("⚠️ Temporary session created:", loginResult.error);
-          }
-        }
       } else {
         setErrors({ general: loginResult.error || "Google login failed" });
       }
-    } catch (error: any) {
-      if (import.meta.env.DEV) {
-        console.error("Google login error:", error);
-      }
+    } catch (error) {
       setErrors({ general: error.message || "Google login failed" });
     } finally {
       setIsGoogleLoading(false);

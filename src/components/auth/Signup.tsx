@@ -94,6 +94,7 @@ const Signup: React.FC = () => {
     });
     
     if (result.success) {
+      // Show email verification screen - users will set up profile after verifying email
       setUserEmail(formData.Email);
       setShowVerification(true);
     } else {

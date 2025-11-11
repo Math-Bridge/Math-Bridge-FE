@@ -15,6 +15,8 @@ export interface User {
   name: string;
   phone?: string;
   address?: string;
+  formattedAddress?: string;
+  placeId?: string;
   createdAt: string;
   role?: string;
 }
@@ -174,11 +176,14 @@ class ApiService {
   }
 
   // Auth endpoints
-  async login(credentials: LoginRequest): Promise<ApiResponse<{ user: User; token: string }>> {
-    return this.request<{ user: User; token: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+  async login(credentials: LoginRequest): Promise<ApiResponse<{ token: string }>> {
+    return this.request<{ token: string }>(
+      '/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      }
+    );
   }
 
   async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
@@ -210,10 +215,13 @@ class ApiService {
   }
 
   async googleLogin(token: string): Promise<ApiResponse<{ token: string }>> {
-    return await this.request<{ token: string }>('/auth/google-login', {
-      method: 'POST',
-      body: JSON.stringify({ IdToken: token }),
-    }) as ApiResponse<{ token: string }>;
+    return this.request<{ token: string }>(
+      '/auth/google-login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ IdToken: token }),
+      }
+    );
   }
 
   // Dashboard endpoints
@@ -320,6 +328,14 @@ class ApiService {
     return this.request(`/location/autocomplete?input=${encodeURIComponent(input)}&country=${country}`);
   }
 
+  async getUserLocation(userId: string): Promise<ApiResponse<{
+    placeId?: string;
+    address?: string;
+    description?: string;
+  }>> {
+    return this.request(`/location/user/${userId}`);
+  }
+
   async saveAddress(placeId: string): Promise<ApiResponse<{
     success: boolean;
     message: string;
@@ -327,7 +343,7 @@ class ApiService {
   }>> {
     return this.request('/location/save-address', {
       method: 'POST',
-      body: JSON.stringify({ PlaceId: placeId }),
+      body: JSON.stringify({ placeId: placeId }),
     });
   }
 
