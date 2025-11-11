@@ -903,22 +903,6 @@ const ContractDetail: React.FC = () => {
                 </div>
               )}
 
-              {/* Payment Status */}
-              {isPolling && !paymentConfirmed && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5 text-yellow-600" />
-                    <span className="text-yellow-800 font-medium">Waiting for payment confirmation...</span>
-                  </div>
-                  {paymentStatusMessage && (
-                    <p className="text-sm text-yellow-700 mt-1">{paymentStatusMessage}</p>
-                  )}
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Checking status... (Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS})
-                  </p>
-                </div>
-              )}
-
               {/* Payment Status - After Confirmation - Hidden, only show Thank You banner */}
 
               {/* QR Code - Hide after payment is confirmed */}
@@ -1069,20 +1053,6 @@ const ContractDetail: React.FC = () => {
                     <li>This process usually takes 1-5 minutes after payment completion</li>
                     <li>You can close this window and check your contract status later if needed</li>
                   </ol>
-                </div>
-              )}
-
-              {/* Auto-checking status - Only show when payment not confirmed */}
-              {isPolling && !paymentConfirmed && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                    <span className="text-gray-600">Auto-checking payment status...</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    The system will automatically detect when your payment is confirmed. 
-                    This may take a few minutes after you complete the transfer.
-                  </p>
                 </div>
               )}
 

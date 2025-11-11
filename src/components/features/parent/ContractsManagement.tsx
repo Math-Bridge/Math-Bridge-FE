@@ -38,6 +38,8 @@ interface Contract {
   endDate: string;
   schedule: string;
   centerName: string;
+  offlineAddress?: string | null;
+  isOnline?: boolean;
   createdAt: string;
 }
 
@@ -129,6 +131,7 @@ const ContractsManagement: React.FC = () => {
           const tutorName = cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned';
           const packageName = cleanContract.PackageName || cleanContract.packageName || 'Package not specified';
           const centerName = cleanContract.CenterName || cleanContract.centerName || 'Online';
+          const offlineAddress = cleanContract.OfflineAddress || cleanContract.offlineAddress || cleanContract.offline_address || null;
             
             // Build schedule string from DaysOfWeeksDisplay and time
             const formatTime = (timeStr: string) => {
@@ -173,6 +176,8 @@ const ContractsManagement: React.FC = () => {
               endDate: cleanContract.EndDate || cleanContract.endDate || '',
               schedule: schedule,
             centerName: centerName,
+            offlineAddress: offlineAddress,
+            isOnline: cleanContract.IsOnline !== undefined ? cleanContract.IsOnline : cleanContract.isOnline !== undefined ? cleanContract.isOnline : true,
               createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
             };
           }));
@@ -405,7 +410,7 @@ const ContractsManagement: React.FC = () => {
                     </p>
                     <p className="text-sm text-gray-500">
                       {contract.tutorName === 'Tutor not assigned' ? 'Tutor: Not assigned yet' : `Tutor: ${contract.tutorName}`}
-                      {contract.centerName && contract.centerName !== 'Online' && ` • ${contract.centerName}`}
+                      {contract.isOnline ? null : (contract.offlineAddress || (contract.centerName && contract.centerName !== 'Online')) && ` • ${contract.offlineAddress || contract.centerName}`}
                     </p>
                   </div>
                 </div>

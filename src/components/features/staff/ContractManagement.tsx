@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText,
-  User,
-  Calendar,
-  Clock,
   MapPin,
   XCircle,
   Search,
@@ -14,6 +11,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
@@ -38,6 +36,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   // Selected tutors for assignment
   const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
   const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
@@ -149,6 +148,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                 : ''),
               isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
               status: contractStatus,
+              offlineAddress: contract.offlineAddress || contract.OfflineAddress || contract.offline_address || null,
             };
           })
         );
@@ -282,7 +282,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
         selectedSubstituteTutor2.userId
       );
       if (result.success) {
-        showSuccess('Tutors assigned successfully');
+        // Automatically activate contract after assigning tutors
+        try {
+          const updateResult = await updateContractStatus(
+            selectedContract.contractId,
+            'active'
+          );
+          if (updateResult.success) {
+            showSuccess('Tutors assigned and contract activated successfully');
+          } else {
+            showSuccess('Tutors assigned successfully, but failed to activate contract');
+            console.error('Failed to activate contract:', updateResult.error);
+          }
+        } catch (updateError: any) {
+          showSuccess('Tutors assigned successfully, but failed to activate contract');
+          console.error('Error activating contract:', updateError);
+        }
+        
         // Close modal and cleanup
         setShowTutorModal(false);
         setSelectedContract(null);
@@ -303,6 +319,24 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
       showError(errorMsg);
     } finally {
       setLoadingTutors(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const normalizedStatus = String(status || '').toLowerCase().trim();
+    switch (normalizedStatus) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'unpaid':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -341,23 +375,6 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const normalizedStatus = String(status || '').toLowerCase().trim();
-    switch (normalizedStatus) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'unpaid':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   if (loading) {
     return (
@@ -419,7 +436,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
           </div>
         </div>
 
-        {/* Contracts List */}
+        {/* Contracts Table */}
         {paginatedContracts.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -432,118 +449,159 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
             </div>
           ) : (
           <React.Fragment key="contracts-list">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {paginatedContracts.map((contract) => (
-              <div
-                key={contract.contractId}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow flex flex-col"
-              >
-                <div className="flex flex-col flex-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-bold text-gray-900 truncate pr-2">{contract.packageName}</h3>
-                    <div className="flex items-center space-x-2">
-                      {contract.status === 'cancelled' ? (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(contract.status)}`}>
-                          Cancelled
-                        </span>
-                      ) : contract.status === 'unpaid' ? (
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${getStatusColor(contract.status)}`}>
-                          Unpaid
-                        </span>
-                      ) : (
-                        <>
-                          <select
-                            value={contract.status}
-                            onChange={(e) => {
-                              const newStatus = e.target.value as 'active' | 'completed' | 'cancelled';
-                              // Only allow updating to active, completed, or cancelled (not unpaid or pending)
-                              if (newStatus !== contract.status && (newStatus === 'active' || newStatus === 'completed' || newStatus === 'cancelled')) {
-                                handleUpdateStatus(contract.contractId, newStatus, contract);
-                              }
-                            }}
-                            disabled={updatingStatus === contract.contractId || contract.status === 'unpaid'}
-                            className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 border-0 cursor-pointer ${getStatusColor(contract.status)} disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                          >
-                            <option value="pending" disabled={contract.status !== 'pending'}>Pending</option>
-                            <option 
-                              value="active" 
-                              disabled={
-                                contract.status === 'completed' || 
-                                contract.status === 'cancelled' || 
-                                contract.status === 'unpaid' ||
-                                !contract.mainTutorId
-                              }
-                            >
-                              Active{!contract.mainTutorId ? ' (Assign tutor first)' : ''}
-                            </option>
-                            <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled' || contract.status === 'unpaid'}>Completed</option>
-                            <option value="cancelled" disabled={contract.status === 'unpaid'}>Cancelled</option>
-                          </select>
-                          {updatingStatus === contract.contractId && (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+              <table className="w-full divide-y divide-gray-200 table-fixed">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Package
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Child
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Period
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Time Slot
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Location
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tutor
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedContracts.map((contract) => (
+                    <tr key={contract.contractId} className="hover:bg-gray-50">
+                      <td className="px-4 py-4">
+                        <div className="text-sm font-medium text-gray-900 truncate" title={contract.packageName || ''}>{contract.packageName}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 truncate" title={contract.childName || ''}>{contract.childName}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900">
+                          <div>{new Date(contract.startDate).toLocaleDateString()}</div>
+                          <div className="text-xs text-gray-500">{new Date(contract.endDate).toLocaleDateString()}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 truncate" title={contract.timeSlot || 'Not set'}>{contract.timeSlot || 'Not set'}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 truncate">
+                          {contract.isOnline ? (
+                            <span className="text-blue-600">Online</span>
+                          ) : (
+                            <span title={contract.offlineAddress || contract.centerName || 'Offline'}>
+                              {contract.offlineAddress || contract.centerName || 'Offline'}
+                            </span>
                           )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-4 flex-1">
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                      <User className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-medium">Child:</span>
-                      <span className="truncate">{contract.childName}</span>
-                      </div>
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                      <Calendar className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-medium">Period:</span>
-                      <span className="text-xs">
-                          {new Date(contract.startDate).toLocaleDateString()} -{' '}
-                          {new Date(contract.endDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                      <Clock className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-medium">Time:</span>
-                      <span className="truncate">{contract.timeSlot || 'Not set'}</span>
-                      </div>
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                        {contract.isOnline ? (
-                          <span className="text-blue-600">Online</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900 truncate" title={contract.mainTutorName || 'Not assigned'}>{contract.mainTutorName || 'Not assigned'}</div>
+                      </td>
+                      <td className="px-4 py-4">
+                        {contract.status === 'cancelled' ? (
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(contract.status)}`}>
+                            Cancelled
+                          </span>
+                        ) : contract.status === 'unpaid' ? (
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(contract.status)}`}>
+                            Unpaid
+                          </span>
                         ) : (
-                          <>
-                          <MapPin className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{contract.centerName || 'Offline'}</span>
-                          </>
+                          <div className="flex items-center space-x-1">
+                            <select
+                              value={contract.status}
+                              onChange={(e) => {
+                                const newStatus = e.target.value as 'active' | 'completed' | 'cancelled';
+                                if (newStatus !== contract.status && (newStatus === 'active' || newStatus === 'completed' || newStatus === 'cancelled')) {
+                                  handleUpdateStatus(contract.contractId, newStatus, contract);
+                                }
+                              }}
+                              disabled={updatingStatus === contract.contractId || contract.status === 'unpaid'}
+                              className={`px-2 py-1 rounded-full text-xs font-semibold border-0 cursor-pointer ${getStatusColor(contract.status)} disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                            >
+                              <option value="pending" disabled={contract.status !== 'pending'}>Pending</option>
+                              <option 
+                                value="active" 
+                                disabled={
+                                  contract.status === 'completed' || 
+                                  contract.status === 'cancelled' || 
+                                  contract.status === 'unpaid' ||
+                                  !contract.mainTutorId
+                                }
+                              >
+                                Active
+                              </option>
+                              <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled' || contract.status === 'unpaid'}>Completed</option>
+                              <option value="cancelled" disabled={contract.status === 'unpaid'}>Cancelled</option>
+                            </select>
+                            {updatingStatus === contract.contractId && (
+                              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm">
-                      <UserPlus className="w-4 h-4 flex-shrink-0" />
-                      <span className="font-medium">Tutor:</span>
-                      <span className="truncate">{contract.mainTutorName || 'Not assigned'}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col space-y-2 mt-auto pt-4 border-t border-gray-200">
-                    {!contract.mainTutorId && (
-                      <button
-                        onClick={() => handleAssignTutor(contract)}
-                        className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        <span>Assign Tutor</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => window.open(`/contracts/${contract.contractId}`, '_blank')}
-                      className="w-full px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2 text-sm"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>View Details</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              ))}
+                      </td>
+                      <td className="px-4 py-4 text-right text-sm font-medium">
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={() => setOpenDropdownId(openDropdownId === contract.contractId ? null : contract.contractId)}
+                              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                            {openDropdownId === contract.contractId && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setOpenDropdownId(null)}
+                                ></div>
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                                  <div className="py-1">
+                                    {!contract.mainTutorId && (
+                                      <button
+                                        onClick={() => {
+                                          handleAssignTutor(contract);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                      >
+                                        <UserPlus className="w-4 h-4" />
+                                        <span>Assign Tutor</span>
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        window.open(`/contracts/${contract.contractId}`, '_blank');
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                      <span>View Details</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
             </div>
             {/* Pagination */}
             {totalPages > 1 && (

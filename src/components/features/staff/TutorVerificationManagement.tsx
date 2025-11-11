@@ -219,169 +219,175 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
           </div>
         </div>
 
-        {/* Tutors List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Tutors ({filteredTutors.length})</h2>
-          {paginatedTutors.length === 0 ? (
-            <div className="text-center py-12">
-              <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Tutors Found</h3>
-              <p className="text-gray-600">No tutors match your search criteria</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {paginatedTutors.map((tutor) => (
-                  <div
-                    key={tutor.userId}
-                    className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 hover:shadow-md transition-all"
-                  >
-                    <div className="flex flex-col h-full">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{tutor.fullName}</h3>
-                          <p className="text-sm text-gray-600">{tutor.email}</p>
+        {/* Tutors Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    University
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Major
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Hourly Rate
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {paginatedTutors.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center">
+                      <UserCheck className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">No Tutors Found</h3>
+                      <p className="text-gray-600">No tutors match your search criteria</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTutors.map((tutor) => (
+                    <tr key={tutor.userId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{tutor.fullName}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{tutor.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{tutor.university || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{tutor.major || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {tutor.hourlyRate !== undefined ? `$${tutor.hourlyRate}/hour` : 'N/A'}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{tutor.phone || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(tutor.verificationStatus)}
-                      </div>
-
-                      {/* Tutor Info */}
-                      <div className="space-y-2 mb-4 flex-1">
-                        {tutor.university && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <GraduationCap className="w-4 h-4 text-gray-400" />
-                            <span>{tutor.university}</span>
-                          </div>
-                        )}
-                        {tutor.major && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span>{tutor.major}</span>
-                          </div>
-                        )}
-                        {tutor.hourlyRate !== undefined && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <DollarSign className="w-4 h-4 text-gray-400" />
-                            <span>${tutor.hourlyRate}/hour</span>
-                          </div>
-                        )}
-                        {tutor.phone && (
-                          <div className="text-sm text-gray-600">
-                            <span>{tutor.phone}</span>
-                          </div>
-                        )}
-                        {tutor.bio && (
-                          <div className="text-sm text-gray-600 line-clamp-2">
-                            {tutor.bio}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      {(!tutor.verificationStatus || tutor.verificationStatus === 'pending') && (
-                        <div className="flex space-x-2 pt-4 border-t border-gray-200">
-                          <button
-                            onClick={() => handleVerify(tutor.userId)}
-                            className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <UserCheck className="w-4 h-4" />
-                            <span>Approve</span>
-                          </button>
-                          <button
-                            onClick={() => handleReject(tutor.userId)}
-                            className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <UserX className="w-4 h-4" />
-                            <span>Reject</span>
-                          </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end space-x-2">
+                          {(!tutor.verificationStatus || tutor.verificationStatus === 'pending') && (
+                            <>
+                              <button
+                                onClick={() => handleVerify(tutor.userId)}
+                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                <span>Approve</span>
+                              </button>
+                              <button
+                                onClick={() => handleReject(tutor.userId)}
+                                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs flex items-center space-x-1"
+                              >
+                                <UserX className="w-3 h-3" />
+                                <span>Reject</span>
+                              </button>
+                            </>
+                          )}
+                          {tutor.verificationStatus === 'approved' && (
+                            <button
+                              onClick={() => handleReject(tutor.userId)}
+                              className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-xs flex items-center space-x-1"
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>Revoke</span>
+                            </button>
+                          )}
+                          {tutor.verificationStatus === 'rejected' && (
+                            <button
+                              onClick={() => handleVerify(tutor.userId)}
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
+                            >
+                              <UserCheck className="w-3 h-3" />
+                              <span>Approve</span>
+                            </button>
+                          )}
                         </div>
-                      )}
-                      {tutor.verificationStatus === 'approved' && (
-                        <div className="pt-4 border-t border-gray-200">
-                          <button
-                            onClick={() => handleReject(tutor.userId)}
-                            className="w-full bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <UserX className="w-4 h-4" />
-                            <span>Revoke</span>
-                          </button>
-                        </div>
-                      )}
-                      {tutor.verificationStatus === 'rejected' && (
-                        <div className="pt-4 border-t border-gray-200">
-                          <button
-                            onClick={() => handleVerify(tutor.userId)}
-                            className="w-full bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <UserCheck className="w-4 h-4" />
-                            <span>Approve</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-                  <div className="text-sm text-gray-600">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredTutors.length)} of {filteredTutors.length} tutors
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      <span>Previous</span>
-                    </button>
-                    <div className="flex items-center space-x-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                        const showPage = 
-                          page === 1 ||
-                          page === totalPages ||
-                          (page >= currentPage - 1 && page <= currentPage + 1);
-                        
-                        if (!showPage) {
-                          if (page === currentPage - 2 || page === currentPage + 2) {
-                            return <span key={page} className="px-2">...</span>;
-                          }
-                          return null;
-                        }
-
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              currentPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'border border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-                    >
-                      <span>Next</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredTutors.length)} of {filteredTutors.length} tutors
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  const showPage = 
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1);
+                  
+                  if (!showPage) {
+                    if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="px-2">...</span>;
+                    }
+                    return null;
+                  }
+
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white'
+                          : 'border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -371,6 +371,10 @@ class ApiService {
   async getAdminStats(): Promise<ApiResponse<any>> {
     return this.request('/admin/stats');
   }
+
+  async getAllUsers(): Promise<ApiResponse<any[]>> {
+    return this.request('/admin/users');
+  }
 }
 
 export const apiService = new ApiService();
@@ -434,6 +438,15 @@ export async function getTutorsByCenter(centerId: string) {
 
 export async function getCenterStatistics() {
   return apiService.request<any>(`/centers/statistics`);
+}
+
+// Get centers near an address (within radius)
+export async function getCentersNearAddress(address: string, radiusKm: number = 10) {
+  const params = new URLSearchParams();
+  params.append('address', address);
+  params.append('radiusKm', radiusKm.toString());
+  
+  return apiService.request<Center[]>(`/location/nearby-centers?${params.toString()}`);
 }
 
 
@@ -637,6 +650,7 @@ export interface Contract {
   timeSlot: string;
   isOnline: boolean;
   status: string;
+  offlineAddress?: string | null;
   // Ignore fields that don't exist in backend
   reschedule_count?: never; // This field doesn't exist, ignore it
   rescheduleCount?: never;

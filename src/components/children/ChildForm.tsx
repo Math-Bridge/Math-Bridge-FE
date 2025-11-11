@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, School as SchoolIcon, Calendar, MapPin } from 'lucide-react';
-import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllCenters, Center, getActiveSchools, School } from '../../services/api';
+import { X, User, School as SchoolIcon, Calendar } from 'lucide-react';
+import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getActiveSchools, School } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
@@ -25,11 +25,9 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     fullName: child?.fullName || '',
     schoolId: child?.schoolId || '',
-    centerId: child?.centerId || '',
     grade: child?.grade || 'grade 9',
     dateOfBirth: child?.dateOfBirth || ''
   });
-  const [centers, setCenters] = useState<Center[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -56,7 +54,6 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       setFormData({
         fullName: child.fullName || '',
         schoolId: child.schoolId || '',
-        centerId: child.centerId || '',
         grade: child.grade || 'grade 9',
         dateOfBirth: formattedDateOfBirth
       });
@@ -75,7 +72,6 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       setFormData({
         fullName: '',
         schoolId: '',
-        centerId: '',
         grade: 'grade 9',
         dateOfBirth: ''
       });
@@ -85,45 +81,11 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   useEffect(() => {
     const loadData = async () => {
       setLoadingData(true);
-      await Promise.all([fetchCenters(), fetchSchools()]);
+      await fetchSchools();
       setLoadingData(false);
     };
     loadData();
   }, []);
-
-  const fetchCenters = async () => {
-    try {
-      const result = await getAllCenters();
-      console.log('Centers API response:', result);
-      if (result.success && result.data) {
-        // Handle different response structures:
-        // 1. Direct array: result.data = [...]
-        // 2. Wrapped in data: result.data = { data: [...] }
-        // 3. Wrapped in array property: result.data = { centers: [...] }
-        let centersData: any[] = [];
-        const data = result.data as any;
-        
-        if (Array.isArray(data)) {
-          centersData = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          centersData = data.data;
-        } else if (data.centers && Array.isArray(data.centers)) {
-          centersData = data.centers;
-        } else if (data.items && Array.isArray(data.items)) {
-          centersData = data.items;
-        }
-        
-        setCenters(centersData);
-        console.log('Parsed centers:', centersData);
-      } else {
-        console.error('Failed to fetch centers:', result.error);
-        setCenters([]);
-      }
-    } catch (error) {
-      console.error('Error fetching centers:', error);
-      setCenters([]);
-    }
-  };
 
   const fetchSchools = async () => {
     try {
@@ -235,8 +197,6 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       const requestData: AddChildRequest | UpdateChildRequest = {
         fullName: formData.fullName.trim(),
         schoolId: formData.schoolId,
-        // Only include centerId if it's not empty
-        centerId: formData.centerId && formData.centerId.trim() !== '' ? formData.centerId : undefined,
         grade: formData.grade,
         // Only include dateOfBirth if it's not empty
         dateOfBirth: formData.dateOfBirth && formData.dateOfBirth.trim() !== '' ? formData.dateOfBirth : undefined
@@ -396,31 +356,6 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
             {errors.grade && <p className="error-message">{errors.grade}</p>}
           </div>
 
-          <div>
-            <label className="form-label">{t('learningCenter')} ({t('optional')})</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <select
-                value={formData.centerId}
-                onChange={(e) => handleChange('centerId', e.target.value)}
-                className="form-input pl-10"
-                disabled={loadingData}
-              >
-                <option value="">
-                  {loadingData ? 'Loading...' : t('selectCenter')}
-                </option>
-                {centers.map((center: any) => {
-                  const centerId = center.CenterId || center.centerId || center.id;
-                  const centerName = center.Name || center.name || 'Unknown Center';
-                  return (
-                    <option key={centerId} value={centerId}>
-                      {centerName}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-          </div>
 
           <div>
             <label className="form-label">{t('dateOfBirth')} ({t('optional')})</label>

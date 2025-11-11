@@ -37,6 +37,9 @@ import {
   TutorDetailPage,
   ProgressReportsPage,
   AdminDashboardPage,
+  UserManagementPage,
+  CenterManagementPage,
+  PackageManagementPage,
   StaffDashboardPage,
   ContractManagementPage,
   RescheduleManagementPage,
@@ -95,6 +98,10 @@ const RoleBasedRedirect: React.FC = () => {
   }
   
   // Redirect based on user role
+  if (user?.role === 'admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  
   if (user?.role === 'tutor') {
     return <Navigate to="/tutor/dashboard" replace />;
   }
@@ -103,7 +110,7 @@ const RoleBasedRedirect: React.FC = () => {
     return <Navigate to="/staff" replace />;
   }
   
-  // Default redirect for other roles (parent, admin, etc.)
+  // Default redirect for other roles (parent, etc.)
   return <Navigate to="/home" replace />;
 };
 
@@ -258,8 +265,23 @@ function App() {
             
             {/* Admin Routes */}
             <Route path="admin" element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="admin">
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/users" element={
+              <ProtectedRoute requiredRole="admin">
+                <UserManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/centers" element={
+              <ProtectedRoute requiredRole="admin">
+                <CenterManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/packages" element={
+              <ProtectedRoute requiredRole="admin">
+                <PackageManagementPage />
               </ProtectedRoute>
             } />
             

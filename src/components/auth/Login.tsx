@@ -38,7 +38,9 @@ const Login: React.FC = () => {
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
-          if (user.role === 'tutor') {
+          if (user.role === 'admin') {
+            navigate('/admin', { replace: true });
+          } else if (user.role === 'tutor') {
             navigate('/tutor/dashboard', { replace: true });
           } else if (user.role === 'staff') {
             navigate('/staff', { replace: true });
@@ -75,7 +77,9 @@ const Login: React.FC = () => {
         if (savedUser) {
           try {
             const user = JSON.parse(savedUser);
-            if (user.role === 'tutor') {
+            if (user.role === 'admin') {
+              navigate("/admin", { replace: true });
+            } else if (user.role === 'tutor') {
               navigate("/tutor/dashboard", { replace: true });
             } else if (user.role === 'staff') {
               navigate("/staff", { replace: true });

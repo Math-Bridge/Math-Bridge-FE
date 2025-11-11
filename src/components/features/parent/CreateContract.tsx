@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById } from '../../../services/api';
+import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -84,11 +84,45 @@ const CreateContract: React.FC = () => {
   const [paymentStatusMessage, setPaymentStatusMessage] = useState<string>('');
   const [paymentConfirmed, setPaymentConfirmed] = useState(false); // Track when payment is confirmed (status changed to pending)
   const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
+  const [nearbyCenters, setNearbyCenters] = useState<Center[]>([]);
+  const [loadingCenters, setLoadingCenters] = useState(false);
+  const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
+  const [userProfileAddress, setUserProfileAddress] = useState<string>('');
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{
+    place_id: string;
+    description: string;
+    structured_formatting?: {
+      main_text: string;
+      secondary_text: string;
+    };
+  }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   useEffect(() => {
     fetchData();
+    fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Fetch user profile to get address
+  const fetchUserProfile = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await apiService.getUserById(user.id);
+      if (response.success && response.data) {
+        const userData = response.data;
+        // Get formatted address from user profile
+        const address = userData.FormattedAddress || userData.formattedAddress || userData.address || '';
+        if (address) {
+          setUserProfileAddress(address);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   // Poll contract status when direct payment is active
   useEffect(() => {
@@ -345,10 +379,10 @@ const CreateContract: React.FC = () => {
 
   const handleSelectPackage = (pkg: Package) => {
     setSelectedPackage(pkg);
-    // Set isOnline based on child's center
+    // Default to online, user can choose offline later
     setSchedule(prev => ({
       ...prev,
-      isOnline: !selectedChild?.centerId
+      isOnline: true
     }));
     // Don't auto-navigate to schedule, wait for Continue button
   };
@@ -419,9 +453,10 @@ const CreateContract: React.FC = () => {
         paymentMethod: paymentMethod // Used in frontend to determine payment flow
       };
 
-      // Optional fields
-      if (selectedChild.centerId) {
-        contractData.centerId = selectedChild.centerId;
+      // Optional fields - use selected center or child's center
+      const centerIdToUse = selectedCenterId || selectedChild.centerId;
+      if (centerIdToUse) {
+        contractData.centerId = centerIdToUse;
       }
 
       // Online-specific fields
@@ -1079,28 +1114,60 @@ const CreateContract: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!selectedChild.centerId) {
-                        setError('Child must have a center assigned for offline sessions');
-                        return;
-                      }
+                    onClick={async () => {
                       setSchedule(prev => ({ ...prev, isOnline: false, videoCallPlatform: undefined }));
+                      setError(null);
+                      
+                      // Load user profile address if available and no address is set
+                      if (!schedule.offlineAddress && userProfileAddress) {
+                        setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                        // Search for centers with profile address
+                        if (userProfileAddress.trim().length >= 5) {
+                          setLoadingCenters(true);
+                          try {
+                            const result = await getCentersNearAddress(userProfileAddress, 10);
+                            if (result.success && result.data) {
+                              let centersData: Center[] = [];
+                              const data = result.data as any;
+                              
+                              if (Array.isArray(data)) {
+                                centersData = data;
+                              } else if (data.data && Array.isArray(data.data)) {
+                                centersData = data.data;
+                              } else if (data.centers && Array.isArray(data.centers)) {
+                                centersData = data.centers;
+                              } else if (data.items && Array.isArray(data.items)) {
+                                centersData = data.items;
+                              }
+                              
+                              setNearbyCenters(centersData);
+                            } else {
+                              setNearbyCenters([]);
+                            }
+                          } catch (error) {
+                            console.error('Error fetching nearby centers:', error);
+                            setNearbyCenters([]);
+                          } finally {
+                            setLoadingCenters(false);
+                          }
+                        }
+                      } else if (!schedule.offlineAddress && !userProfileAddress && user?.id) {
+                        // Try to fetch user profile if not loaded yet
+                        await fetchUserProfile();
+                      }
                     }}
-                    disabled={!selectedChild.centerId}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       schedule.isOnline
                         ? 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
                         : 'border-blue-500 bg-blue-50 text-blue-700'
-                    } ${!selectedChild.centerId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
                     <div className="text-center">
                       <div className="font-semibold">Offline</div>
+                      <div className="text-xs mt-1">At the address you choose</div>
                     </div>
                   </button>
                 </div>
-                {!selectedChild.centerId && schedule.isOnline === false && (
-                  <p className="mt-2 text-sm text-red-600">Child must have a center assigned for offline sessions</p>
-                )}
               </div>
 
               {/* Video Call Platform Selection - Required when Online is selected */}
@@ -1155,22 +1222,257 @@ const CreateContract: React.FC = () => {
               {!schedule.isOnline && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location <span className="text-red-500">*</span>
+                    Address <span className="text-red-500">*</span>
+                    <span className="ml-2 text-xs text-gray-500 font-normal">(The system will find centers within a 10km radius from this address)</span>
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                     <input
                       type="text"
                       value={schedule.offlineAddress || ''}
-                      onChange={(e) => setSchedule(prev => ({ ...prev, offlineAddress: e.target.value }))}
-                      placeholder="Enter the address or location for offline sessions"
+                      onChange={async (e) => {
+                        const address = e.target.value;
+                        setSchedule(prev => ({ ...prev, offlineAddress: address }));
+                        setSelectedCenterId(null);
+                        setShowSuggestions(true);
+                        
+                        // Get autocomplete suggestions
+                        if (address.trim().length >= 3) {
+                          setLoadingSuggestions(true);
+                          try {
+                            const autocompleteResult = await apiService.getAddressAutocomplete(address, 'VN');
+                            if (autocompleteResult.success && autocompleteResult.data) {
+                              const predictions = autocompleteResult.data.predictions || [];
+                              setAddressSuggestions(predictions);
+                            } else {
+                              setAddressSuggestions([]);
+                            }
+                          } catch (error) {
+                            console.error('Error fetching address suggestions:', error);
+                            setAddressSuggestions([]);
+                          } finally {
+                            setLoadingSuggestions(false);
+                          }
+                        } else {
+                          setAddressSuggestions([]);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (schedule.offlineAddress && schedule.offlineAddress.trim().length >= 3) {
+                          setShowSuggestions(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Delay to allow click on suggestion
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      placeholder="Enter address or select from suggestions"
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                    
+                    {/* Address Autocomplete Suggestions */}
+                    {showSuggestions && ((schedule.offlineAddress && schedule.offlineAddress.trim().length >= 3) || addressSuggestions.length > 0) && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {loadingSuggestions ? (
+                          <div className="p-3 text-center text-gray-500">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="mt-2 text-xs">Searching for addresses...</p>
+                          </div>
+                        ) : addressSuggestions.length > 0 ? (
+                          addressSuggestions.map((suggestion, index) => (
+                            <button
+                              key={suggestion.place_id || `suggestion-${index}`}
+                              type="button"
+                              onClick={async () => {
+                                setSchedule(prev => ({ ...prev, offlineAddress: suggestion.description }));
+                                setShowSuggestions(false);
+                                setAddressSuggestions([]);
+                                
+                                // Search for centers with selected address
+                                setLoadingCenters(true);
+                                try {
+                                  const result = await getCentersNearAddress(suggestion.description, 10);
+                                  if (result.success && result.data) {
+                                    let centersData: Center[] = [];
+                                    const data = result.data as any;
+                                    
+                                    if (Array.isArray(data)) {
+                                      centersData = data;
+                                    } else if (data.data && Array.isArray(data.data)) {
+                                      centersData = data.data;
+                                    } else if (data.centers && Array.isArray(data.centers)) {
+                                      centersData = data.centers;
+                                    } else if (data.items && Array.isArray(data.items)) {
+                                      centersData = data.items;
+                                    }
+                                    
+                                    setNearbyCenters(centersData);
+                                  } else {
+                                    setNearbyCenters([]);
+                                  }
+                                } catch (error) {
+                                  console.error('Error fetching nearby centers:', error);
+                                  setNearbyCenters([]);
+                                } finally {
+                                  setLoadingCenters(false);
+                                }
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                            >
+                              {suggestion.structured_formatting ? (
+                                <div>
+                                  <p className="font-medium text-gray-900">{suggestion.structured_formatting.main_text}</p>
+                                  <p className="text-xs text-gray-500">{suggestion.structured_formatting.secondary_text}</p>
+                                </div>
+                              ) : (
+                                <p className="text-gray-900">{suggestion.description}</p>
+                              )}
+                            </button>
+                          ))
+                        ) : schedule.offlineAddress && schedule.offlineAddress.trim().length >= 3 ? (
+                          <div className="p-3 text-center text-gray-500 text-sm">
+                            No matching addresses found
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                   {!schedule.offlineAddress && (
-                    <p className="mt-1 text-xs text-red-600">Location is required for offline sessions</p>
+                    <p className="mt-1 text-xs text-red-600">Address is required for offline sessions</p>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">Enter the exact address where the sessions will take place</p>
+                  {userProfileAddress && !schedule.offlineAddress && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-800">
+                        <strong>Suggestion:</strong> You have an address in your profile: <span className="font-medium">{userProfileAddress}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                          // Search for centers with profile address
+                          setLoadingCenters(true);
+                          try {
+                            const result = await getCentersNearAddress(userProfileAddress, 10);
+                            if (result.success && result.data) {
+                              let centersData: Center[] = [];
+                              const data = result.data as any;
+                              
+                              if (Array.isArray(data)) {
+                                centersData = data;
+                              } else if (data.data && Array.isArray(data.data)) {
+                                centersData = data.data;
+                              } else if (data.centers && Array.isArray(data.centers)) {
+                                centersData = data.centers;
+                              } else if (data.items && Array.isArray(data.items)) {
+                                centersData = data.items;
+                              }
+                              
+                              setNearbyCenters(centersData);
+                            } else {
+                              setNearbyCenters([]);
+                            }
+                          } catch (error) {
+                            console.error('Error fetching nearby centers:', error);
+                            setNearbyCenters([]);
+                          } finally {
+                            setLoadingCenters(false);
+                          }
+                        }}
+                        className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Use address from profile
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Nearby Centers List */}
+                  {schedule.offlineAddress && schedule.offlineAddress.trim().length >= 5 && (
+                    <div className="mt-4">
+                      {loadingCenters ? (
+                        <div className="p-4 bg-gray-50 rounded-lg text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">Searching for nearby centers...</p>
+                        </div>
+                      ) : nearbyCenters.length > 0 ? (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-700 mb-2">
+                            Centers within 10km radius:
+                          </p>
+                          <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                            {nearbyCenters.map((center: any, index: number) => {
+                              const centerId = center.CenterId || center.centerId || center.id || '';
+                              const centerName = center.Name || center.name || 'Unknown Center';
+                              const centerAddress = center.Address || center.address || '';
+                              const isSelected = selectedCenterId === centerId;
+                              
+                              return (
+                                <button
+                                  key={centerId || `center-${index}`}
+                                  type="button"
+                                  onClick={async () => {
+                                    setSelectedCenterId(centerId);
+                                    // Update child with selected center
+                                    if (selectedChild?.childId) {
+                                      try {
+                                        // Backend requires fullName, schoolId, and grade when updating
+                                        const updateResult = await updateChild(selectedChild.childId, {
+                                          fullName: selectedChild.fullName,
+                                          schoolId: selectedChild.schoolId,
+                                          grade: selectedChild.grade,
+                                          centerId: centerId,
+                                          dateOfBirth: selectedChild.dateOfBirth
+                                        });
+                                        if (updateResult.success) {
+                                          showSuccess(`Center updated for ${selectedChild.fullName}`);
+                                          // Update selectedChild state
+                                          setSelectedChild({
+                                            ...selectedChild,
+                                            centerId: centerId,
+                                            centerName: centerName
+                                          });
+                                        } else {
+                                          showError(updateResult.error || 'Unable to update center');
+                                        }
+                                      } catch (error) {
+                                        console.error('Error updating child center:', error);
+                                        showError('Error updating center');
+                                      }
+                                    }
+                                  }}
+                                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                                    isSelected
+                                      ? 'border-blue-500 bg-blue-50'
+                                      : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <p className="font-semibold text-gray-900">{centerName}</p>
+                                      {centerAddress && (
+                                        <p className="text-xs text-gray-600 mt-1">{centerAddress}</p>
+                                      )}
+                                    </div>
+                                    {isSelected && (
+                                      <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0 ml-2" />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">
+                            Select a center to update for {selectedChild?.fullName}. The center will be assigned to the child when creating the contract.
+                          </p>
+                        </div>
+                      ) : schedule.offlineAddress && schedule.offlineAddress.trim().length >= 5 ? (
+                        <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            No centers found within 10km radius from this address.
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1545,22 +1847,6 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
-              {/* Payment Status */}
-              {isPolling && !paymentConfirmed && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-5 h-5 text-yellow-600" />
-                    <span className="text-yellow-800 font-medium">Waiting for payment confirmation...</span>
-                  </div>
-                  {paymentStatusMessage && (
-                    <p className="text-sm text-yellow-700 mt-1">{paymentStatusMessage}</p>
-                  )}
-                  <p className="text-xs text-yellow-600 mt-1">
-                    Checking status... (Attempt {pollingAttempts}/{MAX_POLLING_ATTEMPTS})
-                  </p>
-                </div>
-              )}
-
               {/* Payment Status - After Confirmation - Hidden, only show Thank You banner */}
 
               {/* QR Code - Hide after payment is confirmed */}
@@ -1711,20 +1997,6 @@ const CreateContract: React.FC = () => {
                     <li>This process usually takes 1-5 minutes after payment completion</li>
                     <li>You can close this window and check your contract status later if needed</li>
                   </ol>
-                </div>
-              )}
-
-              {/* Auto-checking status - Only show when payment not confirmed */}
-              {isPolling && !paymentConfirmed && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                    <span className="text-gray-600">Auto-checking payment status...</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    The system will automatically detect when your payment is confirmed. 
-                    This may take a few minutes after you complete the transfer.
-                  </p>
                 </div>
               )}
 

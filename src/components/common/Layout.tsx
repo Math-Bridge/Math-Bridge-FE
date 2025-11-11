@@ -2,10 +2,15 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
+import { useAuth } from '../../hooks/useAuth';
 
 const Layout: React.FC = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
+  
+  // Hide header for admin, staff, and tutor roles
+  const shouldHideHeader = user?.role === 'admin' || user?.role === 'staff' || user?.role === 'tutor';
 
   if (isAuthPage) {
     return (
@@ -47,13 +52,13 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header />
+      {!shouldHideHeader && <Header />}
       
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 math-bg-pattern">
+      <main className={`flex-1 ${shouldHideHeader ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 math-bg-pattern'}`}>
         <Outlet />
       </main>
       
-      <Footer />
+      {!shouldHideHeader && <Footer />}
     </div>
   );
 };
