@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   apiService, 
   getContractsByParent,
-  getTopRatedTutors,
+  getTopRatedTutorsFromList,
   Tutor,
   TutorAchievement
 } from '../../../services/api';
@@ -87,7 +87,7 @@ const ParentHome: React.FC = () => {
       }
 
       // Fetch top rated tutors
-      const tutorsResponse = await getTopRatedTutors(3);
+      const tutorsResponse = await getTopRatedTutorsFromList(3);
       if (tutorsResponse.success && tutorsResponse.data) {
         setTopRatedTutors(tutorsResponse.data);
       } else {

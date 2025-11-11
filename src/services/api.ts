@@ -1733,9 +1733,9 @@ export async function getAllTutors() {
   }
 }
 
-// Get top rated tutors
+// Get top rated tutors from tutor list
 // Backend endpoint: GET /api/tutors (sorted by rating, limited)
-export async function getTopRatedTutors(limit: number = 3) {
+export async function getTopRatedTutorsFromList(limit: number = 3) {
   try {
     const result = await getAllTutors();
     
@@ -2443,4 +2443,221 @@ export async function getVideoConferencesByBooking(bookingId: string) {
   );
   
   return result;
+}
+
+// =====================
+// Statistics API
+// =====================
+
+// User Statistics Types
+export interface UserStatisticsDto {
+  totalUsers: number;
+  activeUsersLast24Hours: number;
+  activeUsersLastWeek: number;
+  activeUsersLastMonth: number;
+  totalParents: number;
+  totalTutors: number;
+  totalAdmin: number;
+  totalStaff: number;
+}
+
+export interface UserRegistrationTrendDto {
+  date: string;
+  newUsers: number;
+}
+
+export interface UserRegistrationTrendStatisticsDto {
+  trends: UserRegistrationTrendDto[];
+  totalNewUsersInPeriod: number;
+}
+
+export interface UserLocationDistributionDto {
+  city: string;
+  userCount: number;
+}
+
+export interface UserLocationStatisticsDto {
+  cityDistribution: UserLocationDistributionDto[];
+  totalCities: number;
+}
+
+export interface WalletStatisticsDto {
+  totalWalletBalance: number;
+  averageWalletBalance: number;
+  medianWalletBalance: number;
+  minWalletBalance: number;
+  maxWalletBalance: number;
+  usersWithZeroBalance: number;
+  usersWithPositiveBalance: number;
+}
+
+// Session Statistics Types
+export interface SessionStatisticsDto {
+  totalSessions: number;
+  completedSessions: number;
+  cancelledSessions: number;
+  upcomingSessions: number;
+  rescheduledSessions: number;
+  completionRate: number;
+}
+
+export interface SessionOnlineVsOfflineDto {
+  onlineSessions: number;
+  offlineSessions: number;
+  onlinePercentage: number;
+  offlinePercentage: number;
+}
+
+export interface SessionTrendDto {
+  date: string;
+  sessionCount: number;
+}
+
+export interface SessionTrendStatisticsDto {
+  trends: SessionTrendDto[];
+  totalSessionsInPeriod: number;
+}
+
+// Tutor Statistics Types
+export interface TutorStatisticsDto {
+  totalTutors: number;
+  averageRating: number;
+  tutorsWithFeedback: number;
+  tutorsWithoutFeedback: number;
+}
+
+export interface TopRatedTutorDto {
+  tutorId: string;
+  tutorName: string;
+  email: string;
+  averageRating: number;
+  feedbackCount: number;
+}
+
+export interface TopRatedTutorsListDto {
+  tutors: TopRatedTutorDto[];
+  totalTutors: number;
+}
+
+export interface TutorSessionCountDto {
+  tutorId: string;
+  tutorName: string;
+  email: string;
+  sessionCount: number;
+  completedSessions: number;
+}
+
+export interface MostActiveTutorsListDto {
+  tutors: TutorSessionCountDto[];
+  totalTutors: number;
+}
+
+// Financial Statistics Types
+export interface RevenueStatisticsDto {
+  totalRevenue: number;
+  averageTransactionAmount: number;
+  totalTransactions: number;
+  successfulTransactions: number;
+  failedTransactions: number;
+  successRate: number;
+}
+
+export interface RevenueTrendDto {
+  date: string;
+  revenue: number;
+  transactionCount: number;
+}
+
+export interface RevenueTrendStatisticsDto {
+  trends: RevenueTrendDto[];
+  totalRevenueInPeriod: number;
+  totalTransactionsInPeriod: number;
+}
+
+// Statistics API Functions
+export async function getUserStatistics() {
+  return apiService.request<UserStatisticsDto>('/statistics/users/overview', {
+    method: 'GET',
+  });
+}
+
+export async function getUserRegistrationTrends(startDate: string, endDate: string) {
+  return apiService.request<UserRegistrationTrendStatisticsDto>(
+    `/statistics/users/registrations?startDate=${startDate}&endDate=${endDate}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+export async function getUserLocationDistribution() {
+  return apiService.request<UserLocationStatisticsDto>('/statistics/users/location', {
+    method: 'GET',
+  });
+}
+
+export async function getWalletStatistics() {
+  return apiService.request<WalletStatisticsDto>('/statistics/users/wallet', {
+    method: 'GET',
+  });
+}
+
+export async function getSessionStatistics() {
+  return apiService.request<SessionStatisticsDto>('/statistics/sessions/overview', {
+    method: 'GET',
+  });
+}
+
+export async function getSessionOnlineVsOffline() {
+  return apiService.request<SessionOnlineVsOfflineDto>('/statistics/sessions/online-vs-offline', {
+    method: 'GET',
+  });
+}
+
+export async function getSessionTrends(startDate: string, endDate: string) {
+  return apiService.request<SessionTrendStatisticsDto>(
+    `/statistics/sessions/trends?startDate=${startDate}&endDate=${endDate}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+export async function getTutorStatistics() {
+  return apiService.request<TutorStatisticsDto>('/statistics/tutors/overview', {
+    method: 'GET',
+  });
+}
+
+export async function getTopRatedTutors(limit: number = 10) {
+  return apiService.request<TopRatedTutorsListDto>(
+    `/statistics/tutors/top-rated?limit=${limit}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+export async function getMostActiveTutors(limit: number = 10) {
+  return apiService.request<MostActiveTutorsListDto>(
+    `/statistics/tutors/most-active?limit=${limit}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+export async function getRevenueStatistics() {
+  return apiService.request<RevenueStatisticsDto>('/statistics/financial/revenue', {
+    method: 'GET',
+  });
+}
+
+export async function getRevenueTrends(startDate: string, endDate: string) {
+  return apiService.request<RevenueTrendStatisticsDto>(
+    `/statistics/financial/revenue-trends?startDate=${startDate}&endDate=${endDate}`,
+    {
+      method: 'GET',
+    }
+  );
 }
