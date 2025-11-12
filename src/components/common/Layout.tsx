@@ -9,9 +9,14 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
-  
-  // Hide header for admin, staff, and tutor roles
-  const shouldHideHeader = user?.role === 'admin' || user?.role === 'staff' || user?.role === 'tutor';
+
+  const userRole = user?.role ?? '';
+
+  // Hide header for admin and staff roles
+  const shouldHideHeader = userRole === 'admin' || userRole === 'staff';
+
+  // Only show AI chat support to roles that should have access (e.g., parents/guests)
+  const shouldShowSupportButton = !['admin', 'staff', 'tutor'].includes(userRole);
 
   if (isAuthPage) {
     return (
@@ -48,7 +53,7 @@ const Layout: React.FC = () => {
           </div>
 
         {/* Customer Support Chat Button */}
-        <CustomerSupportButton />
+        {shouldShowSupportButton && <CustomerSupportButton />}
         </div>
       </div>
     );
@@ -65,7 +70,7 @@ const Layout: React.FC = () => {
       {!shouldHideHeader && <Footer />}
 
       {/* Customer Support Chat Button */}
-      <CustomerSupportButton />
+      {shouldShowSupportButton && <CustomerSupportButton />}
       <Footer />
     </div>
   );

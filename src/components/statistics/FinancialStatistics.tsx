@@ -17,6 +17,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { sanitizeDateRange, todayString } from '../../utils/dateUtils';
 
 const FinancialStatistics: React.FC = () => {
   const [overview, setOverview] = useState<RevenueStatisticsDto | null>(null);
@@ -27,6 +28,22 @@ const FinancialStatistics: React.FC = () => {
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
   });
+  const [dateValidationMessage, setDateValidationMessage] = useState<string | null>(null);
+  const todayIso = todayString();
+
+  const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
+    const { range, error: validationMessage } = sanitizeDateRange(dateRange, field, value, {
+      maxDate: todayIso,
+    });
+    setDateValidationMessage(validationMessage);
+
+    if (
+      range.startDate !== dateRange.startDate ||
+      range.endDate !== dateRange.endDate
+    ) {
+      setDateRange(range);
+    }
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -136,17 +153,25 @@ const FinancialStatistics: React.FC = () => {
               <input
                 type="date"
                 value={dateRange.startDate}
-                onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                max={dateRange.endDate < todayIso ? dateRange.endDate : todayIso}
+                onChange={(e) => handleDateChange('startDate', e.target.value)}
                 className="border rounded px-2 py-1 text-sm"
               />
               <input
                 type="date"
                 value={dateRange.endDate}
-                onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                min={dateRange.startDate}
+                max={todayIso}
+                onChange={(e) => handleDateChange('endDate', e.target.value)}
                 className="border rounded px-2 py-1 text-sm"
               />
             </div>
           </div>
+          {dateValidationMessage && (
+            <p className="text-xs text-red-600 mt-1 mb-4" role="alert">
+              {dateValidationMessage}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="text-sm text-gray-600 mb-1">Total Revenue in Period</div>

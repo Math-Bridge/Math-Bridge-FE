@@ -27,6 +27,7 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   const navItems: NavItem[] = [
     { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -49,9 +50,29 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
+  const showSidebar = mobileMenuOpen || isSidebarVisible;
+
+  const handleMouseLeaveSidebar = () => {
+    if (!mobileMenuOpen) {
+      setIsSidebarVisible(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200">
+      {/* Hover hotspot to reveal sidebar */}
+      <div
+        className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"
+        onMouseEnter={() => setIsSidebarVisible(true)}
+      />
+
+      <div
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-out ${
+          showSidebar ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        onMouseEnter={() => setIsSidebarVisible(true)}
+        onMouseLeave={handleMouseLeaveSidebar}
+      >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
@@ -64,7 +85,10 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
               </div>
             </div>
             <button
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsSidebarVisible(false);
+              }}
               className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
@@ -83,6 +107,7 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
                       onClick={() => {
                         navigate(item.path);
                         setMobileMenuOpen(false);
+                        setIsSidebarVisible(false);
                       }}
                       className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                         active
@@ -119,7 +144,11 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
         </div>
       </div>
 
-      <div className="lg:ml-64 ml-64">
+      <div
+        className={`transition-all duration-300 ease-out ${
+          showSidebar ? 'lg:ml-64' : 'lg:ml-0'
+        }`}
+      >
         <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
           <div className="flex items-center justify-end px-6 py-4">
             <div className="flex items-center space-x-4">

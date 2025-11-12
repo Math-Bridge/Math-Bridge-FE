@@ -59,6 +59,7 @@ const StaffDashboard: React.FC = () => {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification'>('dashboard');
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
     const fetchStaffData = async () => {
@@ -372,10 +373,28 @@ const StaffDashboard: React.FC = () => {
     );
   }
 
+  const showSidebar = isSidebarVisible;
+
+  const handleMouseLeaveSidebar = () => {
+    setIsSidebarVisible(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
+      {/* Hover hotspot to reveal sidebar */}
+      <div
+        className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"
+        onMouseEnter={() => setIsSidebarVisible(true)}
+      />
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-300 ease-out ${
+          showSidebar ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        onMouseEnter={() => setIsSidebarVisible(true)}
+        onMouseLeave={handleMouseLeaveSidebar}
+      >
         {/* User Profile Section */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -430,10 +449,18 @@ const StaffDashboard: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 lg:p-8">
-          {renderContentView()}
-      </div>
+      <main
+        className={`transition-all duration-300 ease-out ${
+          showSidebar ? 'lg:ml-64' : 'lg:ml-0'
+        }`}
+      >
+        <div className="min-h-screen bg-gray-50 flex">
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 lg:p-8">
+              {renderContentView()}
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

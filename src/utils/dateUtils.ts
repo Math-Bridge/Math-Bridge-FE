@@ -67,3 +67,82 @@ export function getDayBits(daysOfWeek: number): number[] {
   return bits.filter(bit => (daysOfWeek & bit) !== 0);
 }
 
+export interface DateRange {
+  startDate: string;
+  endDate: string;
+}
+
+export interface SanitizeDateRangeOptions {
+  minDate?: string;
+  maxDate?: string;
+}
+
+export interface SanitizeDateRangeResult {
+  range: DateRange;
+  error: string | null;
+}
+
+const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+
+const isValidDateString = (value: string): boolean => {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime());
+};
+
+export const todayString = (): string => formatDate(new Date());
+
+/**
+ * Sanitize and validate date range inputs to ensure they stay within bounds and maintain start <= end.
+ */
+export function sanitizeDateRange(
+  currentRange: DateRange,
+  field: 'startDate' | 'endDate',
+  rawValue: string,
+  options: SanitizeDateRangeOptions = {}
+): SanitizeDateRangeResult {
+  const messages: string[] = [];
+
+  if (!rawValue || !isValidDateString(rawValue)) {
+    messages.push('Please choose a valid date.');
+    return { range: currentRange, error: messages.join(' ') };
+  }
+
+  const maxDate = options.maxDate && isValidDateString(options.maxDate) ? options.maxDate : todayString();
+  const minDate = options.minDate && isValidDateString(options.minDate) ? options.minDate : undefined;
+
+  let sanitizedValue = rawValue;
+
+  if (sanitizedValue > maxDate) {
+    sanitizedValue = maxDate;
+    messages.push('Dates cannot be in the future. Adjusted to today.');
+  }
+
+  if (minDate && sanitizedValue < minDate) {
+    sanitizedValue = minDate;
+    messages.push(`Dates cannot be earlier than ${minDate}. Adjusted to minimum allowed date.`);
+  }
+
+  let nextStart = currentRange.startDate;
+  let nextEnd = currentRange.endDate;
+
+  if (field === 'startDate') {
+    nextStart = sanitizedValue;
+    if (nextEnd < nextStart) {
+      nextEnd = nextStart;
+      messages.push('Start date cannot be after end date. End date adjusted to match.');
+    }
+  } else {
+    nextEnd = sanitizedValue;
+    if (nextEnd < nextStart) {
+      nextStart = nextEnd;
+      messages.push('End date cannot be before start date. Start date adjusted to match.');
+    }
+  }
+
+  return {
+    range: { startDate: nextStart, endDate: nextEnd },
+    error: messages.length ? messages.join(' ') : null,
+  };
+}
+

@@ -43,6 +43,51 @@ const TIME_SLOTS = [
   { id: 'slot4', from: '20:30', to: '22:00', label: '20:30 - 22:00' },
 ] as const;
 
+const normalizeWalletBalance = (walletData: any): number => {
+  if (!walletData) {
+    return 0;
+  }
+
+  const candidateKeys = ['balance', 'Balance', 'walletBalance', 'WalletBalance'];
+
+  for (const key of candidateKeys) {
+    if (Object.prototype.hasOwnProperty.call(walletData, key)) {
+      const rawValue = walletData[key];
+
+      if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+        return rawValue;
+      }
+
+      if (typeof rawValue === 'string') {
+        const trimmed = rawValue.trim();
+
+        // Try removing common currency formatting characters
+        const cleaned = trimmed.replace(/\s/g, '').replace(/[,₫]/g, '');
+        const parsedCleaned = Number(cleaned);
+        if (!Number.isNaN(parsedCleaned)) {
+          return parsedCleaned;
+        }
+
+        // Fallback: keep only digits and minus sign
+        const digitsOnly = trimmed.replace(/[^0-9-]/g, '');
+        const parsedDigitsOnly = Number(digitsOnly);
+        if (!Number.isNaN(parsedDigitsOnly)) {
+          return parsedDigitsOnly;
+        }
+      }
+    }
+  }
+
+  if (walletData.data && walletData.data !== walletData) {
+    const nestedBalance = normalizeWalletBalance(walletData.data);
+    if (nestedBalance) {
+      return nestedBalance;
+    }
+  }
+
+  return 0;
+};
+
 const CreateContract: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -227,8 +272,8 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            // Backend returns wallet data with 'balance' property (camelCase)
-            setWalletBalance(walletResult.data.balance || 0);
+            // Backend may return balance in different casings or formats
+            setWalletBalance(normalizeWalletBalance(walletResult.data));
           }
         } catch (err) {
           console.error('Error refreshing wallet balance:', err);
@@ -355,8 +400,8 @@ const CreateContract: React.FC = () => {
         try {
           const walletResult = await apiService.getUserWallet(user.id);
           if (walletResult.success && walletResult.data) {
-            // Backend returns wallet data with 'balance' property (camelCase)
-            setWalletBalance(walletResult.data.balance || 0);
+            // Backend may return balance in different casings or formats
+            setWalletBalance(normalizeWalletBalance(walletResult.data));
           }
         } catch (err) {
           console.error('Error fetching wallet balance:', err);
