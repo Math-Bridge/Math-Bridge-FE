@@ -11,14 +11,12 @@ interface ChildrenListProps {
   onAddChild?: () => void;
   onEditChild?: (childId: string) => void;
   onDeleteChild?: (childId: string) => void;
-  onLinkCenter?: (childId: string) => void;
 }
 
 const ChildrenList: React.FC<ChildrenListProps> = ({
   onAddChild,
   onEditChild,
-  onDeleteChild,
-  onLinkCenter
+  onDeleteChild
 }) => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,12 +161,6 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
     setDeleteConfirm({ isOpen: false, childId: null });
   };
 
-  const handleLinkCenter = async (childId: string) => {
-    if (onLinkCenter) {
-      onLinkCenter(childId);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -194,7 +186,7 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        {/* <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
             <User className="w-5 h-5 text-white" />
           </div>
@@ -204,7 +196,7 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
               {children.length} child{children.length !== 1 ? 'ren' : ''} {t('registered')}
             </p>
           </div>
-        </div>
+        </div> */}
 
         {onAddChild && (
           <button
@@ -242,7 +234,6 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
               child={child}
               onEdit={handleEditChild}
               onDelete={handleDeleteClick}
-              onLinkCenter={handleLinkCenter}
             />
           ))}
         </div>

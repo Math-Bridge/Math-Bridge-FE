@@ -71,7 +71,6 @@ const Layout: React.FC = () => {
 
       {/* Customer Support Chat Button */}
       {shouldShowSupportButton && <CustomerSupportButton />}
-      <Footer />
     </div>
   );
 };

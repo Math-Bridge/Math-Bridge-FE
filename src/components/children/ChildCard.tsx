@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, School, Calendar, MapPin, Edit, Trash2, Link } from 'lucide-react';
+import { User, School, Calendar, MapPin, Edit, Trash2 } from 'lucide-react';
 import { Child } from '../../services/api';
 import { useTranslation } from '../../hooks/useTranslation';
 
@@ -7,10 +7,9 @@ interface ChildCardProps {
   child: Child;
   onEdit?: (childId: string) => void;
   onDelete?: (childId: string) => void;
-  onLinkCenter?: (childId: string) => void;
 }
 
-const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCenter }) => {
+const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete }) => {
   const { t } = useTranslation();
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not specified';
@@ -72,12 +71,12 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCe
           </span>
         </div>
 
-        {child.centerName && (
-          <div className="flex items-center space-x-2 text-sm">
-            <MapPin className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-600">{child.centerName}</span>
-          </div>
-        )}
+        <div className="flex items-center space-x-2 text-sm">
+          <MapPin className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-600">
+            {child.centerName || 'No center assigned'}
+          </span>
+        </div>
 
         {child.dateOfBirth && (
           <div className="flex items-center space-x-2 text-sm">
@@ -95,16 +94,6 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onLinkCe
           >
             <Edit className="w-3 h-3" />
             <span>{t('edit')}</span>
-          </button>
-        )}
-        
-        {onLinkCenter && !child.centerId && (
-          <button
-            onClick={() => onLinkCenter(child.childId)}
-            className="flex-1 px-3 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-md hover:bg-green-100 transition-colors flex items-center justify-center space-x-1"
-          >
-            <Link className="w-3 h-3" />
-            <span>{t('link')}</span>
           </button>
         )}
 
