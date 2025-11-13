@@ -7,21 +7,21 @@ import {
   TrendingUp,
   Clock,
   Users,
-  Target,
   ChevronRight,
   Star,
   Wallet,
   FileText,
   BarChart3,
-  MessageCircle
+  MessageCircle,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  apiService, 
+import {
+  apiService,
   getContractsByParent,
   getTopRatedTutorsFromList,
-  Tutor,
-  TutorAchievement
+  Tutor
 } from '../../../services/api';
 import ScheduleCalendarWidget from './ScheduleCalendarWidget';
 
@@ -33,7 +33,6 @@ interface UpcomingSession {
   date: string;
   duration: string;
 }
-
 
 interface PopularPackage {
   id: string;
@@ -51,117 +50,88 @@ const ParentHome: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // API Data States
+
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [popularPackages, setPopularPackages] = useState<PopularPackage[]>([]);
   const [topRatedTutors, setTopRatedTutors] = useState<Tutor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch data from API
   useEffect(() => {
-    if (user?.id) {
-      fetchHomeData();
-    }
+    if (user?.id) fetchHomeData();
   }, [user?.id]);
 
   const fetchHomeData = async () => {
     if (!user?.id) return;
-    
     setIsLoading(true);
-    
     try {
-      // Fetch wallet balance
       const walletResponse = await apiService.getUserWallet(user.id);
-      if (walletResponse.success && walletResponse.data) {
-        setWalletBalance(walletResponse.data.walletBalance || 0);
+      if (walletResponse.success && walletResponse.data?.walletBalance != null) {
+        setWalletBalance(walletResponse.data.walletBalance);
       }
 
-      // Fetch top rated tutors
       const tutorsResponse = await getTopRatedTutorsFromList(3);
       if (tutorsResponse.success && tutorsResponse.data) {
         setTopRatedTutors(tutorsResponse.data);
       } else {
-        console.error('Failed to fetch top rated tutors:', tutorsResponse.error);
         setTopRatedTutors([]);
       }
 
-      // Fetch contracts to create upcoming sessions and recent activities
       const contractsResponse = await getContractsByParent(user.id);
       if (contractsResponse.success && contractsResponse.data) {
         const contracts = contractsResponse.data;
-        
-        // Create upcoming sessions from active contracts
         const sessions: UpcomingSession[] = [];
         contracts
-          .filter((c: any) => {
-            const status = (c.Status || c.status || '').toLowerCase();
-            return status === 'active' || status === 'pending';
-          })
-          .slice(0, 5) // Limit to 5 upcoming sessions
+          .filter((c: any) => ['active', 'pending'].includes((c.Status || c.status || '').toLowerCase()))
+          .slice(0, 5)
           .forEach((contract: any) => {
             const startDate = contract.StartDate || contract.startDate;
-            const childName = contract.ChildName || contract.childName || 'N/A';
-            const tutorName = contract.MainTutorName || contract.mainTutorName || 'Will be assigned';
-            const packageName = contract.PackageName || contract.packageName || 'Package';
-            
-            // Create a simple upcoming session entry
-            if (startDate) {
-              const start = new Date(startDate);
-              const now = new Date();
-              if (start >= now) {
-                sessions.push({
-                  id: contract.ContractId || contract.contractId || contract.id || '',
-                  childName: childName,
-                  subject: packageName,
-                  tutorName: tutorName,
-                  date: start.toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric' }),
-                  duration: '1 hour'
-                });
-              }
+            if (startDate && new Date(startDate) >= new Date()) {
+              sessions.push({
+                id: contract.ContractId || contract.id || '',
+                childName: contract.ChildName || 'N/A',
+                subject: contract.PackageName || 'Package',
+                tutorName: contract.MainTutorName || 'Will be assigned',
+                date: new Date(startDate).toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric' }),
+                duration: '1 hour'
+              });
             }
           });
         setUpcomingSessions(sessions);
       }
 
-      // Fetch packages for popular packages section
       const packagesResponse = await apiService.getAllPackages();
       if (packagesResponse.success && packagesResponse.data) {
-        const packages = packagesResponse.data;
-        const mappedPackages: PopularPackage[] = packages
-          .slice(0, 3) // Limit to 3 popular packages
+        const mappedPackages: PopularPackage[] = packagesResponse.data
+          .slice(0, 3)
           .map((pkg: any) => {
-            const price = pkg.Price || pkg.price || 0;
-            const sessionCount = pkg.SessionCount || pkg.sessionCount || 0;
-            const weeksNeeded = Math.ceil(sessionCount / 3); // 3 sessions per week
-            
+            const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || pkg.sessions || 0;
+            const weeks = sessionCount > 0 ? Math.ceil(sessionCount / 3) : 4;
+
             return {
               id: pkg.PackageId || pkg.packageId || pkg.id || '',
               title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
-              description: pkg.Description || pkg.description || 'Comprehensive math tutoring',
-              rating: 4.8, // Default rating (backend may not have this)
-              students: 100, // Default students (backend may not have this)
-              price: price,
-              duration: `${weeksNeeded} weeks`,
-              level: 'Intermediate' // Default level
+              description: pkg.Description || pkg.description || 'Comprehensive tutoring package',
+              rating: pkg.rating || 4.8,
+              students: pkg.studentCount || pkg.enrolledStudents || 100,
+              price: pkg.Price || pkg.price || 0,
+              duration: `${weeks} week${weeks > 1 ? 's' : ''}`,
+              level: pkg.level || pkg.difficulty || 'Intermediate'
             };
           });
         setPopularPackages(mappedPackages);
       }
-
     } catch (err) {
       console.error('Error fetching home data:', err);
     } finally {
       setIsLoading(false);
+      setTimeout(() => setShowConfetti(true), 800);
     }
   };
 
@@ -173,387 +143,304 @@ const ParentHome: React.FC = () => {
   };
 
   const quickActions = [
-    {
-      title: t('myChildren'),
-      description: t('manageProfiles'),
-      icon: Users,
-      color: 'blue',
-      onClick: () => navigate('/user-profile')
-    },
-    {
-      title: t('viewPackages'),
-      description: t('browsePackages'),
-      icon: BookOpen,
-      color: 'green',
-      onClick: () => navigate('/packages')
-    },
-    {
-      title: 'Study Schedule',
-      description: 'View your child\'s study schedule',
-      icon: Calendar,
-      color: 'orange',
-      onClick: () => navigate('/parent/schedule')
-    },
-    {
-      title: t('createContract'),
-      description: t('bookSessions'),
-      icon: FileText,
-      color: 'purple',
-      onClick: () => navigate('/contracts/create')
-    },
-    {
-      title: t('viewProgress'),
-      description: t('trackProgress'),
-      icon: TrendingUp,
-      color: 'yellow',
-      onClick: () => navigate('/progress')
-    }
+    { title: t('myChildren'), description: t('manageProfiles'), icon: Users, color: 'blue', onClick: () => navigate('/my-children') },
+    { title: t('viewPackages'), description: t('browsePackages'), icon: BookOpen, color: 'green', onClick: () => navigate('/packages') },
+    { title: 'Study Schedule', description: 'View your child\'s study schedule', icon: Calendar, color: 'orange', onClick: () => navigate('/parent/schedule') },
+    { title: t('createContract'), description: t('bookSessions'), icon: FileText, color: 'purple', onClick: () => navigate('/contracts/create') },
+    { title: t('viewProgress'), description: t('trackProgress'), icon: TrendingUp, color: 'yellow', onClick: () => navigate('/progress') }
   ];
 
   const getColorClasses = (color: string) => {
-    const colors = {
+    const map = {
       blue: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
       green: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
-      purple: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
       orange: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100',
+      purple: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
       yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100'
     };
-    return colors[color as keyof typeof colors] || colors.blue;
+    return map[color as keyof typeof map] || map.blue;
   };
 
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">
-                {getGreeting()}, {user?.name || 'Parent'}!
-              </h1>
-              <p className="text-xl text-blue-100 mb-4">
-                Ready to support your children's learning journey?
-              </p>
-              <div className="flex items-center space-x-4 text-blue-100">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5" />
-                  <span>{currentTime.toLocaleTimeString()}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>{currentTime.toLocaleDateString()}</span>
-                </div>
-              </div>
+    <>
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 animate-gradient" />
+        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-100/20 via-transparent to-amber-100/20 animate-gradient-reverse" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-purple-300/10 text-6xl font-black select-none animate-float"
+              style={{
+                left: `${10 + (i * 65) % 85}%`,
+                top: `${15 + (i * 50) % 80}%`,
+                animationDelay: `${i * 2}s`,
+              }}
+            >
+              {i % 5 === 0 ? 'π' : i % 4 === 0 ? '∑' : i % 3 === 0 ? '∞' : '∫'}
             </div>
-            <div className="hidden md:block">
-              <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Wallet className="h-5 w-5" />
-                  <span className="text-sm">Wallet Balance</span>
-                </div>
-                <div className="text-2xl font-bold">
-                  {walletBalance !== null 
-                    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletBalance)
-                    : isLoading 
-                      ? 'Loading...' 
-                      : '0 VND'}
-                </div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Loading State */}
-        {isLoading && (
-          <div className="mb-8 flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            Quick Actions
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action) => (
-              <button
-                key={action.title}
-                onClick={action.onClick}
-                className={`p-6 rounded-xl border-2 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 ${getColorClasses(action.color)}`}
-              >
-                <action.icon className="h-8 w-8 mb-4" />
-                <h3 className="font-semibold text-lg mb-2">{action.title}</h3>
-                <p className="text-sm opacity-80 mb-4">{action.description}</p>
-                <div className="flex items-center text-sm font-medium">
-                  <span>Get Started</span>
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </div>
-              </button>
-            ))}
-            </div>
-          </div>
-
-          {/* Schedule Calendar */}
-        <div className="w-full">
-            <ScheduleCalendarWidget compact={false} />
+      {/* Confetti */}
+      {showConfetti && !isLoading && (
+        <div className="fixed inset-0 pointer-events-none z-50">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-2 h-2 rounded-full animate-confetti"
+              style={{
+                backgroundColor: i % 3 === 0 ? '#8b5cf6' : i % 2 === 0 ? '#ec4899' : '#3b82f6',
+                left: `${20 + Math.random() * 60}%`,
+                animationDelay: `${i * 0.1}s`,
+              }}
+            />
+          ))}
         </div>
+      )}
 
-        {/* Popular Packages Section */}
-        <div className="mt-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <TrendingUp className="h-6 w-6 text-purple-500 mr-2" />
-                Popular Packages
-              </h2>
-              <button 
-                onClick={() => navigate('/packages')}
-                className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-              >
-                View All Packages
-              </button>
-            </div>
+      <div className="min-h-screen py-8 px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {popularPackages.length === 0 && !isLoading ? (
-                <div className="col-span-3 text-center py-8 text-gray-500">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>No packages available</p>
-                </div>
-              ) : (
-                popularPackages.map((pkg) => (
-                <div key={pkg.id} className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border border-purple-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900 text-lg">{pkg.title}</h3>
-                    <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                      {pkg.level}
-                    </span>
+          {/* Hero + Wallet */}
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 mb-10 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-8 text-white">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div>
+                  <h1 className="text-4xl font-bold mb-2">{getGreeting()}, {user?.name?.split(' ')[0] || 'Parent'}!</h1>
+                  <p className="text-lg opacity-90">Ready to support your child's learning journey?</p>
+                  <div className="flex items-center gap-6 mt-4 text-white/80">
+                    <div className="flex items-center gap-2"><Clock className="h-5 w-5" /> {currentTime.toLocaleTimeString()}</div>
+                    <div className="flex items-center gap-2"><Calendar className="h-5 w-5" /> {currentTime.toLocaleDateString()}</div>
                   </div>
-                  <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium">{pkg.rating}</span>
+                </div>
+
+                {/* Wallet Balance */}
+                <div className="relative group">
+                  <div className="bg-white/25 backdrop-blur-2xl rounded-2xl p-6 border border-white/40 shadow-2xl 
+                    transform-gpu transition-all duration-500 hover:scale-105 hover:rotate-1 hover:shadow-3xl
+                    cursor-pointer overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
+                      translate-x-[-100%] animate-shimmer" />
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400 via-blue-500 to-teal-500 
+                      opacity-0 group-hover:opacity-70 blur-xl transition-opacity duration-700" />
+                    
+                    <div className="relative z-10">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="relative">
+                          <Wallet className="h-10 w-10 text-cyan-300" />
+                          <div className="absolute -inset-2 bg-cyan-400/30 rounded-full blur-xl animate-pulse" />
+                          <Zap className="absolute top-0 right-0 h-4 w-4 text-cyan-300 animate-ping" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white/80">Wallet Balance</p>
+                          <p className="text-xs text-white/60">Ready for booking</p>
+                        </div>
+                      </div>
+                      
+                      <div className="text-4xl font-black text-white tracking-tight">
+                        {walletBalance !== null 
+                          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletBalance)
+                          : 'Loading...'
+                        }
+                      </div>
+                      
+                      {walletBalance !== null && walletBalance > 10000000 && (
+                        <div className="flex items-center gap-2 mt-3 text-cyan-300">
+                          <Sparkles className="h-5 w-5 animate-pulse" />
+                          <span className="text-sm font-bold">VIP Balance!</span>
+                        </div>
+                      )}
                     </div>
-                    <span className="text-sm text-gray-500">{pkg.students} students</span>
-                  </div>
-                  <div>
-                    <span className="text-lg font-bold text-purple-600">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(pkg.price)}
-                    </span>
-                    <span className="text-sm text-gray-500 ml-2">{pkg.duration}</span>
+                    
+                    <div className="absolute inset-0 pointer-events-none">
+                      {[...Array(6)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="absolute w-1 h-1 bg-cyan-300 rounded-full animate-float"
+                          style={{ left: `${20 + i * 15}%`, top: `${30 + i * 10}%`, animationDelay: `${i * 0.3}s` }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-                ))
-              )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Top Rated Tutors & Achievements Section */}
-        <div className="mt-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Star className="h-6 w-6 text-yellow-500 mr-2" />
-                Top Rated Tutors & Achievements
-              </h2>
-              <button 
-                onClick={() => navigate('/tutors')}
-                className="text-yellow-600 hover:text-yellow-700 text-sm font-medium"
-              >
-                View All Tutors
-              </button>
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-cyan-600 border-t-transparent"></div>
             </div>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {topRatedTutors.length === 0 ? (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-gray-500">No tutors available at the moment.</p>
-                </div>
-              ) : (
-                topRatedTutors.map((tutor) => {
-                  // Get specialty from specialties array or major/university
-                  const specialty = tutor.specialties && tutor.specialties.length > 0 
-                    ? tutor.specialties.join(', ') 
-                    : tutor.major || tutor.university || 'Math Tutor';
-                  
-                  // Format experience
-                  const experience = tutor.yearsOfExperience 
-                    ? `${tutor.yearsOfExperience} ${tutor.yearsOfExperience === 1 ? 'year' : 'years'}`
-                    : 'Experience not specified';
-                  
-                  // Default avatar if not provided
-                  const avatarUrl = tutor.profilePictureUrl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tutor.fullName) + '&background=random';
-                  
-                  // Get achievements or use empty array
-                  const achievements = tutor.achievements || [];
-                  
-                  // Helper function to get icon based on achievement type
-                  const getAchievementIcon = (type?: string) => {
-                    if (!type) return <Target className="h-3 w-3 text-white" />;
-                    switch (type.toLowerCase()) {
-                      case 'outstanding_educator':
-                      case 'research_excellence':
-                        return <Target className="h-3 w-3 text-white" />;
-                      case 'successful_students':
-                      case 'student_success':
-                        return <Star className="h-3 w-3 text-white" />;
-                      case 'innovative_methods':
-                        return <TrendingUp className="h-3 w-3 text-white" />;
-                      default:
-                        return <Target className="h-3 w-3 text-white" />;
-                    }
-                  };
-                  
-                  // Format date
-                  const formatDate = (dateStr: string) => {
-                    try {
-                      const date = new Date(dateStr);
-                      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                    } catch {
-                      return dateStr;
-                    }
-                  };
-                  
+          {/* Quick Actions */}
+          <section className="mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+              <Sparkles className="h-8 w-8 text-cyan-500" />
+              Quick Actions
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+              {quickActions.map((action) => (
+                <button
+                  key={action.title}
+                  onClick={action.onClick}
+                  className={`group relative overflow-hidden rounded-xl p-6 text-left transition-all duration-300 hover:-translate-y-2 hover:shadow-xl bg-white/80 backdrop-blur-xl border ${getColorClasses(action.color)}`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <action.icon className="h-10 w-10 mb-4 relative z-10" />
+                  <h3 className="font-bold text-lg mb-2 relative z-10">{action.title}</h3>
+                  <p className="text-sm opacity-80 mb-4 relative z-10">{action.description}</p>
+                  <div className="flex items-center text-sm font-bold relative z-10">
+                    Get Started
+                    <ChevronRight className="h-5 w-5 ml-1 group-hover:translate-x-2 transition-transform" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Schedule */}
+          <section className="mb-10">
+            <ScheduleCalendarWidget compact={false} />
+          </section>
+
+          {/* Popular Packages */}
+          <section className="mb-10">
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                  <TrendingUp className="h-7 w-7 text-cyan-600" />
+                  Popular Packages
+                </h2>
+                <button onClick={() => navigate('/packages')} className="text-cyan-600 hover:text-cyan-700 font-medium">
+                  View All
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {popularPackages.map((pkg) => (
+                  <div key={pkg.id} className="p-5 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl border border-cyan-200 hover:shadow-lg transition-all">
+                    <div className="flex justify-between mb-3">
+                      <h3 className="font-bold text-lg">{pkg.title}</h3>
+                      <span className="px-2 py-1 bg-cyan-100 text-cyan-700 text-xs rounded-full">{pkg.level}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                        <span className="font-medium">{pkg.rating}</span>
+                      </div>
+                      <span className="text-sm text-gray-500">{pkg.students} students</span>
+                    </div>
+                    <div className="text-lg font-bold text-cyan-600">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(pkg.price)}
+                      <span className="text-sm text-gray-500 ml-2">/ {pkg.duration}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Top Tutors */}
+          <section className="mb-10">
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                  <Star className="h-7 w-7 text-yellow-500" />
+                  Top Rated Tutors
+                </h2>
+                <button onClick={() => navigate('/tutors')} className="text-yellow-600 hover:text-yellow-700 font-medium">
+                  View All
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {topRatedTutors.map((tutor) => {
+                  const avatarUrl = tutor.profilePictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName)}&background=random`;
+                  const specialty = tutor.specialties?.join(', ') || tutor.major || 'Tutor';
                   return (
-                    <div key={tutor.userId} className="p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                      <div className="flex items-center space-x-3 mb-3">
-                        <img
-                          src={avatarUrl}
-                          alt={tutor.fullName}
-                          className="w-12 h-12 rounded-full object-cover border-2 border-yellow-200"
-                          onError={(e) => {
-                            // Fallback to default avatar if image fails to load
-                            (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(tutor.fullName) + '&background=random';
-                          }}
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{tutor.fullName}</h3>
+                    <div key={tutor.userId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
+                      <div className="flex items-center gap-4 mb-4">
+                        <img src={avatarUrl} alt={tutor.fullName} className="w-14 h-14 rounded-full object-cover" />
+                        <div>
+                          <h3 className="font-bold">{tutor.fullName}</h3>
                           <p className="text-sm text-gray-600">{specialty}</p>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center space-x-4 mb-3">
-                        {tutor.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium">{tutor.rating.toFixed(1)}</span>
-                          </div>
-                        )}
-                        {tutor.studentCount && (
-                          <span className="text-sm text-gray-500">{tutor.studentCount} students</span>
-                        )}
-                        <span className="text-sm text-gray-500">{experience}</span>
+                      <div className="flex items-center gap-4 mb-4">
+                        {tutor.rating && <div className="flex items-center gap-1"><Star className="h-5 w-5 text-yellow-400 fill-current" /><span className="font-bold">{tutor.rating.toFixed(1)}</span></div>}
+                        <span className="text-sm text-gray-500">{tutor.studentCount || 0} students</span>
                       </div>
-                      
-                      {/* Achievements Section */}
-                      {achievements.length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                            <Target className="h-4 w-4 text-green-600 mr-1" />
-                            Recent Achievements
-                          </h4>
-                          <div className="space-y-2">
-                            {achievements.slice(0, 2).map((achievement, index) => (
-                              <div key={index} className="p-2 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
-                                <div className="flex items-start space-x-2">
-                                  <div className="bg-green-600 rounded p-1">
-                                    {getAchievementIcon(achievement.type)}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h5 className="font-medium text-gray-900 text-xs mb-1">{achievement.title}</h5>
-                                    <p className="text-xs text-gray-600 mb-1">{achievement.description}</p>
-                                    <span className="text-xs text-gray-500">{formatDate(achievement.date)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <button 
-                        onClick={() => navigate(`/tutors/${tutor.userId}`)}
-                        className="w-full px-3 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
-                      >
+                      <button onClick={() => navigate(`/tutors/${tutor.userId}`)} className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
                         View Profile
                       </button>
                     </div>
                   );
-                })
-              )}
+                })}
+              </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Learning Resources */}
-        <div className="mt-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <BookOpen className="h-6 w-6 text-blue-500 mr-2" />
+          {/* Learning Resources */}
+          <section>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <BookOpen className="h-7 w-7 text-blue-600" />
                 Learning Resources
               </h2>
-              <button className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                Browse All
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-4 bg-blue-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                <div className="flex items-center space-x-3 mb-3">
-                  <BookOpen className="h-6 w-6 text-blue-600" />
-                  <h3 className="font-medium text-blue-900">View Packages</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="p-5 bg-blue-50 rounded-xl hover:shadow-lg transition">
+                  <BookOpen className="h-10 w-10 text-blue-600 mb-3" />
+                  <h3 className="font-bold mb-2">View Packages</h3>
+                  <button onClick={() => navigate('/packages')} className="text-blue-600 font-medium">Browse</button>
                 </div>
-                <p className="text-sm text-blue-700 mb-3">
-                  Browse available packages for your children
-                </p>
-                <button 
-                  onClick={() => navigate('/packages')}
-                  className="text-blue-600 text-sm font-medium hover:text-blue-700"
-                >
-                  View Packages →
-                </button>
-              </div>
-
-              <div className="p-4 bg-green-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                <div className="flex items-center space-x-3 mb-3">
-                  <BarChart3 className="h-6 w-6 text-green-600" />
-                  <h3 className="font-medium text-green-900">Progress Reports</h3>
+                <div className="p-5 bg-green-50 rounded-xl hover:shadow-lg transition">
+                  <BarChart3 className="h-10 w-10 text-green-600 mb-3" />
+                  <h3 className="font-bold mb-2">Progress Reports</h3>
+                  <button onClick={() => navigate('/progress')} className="text-green-600 font-medium">View</button>
                 </div>
-                <p className="text-sm text-green-700 mb-3">
-                  Track your children's learning progress
-                </p>
-                <button 
-                  onClick={() => navigate('/progress')}
-                  className="text-green-600 text-sm font-medium hover:text-green-700"
-                >
-                  View Reports →
-                </button>
-              </div>
-
-              <div className="p-4 bg-purple-50 rounded-lg hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                <div className="flex items-center space-x-3 mb-3">
-                  <MessageCircle className="h-6 w-6 text-purple-600" />
-                  <h3 className="font-medium text-purple-900">Support</h3>
+                <div className="p-5 bg-purple-50 rounded-xl hover:shadow-lg transition">
+                  <MessageCircle className="h-10 w-10 text-purple-600 mb-3" />
+                  <h3 className="font-bold mb-2">Support</h3>
+                  <button className="text-purple-600 font-medium">Contact</button>
                 </div>
-                <p className="text-sm text-purple-700 mb-3">
-                  Get help and support for your learning journey
-                </p>
-                <button className="text-purple-600 text-sm font-medium hover:text-purple-700">
-                  Contact Support →
-                </button>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
-    </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes gradient {
+          0%, 100% { transform: translateX(-5%) translateY(-5%); }
+          50% { transform: translateX(5%) translateY(5%); }
+        }
+        @keyframes gradient-reverse {
+          0%, 100% { transform: translateX(5%) translateY(5%); }
+          50% { transform: translateX(-5%) translateY(-5%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        @keyframes confetti {
+          0% { transform: translateY(-100vh); }
+          100% { transform: translateY(100vh) rotate(720deg); }
+        }
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .animate-gradient { animation: gradient 30s ease infinite; }
+        .animate-gradient-reverse { animation: gradient-reverse 35s ease infinite; }
+        .animate-float { animation: float 25s linear infinite; }
+        .animate-confetti { animation: confetti 3s ease-out forwards; }
+        .animate-shimmer { animation: shimmer 3s infinite; }
+      `}} />
+    </>
   );
 };
 
