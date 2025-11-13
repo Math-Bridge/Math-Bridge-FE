@@ -1,44 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { User, Plus, Loader } from 'lucide-react';
+import { Plus, Loader, AlertCircle } from 'lucide-react';
 import ChildCard from './ChildCard';
-import ConfirmDialog from '../common/ConfirmDialog';
-import { Child, getChildrenByParent, softDeleteChild, updateChild, getSchoolById } from '../../services/api';
+import { Child, getChildrenByParent, getSchoolById } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
-import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
 
 interface ChildrenListProps {
   onAddChild?: () => void;
   onEditChild?: (childId: string) => void;
   onDeleteChild?: (childId: string) => void;
+  onRestoreChild?: (childId: string) => void;
+  onLinkCenter?: (childId: string) => void;
 }
 
 const ChildrenList: React.FC<ChildrenListProps> = ({
   onAddChild,
   onEditChild,
-  onDeleteChild
+  onDeleteChild,
+  onRestoreChild,
+  onLinkCenter
 }) => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; childId: string | null }>({
-    isOpen: false,
-    childId: null
-  });
   const { user } = useAuth();
-  const { t } = useTranslation();
   const { showSuccess, showError } = useToast();
 
   useEffect(() => {
-    if (user?.id) {
-      fetchChildren();
-    }
+    if (user?.id) fetchChildren();
   }, [user?.id]);
 
   const fetchChildren = async () => {
-    console.log('Fetching children for user:', user);
     if (!user?.id) {
-      console.error('User not authenticated or missing ID:', user);
       setError('User not authenticated');
       setLoading(false);
       return;
@@ -47,135 +40,98 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
     try {
       setLoading(true);
       setError(null);
-      console.log('Calling getChildrenByParent with user ID:', user.id);
       const result = await getChildrenByParent(user.id);
-      
-      console.log('getChildrenByParent result:', result);
-      
+
       if (result.success && result.data) {
-        // Handle different response formats
         const childrenData = Array.isArray(result.data) ? result.data : [];
-        
-        // Map backend response to frontend Child interface
-        // Filter out reschedule_count field that doesn't exist in backend
-        // Filter out deleted children (status = "deleted")
+
         const mappedChildren = await Promise.all(
-          childrenData
-            .filter((child: any) => {
-              const status = child.Status || child.status || 'active';
-              return status !== 'deleted';
-            })
-            .map(async (child: any) => {
-              // Remove reschedule_count if present to avoid errors
-              const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanChild } = child;
-              
-              let schoolName = cleanChild.SchoolName || cleanChild.schoolName || cleanChild.School?.SchoolName || cleanChild.school?.SchoolName || '';
-              
-              // If schoolName is empty but we have schoolId, try to fetch school name from API
-              if (!schoolName || schoolName.trim() === '') {
-                const schoolId = cleanChild.SchoolId || cleanChild.schoolId;
-                if (schoolId) {
-                  try {
-                    const schoolResponse = await getSchoolById(schoolId);
-                    if (schoolResponse.success && schoolResponse.data) {
-                      // Backend returns SchoolDto with PascalCase: SchoolName
-                      schoolName = schoolResponse.data.SchoolName || schoolResponse.data.schoolName || '';
-                      console.log(`Fetched school name for ${schoolId}: ${schoolName}`);
-                    }
-                  } catch (error) {
-                    console.error('Failed to fetch school name for schoolId:', schoolId, error);
-                  }
+          childrenData.map(async (child: any) => {
+            const { reschedule_count, ...cleanChild } = child;
+            let schoolName = cleanChild.SchoolName || cleanChild.schoolName || '';
+
+            if (!schoolName && (cleanChild.SchoolId || cleanChild.schoolId)) {
+              const schoolId = cleanChild.SchoolId || cleanChild.schoolId;
+              try {
+                const schoolRes = await getSchoolById(schoolId);
+                if (schoolRes.success && schoolRes.data) {
+                  schoolName = schoolRes.data.SchoolName || schoolRes.data.schoolName || `School ${schoolId}`;
                 }
+              } catch (e) {
+                console.warn('Could not fetch school name for ID:', schoolId);
               }
-              
-              return {
-                childId: cleanChild.ChildId || cleanChild.childId || cleanChild.id || String(cleanChild.ChildId),
-                fullName: cleanChild.FullName || cleanChild.fullName || cleanChild.name || '',
-                schoolId: cleanChild.SchoolId || cleanChild.schoolId || '',
-                schoolName: schoolName,
-                centerId: cleanChild.CenterId || cleanChild.centerId || undefined,
-                centerName: cleanChild.CenterName || cleanChild.centerName || cleanChild.center?.Name || undefined,
-                grade: cleanChild.Grade || cleanChild.grade || '',
-                dateOfBirth: cleanChild.DateOfBirth || cleanChild.dateOfBirth || undefined,
-                status: cleanChild.Status || cleanChild.status || 'active'
-              };
-            })
+            }
+
+            return {
+              childId: cleanChild.ChildId || cleanChild.childId || String(cleanChild.id),
+              fullName: cleanChild.FullName || cleanChild.fullName || '',
+              schoolId: cleanChild.SchoolId || cleanChild.schoolId || '',
+              schoolName: schoolName || 'No school assigned',
+              centerId: cleanChild.CenterId || cleanChild.centerId || undefined,
+              centerName: cleanChild.CenterName || cleanChild.centerName || undefined,
+              grade: cleanChild.Grade || cleanChild.grade || '',
+              dateOfBirth: cleanChild.DateOfBirth || cleanChild.dateOfBirth || undefined,
+              status: (cleanChild.Status || cleanChild.status || 'active').toLowerCase()
+            };
+          })
         );
-        
-        console.log('Mapped children (excluding deleted):', mappedChildren);
+
         setChildren(mappedChildren);
       } else {
-        const errorMsg = result.error || 'Failed to fetch children';
-        console.error('Failed to fetch children:', errorMsg);
-        setError(errorMsg);
-        setChildren([]); // Set empty array on error
+        setChildren([]);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while fetching children';
-      console.error('Error fetching children:', err);
-      setError(errorMessage);
-      setChildren([]); // Set empty array on error
+      const msg = err instanceof Error ? err.message : 'Failed to load children';
+      setError(msg);
+      setChildren([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditChild = async (childId: string) => {
-    if (onEditChild) {
-      onEditChild(childId);
-    }
-  };
-
-  const handleDeleteClick = (childId: string) => {
-    setDeleteConfirm({ isOpen: true, childId });
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteConfirm.childId) return;
-
-    try {
-      const result = await softDeleteChild(deleteConfirm.childId);
-      if (result.success) {
-        showSuccess('Child deleted successfully!');
-        // Refresh the children list
-        await fetchChildren();
-        if (onDeleteChild) {
-          onDeleteChild(deleteConfirm.childId);
-        }
-      } else {
-        const errorMsg = result.error || 'Failed to delete child';
-        showError(errorMsg);
-        setError(errorMsg);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while deleting child';
-      showError(errorMessage);
-      setError(errorMessage);
-      console.error('Error:', err);
-    } finally {
-      setDeleteConfirm({ isOpen: false, childId: null });
-    }
-  };
-
-  const handleDeleteCancel = () => {
-    setDeleteConfirm({ isOpen: false, childId: null });
-  };
+  const AddButton = () => (
+    <button
+      onClick={onAddChild}
+      className="group relative px-8 py-4 bg-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl 
+        border border-blue-700/50 overflow-hidden
+        transition-all duration-400 ease-out
+        hover:shadow-2xl hover:shadow-blue-600/40 hover:bg-blue-700
+        hover:rotate-1 transform-gpu
+        flex items-center gap-3"
+    >
+      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 
+        opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <Plus className="h-6 w-6 relative z-10 transition-transform duration-300 group-hover:translate-x-1" />
+      <span className="relative z-10">Add New Child</span>
+    </button>
+  );
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader className="w-8 h-8 text-blue-600 animate-spin" />
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/50 p-6 animate-pulse">
+            <div className="flex items-center gap-5">
+              <div className="w-16 h-16 bg-blue-200 rounded-full" />
+              <div className="space-y-3 flex-1">
+                <div className="h-6 bg-blue-200 rounded w-64" />
+                <div className="h-4 bg-blue-100 rounded w-48" />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="card bg-red-50 border-red-200">
-        <p className="text-red-700">{error}</p>
+      <div className="bg-red-50/80 backdrop-blur-xl rounded-2xl border border-red-200 p-8 text-center">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <p className="text-red-700 font-medium mb-4">{error}</p>
         <button
           onClick={fetchChildren}
-          className="mt-4 btn-secondary"
+          className="px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition font-medium"
         >
           Try Again
         </button>
@@ -184,71 +140,57 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        {/* <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-            <User className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{t('children')}</h3>
-            <p className="text-sm text-gray-600">
-              {children.length} child{children.length !== 1 ? 'ren' : ''} {t('registered')}
-            </p>
-          </div>
-        </div> */}
-
-        {onAddChild && (
-          <button
-            onClick={onAddChild}
-            className="btn-primary flex items-center space-x-2 text-sm px-4 py-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t('addChild')}</span>
-          </button>
-        )}
-      </div>
-
+    <div className="space-y-10">
       {children.length === 0 ? (
-        <div className="bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 text-center py-12">
-          <User className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('noChildren')}</h3>
-          <p className="text-gray-600 mb-6 text-sm">
-            {t('getStarted')}
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl border border-white/50 p-16 text-center">
+          <div className="mx-auto w-28 h-28 mb-8 rounded-full bg-blue-50 flex items-center justify-center">
+            <svg className="w-16 h-16 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H9a4 4 0 01-4-4V9a4 4 0 014-4h6a4 4 0 014 4v8a4 4 0 01-4 4z" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">No children yet</h3>
+          <p className="text-gray-600 mb-10 max-w-md mx-auto text-lg">
+            Start building your child's learning journey
           </p>
-          {onAddChild && (
-            <button
-              onClick={onAddChild}
-              className="btn-primary inline-flex items-center space-x-2 text-sm px-4 py-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{t('addFirstChild')}</span>
-            </button>
-          )}
+          {onAddChild && <AddButton />}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {children.map((child) => (
-            <ChildCard
-              key={child.childId}
-              child={child}
-              onEdit={handleEditChild}
-              onDelete={handleDeleteClick}
-            />
-          ))}
-        </div>
-      )}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {children.map((child) => (
+              <div
+                key={child.childId}
+                className={`relative transition-all duration-300 ${
+                  child.status === 'deleted' ? 'opacity-70 scale-95' : ''
+                }`}
+              >
+                {child.status === 'deleted' && (
+                  <div className="absolute -top-3 -right-3 z-10">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 shadow-lg">
+                      Removed
+                    </span>
+                  </div>
+                )}
 
-      <ConfirmDialog
-        isOpen={deleteConfirm.isOpen}
-        title={t('confirmDeleteChild') || 'Confirm Delete'}
-        message={t('confirmDelete') || 'Are you sure you want to delete this child? This action cannot be undone.'}
-        confirmText={t('delete') || 'Delete'}
-        cancelText={t('cancel') || 'Cancel'}
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        type="danger"
-      />
+                <ChildCard
+                  child={child}
+                  onEdit={onEditChild}
+                  onDelete={onDeleteChild}
+                  onRestore={child.status === 'deleted' ? onRestoreChild : undefined}
+                  onLinkCenter={onLinkCenter}
+                  refreshList={fetchChildren}
+                />
+              </div>
+            ))}
+          </div>
+
+          {onAddChild && (
+            <div className="flex justify-center mt-12">
+              <AddButton />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
