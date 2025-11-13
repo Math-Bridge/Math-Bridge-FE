@@ -1,7 +1,21 @@
-import React from 'react';
-import { ArrowLeft, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin, BookOpen } from 'lucide-react';
-import type { Course } from '../../types';
-import { useAuth } from '../../hooks/useAuth';
+import React from "react";
+import {
+  ArrowLeft,          // ĐÃ THÊM LẠI – KHÔNG CÒN LỖI
+  Calendar,
+  Clock,
+  MapPin,
+  BookOpen,
+  Brain,
+  Calculator,
+  Globe,
+  Beaker,
+  Languages,
+  PencilRuler,
+  Users,
+  CheckCircle,
+} from "lucide-react";
+import type { Course } from "../../types";
+import { useAuth } from "../../hooks/useAuth";
 
 interface PackageDetailProps {
   course: Course;
@@ -10,183 +24,247 @@ interface PackageDetailProps {
   onEnroll?: (course: Course) => void;
 }
 
-const PackageDetail: React.FC<PackageDetailProps> = ({ course, onBack, onEdit, onEnroll }) => {
+const PackageDetail: React.FC<PackageDetailProps> = ({
+  course,
+  onBack,
+  onEdit,
+  onEnroll,
+}) => {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const enrollmentRate = course.max_students && course.current_students
-    ? ((course.current_students / course.max_students) * 100).toFixed(0)
-    : 0;
+  const isAdmin = user?.role === "admin";
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white';
-      case 'upcoming':
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
-      case 'completed':
-        return 'bg-gradient-to-r from-gray-400 to-gray-500 text-white';
-      case 'cancelled':
-        return 'bg-gradient-to-r from-red-400 to-red-500 text-white';
-      default:
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
-    }
+  const packageName =
+    course.name || (course as any).packageName || "Learning Package";
+
+  const sessionCount = (course as any).sessionCount || 0;
+  const durationDays = (course as any).durationDays || 0;
+  const sessionsPerWeek = (course as any).sessionsPerWeek || 3;
+
+  const weeksFromDuration = durationDays > 0 ? Math.ceil(durationDays / 7) : 0;
+  const weeksFromSessions = Math.ceil(sessionCount / sessionsPerWeek);
+  const durationWeeks =
+    (course as any).duration_weeks || weeksFromDuration || weeksFromSessions || 0;
+
+  const maxReschedule = (course as any).maxReschedule || 0;
+
+  const getSubjectIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes("math") || lowerName.includes("toán"))
+      return Calculator;
+    if (lowerName.includes("english") || lowerName.includes("tiếng anh"))
+      return Languages;
+    if (lowerName.includes("science") || lowerName.includes("khoa học"))
+      return Beaker;
+    if (lowerName.includes("literature") || lowerName.includes("văn"))
+      return BookOpen;
+    if (lowerName.includes("logic") || lowerName.includes("tư duy"))
+      return Brain;
+    if (lowerName.includes("art") || lowerName.includes("vẽ") || lowerName.includes("mỹ thuật"))
+      return PencilRuler;
+    if (lowerName.includes("world") || lowerName.includes("địa") || lowerName.includes("lịch sử"))
+      return Globe;
+    return BookOpen;
   };
 
-  const getLevelColor = (level: string) => {
-    switch (level?.toLowerCase()) {
-      case 'beginner':
-        return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-      case 'intermediate':
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'advanced':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      default:
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-    }
-  };
+  const SubjectIcon = getSubjectIcon(packageName);
+  const bgColor = course.price === 0 ? "bg-emerald-50" : "bg-sky-50";
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Coursera-style Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <button
-            onClick={onBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Back to Packages</span>
-          </button>
+      {/* Back Button */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Back to Packages
+        </button>
+      </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2">
+      <div className="max-w-7xl mx-auto px-6 pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* MAIN BLOCK */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
               {/* Hero Image */}
-              {course.image_url ? (
-                <div className="relative h-64 rounded-lg overflow-hidden mb-6">
+              <div className="relative">
+                {course.image_url ? (
                   <img
                     src={course.image_url}
-                    alt={course.name}
-                    className="w-full h-full object-cover"
+                    alt={packageName}
+                    className="w-full h-96 object-cover"
                   />
-                </div>
-              ) : (
-                <div className="relative h-64 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg overflow-hidden mb-6 flex items-center justify-center">
-                  <BookOpen className="w-24 h-24 text-white opacity-80" />
-                </div>
-              )}
-
-              <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-3">
-                  {course.name || 'Package Name'}
-                </h1>
-                {course.center_name && (
-                  <div className="flex items-center space-x-2 text-gray-600 mb-4">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">{course.center_name}</span>
+                ) : (
+                  <div
+                    className={`relative h-96 ${bgColor} flex items-center justify-center`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent" />
+                    <div className="relative z-10 p-12">
+                      <div className="w-32 h-32 bg-white rounded-3xl shadow-2xl flex items-center justify-center">
+                        <SubjectIcon className="w-20 h-20 text-emerald-600" />
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {(course as any).grade || course.category ? (
-                  <div className="mb-4">
-                    <span className="inline-block px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 rounded">
-                      {(course as any).grade || course.category || 'General'}
-                    </span>
+                {course.status && course.status !== "active" && (
+                  <div className="absolute top-4 right-4 px-3 py-1 bg-white/95 backdrop-blur rounded-full text-xs font-semibold text-gray-700 shadow">
+                    {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
                   </div>
-                ) : null}
+                )}
+              </div>
 
+              <div className="p-8 space-y-8">
+                {/* Title & Center & Grade */}
+                <div>
+                  <h1 className="text-4xl font-black text-gray-900 mb-3">
+                    {packageName}
+                  </h1>
+                  {course.center_name && (
+                    <div className="flex items-center gap-3 text-gray-600">
+                      <MapPin className="w-5 h-5 text-gray-400" />
+                      <span className="text-lg font-medium">
+                        {course.center_name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
                 {course.description && (
-                  <div className="mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-3">About this package</h2>
-                    <p className="text-gray-700 leading-relaxed">{course.description}</p>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                      About This Package
+                    </h2>
+                    <p className="text-lg text-gray-700 leading-relaxed">
+                      {course.description}
+                    </p>
                   </div>
                 )}
 
-                {/* What you'll learn section */}
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-3">Package Details</h2>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-gray-500" />
+                {/* What You'll Get */}
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                    What You'll Get
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-sky-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <Clock className="w-6 h-6 text-cyan-600" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Sessions</p>
-                        <p className="text-sm text-gray-600">{(course as any).sessionCount || 0} sessions</p>
+                        <p className="font-semibold text-gray-900">
+                          Total Sessions
+                        </p>
+                        <p className="text-2xl font-bold text-cyan-600">
+                          {sessionCount}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-yellow-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-6 h-6 text-red-600" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Duration</p>
-                        <p className="text-sm text-gray-600">{course.duration_weeks || 0} weeks</p>
+                        <p className="font-semibold text-gray-900">Duration</p>
+                        <p className="text-2xl font-bold text-red-600">
+                          {durationWeeks} week{durationWeeks !== 1 ? "s" : ""}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-4 h-4 text-gray-500" />
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <Users className="w-6 h-6 text-teal-600" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Level</p>
-                        <p className="text-sm text-gray-600">{course.level || 'Intermediate'}</p>
+                        <p className="font-semibold text-gray-900">
+                          Learning Level
+                        </p>
+                        <p className="text-2xl font-bold text-teal-600 capitalize">
+                          {course.level || "Intermediate"}
+                        </p>
                       </div>
                     </div>
 
-                    {course.start_date && (
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Start Date</p>
-                          <p className="text-sm text-gray-600">{new Date(course.start_date).toLocaleDateString()}</p>
-                        </div>
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="w-6 h-6 text-emerald-600" />
                       </div>
-                    )}
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          Reschedule Allowed
+                        </p>
+                        <p className="text-2xl font-bold text-emerald-600">
+                          {maxReschedule} time{maxReschedule !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Sidebar - Coursera style */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-6">
-                <div className="mb-6">
-                  <div className="text-3xl font-bold text-gray-900 mb-2">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.price || 0)}
-                  </div>
+          {/* SIDEBAR */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 p-8 sticky top-8">
+              <div className="mb-8">
+                <div className="text-5xl font-black text-gray-900">
+                  {new Intl.NumberFormat("vi-VN", {
+                    style: "currency",
+                    currency: "VND",
+                  }).format(course.price || 0)}
                 </div>
-
-                {onEnroll && course.status === 'active' && (
-                  <button
-                    onClick={() => onEnroll(course)}
-                    className="w-full px-6 py-3 bg-black text-white font-semibold rounded hover:bg-gray-800 transition-colors mb-4"
-                  >
-                    Enroll Now
-                  </button>
-                )}
-
-                {isAdmin && onEdit && course.course_id && (
-                  <button
-                    onClick={() => onEdit(course.course_id)}
-                    className="w-full px-6 py-3 border border-gray-300 text-gray-900 font-semibold rounded hover:bg-gray-50 transition-colors"
-                  >
-                    Edit Package
-                  </button>
-                )}
-
-                <div className="mt-6 pt-6 border-t border-gray-200 space-y-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Sessions:</span>
-                    <span className="font-medium text-gray-900 ml-2">{(course as any).sessionCount || 0}</span>
+                {course.price === 0 && (
+                  <div className="mt-3 inline-block px-4 py-2 bg-emerald-100 text-emerald-700 font-bold rounded-full">
+                    FREE OF CHARGE
                   </div>
-                  <div>
-                    <span className="text-gray-600">Duration:</span>
-                    <span className="font-medium text-gray-900 ml-2">{course.duration_weeks || 0} weeks</span>
-                  </div>
-                  {course.center_name && (
-                    <div>
-                      <span className="text-gray-600">Center:</span>
-                      <span className="font-medium text-gray-900 ml-2">{course.center_name}</span>
-                    </div>
-                  )}
+                )}
+              </div>
+
+              {onEnroll && course.status === "active" && (
+                <button
+                  onClick={() => onEnroll(course)}
+                  className="w-full py-4 bg-emerald-600 text-white font-bold text-lg rounded-2xl hover:bg-emerald-700 transform hover:scale-105 transition-all duration-300 shadow-xl"
+                >
+                  Enroll Now
+                </button>
+              )}
+
+              {isAdmin && onEdit && course.course_id && (
+                <button
+                  onClick={() => onEdit(course.course_id!)}
+                  className="w-full mt-4 py-4 border-2 border-emerald-600 text-emerald-600 font-bold text-lg rounded-2xl hover:bg-emerald-50 transition-all"
+                >
+                  Edit Package
+                </button>
+              )}
+
+              <div className="mt-8 pt-8 border-t border-gray-200 space-y-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Sessions per week</span>
+                  <span className="font-bold text-gray-900">
+                    {sessionsPerWeek}
+                  </span>
                 </div>
+                {course.start_date && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Start Date</span>
+                    <span className="font-bold text-gray-900">
+                      {new Date(course.start_date).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        }
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
