@@ -1673,6 +1673,8 @@ export interface Tutor {
   yearsOfExperience?: number; // Years of experience
   profilePictureUrl?: string; // Profile picture URL
   achievements?: TutorAchievement[]; // Achievements list
+  averageRating?: number; // Average rating from reviews (used by contract-specific endpoint)
+  reviewCount?: number; // Number of reviews (used by contract-specific endpoint)
 }
 
 export interface TutorAchievement {
@@ -1886,14 +1888,63 @@ export async function rejectTutorVerification(tutorId: string) {
   }
 }
 
+/**
+ * Get available tutors for a specific contract
+ * This endpoint checks for overlapping contracts and returns tutors sorted by rating
+ * @param contractId - The contract ID to get available tutors for
+ */
+export async function getAvailableTutorsForContract(contractId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/contracts/${contractId}/available-tutors`);
+    
+    if (result.success && result.data) {
+      // Backend returns AvailableTutorResponse with UserId, FullName, Email, PhoneNumber, AverageRating, ReviewCount
+      const mappedTutors: Tutor[] = result.data.map((tutor: any) => ({
+        userId: tutor.userId || tutor.UserId || '',
+        fullName: tutor.fullName || tutor.FullName || tutor.name || tutor.Name || '',
+        email: tutor.email || tutor.Email || '',
+        phone: tutor.phoneNumber || tutor.PhoneNumber || tutor.phone || tutor.Phone || undefined,
+        centerId: undefined, // Not provided by this endpoint
+        centerName: undefined, // Not provided by this endpoint
+        verificationStatus: 'approved', // Assume approved if returned by this endpoint
+        canTeachOnline: undefined,
+        canTeachOffline: undefined,
+        averageRating: tutor.averageRating || tutor.AverageRating || 0,
+        reviewCount: tutor.reviewCount || tutor.ReviewCount || 0,
+      })).filter((tutor: Tutor) => tutor.userId && tutor.userId.trim() !== '');
+
+      return {
+        success: true,
+        data: mappedTutors,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error in getAvailableTutorsForContract:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to get available tutors for contract',
+      data: undefined,
+    };
+  }
+}
+
 export async function getAvailableTutors(params?: {
   centerId?: string;
   daysOfWeek?: number;
   startTime?: string;
   endTime?: string;
   isOnline?: boolean;
+  contractId?: string; // Add contractId parameter
 }) {
-  // Use existing searchTutorsByAvailability function
+  // If contractId is provided, use the contract-specific endpoint
+  if (params?.contractId) {
+    return getAvailableTutorsForContract(params.contractId);
+  }
+
+  // Otherwise, use existing searchTutorsByAvailability function
   const result = await searchTutorsByAvailability({
     daysOfWeek: params?.daysOfWeek,
     availableFrom: params?.startTime,

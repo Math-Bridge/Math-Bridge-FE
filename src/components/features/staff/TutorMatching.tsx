@@ -85,23 +85,12 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
   const fetchAvailableTutors = async (contract: Contract) => {
     try {
       setLoadingTutors(true);
-      const params: any = {
-        centerId: contract.centerId,
-        isOnline: contract.isOnline,
-      };
       
-      // Add daysOfWeek if available
-      if ((contract as any).daysOfWeeks) {
-        params.daysOfWeek = (contract as any).daysOfWeeks;
-      }
-      
-      // Add startTime and endTime if available for better matching
-      if ((contract as any).startTime && (contract as any).endTime) {
-        params.startTime = (contract as any).startTime;
-        params.endTime = (contract as any).endTime;
-      }
-      
-      const result = await getAvailableTutors(params);
+      // Use contract-specific endpoint which checks for overlapping contracts
+      // and returns tutors sorted by rating
+      const result = await getAvailableTutors({
+        contractId: contract.contractId,
+      });
 
       if (result.success && result.data) {
         setAvailableTutors(result.data);

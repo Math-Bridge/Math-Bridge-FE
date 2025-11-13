@@ -210,11 +210,11 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const fetchAvailableTutors = async (contract: Contract) => {
     try {
       setLoadingTutors(true);
-      // Extract days of week from contract if available
+      
+      // Use contract-specific endpoint which checks for overlapping contracts
+      // and returns tutors sorted by rating
       const result = await getAvailableTutors({
-        centerId: contract.centerId || undefined,
-        isOnline: contract.isOnline,
-        // daysOfWeek: contract.daysOfWeeks, // If available in Contract interface
+        contractId: contract.contractId,
       });
 
       if (result.success && result.data) {
