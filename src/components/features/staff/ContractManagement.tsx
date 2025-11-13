@@ -12,6 +12,14 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  Star,
+  Award,
+  Clock,
+  Mail,
+  Phone,
+  GraduationCap,
+  CheckCircle,
+  User,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
@@ -41,6 +49,11 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
   const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
   const [selectedSubstituteTutor2, setSelectedSubstituteTutor2] = useState<Tutor | null>(null);
+  // Tutor detail modal
+  const [selectedTutorForDetail, setSelectedTutorForDetail] = useState<Tutor | null>(null);
+  const [showTutorDetailModal, setShowTutorDetailModal] = useState(false);
+  const [tutorDetail, setTutorDetail] = useState<any>(null);
+  const [loadingTutorDetail, setLoadingTutorDetail] = useState(false);
 
   useEffect(() => {
     fetchContracts();
@@ -375,6 +388,39 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
     }
   };
 
+  const handleViewTutorDetail = async (tutor: Tutor) => {
+    setSelectedTutorForDetail(tutor);
+    setShowTutorDetailModal(true);
+    setLoadingTutorDetail(true);
+    
+    try {
+      // Fetch detailed tutor information
+      const result = await apiService.getUserById(tutor.userId);
+      if (result.success && result.data) {
+        // Combine API data with existing tutor data
+        setTutorDetail({
+          ...tutor,
+          ...result.data,
+          fullName: tutor.fullName || result.data.fullName || result.data.FullName || result.data.name || result.data.Name,
+          email: tutor.email || result.data.email || result.data.Email,
+          phone: tutor.phone || result.data.phone || result.data.phoneNumber || result.data.PhoneNumber,
+          bio: tutor.bio || result.data.bio || result.data.Bio,
+          university: tutor.university || result.data.university || result.data.University,
+          major: tutor.major || result.data.major || result.data.Major,
+        });
+      } else {
+        // If API fails, use the tutor data we already have
+        setTutorDetail(tutor);
+      }
+    } catch (error) {
+      console.error('Error fetching tutor details:', error);
+      // Use the tutor data we already have
+      setTutorDetail(tutor);
+    } finally {
+      setLoadingTutorDetail(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -584,7 +630,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                     )}
                                     <button
                                       onClick={() => {
-                                        window.open(`/contracts/${contract.contractId}`, '_blank');
+                                        navigate(`/staff/contracts/${contract.contractId}`);
                                         setOpenDropdownId(null);
                                       }}
                                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
@@ -744,7 +790,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     {selectedMainTutor ? (
                       <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-500 rounded-lg">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">{selectedMainTutor.fullName}</h4>
                             <p className="text-sm text-gray-600">{selectedMainTutor.email}</p>
                             {selectedMainTutor.centerName && (
@@ -753,13 +799,31 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedMainTutor.centerName}
                               </p>
                             )}
+                            {selectedMainTutor.rating && (
+                              <div className="flex items-center mt-2">
+                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                <span className="text-sm font-medium text-gray-700">{selectedMainTutor.rating.toFixed(1)}</span>
+                                {selectedMainTutor.reviewCount && (
+                                  <span className="text-xs text-gray-500 ml-1">({selectedMainTutor.reviewCount} reviews)</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <button
-                            onClick={() => setSelectedMainTutor(null)}
-                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            Change
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewTutorDetail(selectedMainTutor)}
+                              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center space-x-1"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>Details</span>
+                            </button>
+                            <button
+                              onClick={() => setSelectedMainTutor(null)}
+                              className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -772,17 +836,45 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           .map((tutor) => (
                           <div
                             key={tutor.userId}
-                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-blue-500 hover:bg-blue-50 cursor-pointer"
-                            onClick={() => handleSelectTutorForRole(tutor, 'main')}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-blue-500 hover:bg-blue-50"
                           >
-                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
-                            <p className="text-sm text-gray-600">{tutor.email}</p>
-                            {tutor.centerName && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                <MapPin className="w-4 h-4 inline mr-1" />
-                                {tutor.centerName}
-                              </p>
-                            )}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1" onClick={() => handleSelectTutorForRole(tutor, 'main')}>
+                                <h4 className="font-semibold text-gray-900 cursor-pointer">{tutor.fullName}</h4>
+                                <p className="text-sm text-gray-600">{tutor.email}</p>
+                                {tutor.centerName && (
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    <MapPin className="w-4 h-4 inline mr-1" />
+                                    {tutor.centerName}
+                                  </p>
+                                )}
+                                {tutor.rating && (
+                                  <div className="flex items-center mt-2">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
+                                    {tutor.reviewCount && (
+                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewTutorDetail(tutor);
+                                }}
+                                className="ml-2 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100 rounded transition-colors flex items-center space-x-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Details</span>
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => handleSelectTutorForRole(tutor, 'main')}
+                              className="w-full mt-2 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              Select as Main Tutor
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -798,7 +890,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     {selectedSubstituteTutor1 ? (
                       <div className="mb-3 p-4 bg-green-50 border-2 border-green-500 rounded-lg">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor1.fullName}</h4>
                             <p className="text-sm text-gray-600">{selectedSubstituteTutor1.email}</p>
                             {selectedSubstituteTutor1.centerName && (
@@ -807,13 +899,31 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedSubstituteTutor1.centerName}
                               </p>
                             )}
+                            {selectedSubstituteTutor1.rating && (
+                              <div className="flex items-center mt-2">
+                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor1.rating.toFixed(1)}</span>
+                                {selectedSubstituteTutor1.reviewCount && (
+                                  <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor1.reviewCount} reviews)</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <button
-                            onClick={() => setSelectedSubstituteTutor1(null)}
-                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            Change
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewTutorDetail(selectedSubstituteTutor1)}
+                              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center space-x-1"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>Details</span>
+                            </button>
+                            <button
+                              onClick={() => setSelectedSubstituteTutor1(null)}
+                              className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -826,17 +936,45 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           .map((tutor) => (
                           <div
                             key={tutor.userId}
-                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-green-500 hover:bg-green-50 cursor-pointer"
-                            onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-green-500 hover:bg-green-50"
                           >
-                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
-                            <p className="text-sm text-gray-600">{tutor.email}</p>
-                            {tutor.centerName && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                <MapPin className="w-4 h-4 inline mr-1" />
-                                {tutor.centerName}
-                              </p>
-                            )}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1" onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}>
+                                <h4 className="font-semibold text-gray-900 cursor-pointer">{tutor.fullName}</h4>
+                                <p className="text-sm text-gray-600">{tutor.email}</p>
+                                {tutor.centerName && (
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    <MapPin className="w-4 h-4 inline mr-1" />
+                                    {tutor.centerName}
+                                  </p>
+                                )}
+                                {tutor.rating && (
+                                  <div className="flex items-center mt-2">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
+                                    {tutor.reviewCount && (
+                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewTutorDetail(tutor);
+                                }}
+                                className="ml-2 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100 rounded transition-colors flex items-center space-x-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Details</span>
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}
+                              className="w-full mt-2 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Select as Substitute 1
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -852,7 +990,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     {selectedSubstituteTutor2 ? (
                       <div className="mb-3 p-4 bg-purple-50 border-2 border-purple-500 rounded-lg">
                         <div className="flex items-center justify-between">
-                          <div>
+                          <div className="flex-1">
                             <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor2.fullName}</h4>
                             <p className="text-sm text-gray-600">{selectedSubstituteTutor2.email}</p>
                             {selectedSubstituteTutor2.centerName && (
@@ -861,13 +999,31 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedSubstituteTutor2.centerName}
                               </p>
                             )}
+                            {selectedSubstituteTutor2.rating && (
+                              <div className="flex items-center mt-2">
+                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor2.rating.toFixed(1)}</span>
+                                {selectedSubstituteTutor2.reviewCount && (
+                                  <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor2.reviewCount} reviews)</span>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <button
-                            onClick={() => setSelectedSubstituteTutor2(null)}
-                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            Change
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleViewTutorDetail(selectedSubstituteTutor2)}
+                              className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-100 rounded-lg transition-colors flex items-center space-x-1"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>Details</span>
+                            </button>
+                            <button
+                              onClick={() => setSelectedSubstituteTutor2(null)}
+                              className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -880,17 +1036,45 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           .map((tutor) => (
                           <div
                             key={tutor.userId}
-                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-purple-500 hover:bg-purple-50 cursor-pointer"
-                            onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-purple-500 hover:bg-purple-50"
                           >
-                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
-                            <p className="text-sm text-gray-600">{tutor.email}</p>
-                            {tutor.centerName && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                <MapPin className="w-4 h-4 inline mr-1" />
-                                {tutor.centerName}
-                              </p>
-                            )}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1" onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}>
+                                <h4 className="font-semibold text-gray-900 cursor-pointer">{tutor.fullName}</h4>
+                                <p className="text-sm text-gray-600">{tutor.email}</p>
+                                {tutor.centerName && (
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    <MapPin className="w-4 h-4 inline mr-1" />
+                                    {tutor.centerName}
+                                  </p>
+                                )}
+                                {tutor.rating && (
+                                  <div className="flex items-center mt-2">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
+                                    {tutor.reviewCount && (
+                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewTutorDetail(tutor);
+                                }}
+                                className="ml-2 px-2 py-1 text-xs text-blue-600 hover:bg-blue-100 rounded transition-colors flex items-center space-x-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                <span>Details</span>
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}
+                              className="w-full mt-2 px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
+                            >
+                              Select as Substitute 2
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -907,6 +1091,219 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                       {loadingTutors ? 'Assigning Tutors...' : 'Confirm Assignment'}
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tutor Detail Modal */}
+      {showTutorDetailModal && selectedTutorForDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Tutor Details</h2>
+                <button
+                  onClick={() => {
+                    setShowTutorDetailModal(false);
+                    setSelectedTutorForDetail(null);
+                    setTutorDetail(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingTutorDetail ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading tutor details...</p>
+                </div>
+              ) : tutorDetail ? (
+                <div className="space-y-6">
+                  {/* Profile Header */}
+                  <div className="flex items-start space-x-4 pb-6 border-b border-gray-200">
+                    <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
+                      {tutorDetail.fullName?.charAt(0)?.toUpperCase() || <User className="w-10 h-10" />}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-2xl font-bold text-gray-900">{tutorDetail.fullName}</h3>
+                        {tutorDetail.verificationStatus === 'verified' && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                      {tutorDetail.rating && (
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                          <span className="font-semibold text-gray-900">{tutorDetail.rating.toFixed(1)}</span>
+                          {tutorDetail.reviewCount && (
+                            <span className="text-gray-500">({tutorDetail.reviewCount} reviews)</span>
+                          )}
+                        </div>
+                      )}
+                      {tutorDetail.centerName && (
+                        <div className="flex items-center text-gray-600">
+                          <MapPin className="w-4 h-4 mr-1" />
+                          <span>{tutorDetail.centerName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contact Information */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Contact Information</h4>
+                    <div className="space-y-2">
+                      {tutorDetail.email && (
+                        <div className="flex items-center text-sm text-gray-700">
+                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{tutorDetail.email}</span>
+                        </div>
+                      )}
+                      {tutorDetail.phone && (
+                        <div className="flex items-center text-sm text-gray-700">
+                          <Phone className="w-4 h-4 mr-2 text-gray-400" />
+                          <span>{tutorDetail.phone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bio */}
+                  {tutorDetail.bio && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">About</h4>
+                      <p className="text-gray-700 leading-relaxed">{tutorDetail.bio}</p>
+                    </div>
+                  )}
+
+                  {/* Qualifications */}
+                  {(tutorDetail.university || tutorDetail.major) && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <GraduationCap className="w-5 h-5 mr-2 text-blue-600" />
+                        Education
+                      </h4>
+                      <div className="space-y-2">
+                        {tutorDetail.university && (
+                          <div className="text-sm text-gray-700">
+                            <span className="font-medium">University: </span>
+                            {tutorDetail.university}
+                          </div>
+                        )}
+                        {tutorDetail.major && (
+                          <div className="text-sm text-gray-700">
+                            <span className="font-medium">Major: </span>
+                            {tutorDetail.major}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Specialties */}
+                  {tutorDetail.specialties && tutorDetail.specialties.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">Specialties</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {tutorDetail.specialties.map((specialty: string, index: number) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                          >
+                            {specialty}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Experience & Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {tutorDetail.yearsOfExperience !== undefined && (
+                      <div className="bg-blue-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-blue-600">{tutorDetail.yearsOfExperience}</div>
+                        <div className="text-xs text-gray-600 mt-1">Years Experience</div>
+                      </div>
+                    )}
+                    {tutorDetail.studentCount !== undefined && (
+                      <div className="bg-green-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-600">{tutorDetail.studentCount}</div>
+                        <div className="text-xs text-gray-600 mt-1">Students</div>
+                      </div>
+                    )}
+                    {tutorDetail.rating !== undefined && (
+                      <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-yellow-600">{tutorDetail.rating.toFixed(1)}</div>
+                        <div className="text-xs text-gray-600 mt-1">Rating</div>
+                      </div>
+                    )}
+                    {tutorDetail.hourlyRate !== undefined && (
+                      <div className="bg-purple-50 rounded-lg p-3 text-center">
+                        <div className="text-lg font-bold text-purple-600">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tutorDetail.hourlyRate)}
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">Per Hour</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Teaching Capabilities */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Teaching Capabilities</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {tutorDetail.canTeachOnline && (
+                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                          Online Teaching
+                        </span>
+                      )}
+                      {tutorDetail.canTeachOffline && (
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                          Offline Teaching
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Achievements */}
+                  {tutorDetail.achievements && tutorDetail.achievements.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <Award className="w-5 h-5 mr-2 text-yellow-600" />
+                        Achievements
+                      </h4>
+                      <div className="space-y-2">
+                        {tutorDetail.achievements.map((achievement: any, index: number) => (
+                          <div key={index} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="font-medium text-gray-900">{achievement.title}</div>
+                            {achievement.description && (
+                              <div className="text-sm text-gray-600 mt-1">{achievement.description}</div>
+                            )}
+                            {achievement.date && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                {new Date(achievement.date).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600">Unable to load tutor details</p>
                 </div>
               )}
             </div>

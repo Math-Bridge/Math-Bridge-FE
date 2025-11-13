@@ -99,6 +99,14 @@ const StaffDashboard: React.FC = () => {
     fetchStaffData();
   }, [showError]);
 
+  // Sync currentView with location state (for navigation from detail pages)
+  useEffect(() => {
+    const state = location.state as { view?: string } | null;
+    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification'].includes(state.view)) {
+      setCurrentView(state.view as typeof currentView);
+    }
+  }, [location.state]);
+
   const navigationItems = [
     { name: 'Home', icon: Home, path: '/staff', view: 'dashboard' as const },
     { name: 'Tutor Verification', icon: UserCheck, path: '/staff/tutor-verification', view: 'tutor-verification' as const },

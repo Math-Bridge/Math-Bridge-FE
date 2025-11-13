@@ -113,17 +113,7 @@ class ApiService {
           }
         }
         
-        // Log error information for debugging (only in development)
-        if (import.meta.env.DEV) {
-          console.error('API Error:', {
-            url,
-            status: response.status,
-            statusText: response.statusText,
-            error: data?.error || data?.message || text.substring(0, 200)
-          });
-        }
-        
-        // Extract error message from response
+        // Extract error message from response first
         let errorMessage = `HTTP error! status: ${response.status}`;
         let errorDetails: any = null;
         
@@ -154,6 +144,20 @@ class ApiService {
         } else if (text) {
           errorMessage = text.substring(0, 200); // First 200 chars of text response
           errorDetails = text;
+        }
+        
+        // Log error information for debugging (only in development)
+        // Skip logging for unauthorized access errors (500 with "Unauthorized access" message)
+        const isUnauthorizedAccess = response.status === 500 && 
+          (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('unauthorized'));
+        
+        if (import.meta.env.DEV && !isUnauthorizedAccess) {
+          console.error('API Error:', {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorMessage
+          });
         }
         
         return {
@@ -407,16 +411,13 @@ export interface Center {
 }
 
 export interface CreateCenterRequest {
-  name: string;
-  address: string;
-  phone?: string;
+  Name: string;
+  PlaceId: string;
 }
 
 export interface UpdateCenterRequest {
-  name?: string;
-  address?: string;
-  phone?: string;
-  status?: string;
+  Name?: string;
+  PlaceId?: string;
 }
 
 export async function getAllCenters() {
@@ -1695,27 +1696,41 @@ export async function getAllTutors() {
     
     if (result.success && result.data) {
       // Map the response to Tutor format
-      const tutors: Tutor[] = result.data.map((tutor: any) => ({
-        userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id || '',
-        fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name || '',
-        email: tutor.email || tutor.Email || '',
-        phone: tutor.phone || tutor.phoneNumber || tutor.PhoneNumber || undefined,
-        verificationStatus: tutor.verificationStatus || tutor.VerificationStatus || tutor.status || 'pending',
-        university: tutor.university || tutor.University || undefined,
-        major: tutor.major || tutor.Major || undefined,
-        hourlyRate: tutor.hourlyRate || tutor.HourlyRate || tutor.hourly_rate || undefined,
-        bio: tutor.bio || tutor.Bio || undefined,
-        specialties: tutor.specialties || tutor.Specialties || tutor.specialization ? [tutor.specialization] : undefined,
-        rating: tutor.rating || tutor.Rating || undefined,
-        centerId: tutor.centerId || tutor.CenterId || tutor.center_id || undefined,
-        centerName: tutor.centerName || tutor.CenterName || tutor.center_name || undefined,
-        studentCount: tutor.studentCount || tutor.StudentCount || tutor.student_count || undefined,
-        yearsOfExperience: tutor.yearsOfExperience || tutor.YearsOfExperience || tutor.years_of_experience || undefined,
-        profilePictureUrl: tutor.profilePictureUrl || tutor.ProfilePictureUrl || tutor.profile_picture_url || undefined,
-        achievements: tutor.achievements || tutor.Achievements || undefined,
-        canTeachOnline: tutor.canTeachOnline ?? tutor.CanTeachOnline ?? tutor.can_teach_online ?? undefined,
-        canTeachOffline: tutor.canTeachOffline ?? tutor.CanTeachOffline ?? tutor.can_teach_offline ?? undefined,
-      }));
+      const tutors: Tutor[] = result.data.map((tutor: any) => {
+        // Extract TutorVerification data (can be nested as TutorVerification or tutorVerification)
+        const verification = tutor.TutorVerification || tutor.tutorVerification || null;
+        
+        return {
+          userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id || '',
+          fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name || '',
+          email: tutor.email || tutor.Email || '',
+          phone: tutor.phone || tutor.phoneNumber || tutor.PhoneNumber || undefined,
+          // Get verification status from nested TutorVerification object
+          verificationStatus: verification?.VerificationStatus || verification?.verificationStatus || 
+                            tutor.verificationStatus || tutor.VerificationStatus || tutor.status || undefined,
+          // Get university, major, hourlyRate, bio from nested TutorVerification object
+          university: verification?.University || verification?.university || 
+                     tutor.university || tutor.University || undefined,
+          major: verification?.Major || verification?.major || 
+                tutor.major || tutor.Major || undefined,
+          hourlyRate: verification?.HourlyRate !== undefined ? verification.HourlyRate : 
+                     (verification?.hourlyRate !== undefined ? verification.hourlyRate : 
+                     (tutor.hourlyRate !== undefined ? tutor.hourlyRate : 
+                     (tutor.HourlyRate !== undefined ? tutor.HourlyRate : undefined))),
+          bio: verification?.Bio || verification?.bio || 
+              tutor.bio || tutor.Bio || undefined,
+          specialties: tutor.specialties || tutor.Specialties || tutor.specialization ? [tutor.specialization] : undefined,
+          rating: tutor.rating || tutor.Rating || undefined,
+          centerId: tutor.centerId || tutor.CenterId || tutor.center_id || undefined,
+          centerName: tutor.centerName || tutor.CenterName || tutor.center_name || undefined,
+          studentCount: tutor.studentCount || tutor.StudentCount || tutor.student_count || undefined,
+          yearsOfExperience: tutor.yearsOfExperience || tutor.YearsOfExperience || tutor.years_of_experience || undefined,
+          profilePictureUrl: tutor.profilePictureUrl || tutor.ProfilePictureUrl || tutor.profile_picture_url || undefined,
+          achievements: tutor.achievements || tutor.Achievements || undefined,
+          canTeachOnline: tutor.canTeachOnline ?? tutor.CanTeachOnline ?? tutor.can_teach_online ?? undefined,
+          canTeachOffline: tutor.canTeachOffline ?? tutor.CanTeachOffline ?? tutor.can_teach_offline ?? undefined,
+        };
+      });
       
       return {
         success: true,
@@ -1826,6 +1841,47 @@ export async function verifyTutor(tutorId: string) {
       method: 'PUT',
       body: JSON.stringify({ status: 'approved' }),
     });
+  }
+}
+
+// Get tutor verification details by userId
+export async function getTutorVerificationByUserId(tutorId: string) {
+  try {
+    const result = await apiService.request<any>(`/tutor-verifications/user/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map backend response to frontend format
+      const verification = result.data;
+      return {
+        success: true,
+        data: {
+          verificationId: verification.verificationId || verification.VerificationId || verification.id || verification.Id,
+          userId: verification.userId || verification.UserId || tutorId,
+          userFullName: verification.userFullName || verification.UserFullName || verification.fullName || verification.FullName,
+          userEmail: verification.userEmail || verification.UserEmail || verification.email || verification.Email,
+          university: verification.university || verification.University || '',
+          major: verification.major || verification.Major || '',
+          hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
+          bio: verification.bio || verification.Bio || '',
+          verificationStatus: verification.verificationStatus || verification.VerificationStatus || verification.status || 'pending',
+          verificationDate: verification.verificationDate || verification.VerificationDate || null,
+          createdDate: verification.createdDate || verification.CreatedDate || null,
+          isDeleted: verification.isDeleted || verification.IsDeleted || false,
+        },
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    console.error('Error in getTutorVerificationByUserId:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to get tutor verification',
+      data: undefined,
+    };
   }
 }
 

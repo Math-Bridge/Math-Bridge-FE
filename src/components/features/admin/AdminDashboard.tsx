@@ -9,9 +9,11 @@ import {
   LayoutDashboard,
   X,
   LogOut,
-  Shield
+  Shield,
+  Menu
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -26,6 +28,7 @@ interface NavItem {
 const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
@@ -46,8 +49,21 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
     return location.pathname.startsWith(path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
+  };
+
+  const getUserInitials = () => {
+    if (user?.fullName || user?.name) {
+      const name = user.fullName || user.name || '';
+      const parts = name.split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    }
+    return 'AD';
   };
 
   const showSidebar = mobileMenuOpen || isSidebarVisible;
@@ -150,14 +166,20 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
         }`}
       >
         <header className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center justify-end px-6 py-4">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between px-6 py-4">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="flex items-center space-x-4 ml-auto">
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Administrator</p>
-                <p className="text-xs text-gray-500">admin@system.com</p>
+                <p className="text-sm font-medium text-gray-900">{user?.fullName || user?.name || 'Administrator'}</p>
+                <p className="text-xs text-gray-500">{user?.email || 'admin@system.com'}</p>
               </div>
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">AD</span>
+                <span className="text-white font-medium text-sm">{getUserInitials()}</span>
               </div>
             </div>
           </div>

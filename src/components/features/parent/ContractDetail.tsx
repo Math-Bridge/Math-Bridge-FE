@@ -17,7 +17,9 @@ import {
   Copy,
   X,
   CreditCard,
-  Heart
+  Heart,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse } from '../../../services/api';
@@ -78,6 +80,10 @@ const ContractDetail: React.FC = () => {
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false); // Track when payment is confirmed (status changed to pending)
   const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
+  
+  // Substitute tutors info
+  const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
+  const [substituteTutor2Info, setSubstituteTutor2Info] = useState<any>(null);
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -194,6 +200,72 @@ const ContractDetail: React.FC = () => {
         };
 
         setContract(mappedContract);
+
+        // Fetch substitute tutor 1 info - handle errors gracefully
+        const substituteTutor1Id = contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+        if (substituteTutor1Id) {
+          try {
+            const tutorResult = await apiService.getUserById(substituteTutor1Id);
+            if (tutorResult.success && tutorResult.data) {
+              setSubstituteTutor1Info(tutorResult.data);
+            } else {
+              // Use contract data as fallback if available, otherwise set minimal info
+              setSubstituteTutor1Info({ 
+                fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+                FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+                email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
+                phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
+              });
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized/500 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching substitute tutor 1 info:', err);
+              }
+            }
+            // Always set info if we have ID, even if API fails
+            setSubstituteTutor1Info({ 
+              fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+              FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+              email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
+              phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
+            });
+          }
+        }
+
+        // Fetch substitute tutor 2 info - handle errors gracefully
+        const substituteTutor2Id = contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+        if (substituteTutor2Id) {
+          try {
+            const tutorResult = await apiService.getUserById(substituteTutor2Id);
+            if (tutorResult.success && tutorResult.data) {
+              setSubstituteTutor2Info(tutorResult.data);
+            } else {
+              // Use contract data as fallback if available, otherwise set minimal info
+              setSubstituteTutor2Info({ 
+                fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+                FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+                email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
+                phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
+              });
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized/500 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching substitute tutor 2 info:', err);
+              }
+            }
+            // Always set info if we have ID, even if API fails
+            setSubstituteTutor2Info({ 
+              fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+              FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+              email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
+              phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
+            });
+          }
+        }
       } catch (err) {
         if (import.meta.env.DEV) {
           console.error('Error fetching contract:', err);
@@ -861,6 +933,108 @@ const ContractDetail: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* Substitute Tutor 1 */}
+            {(() => {
+              const contractData = (contract as any);
+              const substituteTutor1Id = contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+              return substituteTutor1Id ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Substitute Tutor 1</h3>
+                      <p className="text-sm text-gray-500">Backup Tutor Information</p>
+                    </div>
+                  </div>
+                  <div className="space-y-5">
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Tutor Name</p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name || contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'N/A'}
+                      </p>
+                    </div>
+                    {(substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email) && (
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Mail className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
+                          <p className="text-base text-gray-900 break-all">{substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone) && (
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Phone className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
+                          <p className="text-base text-gray-900">
+                            {substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Substitute Tutor 2 */}
+            {(() => {
+              const contractData = (contract as any);
+              const substituteTutor2Id = contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+              return substituteTutor2Id ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
+                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                      <User className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Substitute Tutor 2</h3>
+                      <p className="text-sm text-gray-500">Backup Tutor Information</p>
+                    </div>
+                  </div>
+                  <div className="space-y-5">
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Tutor Name</p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name || contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'N/A'}
+                      </p>
+                    </div>
+                    {(substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email) && (
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Mail className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
+                          <p className="text-base text-gray-900 break-all">{substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone) && (
+                      <div className="flex items-start space-x-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Phone className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
+                          <p className="text-base text-gray-900">
+                            {substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
           </div>
         )}
       </div>

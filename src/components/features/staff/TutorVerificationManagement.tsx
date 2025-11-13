@@ -13,13 +13,34 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  X,
+  Mail,
+  Calendar,
+  User,
+  MoreVertical,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllTutors, verifyTutor, rejectTutorVerification, Tutor } from '../../../services/api';
+import { getAllTutors, verifyTutor, rejectTutorVerification, Tutor, getTutorVerificationByUserId } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface TutorVerificationManagementProps {
   hideBackButton?: boolean;
+}
+
+interface VerificationDetail {
+  verificationId: string;
+  userId: string;
+  userFullName: string;
+  userEmail: string;
+  university: string;
+  major: string;
+  hourlyRate: number;
+  bio: string;
+  verificationStatus: string;
+  verificationDate: string | null;
+  createdDate: string | null;
+  isDeleted: boolean;
 }
 
 const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = ({ hideBackButton = false }) => {
@@ -28,9 +49,16 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'pending', 'approved', 'rejected'
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'approved', 'rejected'
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
+  // Verification detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [verificationDetail, setVerificationDetail] = useState<VerificationDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
+  // Dropdown state
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTutors();
@@ -43,8 +71,18 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
       if (result.success && result.data) {
         // Ensure data is an array
         const tutorsData = Array.isArray(result.data) ? result.data : [];
-        console.log('Loaded tutors:', tutorsData.length);
-        console.log('Sample tutor data:', tutorsData[0]);
+        if (import.meta.env.DEV) {
+          console.log('Loaded tutors:', tutorsData.length);
+          if (tutorsData.length > 0) {
+            console.log('Sample tutor data:', tutorsData[0]);
+            console.log('Sample tutor verification data:', {
+              university: tutorsData[0].university,
+              major: tutorsData[0].major,
+              hourlyRate: tutorsData[0].hourlyRate,
+              verificationStatus: tutorsData[0].verificationStatus,
+            });
+          }
+        }
         setTutors(tutorsData);
       } else {
         const errorMsg = result.error || 'Failed to load tutors';
@@ -88,6 +126,11 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
       if (result.success) {
         showSuccess('Tutor verification rejected');
         fetchTutors(); // Refresh list
+        // Close detail modal if open
+        if (showDetailModal && selectedTutorId === tutorId) {
+          setShowDetailModal(false);
+          setVerificationDetail(null);
+        }
       } else {
         showError(result.error || 'Failed to reject verification');
       }
@@ -97,13 +140,121 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
     }
   };
 
+  const handleViewDetails = async (tutorId: string) => {
+    setSelectedTutorId(tutorId);
+    setLoadingDetail(true);
+    setShowDetailModal(true);
+    try {
+      const result = await getTutorVerificationByUserId(tutorId);
+      if (result.success && result.data) {
+        setVerificationDetail(result.data);
+      } else {
+        showError(result.error || 'Failed to load verification details');
+        setVerificationDetail(null);
+      }
+    } catch (error) {
+      console.error('Error fetching verification details:', error);
+      showError('Failed to load verification details');
+      setVerificationDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleVerifyFromModal = async () => {
+    if (!verificationDetail) return;
+    try {
+      const result = await verifyTutor(verificationDetail.userId);
+      if (result.success) {
+        showSuccess('Tutor verified successfully!');
+        fetchTutors(); // Refresh list
+        // Update detail modal
+        if (verificationDetail) {
+          setVerificationDetail({
+            ...verificationDetail,
+            verificationStatus: 'approved',
+            verificationDate: new Date().toISOString(),
+          });
+        }
+      } else {
+        showError(result.error || 'Failed to verify tutor');
+      }
+    } catch (error) {
+      console.error('Error verifying tutor:', error);
+      showError('Failed to verify tutor');
+    }
+  };
+
+  const handleRejectFromModal = async () => {
+    if (!verificationDetail) return;
+    if (!window.confirm('Are you sure you want to reject this tutor verification?')) {
+      return;
+    }
+    try {
+      const result = await rejectTutorVerification(verificationDetail.userId);
+      if (result.success) {
+        showSuccess('Tutor verification rejected');
+        fetchTutors(); // Refresh list
+        // Update detail modal
+        if (verificationDetail) {
+          setVerificationDetail({
+            ...verificationDetail,
+            verificationStatus: 'rejected',
+          });
+        }
+      } else {
+        showError(result.error || 'Failed to reject verification');
+      }
+    } catch (error) {
+      console.error('Error rejecting verification:', error);
+      showError('Failed to reject verification');
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Helper function to normalize status (active = approved)
+  const normalizeStatus = (status?: string): string => {
+    if (!status) return '';
+    const normalized = status.toLowerCase();
+    if (normalized === 'active') return 'approved';
+    return normalized;
+  };
+
+  // Helper function to check if status is approved (including active)
+  const isApproved = (status?: string): boolean => {
+    if (!status) return false;
+    const normalized = status.toLowerCase();
+    return normalized === 'approved' || normalized === 'active';
+  };
+
+  // Helper function to check if status is rejected
+  const isRejected = (status?: string): boolean => {
+    if (!status) return false;
+    return status.toLowerCase() === 'rejected';
+  };
+
   // Filter tutors
   const filteredTutors = tutors.filter((tutor) => {
     const matchesSearch = tutor.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tutor.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const normalizedStatus = normalizeStatus(tutor.verificationStatus);
     const matchesStatus = statusFilter === 'all' || 
-                         tutor.verificationStatus === statusFilter ||
-                         (statusFilter === 'pending' && (!tutor.verificationStatus || tutor.verificationStatus === 'pending'));
+                         normalizedStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -114,15 +265,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
   const paginatedTutors = filteredTutors.slice(startIndex, endIndex);
 
   const getStatusBadge = (status?: string) => {
-    if (!status || status === 'pending') {
-      return (
-        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 flex items-center space-x-1">
-          <Clock className="w-3 h-3" />
-          <span>Pending</span>
-        </span>
-      );
-    }
-    if (status === 'approved') {
+    if (isApproved(status)) {
       return (
         <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 flex items-center space-x-1">
           <CheckCircle className="w-3 h-3" />
@@ -130,7 +273,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
         </span>
       );
     }
-    if (status === 'rejected') {
+    if (isRejected(status)) {
       return (
         <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 flex items-center space-x-1">
           <XCircle className="w-3 h-3" />
@@ -138,7 +281,13 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
         </span>
       );
     }
-    return null;
+    // If no status or status is not approved/rejected, show "Not Verified"
+    return (
+      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 flex items-center space-x-1">
+        <Clock className="w-3 h-3" />
+        <span>Not Verified</span>
+      </span>
+    );
   };
 
   if (loading) {
@@ -195,9 +344,8 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
               <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                 {[
                   { key: 'all', label: 'All', count: tutors.length },
-                  { key: 'pending', label: 'Pending', count: tutors.filter(t => !t.verificationStatus || t.verificationStatus === 'pending').length },
-                  { key: 'approved', label: 'Approved', count: tutors.filter(t => t.verificationStatus === 'approved').length },
-                  { key: 'rejected', label: 'Rejected', count: tutors.filter(t => t.verificationStatus === 'rejected').length },
+                  { key: 'approved', label: 'Approved', count: tutors.filter(t => isApproved(t.verificationStatus)).length },
+                  { key: 'rejected', label: 'Rejected', count: tutors.filter(t => isRejected(t.verificationStatus)).length },
                 ].map((tab) => (
                   <button
                     key={tab.key}
@@ -287,42 +435,82 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                         {getStatusBadge(tutor.verificationStatus)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          {(!tutor.verificationStatus || tutor.verificationStatus === 'pending') && (
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={() => setOpenDropdownId(openDropdownId === tutor.userId ? null : tutor.userId)}
+                            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {openDropdownId === tutor.userId && (
                             <>
-                              <button
-                                onClick={() => handleVerify(tutor.userId)}
-                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
-                              >
-                                <UserCheck className="w-3 h-3" />
-                                <span>Approve</span>
-                              </button>
-                              <button
-                                onClick={() => handleReject(tutor.userId)}
-                                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs flex items-center space-x-1"
-                              >
-                                <UserX className="w-3 h-3" />
-                                <span>Reject</span>
-                              </button>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setOpenDropdownId(null)}
+                              ></div>
+                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                                <div className="py-1">
+                                  <button
+                                    onClick={() => {
+                                      handleViewDetails(tutor.userId);
+                                      setOpenDropdownId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    <span>View Details</span>
+                                  </button>
+                                  {!isApproved(tutor.verificationStatus) && !isRejected(tutor.verificationStatus) && (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          handleVerify(tutor.userId);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
+                                      >
+                                        <UserCheck className="w-4 h-4" />
+                                        <span>Approve</span>
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          handleReject(tutor.userId);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                                      >
+                                        <UserX className="w-4 h-4" />
+                                        <span>Reject</span>
+                                      </button>
+                                    </>
+                                  )}
+                                  {isApproved(tutor.verificationStatus) && (
+                                    <button
+                                      onClick={() => {
+                                        handleReject(tutor.userId);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                    >
+                                      <UserX className="w-4 h-4" />
+                                      <span>Revoke</span>
+                                    </button>
+                                  )}
+                                  {isRejected(tutor.verificationStatus) && (
+                                    <button
+                                      onClick={() => {
+                                        handleVerify(tutor.userId);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
+                                    >
+                                      <UserCheck className="w-4 h-4" />
+                                      <span>Approve</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
                             </>
-                          )}
-                          {tutor.verificationStatus === 'approved' && (
-                            <button
-                              onClick={() => handleReject(tutor.userId)}
-                              className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors text-xs flex items-center space-x-1"
-                            >
-                              <UserX className="w-3 h-3" />
-                              <span>Revoke</span>
-                            </button>
-                          )}
-                          {tutor.verificationStatus === 'rejected' && (
-                            <button
-                              onClick={() => handleVerify(tutor.userId)}
-                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
-                            >
-                              <UserCheck className="w-3 h-3" />
-                              <span>Approve</span>
-                            </button>
                           )}
                         </div>
                       </td>
@@ -385,6 +573,170 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                 <span>Next</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Verification Detail Modal */}
+        {showDetailModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Verification Details</h2>
+                  <p className="text-sm text-gray-600 mt-1">View complete tutor verification information</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    setVerificationDetail(null);
+                    setSelectedTutorId(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                {loadingDetail ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : verificationDetail ? (
+                  <div className="space-y-6">
+                    {/* Status Badge */}
+                    <div className="flex items-center justify-between">
+                      {getStatusBadge(verificationDetail.verificationStatus)}
+                      <div className="flex items-center space-x-2">
+                        {!isApproved(verificationDetail.verificationStatus) && !isRejected(verificationDetail.verificationStatus) && (
+                          <>
+                            <button
+                              onClick={handleVerifyFromModal}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={handleRejectFromModal}
+                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                            >
+                              <UserX className="w-4 h-4" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        )}
+                        {isApproved(verificationDetail.verificationStatus) && (
+                          <button
+                            onClick={handleRejectFromModal}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                          >
+                            <UserX className="w-4 h-4" />
+                            <span>Revoke</span>
+                          </button>
+                        )}
+                        {isRejected(verificationDetail.verificationStatus) && (
+                          <button
+                            onClick={handleVerifyFromModal}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+                          >
+                            <UserCheck className="w-4 h-4" />
+                            <span>Approve</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Personal Information */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                        <User className="w-5 h-5" />
+                        <span>Personal Information</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Full Name</label>
+                          <p className="text-gray-900 mt-1">{verificationDetail.userFullName || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
+                            <Mail className="w-4 h-4" />
+                            <span>Email</span>
+                          </label>
+                          <p className="text-gray-900 mt-1">{verificationDetail.userEmail || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Academic Information */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                        <GraduationCap className="w-5 h-5" />
+                        <span>Academic Information</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">University</label>
+                          <p className="text-gray-900 mt-1">{verificationDetail.university || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Major</label>
+                          <p className="text-gray-900 mt-1">{verificationDetail.major || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
+                            <DollarSign className="w-4 h-4" />
+                            <span>Hourly Rate</span>
+                          </label>
+                          <p className="text-gray-900 mt-1">
+                            {verificationDetail.hourlyRate ? `$${verificationDetail.hourlyRate}/hour` : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bio */}
+                    {verificationDetail.bio && (
+                      <div className="bg-gray-50 rounded-lg p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                          <FileText className="w-5 h-5" />
+                          <span>Biography</span>
+                        </h3>
+                        <p className="text-gray-700 whitespace-pre-wrap">{verificationDetail.bio}</p>
+                      </div>
+                    )}
+
+                    {/* Dates */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                        <Calendar className="w-5 h-5" />
+                        <span>Timeline</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium text-gray-500">Created Date</label>
+                          <p className="text-gray-900 mt-1">{formatDate(verificationDetail.createdDate)}</p>
+                        </div>
+                        {verificationDetail.verificationDate && (
+                          <div>
+                            <label className="text-sm font-medium text-gray-500">Verification Date</label>
+                            <p className="text-gray-900 mt-1">{formatDate(verificationDetail.verificationDate)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No Details Available</h3>
+                    <p className="text-gray-600">Unable to load verification details</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

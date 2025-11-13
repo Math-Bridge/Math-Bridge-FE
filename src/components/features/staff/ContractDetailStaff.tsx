@@ -1,0 +1,1074 @@
+import React, { useState, useEffect } from 'react';
+import {
+  FileText,
+  Calendar,
+  Clock,
+  User,
+  MapPin,
+  DollarSign,
+  Star,
+  CheckCircle,
+  AlertCircle,
+  ArrowLeft,
+  UserPlus,
+  Edit,
+  Mail,
+  Phone,
+  Building,
+  BookOpen,
+  Award,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService } from '../../../services/api';
+import { useAuth } from '../../../hooks/useAuth';
+import { useToast } from '../../../contexts/ToastContext';
+
+interface ContractDetailStaffProps {
+  hideBackButton?: boolean;
+}
+
+const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButton = false }) => {
+  const navigate = useNavigate();
+  const { id: contractId } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const { showSuccess, showError } = useToast();
+  const [contract, setContract] = useState<Contract | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'management' | 'tutors'>('overview');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  
+  // Tutor assignment states
+  const [showAssignTutorModal, setShowAssignTutorModal] = useState(false);
+  const [availableTutors, setAvailableTutors] = useState<Tutor[]>([]);
+  const [loadingTutors, setLoadingTutors] = useState(false);
+  const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
+  const [selectedSubstituteTutor2, setSelectedSubstituteTutor2] = useState<Tutor | null>(null);
+
+  // Parent and child info
+  const [parentInfo, setParentInfo] = useState<any>(null);
+  const [childInfo, setChildInfo] = useState<any>(null);
+  const [mainTutorInfo, setMainTutorInfo] = useState<any>(null);
+  const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
+  const [substituteTutor2Info, setSubstituteTutor2Info] = useState<any>(null);
+
+  useEffect(() => {
+    if (contractId) {
+      fetchContractDetails();
+    }
+  }, [contractId]);
+
+  const fetchContractDetails = async () => {
+    if (!contractId) {
+      setError('Contract ID is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const result = await getContractById(contractId);
+      if (result.success && result.data) {
+        const contractData = result.data;
+        setContract(contractData);
+
+        // Try to fetch additional info, but handle errors gracefully
+        // Staff may not have access to user endpoints, so we'll use contract data as fallback
+        
+        // Fetch child info - use contract data if API fails
+        if (contractData.childId) {
+          try {
+            const childResult = await apiService.getUserById(contractData.childId);
+            if (childResult.success && childResult.data) {
+              setChildInfo(childResult.data);
+            } else {
+              // Use contract data as fallback
+              if (contractData.childName) {
+                setChildInfo({ fullName: contractData.childName, FullName: contractData.childName });
+              }
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching child info:', err);
+              }
+            }
+            // Use contract data as fallback
+            if (contractData.childName) {
+              setChildInfo({ fullName: contractData.childName, FullName: contractData.childName });
+            }
+          }
+        }
+
+        // Fetch parent info - use contract data if API fails
+        const parentId = contractData.parentId || contractData.ParentId;
+        if (parentId) {
+          try {
+            const parentResult = await apiService.getUserById(parentId);
+            if (parentResult.success && parentResult.data) {
+              setParentInfo(parentResult.data);
+            } else {
+              // Use contract data as fallback if available
+              if (contractData.parentName) {
+                setParentInfo({ fullName: contractData.parentName, FullName: contractData.parentName });
+              }
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching parent info:', err);
+              }
+            }
+            // Use contract data as fallback if available
+            if (contractData.parentName) {
+              setParentInfo({ fullName: contractData.parentName, FullName: contractData.parentName });
+            }
+          }
+        }
+
+        // Fetch main tutor info - use contract data if API fails
+        if (contractData.mainTutorId) {
+          try {
+            const tutorResult = await apiService.getUserById(contractData.mainTutorId);
+            if (tutorResult.success && tutorResult.data) {
+              setMainTutorInfo(tutorResult.data);
+            } else {
+              // Use contract data as fallback
+              if (contractData.mainTutorName) {
+                setMainTutorInfo({ 
+                  fullName: contractData.mainTutorName, 
+                  FullName: contractData.mainTutorName,
+                  email: contractData.mainTutorEmail || contractData.MainTutorEmail,
+                  phone: contractData.mainTutorPhone || contractData.MainTutorPhone
+                });
+              }
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching tutor info:', err);
+              }
+            }
+            // Use contract data as fallback
+            if (contractData.mainTutorName) {
+              setMainTutorInfo({ 
+                fullName: contractData.mainTutorName, 
+                FullName: contractData.mainTutorName,
+                email: contractData.mainTutorEmail || contractData.MainTutorEmail,
+                phone: contractData.mainTutorPhone || contractData.MainTutorPhone
+              });
+            }
+          }
+        }
+
+        // Fetch substitute tutor 1 info - use contract data if API fails
+        const substituteTutor1Id = contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+        if (substituteTutor1Id) {
+          try {
+            const tutorResult = await apiService.getUserById(substituteTutor1Id);
+            if (tutorResult.success && tutorResult.data) {
+              setSubstituteTutor1Info(tutorResult.data);
+            } else {
+              // Use contract data as fallback if available, otherwise set minimal info
+              setSubstituteTutor1Info({ 
+                fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+                FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+                email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
+                phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
+              });
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching substitute tutor 1 info:', err);
+              }
+            }
+            // Always set info if we have ID, even if API fails
+            setSubstituteTutor1Info({ 
+              fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+              FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+              email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
+              phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
+            });
+          }
+        }
+
+        // Fetch substitute tutor 2 info - use contract data if API fails
+        const substituteTutor2Id = contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+        if (substituteTutor2Id) {
+          try {
+            const tutorResult = await apiService.getUserById(substituteTutor2Id);
+            if (tutorResult.success && tutorResult.data) {
+              setSubstituteTutor2Info(tutorResult.data);
+            } else {
+              // Use contract data as fallback if available, otherwise set minimal info
+              setSubstituteTutor2Info({ 
+                fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+                FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+                email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
+                phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
+              });
+            }
+          } catch (err: any) {
+            // Silently handle unauthorized errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching substitute tutor 2 info:', err);
+              }
+            }
+            // Always set info if we have ID, even if API fails
+            setSubstituteTutor2Info({ 
+              fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+              FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+              email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
+              phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
+            });
+          }
+        }
+      } else {
+        setError(result.error || 'Failed to load contract details');
+      }
+    } catch (err: any) {
+      console.error('Error fetching contract:', err);
+      setError(err.message || 'Failed to load contract details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateStatus = async (newStatus: 'active' | 'completed' | 'cancelled') => {
+    if (!contract) return;
+
+    // Validate: Cannot activate contract without tutor assigned
+    if (newStatus === 'active' && !contract.mainTutorId) {
+      showError('Cannot activate contract. Please assign a tutor first.');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to change status to "${newStatus}"?`)) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus(true);
+      const result = await updateContractStatus(contract.contractId, newStatus);
+      if (result.success) {
+        showSuccess(`Contract status updated to ${newStatus}`);
+        await fetchContractDetails();
+      } else {
+        showError(result.error || 'Failed to update contract status');
+      }
+    } catch (error: any) {
+      console.error('Error updating contract status:', error);
+      showError(error?.message || 'Failed to update contract status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleOpenAssignTutor = async () => {
+    if (!contract) return;
+    setShowAssignTutorModal(true);
+    setSelectedMainTutor(null);
+    setSelectedSubstituteTutor1(null);
+    setSelectedSubstituteTutor2(null);
+    await fetchAvailableTutors();
+  };
+
+  const fetchAvailableTutors = async () => {
+    if (!contract) return;
+    try {
+      setLoadingTutors(true);
+      const result = await getAvailableTutors({
+        contractId: contract.contractId,
+      });
+      if (result.success && result.data) {
+        setAvailableTutors(result.data);
+      } else {
+        showError(result.error || 'Failed to load available tutors');
+      }
+    } catch (error) {
+      console.error('Error fetching tutors:', error);
+      showError('Failed to load available tutors');
+    } finally {
+      setLoadingTutors(false);
+    }
+  };
+
+  const handleSelectTutorForRole = (tutor: Tutor, role: 'main' | 'substitute1' | 'substitute2') => {
+    if (role === 'main') {
+      setSelectedMainTutor(tutor);
+    } else if (role === 'substitute1') {
+      setSelectedSubstituteTutor1(tutor);
+    } else if (role === 'substitute2') {
+      setSelectedSubstituteTutor2(tutor);
+    }
+  };
+
+  const handleConfirmAssignment = async () => {
+    if (!contract) return;
+
+    if (!selectedMainTutor) {
+      showError('Please select a main tutor');
+      return;
+    }
+
+    if (!selectedSubstituteTutor1) {
+      showError('Please select substitute tutor 1');
+      return;
+    }
+
+    if (!selectedSubstituteTutor2) {
+      showError('Please select substitute tutor 2');
+      return;
+    }
+
+    // Validate all tutors are different
+    if (selectedMainTutor.userId === selectedSubstituteTutor1.userId ||
+        selectedMainTutor.userId === selectedSubstituteTutor2.userId ||
+        selectedSubstituteTutor1.userId === selectedSubstituteTutor2.userId) {
+      showError('All tutors must be different');
+      return;
+    }
+
+    try {
+      setLoadingTutors(true);
+      const result = await assignTutorToContract(
+        contract.contractId,
+        selectedMainTutor.userId,
+        selectedSubstituteTutor1.userId,
+        selectedSubstituteTutor2.userId
+      );
+      if (result.success) {
+        showSuccess('Tutors assigned successfully');
+        setShowAssignTutorModal(false);
+        setSelectedMainTutor(null);
+        setSelectedSubstituteTutor1(null);
+        setSelectedSubstituteTutor2(null);
+        await fetchContractDetails();
+      } else {
+        showError(result.error || 'Failed to assign tutors');
+      }
+    } catch (error: any) {
+      console.error('Error assigning tutors:', error);
+      showError(error?.message || 'Failed to assign tutors');
+    } finally {
+      setLoadingTutors(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    const normalizedStatus = String(status || '').toLowerCase().trim();
+    switch (normalizedStatus) {
+      case 'active':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-blue-100 text-blue-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'unpaid':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading contract details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !contract) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Contract Not Found</h2>
+          <p className="text-gray-600 mb-6">{error || 'The contract you\'re looking for doesn\'t exist'}</p>
+          {!hideBackButton && (
+            <button
+              onClick={() => navigate('/staff', { state: { view: 'contracts' } })}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Back to Contracts
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          {!hideBackButton && (
+            <button
+              onClick={() => navigate('/staff', { state: { view: 'contracts' } })}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-200 font-semibold shadow-sm hover:shadow-md mb-6"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Contracts</span>
+            </button>
+          )}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">{contract.packageName || 'Contract'}</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
+                <CheckCircle className="w-4 h-4 mr-1" />
+                <span className="capitalize">{contract.status}</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Info Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Child Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border-2 border-blue-200 p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-1">Child</p>
+                  <h2 className="text-xl font-bold text-gray-900">{contract.childName || 'N/A'}</h2>
+                  {childInfo && (
+                    <p className="text-sm text-gray-600 mt-1">{childInfo.grade || ''}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor Card */}
+            <div className={`rounded-xl shadow-sm border-2 p-6 ${
+              !contract.mainTutorId
+                ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+                : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+            }`}>
+              <div className="flex items-center space-x-4">
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
+                  !contract.mainTutorId
+                    ? 'bg-gray-400'
+                    : 'bg-purple-500'
+                }`}>
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${
+                    !contract.mainTutorId
+                      ? 'text-gray-600'
+                      : 'text-purple-700'
+                  }`}>
+                    Main Tutor
+                  </p>
+                  <h2 className={`text-xl font-bold ${
+                    !contract.mainTutorId
+                      ? 'text-gray-500'
+                      : 'text-gray-900'
+                  }`}>
+                    {contract.mainTutorName || 'Not Assigned'}
+                  </h2>
+                  {!contract.mainTutorId && (
+                    <p className="text-sm text-gray-500 mt-1">Needs assignment</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Parent Card */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl shadow-sm border-2 border-green-200 p-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-green-700 uppercase tracking-wide mb-1">Parent</p>
+                  <h2 className="text-xl font-bold text-gray-900">{parentInfo?.fullName || parentInfo?.FullName || parentInfo?.name || 'N/A'}</h2>
+                  {parentInfo?.email && (
+                    <p className="text-sm text-gray-600 mt-1">{parentInfo.email}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              {[
+                { key: 'overview', label: 'Overview', icon: FileText },
+                { key: 'management', label: 'Management', icon: Edit },
+                { key: 'tutors', label: 'Tutors', icon: User },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab.key
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <tab.icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Contract Details */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Contract Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Start Date</p>
+                      <p className="font-medium">{new Date(contract.startDate).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">End Date</p>
+                      <p className="font-medium">{new Date(contract.endDate).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Clock className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Time Slot</p>
+                      <p className="font-medium">{contract.timeSlot || 'Not set'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Location</p>
+                      <p className="font-medium">
+                        {contract.isOnline ? (
+                          <span className="text-blue-600">Online</span>
+                        ) : (
+                          <span>{contract.offlineAddress || contract.centerName || 'Offline'}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parent Information */}
+              {parentInfo && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Parent Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-medium">{parentInfo.fullName || parentInfo.FullName || parentInfo.name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {parentInfo.email && (
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Email</p>
+                          <p className="font-medium">{parentInfo.email}</p>
+                        </div>
+                      </div>
+                    )}
+                    {parentInfo.phoneNumber || parentInfo.phone && (
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <p className="font-medium">{parentInfo.phoneNumber || parentInfo.phone || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Child Information */}
+              {childInfo && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Child Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-medium">{childInfo.fullName || childInfo.FullName || childInfo.name || contract.childName}</p>
+                      </div>
+                    </div>
+                    {childInfo.grade && (
+                      <div className="flex items-center space-x-3">
+                        <BookOpen className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Grade</p>
+                          <p className="font-medium">{childInfo.grade}</p>
+                        </div>
+                      </div>
+                    )}
+                    {childInfo.schoolName && (
+                      <div className="flex items-center space-x-3">
+                        <Building className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">School</p>
+                          <p className="font-medium">{childInfo.schoolName}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              {/* Center Information */}
+              {contract.centerName && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Center Information</h3>
+                  <div className="flex items-start space-x-3">
+                    <MapPin className="w-5 h-5 text-gray-400 mt-1" />
+                    <div>
+                      <p className="font-medium text-gray-900">{contract.centerName}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'management' && (
+          <div className="space-y-6">
+            {/* Status Management */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Management</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Status</label>
+                  <div className="flex items-center space-x-3">
+                    <span className={`px-3 py-2 rounded-lg text-sm font-medium ${getStatusColor(contract.status)}`}>
+                      {contract.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Change Status</label>
+                  <div className="flex flex-wrap gap-3">
+                    {contract.status !== 'active' && contract.status !== 'unpaid' && (
+                      <button
+                        onClick={() => handleUpdateStatus('active')}
+                        disabled={updatingStatus || !contract.mainTutorId}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Activate</span>
+                      </button>
+                    )}
+                    {contract.status !== 'completed' && contract.status !== 'unpaid' && (
+                      <button
+                        onClick={() => handleUpdateStatus('completed')}
+                        disabled={updatingStatus || contract.status === 'pending' || contract.status === 'cancelled'}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Mark as Completed</span>
+                      </button>
+                    )}
+                    {contract.status !== 'cancelled' && contract.status !== 'unpaid' && (
+                      <button
+                        onClick={() => handleUpdateStatus('cancelled')}
+                        disabled={updatingStatus}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Cancel Contract</span>
+                      </button>
+                    )}
+                  </div>
+                  {!contract.mainTutorId && contract.status !== 'active' && (
+                    <p className="text-sm text-yellow-600 mt-2">
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
+                      Cannot activate contract without tutor assigned
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Tutor Assignment */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Tutor Assignment</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Main Tutor</label>
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <span className="font-medium text-gray-900">
+                      {contract.mainTutorName || 'Not Assigned'}
+                    </span>
+                    <button
+                      onClick={handleOpenAssignTutor}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>{contract.mainTutorId ? 'Change Tutor' : 'Assign Tutor'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'tutors' && (
+          <div className="space-y-6">
+            {/* Main Tutor */}
+            {contract.mainTutorId && mainTutorInfo && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <User className="w-5 h-5 mr-2 text-purple-600" />
+                  Main Tutor
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <User className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm text-gray-600">Name</p>
+                      <p className="font-medium">{contract.mainTutorName || mainTutorInfo.fullName || mainTutorInfo.FullName || 'N/A'}</p>
+                    </div>
+                  </div>
+                  {mainTutorInfo.email && (
+                    <div className="flex items-center space-x-3">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <p className="font-medium">{mainTutorInfo.email}</p>
+                      </div>
+                    </div>
+                  )}
+                  {mainTutorInfo.phoneNumber || mainTutorInfo.phone && (
+                    <div className="flex items-center space-x-3">
+                      <Phone className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Phone</p>
+                        <p className="font-medium">{mainTutorInfo.phoneNumber || mainTutorInfo.phone || 'N/A'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Substitute Tutor 1 */}
+            {(() => {
+              const substituteTutor1Id = (contract as any).substituteTutor1Id || (contract as any).SubstituteTutor1Id;
+              return substituteTutor1Id ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="w-5 h-5 mr-2 text-green-600" />
+                    Substitute Tutor 1
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-medium">{substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {(substituteTutor1Info?.email || (contract as any).substituteTutor1Email || (contract as any).SubstituteTutor1Email) && (
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Email</p>
+                          <p className="font-medium">{substituteTutor1Info?.email || (contract as any).substituteTutor1Email || (contract as any).SubstituteTutor1Email || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || (contract as any).substituteTutor1Phone || (contract as any).SubstituteTutor1Phone) && (
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <p className="font-medium">{substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || (contract as any).substituteTutor1Phone || (contract as any).SubstituteTutor1Phone || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Substitute Tutor 2 */}
+            {(() => {
+              const substituteTutor2Id = (contract as any).substituteTutor2Id || (contract as any).SubstituteTutor2Id;
+              return substituteTutor2Id ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="w-5 h-5 mr-2 text-blue-600" />
+                    Substitute Tutor 2
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <User className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-medium">{substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    {(substituteTutor2Info?.email || (contract as any).substituteTutor2Email || (contract as any).SubstituteTutor2Email) && (
+                      <div className="flex items-center space-x-3">
+                        <Mail className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Email</p>
+                          <p className="font-medium">{substituteTutor2Info?.email || (contract as any).substituteTutor2Email || (contract as any).SubstituteTutor2Email || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || (contract as any).substituteTutor2Phone || (contract as any).SubstituteTutor2Phone) && (
+                      <div className="flex items-center space-x-3">
+                        <Phone className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <p className="font-medium">{substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || (contract as any).substituteTutor2Phone || (contract as any).SubstituteTutor2Phone || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+
+            {!contract.mainTutorId && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                <div className="flex items-center space-x-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                  <p className="text-yellow-800">No tutor assigned yet. Please assign a tutor in the Management tab.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Assign Tutor Modal */}
+      {showAssignTutorModal && contract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Assign Tutors</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
+                    Contract: {contract.packageName} - {contract.childName}
+                  </p>
+                  <p className="text-red-600 mt-2 text-sm font-medium">
+                    * Please select 1 main tutor and 2 substitute tutors (all must be different)
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAssignTutorModal(false);
+                    setSelectedMainTutor(null);
+                    setSelectedSubstituteTutor1(null);
+                    setSelectedSubstituteTutor2(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingTutors && !availableTutors.length ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading available tutors...</p>
+                </div>
+              ) : availableTutors.length === 0 ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600">No available tutors found</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Main Tutor Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Main Tutor
+                    </h3>
+                    {selectedMainTutor ? (
+                      <div className="mb-3 p-4 bg-blue-50 border-2 border-blue-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedMainTutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedMainTutor.email}</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedMainTutor(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedSubstituteTutor1?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-blue-500 hover:bg-blue-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'main')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Substitute Tutors */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 1
+                    </h3>
+                    {selectedSubstituteTutor1 ? (
+                      <div className="mb-3 p-4 bg-green-50 border-2 border-green-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor1.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor1.email}</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor1(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor2?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-green-500 hover:bg-green-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute1')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">Required</span>
+                      Substitute Tutor 2
+                    </h3>
+                    {selectedSubstituteTutor2 ? (
+                      <div className="mb-3 p-4 bg-purple-50 border-2 border-purple-500 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold text-gray-900">{selectedSubstituteTutor2.fullName}</h4>
+                            <p className="text-sm text-gray-600">{selectedSubstituteTutor2.email}</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedSubstituteTutor2(null)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {availableTutors
+                          .filter(t => 
+                            t.userId !== selectedMainTutor?.userId && 
+                            t.userId !== selectedSubstituteTutor1?.userId
+                          )
+                          .map((tutor) => (
+                          <div
+                            key={tutor.userId}
+                            className="border border-gray-200 rounded-lg p-4 transition-all hover:border-purple-500 hover:bg-purple-50 cursor-pointer"
+                            onClick={() => handleSelectTutorForRole(tutor, 'substitute2')}
+                          >
+                            <h4 className="font-semibold text-gray-900">{tutor.fullName}</h4>
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Confirm Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      onClick={handleConfirmAssignment}
+                      disabled={loadingTutors || !selectedMainTutor || !selectedSubstituteTutor1 || !selectedSubstituteTutor2}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                    >
+                      {loadingTutors ? 'Assigning Tutors...' : 'Confirm Assignment'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ContractDetailStaff;
+

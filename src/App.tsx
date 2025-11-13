@@ -40,8 +40,12 @@ import {
   UserManagementPage,
   CenterManagementPage,
   PackageManagementPage,
+  FinancePage,
+  LogsPage,
+  SettingsPage,
   StaffDashboardPage,
   ContractManagementPage,
+  ContractDetailStaffPage,
   RescheduleManagementPage,
 } from './pages/features';
 
@@ -291,6 +295,21 @@ function App() {
                 <PackageManagementPage />
               </ProtectedRoute>
             } />
+            <Route path="admin/finance" element={
+              <ProtectedRoute requiredRole="admin">
+                <FinancePage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/logs" element={
+              <ProtectedRoute requiredRole="admin">
+                <LogsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/settings" element={
+              <ProtectedRoute requiredRole="admin">
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
             
             {/* Staff Routes */}
             <Route path="staff" element={
@@ -301,6 +320,11 @@ function App() {
             <Route path="staff/contracts" element={
               <ProtectedRoute>
                 <ContractManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/contracts/:id" element={
+              <ProtectedRoute>
+                <ContractDetailStaffPage />
               </ProtectedRoute>
             } />
             <Route path="staff/reschedules" element={

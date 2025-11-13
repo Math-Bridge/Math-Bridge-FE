@@ -5,7 +5,7 @@ import {
   BarChart3,
   User
 } from 'lucide-react';
-import { TutorSessions } from '.';
+import { TutorSessions, TutorProfile } from '.';
 
 // Removed TutorStats for simplified dashboard layout
 
@@ -65,9 +65,7 @@ const TutorDashboard: React.FC = () => {
   function renderRightPane() {
     switch (selectedAction) {
       case 'profile':
-        return (
-          <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Profile Settings</div>
-        );
+        return <TutorProfile />;
       case 'sessions':
         return <TutorSessions />;
       case 'centers':
