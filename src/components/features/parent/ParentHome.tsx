@@ -118,8 +118,6 @@ const ParentHome: React.FC = () => {
               id: pkg.PackageId || pkg.packageId || pkg.id || '',
               title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
               description: pkg.Description || pkg.description || 'Comprehensive tutoring package',
-              rating: pkg.rating || 4.8,
-              students: pkg.studentCount || pkg.enrolledStudents || 100,
               price: pkg.Price || pkg.price || 0,
               duration: `${weeks} week${weeks > 1 ? 's' : ''}`,
               level: pkg.level || pkg.difficulty || 'Intermediate'
@@ -210,7 +208,7 @@ const ParentHome: React.FC = () => {
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div>
                   <h1 className="text-4xl font-bold mb-2">{getGreeting()}, {user?.name?.split(' ')[0] || 'Parent'}!</h1>
-                  <p className="text-lg opacity-90">Ready to support your child's learning journey?</p>
+                  <p className="text-lg opacity-95">Ready to support your child's learning journey?</p>
                   <div className="flex items-center gap-6 mt-4 text-white/80">
                     <div className="flex items-center gap-2"><Clock className="h-5 w-5" /> {currentTime.toLocaleTimeString()}</div>
                     <div className="flex items-center gap-2"><Calendar className="h-5 w-5" /> {currentTime.toLocaleDateString()}</div>
@@ -329,11 +327,6 @@ const ParentHome: React.FC = () => {
                     </div>
                     <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span className="font-medium">{pkg.rating}</span>
-                      </div>
-                      <span className="text-sm text-gray-500">{pkg.students} students</span>
                     </div>
                     <div className="text-lg font-bold text-cyan-600">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(pkg.price)}

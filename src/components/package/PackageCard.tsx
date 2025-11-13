@@ -1,7 +1,17 @@
 import React from 'react';
-import { BookOpen, Calendar, Users, DollarSign, Clock, GraduationCap, MapPin, Star } from 'lucide-react';
+import { 
+  Brain, 
+  Calculator, 
+  Globe, 
+  PencilRuler, 
+  Beaker, 
+  Languages,
+  BookOpen,
+  Clock,
+  Calendar,
+  MapPin
+} from 'lucide-react';
 import type { Course } from '../../types';
-import { useTranslation } from '../../hooks/useTranslation';
 import { useAuth } from '../../hooks/useAuth';
 
 interface PackageCardProps {
@@ -11,148 +21,114 @@ interface PackageCardProps {
   onEnroll?: (course: Course) => void;
 }
 
-const PackageCard: React.FC<PackageCardProps> = ({ course, onView, onEdit, onEnroll }) => {
-  const { t } = useTranslation();
+const PackageCard: React.FC<PackageCardProps> = ({ course, onView, onEdit }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const enrollmentRate = course.max_students && course.current_students
-    ? ((course.current_students / course.max_students) * 100).toFixed(0)
-    : 0;
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white';
-      case 'upcoming':
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
-      case 'completed':
-        return 'bg-gradient-to-r from-gray-400 to-gray-500 text-white';
-      case 'cancelled':
-        return 'bg-gradient-to-r from-red-400 to-red-500 text-white';
-      default:
-        return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white';
-    }
+  // Gán icon theo tên gói học (có thể mở rộng thêm)
+  const getPackageIcon = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('math') || lowerName.includes('toán')) return Calculator;
+    if (lowerName.includes('english') || lowerName.includes('tiếng anh')) return Languages;
+    if (lowerName.includes('science') || lowerName.includes('khoa học')) return Beaker;
+    if (lowerName.includes('literature') || lowerName.includes('văn')) return BookOpen;
+    if (lowerName.includes('logic') || lowerName.includes('tư duy')) return Brain;
+    if (lowerName.includes('art') || lowerName.includes('vẽ') || lowerName.includes('mỹ thuật')) return PencilRuler;
+    if (lowerName.includes('world') || lowerName.includes('địa') || lowerName.includes('lịch sử')) return Globe;
+    return BookOpen; // default
   };
 
-  const getLevelColor = (level: string) => {
-    switch (level.toLowerCase()) {
-      case 'beginner':
-        return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-      case 'intermediate':
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'advanced':
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      default:
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-    }
-  };
+  const IconComponent = getPackageIcon(course.name || '');
 
-  // Generate a subtle gradient color based on package name
-  const getGradientColor = (name: string) => {
-    const colors = [
-      'from-blue-500 to-cyan-500',
-      'from-purple-500 to-pink-500',
-      'from-emerald-500 to-teal-500',
-      'from-orange-500 to-red-500',
-      'from-indigo-500 to-blue-500',
-      'from-pink-500 to-rose-500'
-    ];
-    const index = (name?.length || 0) % colors.length;
-    return colors[index];
-  };
-
-  const gradientClass = getGradientColor(course.name || '');
+  // Màu nền nhẹ nhàng, không gradient
+  const bgColor = course.price === 0 ? 'bg-emerald-50' : 'bg-sky-50';
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-200 cursor-pointer group">
-      {/* Image/Placeholder - Coursera style */}
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
+      {/* Header với icon lớn */}
       <div 
-        className="relative h-40 bg-gradient-to-br"
-        style={{
-          background: course.image_url 
-            ? `url(${course.image_url}) center/cover` 
-            : `linear-gradient(to bottom right, var(--tw-gradient-stops))`
-        }}
+        className={`relative h-48 ${bgColor} flex items-center justify-center`}
         onClick={() => onView && (course.course_id || (course as any).packageId) && onView(course.course_id || (course as any).packageId)}
       >
-        {!course.image_url && (
-          <div className={`absolute inset-0 bg-gradient-to-br ${gradientClass} opacity-90`}>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <BookOpen className="w-16 h-16 text-white opacity-80" />
-            </div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent" />
+        
+        <div className="relative z-10 p-8">
+          <div className="w-24 h-24 bg-white rounded-3xl shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <IconComponent className="w-14 h-14 text-emerald-600" />
+          </div>
+        </div>
+
+        {/* Status badge nếu không active */}
+        {course.status && course.status !== 'active' && (
+          <div className="absolute top-4 right-4 px-3 py-1 bg-white/95 backdrop-blur rounded-full text-xs font-semibold text-gray-700 shadow">
+            {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
           </div>
         )}
       </div>
 
-      {/* Content - Coursera style */}
-      <div className="p-5" onClick={() => onView && (course.course_id || (course as any).packageId) && onView(course.course_id || (course as any).packageId)}>
-        {/* Grade Badge */}
-        {(course as any).grade || course.category ? (
-          <div className="mb-2">
-            <span className="inline-block px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">
-              {(course as any).grade || course.category || 'General'}
-            </span>
-          </div>
-        ) : null}
-
-        {/* Title */}
-        <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-          {course.name || (course as any).packageName || 'Package'}
+      {/* Content */}
+      <div 
+        className="p-6 space-y-4"
+        onClick={() => onView && (course.course_id || (course as any).packageId) && onView(course.course_id || (course as any).packageId)}
+      >
+        {/* Tên gói học */}
+        <h3 className="text-xl font-bold text-gray-900 line-clamp-2 group-hover:text-emerald-600 transition-colors">
+          {course.name || 'Gói học tập'}
         </h3>
 
-        {/* Center/Organization */}
+        {/* Trung tâm */}
         {course.center_name && (
-          <p className="text-sm text-gray-600 mb-3">{course.center_name}</p>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <MapPin className="w-4 h-4 text-gray-400" />
+            <span>{course.center_name}</span>
+          </div>
         )}
 
-        {/* Description */}
+        {/* Mô tả ngắn */}
         {course.description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
             {course.description}
           </p>
         )}
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{(course as any).sessionCount || 0} sessions</span>
-          </div>
+        {/* Thời lượng */}
+        <div className="flex items-center gap-5 text-sm text-gray-600">
+          {(course as any).sessionCount > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-emerald-500" />
+              <span>{(course as any).sessionCount} sessions</span>
+            </div>
+          )}
           {course.duration_weeks && course.duration_weeks > 0 && (
-            <div className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-sky-500" />
               <span>{course.duration_weeks} weeks</span>
             </div>
           )}
         </div>
 
-        {/* Rating placeholder - Coursera style */}
-        <div className="flex items-center gap-1 mb-3">
-          <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star key={star} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-            ))}
-          </div>
-          <span className="text-xs text-gray-600 ml-1">4.5</span>
-          <span className="text-xs text-gray-400">(120)</span>
-        </div>
-
-        {/* Price */}
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-          <div>
-            <span className="text-lg font-bold text-gray-900">
+        {/* Giá + Nút Edit */}
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-gray-900">
               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.price || 0)}
             </span>
+            {course.price === 0 && (
+              <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">
+                MIỄN PHÍ
+              </span>
+            )}
           </div>
+
           {isAdmin && onEdit && (course.course_id || (course as any).packageId) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(course.course_id || (course as any).packageId);
               }}
-              className="px-3 py-1 text-xs font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-emerald-600 border border-emerald-300 rounded-xl hover:bg-emerald-50 transition-all"
             >
-              Edit
+              Sửa
             </button>
           )}
         </div>

@@ -154,11 +154,11 @@ const MyChildren: React.FC = () => {
             <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-10 text-white">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
                 <div className="max-w-2xl">
-                  <h1 className="text-5xl font-black mb-4 flex items-center gap-4">
+                  <h1 className="text-4xl font-bold mb-2 flex items-center gap-4">
                     <Users className="h-12 w-12" />
                     My Children
                   </h1>
-                  <p className="text-xl opacity-90 leading-relaxed">
+                  <p className="text-xl opacity-95 leading-relaxed">
                     Manage your children's learning profiles with ease
                   </p>
                   <p className="text-sm opacity-70 mt-3">
