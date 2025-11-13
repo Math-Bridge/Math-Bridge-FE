@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 .env
 /.serena
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
