@@ -668,10 +668,8 @@ export interface Contract {
   isOnline: boolean;
   status: string;
   offlineAddress?: string | null;
-  // Ignore fields that don't exist in backend
-  reschedule_count?: never; // This field doesn't exist, ignore it
-  rescheduleCount?: never;
-  RescheduleCount?: never;
+  rescheduleCount?: number; // Number of reschedules used
+  maxReschedule?: number; // Maximum reschedules allowed (from package)
 }
 
 export interface CreateContractRequest {
@@ -823,10 +821,13 @@ export async function getContractsByParent(parentId: string) {
   const response = await apiService.request<Contract[]>(`/contracts/parents/${parentId}`);
   
   if (response.success && response.data) {
-    // Filter out reschedule_count field from response if present
+    // Map contract data, preserving rescheduleCount
     response.data = response.data.map((contract: any) => {
-      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
-      return cleanContract;
+      const { reschedule_count, ...cleanContract } = contract;
+      return {
+        ...cleanContract,
+        rescheduleCount: contract.rescheduleCount || contract.RescheduleCount || 0,
+      } as Contract;
     }) as Contract[];
   }
   
@@ -836,11 +837,14 @@ export async function getContractsByParent(parentId: string) {
 export async function getContractsByChild(childId: string) {
   const response = await apiService.request<Contract[]>(`/children/${childId}/contracts`);
   
-  // Filter out reschedule_count field from response if present
+  // Map contract data, preserving rescheduleCount
   if (response.success && response.data) {
     response.data = response.data.map((contract: any) => {
-      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
-      return cleanContract;
+      const { reschedule_count, ...cleanContract } = contract;
+      return {
+        ...cleanContract,
+        rescheduleCount: contract.rescheduleCount || contract.RescheduleCount || 0,
+      } as Contract;
     }) as Contract[];
   }
   
@@ -856,10 +860,13 @@ export async function getContractById(contractId: string) {
     const response = await apiService.request<any>(`/contracts/${contractId}`);
     
     if (response.success && response.data) {
-      const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = response.data;
+      const { reschedule_count, ...cleanContract } = response.data;
       return {
         success: true,
-        data: cleanContract,
+        data: {
+          ...cleanContract,
+          rescheduleCount: response.data.rescheduleCount || response.data.RescheduleCount || 0,
+        } as Contract,
         error: null
       };
     }
@@ -1420,58 +1427,280 @@ export interface RescheduleRequest {
   contractId: string;
   parentId: string;
   parentName: string;
-  childName: string;
+  childName?: string;
   requestedDate: string;
-  requestedTimeSlot: string;
+  requestedTimeSlot?: string;
+  startTime?: string;
+  endTime?: string;
   requestedTutorId?: string;
   requestedTutorName?: string;
-  reason: string;
+  reason?: string;
   status: 'pending' | 'approved' | 'rejected';
   createdDate: string;
+  processedDate?: string;
+  staffId?: string;
+  staffName?: string;
+  originalSessionDate?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
+  originalTutorId?: string;
+  originalTutorName?: string;
+}
+
+export interface CreateRescheduleRequest {
+  bookingId: string;
+  requestedDate: string; // Required: Date in YYYY-MM-DD format (DateOnly)
+  startTime: string; // Required: Start time in HH:mm format (TimeOnly) - must be 16:00, 17:30, 19:00, or 20:30
+  endTime: string; // Required: End time in HH:mm format (TimeOnly) - must be startTime + 90 minutes
+  // Note: requestedTutorId is not supported in backend (commented out in CreateRescheduleRequestDto)
+  reason?: string; // Optional: reason for rescheduling
 }
 
 export interface ApproveRescheduleRequest {
-  newSessionDate?: string;
-  newTimeSlot?: string;
-  newTutorId?: string;
-  notes?: string;
+  newTutorId?: string; // Optional: if not provided, uses requestedTutorId or original tutor
+  note?: string; // Optional: staff note about the approval
 }
 
 export interface RejectRescheduleRequest {
   reason: string;
 }
 
-export async function getRescheduleRequests(_status?: 'pending' | 'approved' | 'rejected') {
-  // NOTE: Backend doesn't have GET endpoint for reschedule requests yet
-  // The RescheduleController only has POST (Create) and PUT (Approve/Reject)
-  // Return empty array for now until backend implements GET endpoint
-  console.warn('GET /reschedule endpoint not implemented in backend. Returning empty array.');
-  
-  return {
-    success: true,
-    data: [] as RescheduleRequest[],
-    error: null,
-  };
-  
-  // Uncomment when backend implements GET endpoint:
-  // const query = status ? `?status=${status}` : '';
-  // return apiService.request<RescheduleRequest[]>(`/reschedule${query}`, {
-  //   method: 'GET',
-  // });
+export interface AvailableSubTutor {
+  tutorId: string;
+  fullName: string;
+  phoneNumber?: string;
+  email?: string;
+  rating?: number;
+  isAvailable: boolean;
+}
+
+// Get all reschedule requests
+// Backend: GET /api/reschedule?parentId={parentId} (optional, staff sees all, parent sees only their own)
+// Note: Backend doesn't support status filter, filtering is done on frontend
+export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
+  try {
+    // Backend doesn't have status query param, we'll filter on frontend
+    const result = await apiService.request<any[]>(`/reschedule`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map backend DTO to frontend interface
+      const mappedData: RescheduleRequest[] = result.data.map((item: any) => ({
+        requestId: item.requestId || item.RequestId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        contractId: item.contractId || item.ContractId || '',
+        parentId: item.parentId || item.ParentId || '',
+        parentName: item.parentName || item.ParentName || '',
+        childName: item.childName || item.ChildName,
+        requestedDate: item.requestedDate || item.RequestedDate || '',
+        requestedTimeSlot: item.startTime && item.endTime 
+          ? `${item.startTime} - ${item.endTime}`
+          : item.requestedTimeSlot || item.RequestedTimeSlot,
+        startTime: item.startTime || item.StartTime,
+        endTime: item.endTime || item.EndTime,
+        requestedTutorId: item.requestedTutorId || item.RequestedTutorId,
+        requestedTutorName: item.requestedTutorName || item.RequestedTutorName,
+        reason: item.reason || item.Reason,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'rejected',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        processedDate: item.processedDate || item.ProcessedDate,
+        staffId: item.staffId || item.StaffId,
+        staffName: item.staffName || item.StaffName,
+        originalSessionDate: item.originalSessionDate || item.OriginalSessionDate,
+        originalStartTime: item.originalStartTime || item.OriginalStartTime,
+        originalEndTime: item.originalEndTime || item.OriginalEndTime,
+        originalTutorId: item.originalTutorId || item.OriginalTutorId,
+        originalTutorName: item.originalTutorName || item.OriginalTutorName,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch reschedule requests',
+    };
+  }
+}
+
+// Create reschedule request
+// Backend DTO: BookingId, RequestedDate (DateOnly), StartTime (TimeOnly), EndTime (TimeOnly), Reason (optional)
+// Note: RequestedTutorId is commented out in backend DTO, so we don't send it
+export async function createRescheduleRequest(data: CreateRescheduleRequest) {
+  try {
+    const requestBody: any = {
+      bookingId: data.bookingId,
+      requestedDate: data.requestedDate, // Required: DateOnly format (YYYY-MM-DD)
+      startTime: data.startTime, // Required: TimeOnly format (HH:mm)
+      endTime: data.endTime, // Required: TimeOnly format (HH:mm)
+    };
+    
+    // Optional fields
+    if (data.reason && data.reason.trim() !== '') {
+      requestBody.reason = data.reason;
+    }
+    // Note: requestedTutorId is not supported in backend (commented out in CreateRescheduleRequestDto)
+    
+    const result = await apiService.request<{ requestId: string; status: string; message: string }>(`/reschedule`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to create reschedule request',
+    };
+  }
+}
+
+// Get reschedule request by ID
+export async function getRescheduleRequestById(requestId: string) {
+  try {
+    const result = await apiService.request<any>(`/reschedule/${requestId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: RescheduleRequest = {
+        requestId: item.requestId || item.RequestId || requestId,
+        bookingId: item.bookingId || item.BookingId || '',
+        contractId: item.contractId || item.ContractId || '',
+        parentId: item.parentId || item.ParentId || '',
+        parentName: item.parentName || item.ParentName || '',
+        childName: item.childName || item.ChildName,
+        requestedDate: item.requestedDate || item.RequestedDate || '',
+        requestedTimeSlot: item.startTime && item.endTime 
+          ? `${item.startTime} - ${item.endTime}`
+          : item.requestedTimeSlot || item.RequestedTimeSlot,
+        startTime: item.startTime || item.StartTime,
+        endTime: item.endTime || item.EndTime,
+        requestedTutorId: item.requestedTutorId || item.RequestedTutorId,
+        requestedTutorName: item.requestedTutorName || item.RequestedTutorName,
+        reason: item.reason || item.Reason,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'rejected',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        processedDate: item.processedDate || item.ProcessedDate,
+        staffId: item.staffId || item.StaffId,
+        staffName: item.staffName || item.StaffName,
+        originalSessionDate: item.originalSessionDate || item.OriginalSessionDate,
+        originalStartTime: item.originalStartTime || item.OriginalStartTime,
+        originalEndTime: item.originalEndTime || item.OriginalEndTime,
+        originalTutorId: item.originalTutorId || item.OriginalTutorId,
+        originalTutorName: item.originalTutorName || item.OriginalTutorName,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to fetch reschedule request',
+    };
+  }
+}
+
+// Get available sub tutors for reschedule request
+export async function getAvailableSubTutors(rescheduleRequestId: string) {
+  try {
+    const result = await apiService.request<{ availableTutors: any[]; totalAvailable: number }>(`/reschedule/${rescheduleRequestId}/available-sub-tutors`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: AvailableSubTutor[] = (result.data.availableTutors || []).map((tutor: any) => ({
+        tutorId: tutor.tutorId || tutor.TutorId || '',
+        fullName: tutor.fullName || tutor.FullName || '',
+        phoneNumber: tutor.phoneNumber || tutor.PhoneNumber,
+        email: tutor.email || tutor.Email,
+        rating: tutor.rating || tutor.Rating,
+        isAvailable: tutor.isAvailable ?? tutor.IsAvailable ?? true,
+      }));
+      
+      return {
+        success: true,
+        data: {
+          availableTutors: mappedData,
+          totalAvailable: result.data.totalAvailable || mappedData.length,
+        },
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: { availableTutors: [], totalAvailable: 0 },
+      error: error?.message || 'Failed to fetch available sub tutors',
+    };
+  }
 }
 
 export async function approveRescheduleRequest(requestId: string, data: ApproveRescheduleRequest) {
-  return apiService.request<{ message: string }>(`/reschedule/${requestId}/approve`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  try {
+    const requestBody: any = {};
+    
+    // Only include newTutorId if provided (not empty string)
+    if (data.newTutorId && data.newTutorId.trim() !== '') {
+      requestBody.newTutorId = data.newTutorId;
+    }
+    
+    // Only include note if provided
+    if (data.note && data.note.trim() !== '') {
+      requestBody.note = data.note;
+    }
+    
+    const result = await apiService.request<{ message: string }>(`/reschedule/${requestId}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to approve reschedule request',
+    };
+  }
 }
 
 export async function rejectRescheduleRequest(requestId: string, data: RejectRescheduleRequest) {
-  return apiService.request<{ message: string }>(`/reschedule/${requestId}/reject`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
+  try {
+    const result = await apiService.request<{ message: string }>(`/reschedule/${requestId}/reject`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        reason: data.reason,
+      }),
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to reject reschedule request',
+    };
+  }
 }
 
 // Staff Dashboard Stats

@@ -20,6 +20,8 @@ import {
   approveRescheduleRequest,
   rejectRescheduleRequest,
   ApproveRescheduleRequest,
+  getAvailableSubTutors,
+  AvailableSubTutor,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -41,6 +43,56 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   const [rejectReason, setRejectReason] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+  
+  // Approve modal states
+  const [approveNote, setApproveNote] = useState('');
+  const [selectedTutorId, setSelectedTutorId] = useState<string>('');
+  const [availableTutors, setAvailableTutors] = useState<AvailableSubTutor[]>([]);
+  const [loadingTutors, setLoadingTutors] = useState(false);
+
+  // Helper functions for formatting
+  const formatDate = (dateStr: string | undefined): string => {
+    if (!dateStr) return 'N/A';
+    try {
+      // Handle DateOnly format (YYYY-MM-DD) or ISO string
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTime = (timeStr: string | undefined): string => {
+    if (!timeStr) return 'N/A';
+    try {
+      // Handle TimeOnly format (HH:mm:ss or HH:mm) or DateTime ISO string
+      if (timeStr.includes('T')) {
+        // DateTime ISO string
+        const date = new Date(timeStr);
+        if (isNaN(date.getTime())) return timeStr;
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+      } else {
+        // TimeOnly format (HH:mm:ss or HH:mm)
+        const parts = timeStr.split(':');
+        if (parts.length >= 2) {
+          return `${parts[0]}:${parts[1]}`;
+        }
+        return timeStr;
+      }
+    } catch {
+      return timeStr;
+    }
+  };
+
+  const formatTimeRange = (startTime: string | undefined, endTime: string | undefined): string => {
+    const start = formatTime(startTime);
+    const end = formatTime(endTime);
+    if (start === 'N/A' && end === 'N/A') return 'N/A';
+    if (start === 'N/A') return end;
+    if (end === 'N/A') return start;
+    return `${start} - ${end}`;
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -108,22 +160,57 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   const endIndex = startIndex + itemsPerPage;
   const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
-  const handleApprove = async (data: ApproveRescheduleRequest) => {
+  const handleOpenApproveModal = async (request: RescheduleRequest) => {
+    setSelectedRequest(request);
+    setShowApproveModal(true);
+    setSelectedTutorId('');
+    setApproveNote('');
+    setAvailableTutors([]);
+    
+    // Fetch available sub-tutors for this request
+    if (request.requestId) {
+      try {
+        setLoadingTutors(true);
+        const result = await getAvailableSubTutors(request.requestId);
+        if (result.success && result.data) {
+          setAvailableTutors(result.data.availableTutors || []);
+        }
+      } catch (error) {
+        console.error('Error fetching available tutors:', error);
+        // Don't show error - just continue without tutor list
+      } finally {
+        setLoadingTutors(false);
+      }
+    }
+  };
+
+  const handleApprove = async () => {
     if (!selectedRequest) return;
 
     try {
+      const data: ApproveRescheduleRequest = {
+        newTutorId: selectedTutorId || undefined,
+        note: approveNote || undefined,
+      };
+      
       const result = await approveRescheduleRequest(selectedRequest.requestId, data);
       if (result.success) {
         showSuccess('Reschedule request approved successfully');
         setShowApproveModal(false);
         setSelectedRequest(null);
-        fetchRequests();
+        setSelectedTutorId('');
+        setApproveNote('');
+        setAvailableTutors([]);
+        await fetchRequests();
       } else {
-        showError(result.error || 'Failed to approve request');
+        const errorMsg = result.error || 'Failed to approve request';
+        showError(errorMsg);
+        console.error('Approve error:', errorMsg);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving request:', error);
-      showError('Failed to approve request');
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to approve request';
+      showError(errorMsg);
     }
   };
 
@@ -142,13 +229,16 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
         setShowRejectModal(false);
         setSelectedRequest(null);
         setRejectReason('');
-        fetchRequests();
+        await fetchRequests();
       } else {
-        showError(result.error || 'Failed to reject request');
+        const errorMsg = result.error || 'Failed to reject request';
+        showError(errorMsg);
+        console.error('Reject error:', errorMsg);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rejecting request:', error);
-      showError('Failed to reject request');
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to reject request';
+      showError(errorMsg);
     }
   };
 
@@ -190,8 +280,20 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
               <span>Back to Dashboard</span>
             </button>
           )}
-          <h1 className="text-3xl font-bold text-gray-900">Reschedule Requests</h1>
-          <p className="text-gray-600 mt-2">Review and manage reschedule requests</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Reschedule Requests</h1>
+              <p className="text-gray-600 mt-2">Review and manage reschedule requests</p>
+            </div>
+            <button
+              onClick={fetchRequests}
+              disabled={loading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -281,11 +383,15 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {new Date(request.requestedDate).toLocaleDateString()}
+                            {formatDate(request.requestedDate)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{request.requestedTimeSlot}</div>
+                          <div className="text-sm text-gray-900">
+                            {request.startTime && request.endTime 
+                              ? formatTimeRange(request.startTime, request.endTime)
+                              : request.requestedTimeSlot || 'N/A'}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{request.requestedTutorName || 'N/A'}</div>
@@ -297,7 +403,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {new Date(request.createdDate).toLocaleDateString()}
+                            {formatDate(request.createdDate)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -309,10 +415,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                           {request.status === 'pending' && (
                             <div className="flex items-center justify-end space-x-2">
                               <button
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setShowApproveModal(true);
-                                }}
+                                onClick={() => handleOpenApproveModal(request)}
                                 className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
                               >
                                 <CheckCircle className="w-3 h-3" />
@@ -405,31 +508,118 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
       {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900">Approve Reschedule Request</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Arrange a new schedule for {selectedRequest.childName || selectedRequest.parentName}
+              </p>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                Approve the reschedule request for {selectedRequest.childName}?
-              </p>
+              {/* Original Session Info */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3 flex items-center space-x-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>Original Session</span>
+                </p>
+                <div className="text-sm text-gray-600 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span><strong>Date:</strong> {formatDate(selectedRequest.originalSessionDate)}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                    <span><strong>Time:</strong> {formatTimeRange(selectedRequest.originalStartTime, selectedRequest.originalEndTime)}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span><strong>Tutor:</strong> {selectedRequest.originalTutorName || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Requested Session Info */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                <p className="text-sm font-semibold text-blue-700 mb-3 flex items-center space-x-2">
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Requested New Session</span>
+                </p>
+                <div className="text-sm text-blue-600 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-blue-400" />
+                    <span><strong>Date:</strong> {formatDate(selectedRequest.requestedDate) || 'Not specified'}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                    <span><strong>Time:</strong> {
+                      selectedRequest.startTime && selectedRequest.endTime 
+                        ? formatTimeRange(selectedRequest.startTime, selectedRequest.endTime)
+                        : selectedRequest.requestedTimeSlot || 'Not specified'
+                    }</span>
+                  </div>
+                  {selectedRequest.requestedTutorName && (
+                    <div className="flex items-center space-x-2">
+                      <User className="w-4 h-4 text-blue-400" />
+                      <span><strong>Requested Tutor:</strong> {selectedRequest.requestedTutorName}</span>
+                    </div>
+                  )}
+                  {selectedRequest.reason && (
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <div className="flex items-start space-x-2">
+                        <FileText className="w-4 h-4 text-blue-400 mt-0.5" />
+                        <div>
+                          <strong>Reason:</strong>
+                          <p className="mt-1 text-gray-700">{selectedRequest.reason}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <div className="space-y-4">
+                {/* Tutor Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    New Date (optional)
+                    Select Tutor (Optional)
                   </label>
-                  <input
-                    type="date"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
+                  <p className="text-xs text-gray-500 mb-2">
+                    If not selected, will use requested tutor or original tutor
+                  </p>
+                  {loadingTutors ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading available tutors...</span>
+                    </div>
+                  ) : availableTutors.length > 0 ? (
+                    <select
+                      value={selectedTutorId}
+                      onChange={(e) => setSelectedTutorId(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Use requested/original tutor</option>
+                      {availableTutors.map((tutor) => (
+                        <option key={tutor.tutorId} value={tutor.tutorId}>
+                          {tutor.fullName} {tutor.rating ? `(${tutor.rating.toFixed(1)}⭐)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-sm text-gray-500 py-2">
+                      No substitute tutors available. Will use requested tutor or original tutor.
+                    </div>
+                  )}
                 </div>
+
+                {/* Notes */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Notes (optional)
                   </label>
                   <textarea
                     rows={3}
+                    value={approveNote}
+                    onChange={(e) => setApproveNote(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Add any notes about this approval..."
                   />
@@ -441,16 +631,19 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 onClick={() => {
                   setShowApproveModal(false);
                   setSelectedRequest(null);
+                  setSelectedTutorId('');
+                  setApproveNote('');
+                  setAvailableTutors([]);
                 }}
                 className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={() => handleApprove({})}
+                onClick={handleApprove}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                Approve
+                Approve Request
               </button>
             </div>
           </div>

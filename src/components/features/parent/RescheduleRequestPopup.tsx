@@ -7,121 +7,186 @@ import {
   AlertCircle,
   User,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '../../../hooks/useTranslation';
-
-interface TimeSlot {
-  id: string;
-  time: string;
-  available: boolean;
-}
-
-interface DaySchedule {
-  date: string;
-  dayName: string;
-  slots: TimeSlot[];
-}
+import { createRescheduleRequest, CreateRescheduleRequest, getSessionsByChildId, Session } from '../../../services/api';
+import { useToast } from '../../../contexts/ToastContext';
 
 interface RescheduleRequestPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (requestData: RescheduleRequest) => void;
+  onSuccess?: () => void; // Callback when request is successfully created
   currentSession: {
+    bookingId: string; // Required: bookingId from session
     date: string;
     time: string;
-    topic: string;
+    topic?: string;
   };
   tutorName: string;
+  childId?: string; // Optional: childId to fetch existing sessions
 }
 
-interface RescheduleRequest {
-  reason: string;
-  newDate: string;
-  newTime: string;
-  alternativeDates: string[];
-  notes?: string;
-}
+// Note: Parent only provides reason. Staff will arrange the new schedule.
 
 const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   isOpen,
   onClose,
-  onConfirm,
+  onSuccess,
   currentSession,
-  tutorName
+  tutorName,
+  childId
 }) => {
   const { t } = useTranslation();
+  const { showSuccess, showError } = useToast();
   const [reason, setReason] = useState('');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedTime, setSelectedTime] = useState('');
-  const [alternativeDates, setAlternativeDates] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
-  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestedDate, setRequestedDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [selectedWeek, setSelectedWeek] = useState(0);
+  const [existingSessions, setExistingSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  
+  // Valid start times: 16:00, 17:30, 19:00, 20:30
+  const VALID_START_TIMES = ['16:00', '17:30', '19:00', '20:30'];
+  
+  // Calculate end time (start time + 90 minutes)
+  const calculateEndTime = (startTime: string): string => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    startDate.setMinutes(startDate.getMinutes() + 90);
+    const endHours = startDate.getHours().toString().padStart(2, '0');
+    const endMinutes = startDate.getMinutes().toString().padStart(2, '0');
+    return `${endHours}:${endMinutes}`;
+  };
 
-  // TODO: Replace with actual tutor availability API call
-  // Fetch from GET /api/tutor-availabilities/search-tutors or similar endpoint
-  const weeklySchedules: DaySchedule[] = [
-    {
-      date: '2024-01-22',
-      dayName: 'Monday',
-      slots: [
-        { id: 'mon-1', time: '09:00', available: true },
-        { id: 'mon-2', time: '10:00', available: true },
-        { id: 'mon-3', time: '11:00', available: false },
-        { id: 'mon-4', time: '14:00', available: true },
-        { id: 'mon-5', time: '15:00', available: true },
-        { id: 'mon-6', time: '16:00', available: false }
-      ]
-    },
-    {
-      date: '2024-01-23',
-      dayName: 'Tuesday',
-      slots: [
-        { id: 'tue-1', time: '09:00', available: false },
-        { id: 'tue-2', time: '10:00', available: true },
-        { id: 'tue-3', time: '11:00', available: true },
-        { id: 'tue-4', time: '14:00', available: true },
-        { id: 'tue-5', time: '15:00', available: false },
-        { id: 'tue-6', time: '16:00', available: true }
-      ]
-    },
-    {
-      date: '2024-01-24',
-      dayName: 'Wednesday',
-      slots: [
-        { id: 'wed-1', time: '09:00', available: true },
-        { id: 'wed-2', time: '10:00', available: true },
-        { id: 'wed-3', time: '11:00', available: true },
-        { id: 'wed-4', time: '14:00', available: false },
-        { id: 'wed-5', time: '15:00', available: true },
-        { id: 'wed-6', time: '16:00', available: true }
-      ]
-    },
-    {
-      date: '2024-01-25',
-      dayName: 'Thursday',
-      slots: [
-        { id: 'thu-1', time: '09:00', available: true },
-        { id: 'thu-2', time: '10:00', available: false },
-        { id: 'thu-3', time: '11:00', available: true },
-        { id: 'thu-4', time: '14:00', available: true },
-        { id: 'thu-5', time: '15:00', available: true },
-        { id: 'thu-6', time: '16:00', available: false }
-      ]
-    },
-    {
-      date: '2024-01-26',
-      dayName: 'Friday',
-      slots: [
-        { id: 'fri-1', time: '09:00', available: false },
-        { id: 'fri-2', time: '10:00', available: true },
-        { id: 'fri-3', time: '11:00', available: true },
-        { id: 'fri-4', time: '14:00', available: true },
-        { id: 'fri-5', time: '15:00', available: true },
-        { id: 'fri-6', time: '16:00', available: true }
-      ]
+  // Generate weekly schedule (7 days starting from today, excluding past dates)
+  const generateWeeklySchedule = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Start from today + (selectedWeek * 7) days
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + (selectedWeek * 7));
+    
+    const weekDays = [];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // Generate 7 days, but only include dates from today onwards
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      date.setHours(0, 0, 0, 0);
+      const dateStr = date.toISOString().split('T')[0];
+      const dateOnly = new Date(dateStr);
+      const todayOnly = new Date(todayStr);
+      
+      // Only include dates that are today or in the future
+      if (dateOnly >= todayOnly) {
+        weekDays.push({
+          date: dateStr,
+          dayName: dayNames[date.getDay()],
+          dayNumber: date.getDate(),
+          isPast: false,
+          slots: VALID_START_TIMES.map(time => ({
+            time,
+            endTime: calculateEndTime(time),
+            id: `${dateStr}-${time}`,
+          }))
+        });
+      }
     }
-  ];
+    
+    return weekDays;
+  };
+
+  const weeklySchedule = generateWeeklySchedule();
+
+  // Fetch existing sessions when popup opens
+  React.useEffect(() => {
+    if (isOpen && childId) {
+      fetchExistingSessions();
+    } else {
+      setExistingSessions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, childId]);
+
+  const fetchExistingSessions = async () => {
+    if (!childId) return;
+    
+    try {
+      setLoadingSessions(true);
+      const result = await getSessionsByChildId(childId);
+      if (result.success && result.data) {
+        // Filter out the current session being rescheduled and only get scheduled/completed sessions
+        const sessions = result.data.filter((s: Session) => 
+          s.bookingId !== currentSession.bookingId && 
+          (s.status === 'scheduled' || s.status === 'completed')
+        );
+        setExistingSessions(sessions);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      // Don't show error - just continue without session data
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  // Check if a slot conflicts with existing sessions
+  const isSlotBooked = (date: string, time: string): boolean => {
+    if (existingSessions.length === 0) return false;
+    
+    // Create slot start and end times
+    const [hours, minutes] = time.split(':').map(Number);
+    const slotStart = new Date(date);
+    slotStart.setHours(hours, minutes, 0, 0);
+    const slotEnd = new Date(slotStart);
+    slotEnd.setMinutes(slotEnd.getMinutes() + 90);
+    
+    return existingSessions.some((session) => {
+      if (!session.sessionDate || !session.startTime || !session.endTime) return false;
+      
+      // Parse session date
+      let sessionDateStr = session.sessionDate;
+      if (sessionDateStr.includes('T')) {
+        sessionDateStr = sessionDateStr.split('T')[0];
+      }
+      if (sessionDateStr !== date) return false;
+      
+      // Parse session start and end times
+      const sessionStart = new Date(session.startTime);
+      const sessionEnd = new Date(session.endTime);
+      
+      // Check for time overlap: slot overlaps if it starts before session ends and ends after session starts
+      return (slotStart < sessionEnd && slotEnd > sessionStart);
+    });
+  };
+
+  const handleDateTimeSelect = (date: string, time: string) => {
+    const selectedDate = new Date(date);
+    const today = new Date(new Date().toISOString().split('T')[0]);
+    
+    // Don't allow selecting past dates
+    if (selectedDate < today) {
+      return;
+    }
+    
+    // Don't allow selecting booked slots
+    if (isSlotBooked(date, time)) {
+      return;
+    }
+    
+    setRequestedDate(date);
+    setStartTime(time);
+  };
 
   const reasonOptions = [
     t('personalEmergency'),
@@ -132,52 +197,77 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     t('other')
   ];
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setSelectedTime('');
-  };
-
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time);
-  };
-
-  const handleAddAlternativeDate = () => {
-    if (selectedDate && !alternativeDates.includes(selectedDate)) {
-      setAlternativeDates(prev => [...prev, selectedDate]);
+  const handleConfirm = async () => {
+    if (!currentSession.bookingId) {
+      showError('Session booking ID is required');
+      return;
     }
-  };
 
-  const handleRemoveAlternativeDate = (date: string) => {
-    setAlternativeDates(prev => prev.filter(d => d !== date));
-  };
-
-  const handleNext = () => {
-    if (step === 1 && reason) {
-      setStep(2);
-    } else if (step === 2 && selectedDate && selectedTime) {
-      setStep(3);
+    // Validate required fields
+    if (!requestedDate) {
+      showError('Please select a date for the rescheduled session');
+      return;
     }
-  };
 
-  const handleConfirm = () => {
-    const requestData: RescheduleRequest = {
-      reason,
-      newDate: selectedDate,
-      newTime: selectedTime,
-      alternativeDates,
-      notes
-    };
-    onConfirm(requestData);
-    handleClose();
+    if (!startTime) {
+      showError('Please select a start time for the rescheduled session');
+      return;
+    }
+
+    if (!VALID_START_TIMES.includes(startTime)) {
+      showError('Invalid time slot. Please select 16:00, 17:30, 19:00, or 20:30');
+      return;
+    }
+
+    if (!reason || (reason === t('other') && !notes.trim())) {
+      showError('Please provide a reason for rescheduling');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const endTime = calculateEndTime(startTime);
+      const requestData: CreateRescheduleRequest = {
+        bookingId: currentSession.bookingId,
+        requestedDate: requestedDate, // Required: YYYY-MM-DD format
+        startTime: startTime, // Required: HH:mm format
+        endTime: endTime, // Required: HH:mm format (startTime + 90 minutes)
+        reason: reason === t('other') ? notes : reason,
+      };
+
+      const result = await createRescheduleRequest(requestData);
+      
+      if (result.success) {
+        showSuccess(result.data?.message || 'Reschedule request submitted successfully. Staff will review and approve.');
+        handleClose();
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        // Improve error message for reschedule count limit
+        const errorMsg = result.error || 'Failed to submit reschedule request';
+        if (errorMsg.includes('No reschedule attempts left') || errorMsg.includes('reschedule attempts')) {
+          showError(errorMsg);
+        } else {
+          showError(errorMsg);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error creating reschedule request:', error);
+      showError(error?.message || 'Failed to submit reschedule request');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
     setReason('');
-    setSelectedDate('');
-    setSelectedTime('');
-    setAlternativeDates([]);
     setNotes('');
-    setStep(1);
+    setRequestedDate('');
+    setStartTime('');
+    setSelectedWeek(0);
+    setExistingSessions([]);
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -218,186 +308,165 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center justify-center space-x-8">
-            {[
-              { step: 1, label: 'Reason', icon: MessageSquare },
-              { step: 2, label: 'New Time', icon: Clock },
-              { step: 3, label: 'Confirm', icon: CheckCircle }
-            ].map((item) => (
-              <div key={item.step} className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  step >= item.step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
-                }`}>
-                  <item.icon className="w-4 h-4" />
-                </div>
-                <span className={`text-sm font-medium ${
-                  step >= item.step ? 'text-blue-600' : 'text-gray-500'
-                }`}>
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Step Content */}
+        {/* Content */}
         <div className="p-6">
-          {step === 1 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('whyReschedule')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {reasonOptions.map((option) => (
-                    <button
-                      key={option}
-                      onClick={() => setReason(option)}
-                      className={`p-4 text-left rounded-lg border transition-colors ${
-                        reason === option
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
+          <div className="space-y-6">
+            {/* Date and Time Selection - Calendar View */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Select New Date & Time</h3>
+              
+              {/* Week Navigation */}
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-medium text-gray-700">Select Week</h4>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setSelectedWeek(Math.max(0, selectedWeek - 1))}
+                    disabled={selectedWeek === 0}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-600 font-medium">
+                    Week {selectedWeek + 1}
+                  </span>
+                  <button
+                    onClick={() => setSelectedWeek(selectedWeek + 1)}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
-                {reason === t('other') && (
-                  <div className="mt-4">
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder={t('pleaseSpecify')}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      rows={3}
-                    />
-                  </div>
-                )}
               </div>
-            </div>
-          )}
 
-          {step === 2 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Select New Time</h3>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  {weeklySchedules.map((day) => (
-                    <div key={day.date} className="space-y-3">
+              {/* Calendar Grid */}
+              {loadingSessions ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading available slots...</p>
+                </div>
+              ) : weeklySchedule.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No available dates in this week</p>
+                  <p className="text-sm mt-2">Please select a different week</p>
+                </div>
+              ) : (
+                <div className={`grid grid-cols-1 gap-3 ${
+                  weeklySchedule.length === 1 ? 'md:grid-cols-1' :
+                  weeklySchedule.length === 2 ? 'md:grid-cols-2' :
+                  weeklySchedule.length === 3 ? 'md:grid-cols-3' :
+                  weeklySchedule.length === 4 ? 'md:grid-cols-4' :
+                  weeklySchedule.length === 5 ? 'md:grid-cols-5' :
+                  weeklySchedule.length === 6 ? 'md:grid-cols-6' :
+                  'md:grid-cols-7'
+                }`}>
+                  {weeklySchedule.map((day) => (
+                    <div key={day.date} className="space-y-2">
                       <div className="text-center">
-                        <h4 className="font-semibold text-gray-900">{day.dayName}</h4>
-                        <p className="text-sm text-gray-600">{new Date(day.date).toLocaleDateString()}</p>
+                        <h4 className="font-semibold text-sm text-gray-900">
+                          {day.dayName}
+                        </h4>
+                        <p className="text-xs text-gray-600">
+                          {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
                       </div>
                       
-                      <div className="space-y-2">
-                        {day.slots.map((slot) => (
-                          <button
-                            key={slot.id}
-                            onClick={() => {
-                              handleDateSelect(day.date);
-                              handleTimeSelect(slot.time);
-                            }}
-                            disabled={!slot.available}
-                            className={`w-full p-2 text-sm rounded-lg transition-colors ${
-                              selectedDate === day.date && selectedTime === slot.time
-                                ? 'bg-blue-600 text-white'
-                                : slot.available
-                                ? 'bg-white border border-gray-300 hover:border-blue-500 hover:bg-blue-50'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            }`}
-                          >
-                            {slot.time}
-                          </button>
-                        ))}
+                      <div className="space-y-1.5">
+                        {day.slots.map((slot) => {
+                          const isSelected = requestedDate === day.date && startTime === slot.time;
+                          const isBooked = isSlotBooked(day.date, slot.time);
+                          
+                          return (
+                            <button
+                              key={slot.id}
+                              onClick={() => !isBooked && handleDateTimeSelect(day.date, slot.time)}
+                              disabled={isBooked}
+                              className={`w-full p-2 text-xs rounded-lg transition-all ${
+                                isSelected
+                                  ? 'bg-blue-600 text-white shadow-md'
+                                  : isBooked
+                                  ? 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
+                                  : 'bg-white border border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-gray-700'
+                              }`}
+                              title={isBooked ? 'This time slot is already booked' : ''}
+                            >
+                              <div className="flex items-center justify-center space-x-1">
+                                <Clock className={`w-3 h-3 ${isBooked ? 'opacity-50' : ''}`} />
+                                <span className="font-medium">{slot.time}</span>
+                              </div>
+                              <div className={`text-[10px] mt-0.5 ${isBooked ? 'opacity-50' : 'opacity-75'}`}>
+                                {slot.endTime}
+                              </div>
+                              {isBooked && (
+                                <div className="text-[9px] mt-0.5 opacity-60 line-through">
+                                  Booked
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              )}
 
-              {selectedDate && selectedTime && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
+              {/* Selected Schedule Preview */}
+              {requestedDate && startTime && (
+                <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-2">
                     <CheckCircle className="w-5 h-5 text-blue-600" />
-                    <span className="font-medium text-blue-900">Selected Time</span>
+                    <p className="text-sm font-semibold text-blue-900">Selected Schedule</p>
                   </div>
-                  <p className="text-blue-800 mt-1">
-                    {new Date(selectedDate).toLocaleDateString()} at {selectedTime}
+                  <p className="text-sm text-blue-800">
+                    <span className="font-medium">{new Date(requestedDate).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}</span>
+                    {' '}at <span className="font-medium">{startTime} - {calculateEndTime(startTime)}</span>
                   </p>
                 </div>
               )}
             </div>
-          )}
 
-          {step === 3 && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Your Request</h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Reason:</span>
-                    <span className="font-medium">{reason}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">New Time:</span>
-                    <span className="font-medium">
-                      {new Date(selectedDate).toLocaleDateString()} at {selectedTime}
-                    </span>
-                  </div>
-                  {notes && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Notes:</span>
-                      <span className="font-medium">{notes}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Alternative Dates (Optional)</h4>
-                <p className="text-sm text-gray-600 mb-3">
-                  Add alternative dates in case your preferred time is not available
-                </p>
-                <div className="flex space-x-2 mb-3">
-                  <select
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select alternative date</option>
-                    {weeklySchedules.map((day) => (
-                      <option key={day.date} value={day.date}>
-                        {day.dayName}, {new Date(day.date).toLocaleDateString()}
-                      </option>
-                    ))}
-                  </select>
+            {/* Reason Selection */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('whyReschedule')}</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for rescheduling this session. Our staff will review and arrange a new schedule for you.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {reasonOptions.map((option) => (
                   <button
-                    onClick={handleAddAlternativeDate}
-                    disabled={!selectedDate || alternativeDates.includes(selectedDate)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    key={option}
+                    onClick={() => setReason(option)}
+                    className={`p-4 text-left rounded-lg border transition-colors ${
+                      reason === option
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
                   >
-                    Add
+                    {option}
                   </button>
-                </div>
-                {alternativeDates.length > 0 && (
-                  <div className="space-y-2">
-                    {alternativeDates.map((date, index) => (
-                      <div key={index} className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-lg">
-                        <span className="text-sm">{new Date(date).toLocaleDateString()}</span>
-                        <button
-                          onClick={() => handleRemoveAlternativeDate(date)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
+              {reason === t('other') && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Please specify your reason
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder={t('pleaseSpecify')}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={4}
+                  />
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Actions */}
@@ -409,33 +478,20 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
             >
               {t('cancel')}
             </button>
-            {step > 1 && (
-              <button
-                onClick={() => setStep(step - 1)}
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                {t('back')}
-              </button>
-            )}
-            {step < 3 ? (
-              <button
-                onClick={handleNext}
-                disabled={
-                  (step === 1 && !reason) ||
-                  (step === 2 && (!selectedDate || !selectedTime))
-                }
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {t('next')}
-              </button>
-            ) : (
-              <button
-                onClick={handleConfirm}
-                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {t('submitRequest')}
-              </button>
-            )}
+            <button
+              onClick={handleConfirm}
+              disabled={isSubmitting || !requestedDate || !startTime || !reason || (reason === t('other') && !notes.trim())}
+              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                <span>{t('submitRequest')}</span>
+              )}
+            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown, ExternalLink, Link as LinkIcon, Plus, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown, ExternalLink, Link as LinkIcon, Plus, Copy, Check, RefreshCw } from 'lucide-react';
 import {
   getSessionsByChildId,
   Session,
@@ -10,6 +10,7 @@ import {
   CreateVideoConferenceRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import RescheduleRequestPopup from './RescheduleRequestPopup';
 import { useAuth } from '../../../hooks/useAuth';
 
 const StudySchedule: React.FC = () => {
@@ -28,6 +29,7 @@ const StudySchedule: React.FC = () => {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [creatingVideoConference, setCreatingVideoConference] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showReschedulePopup, setShowReschedulePopup] = useState(false);
   const { showSuccess } = useToast();
 
   const fetchChildren = async () => {
@@ -792,13 +794,29 @@ const StudySchedule: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="mt-6 flex items-center justify-end">
-                    <button
-                      onClick={handleCloseDetail}
-                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 text-sm font-semibold"
-                    >
-                      Close
-                    </button>
+                  {/* Actions */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between gap-3">
+                      {/* Reschedule Button - Only show for scheduled sessions that haven't passed */}
+                      {selectedSession && 
+                       selectedSession.status === 'scheduled' && 
+                       selectedSession.sessionDate && 
+                       new Date(selectedSession.sessionDate) >= new Date(new Date().toISOString().split('T')[0]) && (
+                        <button
+                          onClick={() => setShowReschedulePopup(true)}
+                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-all duration-200 font-semibold"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                          <span>Request Reschedule</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleCloseDetail}
+                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 text-sm font-semibold"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -840,6 +858,29 @@ const StudySchedule: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Reschedule Request Popup */}
+      {selectedSession && (
+        <RescheduleRequestPopup
+          isOpen={showReschedulePopup}
+          onClose={() => setShowReschedulePopup(false)}
+          onSuccess={() => {
+            setShowReschedulePopup(false);
+            // Refresh sessions after successful reschedule request
+            if (selectedChildId) {
+              fetchSessions(selectedChildId);
+            }
+          }}
+          currentSession={{
+            bookingId: selectedSession.bookingId,
+            date: selectedSession.sessionDate || '',
+            time: selectedSession.startTime || '',
+            topic: selectedSession.childName || selectedSession.studentName || 'Session',
+          }}
+          tutorName={selectedSession.tutorName || 'Tutor'}
+          childId={selectedChildId || undefined}
+        />
+      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

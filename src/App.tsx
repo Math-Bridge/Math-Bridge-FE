@@ -77,6 +77,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
     const userRole = user?.role;
     if (!userRole || !roles.includes(userRole)) {
       console.warn('Access denied due to role mismatch', { requiredRole: roles, userRole });
+      // Redirect to appropriate dashboard based on user role instead of login
+      if (userRole === 'admin') {
+        return <Navigate to="/admin" replace />;
+      } else if (userRole === 'tutor') {
+        return <Navigate to="/tutor/dashboard" replace />;
+      } else if (userRole === 'staff') {
+        return <Navigate to="/staff" replace />;
+      } else if (userRole === 'parent') {
+        return <Navigate to="/home" replace />;
+      }
+      // Fallback to login if role is unknown
       return <Navigate to="/login" replace />;
     }
   }
@@ -141,7 +152,7 @@ function App() {
               <Route path="verify-reset" element={<VerifyResetRedirect />} />
             {/* Original Routes */}
             <Route path="home" element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole="parent">
                 <ParentHomePage />
               </ProtectedRoute>
             } />

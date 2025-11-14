@@ -170,7 +170,9 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
         }
 
         // Fetch substitute tutor 1 info - use contract data if API fails
-        const substituteTutor1Id = contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+        // Support both underscore and camelCase field names from API
+        const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+        const substituteTutor1Name = contractData.substitute_tutor1_name || contractData.substituteTutor1Name || contractData.SubstituteTutor1Name;
         if (substituteTutor1Id) {
           try {
             const tutorResult = await apiService.getUserById(substituteTutor1Id);
@@ -179,8 +181,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             } else {
               // Use contract data as fallback if available, otherwise set minimal info
               setSubstituteTutor1Info({ 
-                fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
-                FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+                fullName: substituteTutor1Name || 'Substitute Tutor 1',
+                FullName: substituteTutor1Name || 'Substitute Tutor 1',
                 email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
                 phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
               });
@@ -194,8 +196,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             }
             // Always set info if we have ID, even if API fails
             setSubstituteTutor1Info({ 
-              fullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
-              FullName: contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'Substitute Tutor 1',
+              fullName: substituteTutor1Name || 'Substitute Tutor 1',
+              FullName: substituteTutor1Name || 'Substitute Tutor 1',
               email: contractData.substituteTutor1Email || contractData.SubstituteTutor1Email,
               phone: contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone,
             });
@@ -203,7 +205,9 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
         }
 
         // Fetch substitute tutor 2 info - use contract data if API fails
-        const substituteTutor2Id = contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+        // Support both underscore and camelCase field names from API
+        const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+        const substituteTutor2Name = contractData.substitute_tutor2_name || contractData.substituteTutor2Name || contractData.SubstituteTutor2Name;
         if (substituteTutor2Id) {
           try {
             const tutorResult = await apiService.getUserById(substituteTutor2Id);
@@ -212,8 +216,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             } else {
               // Use contract data as fallback if available, otherwise set minimal info
               setSubstituteTutor2Info({ 
-                fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
-                FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+                fullName: substituteTutor2Name || 'Substitute Tutor 2',
+                FullName: substituteTutor2Name || 'Substitute Tutor 2',
                 email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
                 phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
               });
@@ -227,8 +231,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             }
             // Always set info if we have ID, even if API fails
             setSubstituteTutor2Info({ 
-              fullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
-              FullName: contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'Substitute Tutor 2',
+              fullName: substituteTutor2Name || 'Substitute Tutor 2',
+              FullName: substituteTutor2Name || 'Substitute Tutor 2',
               email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
               phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
             });
@@ -793,7 +797,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             )}
             {/* Substitute Tutor 1 */}
             {(() => {
-              const substituteTutor1Id = (contract as any).substituteTutor1Id || (contract as any).SubstituteTutor1Id;
+              const contractData = contract as any;
+              const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
               return substituteTutor1Id ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -808,21 +813,21 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         <p className="font-medium">{substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name || 'N/A'}</p>
                       </div>
                     </div>
-                    {(substituteTutor1Info?.email || (contract as any).substituteTutor1Email || (contract as any).SubstituteTutor1Email) && (
+                    {(substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email) && (
                       <div className="flex items-center space-x-3">
                         <Mail className="w-5 h-5 text-gray-400" />
                         <div>
                           <p className="text-sm text-gray-600">Email</p>
-                          <p className="font-medium">{substituteTutor1Info?.email || (contract as any).substituteTutor1Email || (contract as any).SubstituteTutor1Email || 'N/A'}</p>
+                          <p className="font-medium">{substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email || 'N/A'}</p>
                         </div>
                       </div>
                     )}
-                    {(substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || (contract as any).substituteTutor1Phone || (contract as any).SubstituteTutor1Phone) && (
+                    {(substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone) && (
                       <div className="flex items-center space-x-3">
                         <Phone className="w-5 h-5 text-gray-400" />
                         <div>
                           <p className="text-sm text-gray-600">Phone</p>
-                          <p className="font-medium">{substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || (contract as any).substituteTutor1Phone || (contract as any).SubstituteTutor1Phone || 'N/A'}</p>
+                          <p className="font-medium">{substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone || 'N/A'}</p>
                         </div>
                       </div>
                     )}
@@ -833,7 +838,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
 
             {/* Substitute Tutor 2 */}
             {(() => {
-              const substituteTutor2Id = (contract as any).substituteTutor2Id || (contract as any).SubstituteTutor2Id;
+              const contractData = contract as any;
+              const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
               return substituteTutor2Id ? (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -848,21 +854,21 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         <p className="font-medium">{substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name || 'N/A'}</p>
                       </div>
                     </div>
-                    {(substituteTutor2Info?.email || (contract as any).substituteTutor2Email || (contract as any).SubstituteTutor2Email) && (
+                    {(substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email) && (
                       <div className="flex items-center space-x-3">
                         <Mail className="w-5 h-5 text-gray-400" />
                         <div>
                           <p className="text-sm text-gray-600">Email</p>
-                          <p className="font-medium">{substituteTutor2Info?.email || (contract as any).substituteTutor2Email || (contract as any).SubstituteTutor2Email || 'N/A'}</p>
+                          <p className="font-medium">{substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email || 'N/A'}</p>
                         </div>
                       </div>
                     )}
-                    {(substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || (contract as any).substituteTutor2Phone || (contract as any).SubstituteTutor2Phone) && (
+                    {(substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone) && (
                       <div className="flex items-center space-x-3">
                         <Phone className="w-5 h-5 text-gray-400" />
                         <div>
                           <p className="text-sm text-gray-600">Phone</p>
-                          <p className="font-medium">{substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || (contract as any).substituteTutor2Phone || (contract as any).SubstituteTutor2Phone || 'N/A'}</p>
+                          <p className="font-medium">{substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone || 'N/A'}</p>
                         </div>
                       </div>
                     )}

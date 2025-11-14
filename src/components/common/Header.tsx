@@ -54,10 +54,16 @@ const Header: React.FC = () => {
         { name: 'Packages', href: '/packages', icon: BookOpen },
         { name: 'Schedule', href: '/parent/schedule', icon: Calendar },
       ];
-    } else {
-      // Default navigation for other roles (admin, etc.)
+    } else if (user?.role === 'admin') {
+      // Navigation for Admin role
       return [
-        { name: 'Home', href: '/home', icon: Home },
+        { name: 'Dashboard', href: '/admin', icon: Home },
+        { name: 'Contracts', href: '/contracts', icon: FileText },
+        { name: 'Packages', href: '/packages', icon: BookOpen },
+      ];
+    } else {
+      // Default navigation for other roles
+      return [
         { name: 'Contracts', href: '/contracts', icon: FileText },
         { name: 'Packages', href: '/packages', icon: BookOpen },
       ];
