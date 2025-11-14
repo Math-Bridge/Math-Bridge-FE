@@ -15,7 +15,10 @@ import {
   MessageSquare,
   Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  MapPin,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getContractsByParent, getChildrenByParent } from '../../../services/api';
@@ -57,57 +60,41 @@ const ContractsManagement: React.FC = () => {
   const itemsPerPage = 3;
 
   const fetchData = useCallback(async () => {
-      try {
+    try {
       setLoading(true);
       setError(null);
 
-      // Get parent ID from user or localStorage
       const parentId = user?.id || (() => {
         const userStr = localStorage.getItem('user');
         return userStr ? JSON.parse(userStr).id : null;
       })();
 
-        if (!parentId) {
+      if (!parentId) {
         const errorMsg = 'User information not found. Please log in again.';
-          console.error('Parent ID not found');
         setError(errorMsg);
         showError(errorMsg);
-          setLoading(false);
-          return;
-        }
+        setLoading(false);
+        return;
+      }
 
-      // Fetch children and contracts in parallel
       const [childrenResponse, contractsResponse] = await Promise.all([
-        getChildrenByParent(parentId).catch(err => {
-          console.error('Error fetching children:', err);
-          return { success: false, error: 'Failed to fetch children', data: null };
-        }),
+        getChildrenByParent(parentId).catch(err => ({ success: false, error: 'Failed to fetch children', data: null })),
         getContractsByParent(parentId).catch(err => {
-          console.error('Error fetching contracts:', err);
-          // Check if it's a NullReferenceException from backend
-          const errorMessage = err?.message || err?.error || String(err);
-          const isNullRefError = errorMessage.includes('Object reference') || 
-                                errorMessage.includes('NullReferenceException') ||
-                                errorMessage.includes('null');
-          
+          const errorMessage = err?.message || String(err);
+          const isNullRefError = /Object reference|NullReferenceException|null/i.test(errorMessage);
           return { 
             success: false, 
             error: isNullRefError 
-              ? 'Backend error: Some contracts have missing data. Please contact support to fix the data issue.'
+              ? 'Backend error: Some contracts have missing data. Please contact support.'
               : 'Failed to fetch contracts', 
             data: null 
           };
         })
       ]);
 
-      // Set children
       if (childrenResponse.success && childrenResponse.data) {
-        const childrenData = Array.isArray(childrenResponse.data) ? childrenResponse.data : [];
-        const mappedChildren = childrenData
-          .filter((child: any) => {
-            const status = child.Status || child.status || 'active';
-            return status !== 'deleted';
-          })
+        const mappedChildren = (Array.isArray(childrenResponse.data) ? childrenResponse.data : [])
+          .filter((child: any) => (child.Status || child.status || 'active') !== 'deleted')
           .map((child: any) => ({
             childId: child.ChildId || child.childId || '',
             fullName: child.FullName || child.fullName || '',
@@ -119,522 +106,470 @@ const ContractsManagement: React.FC = () => {
         setChildren(mappedChildren);
       }
 
-      // Set contracts
       if (contractsResponse.success && contractsResponse.data) {
-          // Map API response to component interface
         const mappedContracts = await Promise.all(contractsResponse.data.map(async (contract: any) => {
-            // Remove reschedule_count if present to avoid errors
-            const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
+          const { reschedule_count, rescheduleCount, RescheduleCount, ...cleanContract } = contract;
           
-          // Safe access to navigation properties with fallback
           const childName = cleanContract.ChildName || cleanContract.childName || 'N/A';
           const tutorName = cleanContract.MainTutorName || cleanContract.mainTutorName || cleanContract.tutorName || 'Tutor not assigned';
           const packageName = cleanContract.PackageName || cleanContract.packageName || 'Package not specified';
           const centerName = cleanContract.CenterName || cleanContract.centerName || 'Online';
-          const offlineAddress = cleanContract.OfflineAddress || cleanContract.offlineAddress || cleanContract.offline_address || null;
-            
-            // Build schedule string from DaysOfWeeksDisplay and time
-            const formatTime = (timeStr: string) => {
-              if (!timeStr) return '';
-              return timeStr.split(':').slice(0, 2).join(':');
-            };
-            
-            let schedule = '';
-            if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
-              const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
-              const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime || '');
-              const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime || '');
-              if (startTime && endTime) {
-                schedule = `${days}, ${startTime} - ${endTime}`;
-              } else if (startTime) {
-                schedule = `${days}, ${startTime}`;
-              } else {
-                schedule = days || 'Schedule not set';
-              }
-            } else {
-              schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
-            }
-            
-          // Get package info if needed
-            let totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
-            let price = cleanContract.Price || cleanContract.price || cleanContract.Amount || cleanContract.amount || 0;
-            
-            const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || cleanContract.CompletedSessionCount || 0;
-            
-            return {
-              id: cleanContract.ContractId || cleanContract.contractId || cleanContract.id || String(cleanContract.ContractId || cleanContract.contractId),
+          const offlineAddress = cleanContract.OfflineAddress || cleanContract.offlineAddress || null;
+          
+          const formatTime = (timeStr: string) => timeStr ? timeStr.split(':').slice(0, 2).join(':') : '';
+          let schedule = '';
+          if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
+            const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
+            const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime);
+            const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime);
+            schedule = startTime && endTime ? `${days}, ${startTime} - ${endTime}` : `${days}, ${startTime || ''}`;
+          } else {
+            schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
+          }
+
+          const totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
+          const price = cleanContract.Price || cleanContract.price || cleanContract.Amount || 0;
+          const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || 0;
+
+          return {
+            id: cleanContract.ContractId || cleanContract.contractId || String(cleanContract.ContractId),
             childId: cleanContract.ChildId || cleanContract.childId || '',
-            childName: childName,
-            tutorName: tutorName,
+            childName, tutorName, packageName, centerName, offlineAddress,
             subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
-            packageName: packageName,
-              totalSessions: totalSessions || 0,
-              completedSessions: completedSessions || 0,
-              price: price || 0,
-              status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
-              startDate: cleanContract.StartDate || cleanContract.startDate || '',
-              endDate: cleanContract.EndDate || cleanContract.endDate || '',
-              schedule: schedule,
-            centerName: centerName,
-            offlineAddress: offlineAddress,
-            isOnline: cleanContract.IsOnline !== undefined ? cleanContract.IsOnline : cleanContract.isOnline !== undefined ? cleanContract.isOnline : true,
-              createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || cleanContract.createdAt || cleanContract.createdDate || new Date().toISOString()
-            };
-          }));
-          setContracts(mappedContracts);
-        } else {
-        // Handle error from contracts API
-        const errorMsg = contractsResponse.error || 'Failed to load contracts. Please try again later.';
-        if (import.meta.env.DEV) {
-          console.error('Failed to fetch contracts:', contractsResponse.error);
-        }
-        
-        // Check if it's a backend NullReferenceException (500 error)
-        const isBackendError = contractsResponse.error?.includes('Object reference') || 
-                               contractsResponse.error?.includes('NullReferenceException') ||
-                               contractsResponse.error?.includes('500') ||
-                               contractsResponse.error?.includes('Internal Server Error') ||
-                               contractsResponse.error?.includes('missing data');
-        
+            totalSessions, completedSessions, price,
+            status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
+            startDate: cleanContract.StartDate || cleanContract.startDate || '',
+            endDate: cleanContract.EndDate || cleanContract.endDate || '',
+            schedule,
+            isOnline: cleanContract.IsOnline ?? cleanContract.isOnline ?? true,
+            createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || new Date().toISOString()
+          };
+        }));
+        setContracts(mappedContracts);
+      } else {
+        const errorMsg = contractsResponse.error || 'Failed to load contracts.';
+        const isBackendError = /Object reference|NullReferenceException|500|Internal Server Error|missing data/i.test(contractsResponse.error || '');
         setError(isBackendError 
-          ? 'Backend system error: Some contracts may have missing data. This is a backend data issue that needs to be fixed. Please contact support or try again later.'
+          ? 'Backend system error: Some contracts may have missing data. Please contact support.'
           : errorMsg
         );
-          setContracts([]);
-        
-        // Show error toast
-        if (isBackendError) {
-          showError('System error while loading contracts. This is a backend data issue. Please contact support or try again later.');
-        } else {
-          showError(errorMsg);
-        }
-        }
-    } catch (error: any) {
-      const errorMsg = error?.message || 'An error occurred while loading data. Please try again later.';
-      console.error('Error fetching data:', error);
-      setError(errorMsg);
         setContracts([]);
-      showError(errorMsg);
-      } finally {
-        setLoading(false);
+        showError(isBackendError 
+          ? 'System error while loading contracts. Please contact support.'
+          : errorMsg
+        );
       }
+    } catch (error: any) {
+      const errorMsg = error?.message || 'An error occurred while loading data.';
+      setError(errorMsg);
+      setContracts([]);
+      showError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   }, [user?.id, showError]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filteredContracts = contracts.filter(contract => {
-    const statusMatch = filter === 'all' || contract.status === filter;
-    const childMatch = selectedChildId === 'all' || contract.childId === selectedChildId;
-    return statusMatch && childMatch;
-  });
+  const filteredContracts = contracts.filter(c => 
+    (filter === 'all' || c.status === filter) && 
+    (selectedChildId === 'all' || c.childId === selectedChildId)
+  );
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, selectedChildId]);
+  useEffect(() => { setCurrentPage(1); }, [filter, selectedChildId]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'unpaid':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getStatusConfig = (status: string) => {
+    const config = {
+      active: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle, label: 'Active' },
+      pending: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: Clock, label: 'Pending' },
+      completed: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: CheckCircle, label: 'Completed' },
+      cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle, label: 'Cancelled' },
+      unpaid: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: DollarSign, label: 'Unpaid' },
+    };
+    return config[status as keyof typeof config] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: AlertCircle, label: 'Unknown' };
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'pending':
-        return <Clock className="w-4 h-4" />;
-      case 'completed':
-        return <CheckCircle className="w-4 h-4" />;
-      case 'cancelled':
-        return <XCircle className="w-4 h-4" />;
-      case 'unpaid':
-        return <DollarSign className="w-4 h-4" />;
-      default:
-        return <AlertCircle className="w-4 h-4" />;
-    }
-  };
+  const handleCreateContract = () => navigate('/contracts/create');
+  const handleViewContract = (id: string) => navigate(`/contracts/${id}`);
+  const handleReschedule = (id: string) => navigate(`/contracts/${id}/reschedule`);
+  const handleFeedback = (id: string) => navigate(`/contracts/${id}/feedback`);
+  const handleRetry = () => fetchData();
 
-  const handleCreateContract = () => {
-    navigate('/contracts/create');
-  };
-
-  const handleViewContract = (contractId: string) => {
-    navigate(`/contracts/${contractId}`);
-  };
-
-  const handleReschedule = (contractId: string) => {
-    navigate(`/contracts/${contractId}/reschedule`);
-  };
-
-  const handleFeedback = (contractId: string) => {
-    navigate(`/contracts/${contractId}/feedback`);
-  };
-
-  const handleRetry = () => {
-    fetchData();
-  };
-
+  // SKELETON LOADING
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="animate-pulse">
+            <div className="h-10 bg-gray-200 rounded-xl w-64 mb-8"></div>
+            <div className="space-y-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/50">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-200 to-blue-200 rounded-2xl"></div>
+                      <div>
+                        <div className="h-6 bg-gray-200 rounded-lg w-48 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-64"></div>
+                      </div>
+                    </div>
+                    <div className="h-8 bg-gray-200 rounded-full w-24"></div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {[1,2,3,4].map(j => (
+                      <div key={j} className="h-16 bg-gray-100 rounded-xl"></div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+
+        {/* GỘP HEADER + FILTER – 1 KHỐI DUY NHẤT */}
+        <div className="bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 p-8 mb-10 overflow-hidden">
+          {/* HEADER */}
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Contracts</h1>
-              <p className="text-gray-600 mt-2">Manage your tutoring contracts and sessions</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent mb-2">
+                My Learning Contracts
+              </h1>
+              <p className="text-lg text-gray-600 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+                Track progress, reschedule sessions, and manage all contracts
+              </p>
+              <div className="mt-3 flex items-center gap-6 text-sm">
+                <span className="font-semibold text-gray-700">{contracts.length} Total</span>
+                <span className="text-emerald-600 font-bold">
+                  {contracts.filter(c => c.status === 'active').length} Active
+                </span>
+              </div>
             </div>
-            <button
-              onClick={handleCreateContract}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Create Contract</span>
-            </button>
+
+ <button
+  onClick={handleCreateContract}
+  className="group relative px-8 py-4 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform transition-all duration-500 flex items-center gap-3 overflow-hidden lg:self-end origin-bottom-right hover:rotate-1 hover:scale-105"
+>
+  <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
+  <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+  <span className="relative z-10">Create Contract</span>
+</button>
           </div>
-        </div>
 
-        {/* Filter Tabs */}
-        <div className="mb-6">
-          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            {/* Status Filter */}
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
-            {[
-              { key: 'all', label: 'All', count: contracts.length },
-              { key: 'unpaid', label: 'Unpaid', count: contracts.filter(c => c.status === 'unpaid').length },
-              { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
-              { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
-              { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
-              { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setFilter(tab.key as any)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  filter === tab.key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {tab.label} ({tab.count})
-              </button>
-            ))}
+          {/* FILTER BAR – NGAY DƯỚI HEADER, TRONG CÙNG CARD */}
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between pt-6 border-t border-gray-100">
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'all', label: 'All', count: contracts.length },
+                { key: 'unpaid', label: 'Unpaid', count: contracts.filter(c => c.status === 'unpaid').length },
+                { key: 'pending', label: 'Pending', count: contracts.filter(c => c.status === 'pending').length },
+                { key: 'active', label: 'Active', count: contracts.filter(c => c.status === 'active').length },
+                { key: 'completed', label: 'Completed', count: contracts.filter(c => c.status === 'completed').length },
+                { key: 'cancelled', label: 'Cancelled', count: contracts.filter(c => c.status === 'cancelled').length }
+              ].map(tab => {
+                const config = getStatusConfig(tab.key === 'all' ? 'active' : tab.key);
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key as any)}
+                    className={`px-5 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 ${
+                      filter === tab.key
+                        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg scale-105'
+                        : 'bg-white/70 text-gray-700 hover:bg-white'
+                    }`}
+                  >
+                    {tab.key !== 'all' && React.createElement(config.icon, { className: 'w-4 h-4' })}
+                    <span>{tab.label} ({tab.count})</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Child Filter */}
             {children.length > 0 && (
-              <div className="flex items-center space-x-3">
-                <Filter className="w-5 h-5 text-gray-400" />
-                <div className="relative">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-emerald-600" />
                 <select
                   value={selectedChildId}
                   onChange={(e) => setSelectedChildId(e.target.value)}
-                    className="appearance-none px-4 py-2.5 pr-10 border-2 border-blue-500 rounded-lg text-sm font-medium bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer min-w-[180px]"
+                  className="px-5 py-3 bg-white/90 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl text-sm font-semibold text-gray-800 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 cursor-pointer min-w-[200px] shadow-sm"
                 >
-                    <option value="all">
-                      All Children ({(() => {
-                        const statusFiltered = filter === 'all' 
-                          ? contracts 
-                          : contracts.filter(c => c.status === filter);
-                        return statusFiltered.length;
-                      })()})
-                    </option>
-                  {children.map((child) => {
-                      const childContractsCount = (() => {
-                        const statusFiltered = filter === 'all' 
-                          ? contracts 
-                          : contracts.filter(c => c.status === filter);
-                        return statusFiltered.filter(c => c.childId === child.childId).length;
-                      })();
+                  <option value="all">All Children ({filteredContracts.length})</option>
+                  {children.map(child => {
+                    const count = contracts.filter(c => c.childId === child.childId && (filter === 'all' || c.status === filter)).length;
                     return (
                       <option key={child.childId} value={child.childId}>
-                        {child.fullName} ({childContractsCount})
+                        {child.fullName} ({count})
                       </option>
                     );
                   })}
                 </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Contracts List */}
-        <div className="space-y-4">
-          {paginatedContracts.map((contract) => (
-            <div key={contract.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">{contract.packageName}</h3>
-                    <p className="text-sm text-gray-600">
-                      {contract.subject} • {contract.childName}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {contract.tutorName === 'Tutor not assigned' ? 'Tutor: Not assigned yet' : `Tutor: ${contract.tutorName}`}
-                      {contract.isOnline ? null : (contract.offlineAddress || (contract.centerName && contract.centerName !== 'Online')) && ` • ${contract.offlineAddress || contract.centerName}`}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
-                    {getStatusIcon(contract.status)}
-                    <span className="ml-1 capitalize">{contract.status}</span>
-                  </span>
-                </div>
-              </div>
+        {/* CONTRACTS GRID */}
+        <div className="space-y-6">
+          {paginatedContracts.map((contract, idx) => {
+            const statusConfig = getStatusConfig(contract.status);
+            const StatusIcon = statusConfig.icon;
+            const progress = contract.totalSessions > 0 
+              ? Math.min((contract.completedSessions / contract.totalSessions) * 100, 100) 
+              : 0;
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Start Date</p>
-                    <p className="font-medium">{new Date(contract.startDate).toLocaleDateString()}</p>
+            return (
+              <div
+                key={contract.id}
+                className="group bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-8 transform transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-5">
+                    <div className="relative">
+                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-3xl flex items-center justify-center shadow-lg">
+                        <FileText className="w-8 h-8 text-white" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md">
+                        {contract.isOnline ? (
+                          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                        ) : (
+                          <MapPin className="w-3 h-3 text-red-500" />
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-black text-gray-900 mb-1">{contract.packageName}</h3>
+                      <p className="text-base text-gray-600 font-medium">
+                        {contract.subject} • {contract.childName}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Tutor: <span className="font-semibold text-gray-700">{contract.tutorName}</span>
+                        {contract.isOnline ? null : ` • ${contract.offlineAddress || contract.centerName}`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Schedule</p>
-                    <p className="font-medium">{contract.schedule}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Progress</p>
-                    <p className="font-medium">
-                      {contract.totalSessions > 0 
-                        ? `${contract.completedSessions}/${contract.totalSessions} sessions`
-                        : 'No sessions scheduled'
-                      }
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="w-4 h-4 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-600">Price</p>
-                    <p className="font-medium">
-                      {contract.price > 0 
-                        ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)
-                        : 'Price not set'
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Progress Bar */}
-              {contract.status === 'active' && (
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Progress</span>
-                    <span className="text-sm text-gray-600">
-                      {contract.totalSessions > 0
-                        ? `${Math.round((contract.completedSessions / contract.totalSessions) * 100)}%`
-                        : '0%'
-                      }
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ 
-                        width: contract.totalSessions > 0
-                          ? `${Math.min((contract.completedSessions / contract.totalSessions) * 100, 100)}%`
-                          : '0%'
-                      }}
-                    ></div>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border} shadow-sm`}>
+                    <StatusIcon className="w-4 h-4" />
+                    <span>{statusConfig.label}</span>
                   </div>
                 </div>
-              )}
 
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-                <button
-                  onClick={() => handleViewContract(contract.id)}
-                  className="px-4 py-2 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors flex items-center space-x-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span>View Details</span>
-                </button>
-                
+                {/* INFO GRID */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                  <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl p-4 border border-emerald-100">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Start Date</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {new Date(contract.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Schedule</p>
+                        <p className="text-sm font-bold text-gray-900 truncate">{contract.schedule}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-100">
+                    <div className="flex items-center gap-3">
+                      <User className="w-5 h-5 text-purple-600" />
+                      <div>
+                        <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Progress</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {contract.completedSessions}/{contract.totalSessions}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-4 border border-orange-100">
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="w-5 h-5 text-orange-600" />
+                      <div>
+                        <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Price</p>
+                        <p className="text-lg font-bold text-gray-900">
+                          {contract.price > 0 
+                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)
+                            : 'Free'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PROGRESS BAR */}
                 {contract.status === 'active' && (
-                  <button
-                    onClick={() => handleReschedule(contract.id)}
-                    className="px-4 py-2 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors flex items-center space-x-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Reschedule</span>
-                  </button>
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-gray-700">Session Progress</span>
+                      <span className="text-lg font-bold text-emerald-600">{Math.round(progress)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-1000 ease-out shadow-inner"
+                        style={{ width: `${progress}%` }}
+                      >
+                        <div className="h-full bg-white/30 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
                 )}
-                
-                {contract.status === 'completed' && (
+
+                {/* ACTION BUTTONS */}
+                <div className="flex flex-wrap gap-3 pt-6 border-t border-gray-100">
                   <button
-                    onClick={() => handleFeedback(contract.id)}
-                    className="px-4 py-2 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors flex items-center space-x-2"
+                    onClick={() => handleViewContract(contract.id)}
+                    className="group px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
                   >
-                    <MessageSquare className="w-4 h-4" />
-                    <span>Submit Feedback</span>
+                    <Eye className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span>View Details</span>
                   </button>
-                )}
+
+                  {contract.status === 'active' && (
+                    <button
+                      onClick={() => handleReschedule(contract.id)}
+                      className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    >
+                      <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                      <span>Reschedule</span>
+                    </button>
+                  )}
+
+                  {contract.status === 'completed' && (
+                    <button
+                      onClick={() => handleFeedback(contract.id)}
+                      className="group px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-2xl hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span>Feedback</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Pagination */}
+        {/* PAGINATION */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
-              Showing {startIndex + 1} to {Math.min(endIndex, filteredContracts.length)} of {filteredContracts.length} contracts
+          <div className="flex items-center justify-center mt-12 gap-3">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-5 py-3 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 font-semibold text-gray-700"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              Previous
+            </button>
+
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                const show = page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1);
+                if (!show && (page === currentPage - 2 || page === currentPage + 2)) {
+                  return <span key={page} className="px-3 text-gray-400 font-bold">...</span>;
+                }
+                if (!show) return null;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-12 h-12 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg ${
+                      currentPage === page
+                        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white scale-110'
+                        : 'bg-white/80 text-gray-700 hover:bg-white hover:scale-105'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Previous</span>
-              </button>
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  // Show first page, last page, current page, and pages around current
-                  const showPage = 
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1);
-                  
-                  if (!showPage) {
-                    // Show ellipsis
-                    if (page === currentPage - 2 || page === currentPage + 2) {
-                      return (
-                        <span key={page} className="px-2 text-gray-400">
-                          ...
-                        </span>
-                      );
-                    }
-                    return null;
-                  }
-                  
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
-                        currentPage === page
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
-              >
-                <span>Next</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-5 py-3 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-2 font-semibold text-gray-700"
+            >
+              Next
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         )}
 
-        {/* Error State */}
-        {error && contracts.length === 0 && (
-          <div className="text-center py-12">
-            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Failed to Load Contracts
-            </h3>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              {error.includes('Object reference') || error.includes('500')
-                ? 'System error while processing contracts. Please try again later or contact support.'
-                : error}
-            </p>
-            <div className="flex items-center justify-center space-x-4">
-              <button
-                onClick={handleRetry}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
-              >
-                <RefreshCw className="w-5 h-5" />
-                <span>Retry</span>
-              </button>
-              <button
-                onClick={handleCreateContract}
-                className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-              >
-                Create New Contract
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
+        {/* EMPTY STATE */}
         {!error && filteredContracts.length === 0 && (
-          <div className="text-center py-12">
-            <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {filter === 'all' ? 'No contracts found' : `No ${filter} contracts`}
+          <div className="text-center py-20">
+            <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-emerald-100 to-blue-100 rounded-full flex items-center justify-center">
+              <FileText className="w-16 h-16 text-emerald-600" />
+            </div>
+            <h3 className="text-3xl font-black text-gray-800 mb-4">
+              {filter === 'all' ? 'No Contracts Yet' : `No ${filter} Contracts`}
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-lg text-gray-600 mb-10 max-w-md mx-auto">
               {filter === 'all' 
-                ? 'Get started by creating your first contract'
-                : `You don't have any ${filter} contracts at the moment`
-              }
+                ? 'Start your child\'s learning journey by creating the first contract!'
+                : `You don\'t have any ${filter} contracts at the moment.`}
             </p>
             {filter === 'all' && (
               <button
                 onClick={handleCreateContract}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-xl rounded-3xl shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300"
               >
                 Create Your First Contract
               </button>
             )}
+          </div>
+        )}
+
+        {/* ERROR STATE */}
+        {error && contracts.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+              <AlertCircle className="w-16 h-16 text-red-600" />
+            </div>
+            <h3 className="text-3xl font-black text-gray-800 mb-4">Oops! Something went wrong</h3>
+            <p className="text-lg text-gray-600 mb-10 max-w-lg mx-auto">
+              {error.includes('Backend') 
+                ? 'There was a system error while loading your contracts. Our team is working on it.'
+                : error}
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={handleRetry}
+                className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 flex items-center gap-3"
+              >
+                <RefreshCw className="w-6 h-6 animate-spin" />
+                Try Again
+              </button>
+              <button
+                onClick={handleCreateContract}
+                className="px-8 py-4 bg-white text-emerald-600 font-bold text-lg rounded-2xl shadow-xl border-2 border-emerald-200 hover:bg-emerald-50 transition-all duration-300"
+              >
+                Create New Contract
+              </button>
+            </div>
           </div>
         )}
       </div>
