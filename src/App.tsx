@@ -11,7 +11,7 @@ import { Home } from './components/dashboard';
 import { ErrorBoundary } from './components/common';
 // Wallet components moved to parent features
 import CenterList from './components/centers/CenterList';
-
+import ScrollToTop from './components/common/ScrollToTop';
 import TutorList from './components/tutors/TutorList';
 import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
@@ -142,6 +142,7 @@ function App() {
         <ToastProvider>
           <AuthProvider>
             <SSENotificationProvider>
+              <ScrollToTop />
               <Routes>
               <Route path="/" element={<Layout />}>
               <Route index element={<RoleBasedRedirect />} />
