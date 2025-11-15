@@ -12,7 +12,7 @@ export { default as PackageSelection } from './PackageSelection';
 export { default as CreateContract } from './CreateContract';
 export { default as ChildManagement } from './ChildManagement';
 export { default as TutorDetail } from './TutorDetail';
-export { default as ProgressReports } from './ProgressReports';
 export { default as BookSessionPopup } from './BookSessionPopup';
 export { default as RescheduleRequestPopup } from './RescheduleRequestPopup';
 export { default as TutorFeedbackForm } from './TutorFeedbackForm';
+export { default as ParentDailyReports } from './ParentDailyReports';

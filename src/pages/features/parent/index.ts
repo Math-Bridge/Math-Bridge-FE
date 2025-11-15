@@ -12,4 +12,5 @@ export { default as PackageSelectionPage } from './PackageSelectionPage';
 export { default as CreateContractPage } from './CreateContractPage';
 export { default as ContractDetailPage } from './ContractDetailPage';
 export { default as TutorDetailPage } from './TutorDetailPage';
-export { default as ProgressReportsPage } from './ProgressReportsPage';
+export { default as ParentDailyReportsPage } from './ParentDailyReportsPage';
+export { default as FinalFeedbackPage } from './FinalFeedbackPage';

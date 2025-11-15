@@ -31,6 +31,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import ContractManagement from './ContractManagement';
 import RescheduleManagement from './RescheduleManagement';
 import TutorVerificationManagement from './TutorVerificationManagement';
+import StaffDailyReports from './StaffDailyReports';
 
 interface RecentActivity {
   id: string;
@@ -58,7 +59,7 @@ const StaffDashboard: React.FC = () => {
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification' | 'daily-reports'>('dashboard');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
@@ -102,7 +103,7 @@ const StaffDashboard: React.FC = () => {
   // Sync currentView with location state (for navigation from detail pages)
   useEffect(() => {
     const state = location.state as { view?: string } | null;
-    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification'].includes(state.view)) {
+    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification', 'daily-reports'].includes(state.view)) {
       setCurrentView(state.view as typeof currentView);
     }
   }, [location.state]);
@@ -112,6 +113,7 @@ const StaffDashboard: React.FC = () => {
     { name: 'Tutor Verification', icon: UserCheck, path: '/staff/tutor-verification', view: 'tutor-verification' as const },
     { name: 'Contract Management', icon: FileText, path: '/staff/contracts', view: 'contracts' as const },
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
+    { name: 'Daily Reports', icon: BarChart3, path: '/staff/daily-reports', view: 'daily-reports' as const },
     { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
     { name: 'Center Management', icon: Building, path: '/staff/centers', view: 'centers' as const },
   ];
@@ -160,6 +162,8 @@ const StaffDashboard: React.FC = () => {
         return <ContractManagement hideBackButton />;
       case 'reschedules':
         return <RescheduleManagement hideBackButton />;
+      case 'daily-reports':
+        return <StaffDailyReports />;
       case 'chat':
     return (
           <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -234,14 +238,17 @@ const StaffDashboard: React.FC = () => {
           <p className="text-3xl font-bold text-gray-900">{stats.activeTutors}</p>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div
+          onClick={() => setCurrentView('daily-reports')}
+          className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-orange-800" />
+              <BarChart3 className="w-6 h-6 text-orange-800" />
             </div>
           </div>
-          <h3 className="text-sm font-medium text-gray-600 mb-1">Upcoming Sessions</h3>
-          <p className="text-3xl font-bold text-gray-900">{stats.upcomingSessions}</p>
+          <h3 className="text-sm font-medium text-gray-600 mb-1">Daily Reports</h3>
+          <p className="text-3xl font-bold text-gray-900">View All</p>
         </div>
       </div>
 

@@ -354,15 +354,15 @@ const TutorSessions: React.FC = () => {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-7 gap-2">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 overflow-x-auto">
+        <div className="grid grid-cols-7 gap-2 min-w-[600px]">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-            <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
+            <div key={day} className="text-center text-xs sm:text-sm font-semibold text-gray-600 py-2">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-2 mt-2">
+        <div className="grid grid-cols-7 gap-2 mt-2 min-w-[600px]">
           {daysInWeek.map((day, index) => {
             const daySessions = getSessionsForDay(day);
             const dayOfMonth = day.getDate();
@@ -370,12 +370,12 @@ const TutorSessions: React.FC = () => {
             return (
               <div
                 key={index}
-                className={`min-h-[120px] p-2 border rounded-lg ${
+                className={`min-h-[100px] sm:min-h-[120px] p-1.5 sm:p-2 border rounded-lg ${
                   isToday(day) ? 'border-blue-500 border-2 bg-blue-50' : 'border-gray-200'
                 }`}
               >
                 <div
-                  className={`text-sm font-semibold mb-2 ${
+                  className={`text-xs sm:text-sm font-semibold mb-1.5 ${
                     isToday(day) ? 'text-blue-600' : 'text-gray-900'
                   }`}
                 >
@@ -383,27 +383,27 @@ const TutorSessions: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   {daySessions.length === 0 ? (
-                    <div className="text-xs text-gray-400 text-center py-2">No sessions</div>
+                    <div className="text-[10px] sm:text-xs text-gray-400 text-center py-1">No sessions</div>
                   ) : (
                     daySessions.map((session) => (
                       <button
                         key={session.bookingId}
                         onClick={() => handleSessionClick(session)}
-                        className={`w-full text-left p-2 rounded text-xs border transition-all hover:shadow-lg ${getStatusColor(session.status)}`}
+                        className={`w-full text-left p-1.5 sm:p-2 rounded text-[10px] sm:text-xs border transition-all hover:shadow-md ${getStatusColor(session.status)}`}
                       >
-                        <div className="font-semibold mb-1">
+                        <div className="font-semibold mb-0.5 truncate">
                           {formatTime(session.startTime)}
                         </div>
-                        <div className="truncate text-[10px] opacity-90">
+                        <div className="truncate text-[9px] sm:text-[10px] opacity-90">
                           {session.childName || 'Student'}
                         </div>
-                        <div className="flex items-center gap-1 mt-1">
+                        <div className="flex items-center gap-0.5 mt-0.5">
                           {session.isOnline ? (
-                            <Video className="w-3 h-3" />
+                            <Video className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                           ) : (
-                            <MapPin className="w-3 h-3" />
+                            <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                           )}
-                          <span className="text-[10px]">
+                          <span className="text-[9px] sm:text-[10px] truncate">
                             {session.isOnline ? 'Online' : 'Offline'}
                           </span>
                         </div>

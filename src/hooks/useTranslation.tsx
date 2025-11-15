@@ -55,7 +55,6 @@ type TranslationKey =
   | 'profile'
   | 'myContracts'
   | 'wallet'
-  | 'progressReports'
   | 'signOut'
   | 'features'
   | 'pricing'
@@ -249,7 +248,6 @@ type TranslationKey =
   | 'cancelCenter'
   | 'centerCreated'
   | 'centerUpdated'
-  | 'progressReports'
   | 'learningProgress'
   | 'trackProgress'
   | 'viewDetailedReport'
@@ -517,12 +515,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     goodEvening: 'Good Evening',
     createContract: 'Create Contract',
     bookSessions: 'Book new learning sessions',
-    viewProgress: 'View Progress',
-    trackProgress: 'Track learning progress',
+    viewProgress: 'Daily Reports',
+    trackProgress: 'View daily learning reports',
     profile: 'Profile',
     myContracts: 'My Contracts',
     wallet: 'Wallet',
-    progressReports: 'Progress Reports',
     signOut: 'Sign Out',
     features: 'Features',
     pricing: 'Pricing',
@@ -716,7 +713,6 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     cancelCenter: 'Cancel',
     centerCreated: 'Center created successfully',
     centerUpdated: 'Center updated successfully',
-    progressReports: 'Progress Reports',
     learningProgress: 'Learning Progress',
     trackProgress: 'Track Progress',
     viewDetailedReport: 'View Detailed Report',
@@ -983,12 +979,11 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     goodEvening: 'Chào buổi tối',
     createContract: 'Tạo hợp đồng',
     bookSessions: 'Đặt lịch học mới',
-    viewProgress: 'Xem tiến độ',
-    trackProgress: 'Theo dõi tiến độ học tập',
+    viewProgress: 'Báo cáo hàng ngày',
+    trackProgress: 'Xem báo cáo học tập hàng ngày',
     profile: 'Hồ sơ',
     myContracts: 'Hợp đồng của tôi',
     wallet: 'Ví',
-    progressReports: 'Báo cáo tiến độ',
     signOut: 'Đăng xuất',
     features: 'Tính năng',
     pricing: 'Giá cả',
@@ -1182,7 +1177,6 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     cancelCenter: 'Hủy',
     centerCreated: 'Tạo trung tâm thành công',
     centerUpdated: 'Cập nhật trung tâm thành công',
-    progressReports: 'Báo cáo tiến độ',
     learningProgress: 'Tiến độ học tập',
     trackProgress: 'Theo dõi tiến độ',
     viewDetailedReport: 'Xem báo cáo chi tiết',

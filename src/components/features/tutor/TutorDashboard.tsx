@@ -3,66 +3,63 @@ import {
   Calendar, 
   MapPin,
   BarChart3,
-  User
+  User,
+  Menu,
+  X,
+  LogOut,
+  GraduationCap
 } from 'lucide-react';
-import { TutorSessions, TutorProfile } from '.';
-
-// Removed TutorStats for simplified dashboard layout
-
-// Removed Session and RecentActivity types from previous layout
+import { useNavigate } from 'react-router-dom';
+import { TutorSessions, TutorProfile, TutorDailyReport } from '.';
+import { useAuth } from '../../../hooks/useAuth';
 
 const TutorDashboard: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Mock data for demo
-    // no-op
-
-    setLoading(false);
-  }, []);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   type ActionKey = 'profile' | 'sessions' | 'centers' | 'reports';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const quickActions: Array<{
-    key: ActionKey;
-    title: string;
-    description: string;
-    icon: any;
-    color: string;
-  }> = [
-    {
-      key: 'profile',
-      title: 'Profile Settings',
-      description: 'Update your profile and qualifications',
-      icon: User,
-      color: 'bg-blue-500',
-    },
-    {
-      key: 'sessions',
-      title: 'My Sessions',
-      description: 'View upcoming and completed sessions',
-      icon: Calendar,
-      color: 'bg-green-500',
-    },
-    {
-      key: 'centers',
-      title: 'Center Management',
-      description: 'Manage your center assignments',
-      icon: MapPin,
-      color: 'bg-purple-500',
-    },
-    {
-      key: 'reports',
-      title: 'Reports',
-      description: 'View performance reports',
-      icon: BarChart3,
-      color: 'bg-orange-500',
-    },
+  useEffect(() => {
+    setLoading(false);
+  }, []);
+
+  const navigationItems = [
+    { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },
+    { key: 'reports' as ActionKey, name: 'Daily Reports', icon: BarChart3, description: 'Create and manage daily reports' },
+    { key: 'profile' as ActionKey, name: 'Profile Settings', icon: User, description: 'Update your profile and qualifications' },
+    { key: 'centers' as ActionKey, name: 'Center Management', icon: MapPin, description: 'Manage your center assignments' },
   ];
 
-  function renderRightPane() {
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const getUserInitials = () => {
+    if (user?.fullName || user?.name) {
+      const name = user.fullName || user.name || '';
+      const parts = name.split(' ');
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+    }
+    return 'TU';
+  };
+
+  const showSidebar = mobileMenuOpen || isSidebarVisible;
+
+  const handleMouseLeaveSidebar = () => {
+    if (!mobileMenuOpen) {
+      setIsSidebarVisible(false);
+    }
+  };
+
+  function renderContentView() {
     switch (selectedAction) {
       case 'profile':
         return <TutorProfile />;
@@ -70,18 +67,17 @@ const TutorDashboard: React.FC = () => {
         return <TutorSessions />;
       case 'centers':
         return (
-          <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Center Management</div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Center Management</h2>
+            <p className="text-gray-600">Coming soon: Center Management</p>
+          </div>
         );
       case 'reports':
-        return (
-          <div className="p-6 bg-white rounded-xl border border-gray-200">Coming soon: Reports</div>
-        );
+        return <TutorDailyReport />;
       default:
         return null;
     }
   }
-
-  // Removed unused helpers from previous dashboard layout
 
   if (loading) {
     return (
@@ -92,102 +88,118 @@ const TutorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
-      <div className="w-full px-2 sm:px-4 lg:px-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
-          <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Hover hotspot to reveal sidebar */}
+      <div
+        className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"
+        onMouseEnter={() => setIsSidebarVisible(true)}
+      />
+
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-300 ease-out ${
+          showSidebar ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        onMouseEnter={() => setIsSidebarVisible(true)}
+        onMouseLeave={handleMouseLeaveSidebar}
+      >
+        {/* User Profile Section */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold">
+              {getUserInitials()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{user?.fullName || user?.name || 'Tutor'}</p>
+              <p className="text-xs text-green-600 flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                Online
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsSidebarVisible(false);
+              }}
+              className="lg:hidden p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Mobile toggle for sidebar */}
-        <div className="mb-4 lg:hidden">
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = selectedAction === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setSelectedAction(item.key);
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-4 py-3 justify-start rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
+                    : 'text-gray-700 hover:bg-blue-50'
+                }`}
+              >
+                <Icon className="w-5 h-5 mr-3" />
+                <span className="font-medium">{item.name}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-200">
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 shadow-sm text-gray-700 hover:bg-gray-50"
+            onClick={handleLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
           >
-            <span className="i-[hamburger] hidden" />
-            <span>Quick Actions</span>
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium">Logout</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main
+        className={`transition-all duration-300 ease-out ${
+          showSidebar ? 'lg:ml-64' : 'lg:ml-0'
+        }`}
+      >
+        {/* Mobile Menu Button */}
+        <div className="lg:hidden fixed top-4 left-4 z-30">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <Menu className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Mobile sidebar drawer */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
-            <div className="absolute inset-0 bg-black/30" onClick={() => setSidebarOpen(false)}></div>
-            <div className="fixed inset-y-0 left-0 w-80 max-w-[85%] bg-white shadow-xl border-r border-gray-200 p-6 overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 rounded-md hover:bg-gray-100"
-                  aria-label="Close sidebar"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-3">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.key}
-                    onClick={() => {
-                      setSelectedAction(action.key);
-                      setSidebarOpen(false);
-                    }}
-                    className={`w-full p-4 rounded-lg border transition-all text-left flex items-start gap-3 ${
-                      selectedAction === action.key
-                        ? 'border-blue-300 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center`}>
-                      <action.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{action.title}</h3>
-                      <p className="text-sm text-gray-600">{action.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="p-6 lg:p-8">
+          {/* Dashboard Header */}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
+            <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
           </div>
-        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left sidebar: Quick Actions */}
-          <aside className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 lg:sticky lg:top-24">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="space-y-3">
-                {quickActions.map((action) => (
-                  <button
-                    key={action.key}
-                    onClick={() => setSelectedAction(action.key)}
-                    className={`w-full p-4 rounded-lg border transition-all text-left flex items-start gap-3 ${
-                      selectedAction === action.key
-                        ? 'border-blue-300 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 ${action.color} rounded-lg flex items-center justify-center`}> 
-                      <action.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{action.title}</h3>
-                      <p className="text-sm text-gray-600">{action.description}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </aside>
-
-          {/* Right content */}
-          <main className="lg:col-span-9">
-            {renderRightPane()}
-          </main>
+          {/* Content */}
+          {renderContentView()}
         </div>
-      </div>
+      </main>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
     </div>
   );
 };

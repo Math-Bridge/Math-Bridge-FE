@@ -43,7 +43,7 @@ export const exampleQuestions = [
   
   // Progress Tracking
   "How can I track my child's progress?",
-  "Are there progress reports available?",
+  "Are there daily reports available?",
   "Can I see test results?",
   
   // Technical Support

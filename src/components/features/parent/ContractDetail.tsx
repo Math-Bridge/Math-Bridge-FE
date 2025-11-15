@@ -22,7 +22,7 @@ import {
   Phone
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -200,6 +200,23 @@ const ContractDetail: React.FC = () => {
         };
 
         setContract(mappedContract);
+
+        // Fetch final feedback if contract is completed
+        if (contractStatus === 'completed' && contractId) {
+          try {
+            setLoadingFeedback(true);
+            const feedbackResult = await getFinalFeedbackByContractAndProvider(contractId, 'parent');
+            if (feedbackResult.success && feedbackResult.data) {
+              setFinalFeedback(feedbackResult.data);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching final feedback:', err);
+            }
+          } finally {
+            setLoadingFeedback(false);
+          }
+        }
 
         // Fetch substitute tutor 1 info - handle errors gracefully
         // Support both underscore and camelCase field names from API
@@ -777,13 +794,25 @@ const ContractDetail: React.FC = () => {
                     </button>
                   )}
                   {contract.status === 'completed' && (
-                    <button
-                      onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
-                      className="w-full flex items-center space-x-3 p-3 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
-                    >
-                      <Star className="w-5 h-5" />
-                      <span>Submit Feedback</span>
-                    </button>
+                    <>
+                      {finalFeedback ? (
+                        <button
+                          onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
+                          className="w-full flex items-center space-x-3 p-3 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                        >
+                          <Star className="w-5 h-5" />
+                          <span>View/Update Feedback</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
+                          className="w-full flex items-center space-x-3 p-3 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
+                        >
+                          <Star className="w-5 h-5" />
+                          <span>Submit Feedback</span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -807,6 +836,62 @@ const ContractDetail: React.FC = () => {
                 </div>
                 <p className="text-sm text-gray-600">{contract.tutorExperience}</p>
               </div>
+
+              {/* Final Feedback Section */}
+              {contract.status === 'completed' && finalFeedback && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Your Feedback</h3>
+                    <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                      Submitted
+                    </span>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-2">Overall Satisfaction</p>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-5 h-5 ${
+                                i < finalFeedback.overallSatisfactionRating
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="font-semibold text-gray-900">
+                          {finalFeedback.overallSatisfactionRating}/5
+                        </span>
+                      </div>
+                    </div>
+                    {finalFeedback.additionalComments && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Comments</p>
+                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
+                          {finalFeedback.additionalComments}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-4 pt-2 border-t border-gray-200">
+                      {finalFeedback.wouldRecommend && (
+                        <div className="flex items-center space-x-1 text-green-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-medium">Would Recommend</span>
+                        </div>
+                      )}
+                      {finalFeedback.wouldWorkTogetherAgain && (
+                        <div className="flex items-center space-x-1 text-blue-600">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-medium">Would Work Again</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

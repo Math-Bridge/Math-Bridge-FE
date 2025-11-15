@@ -186,7 +186,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
-
+    
     try {
       const data: ApproveRescheduleRequest = {
         newTutorId: selectedTutorId || undefined,
@@ -282,8 +282,8 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
           )}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Reschedule Requests</h1>
-              <p className="text-gray-600 mt-2">Review and manage reschedule requests</p>
+          <h1 className="text-3xl font-bold text-gray-900">Reschedule Requests</h1>
+          <p className="text-gray-600 mt-2">Review and manage reschedule requests</p>
             </div>
             <button
               onClick={fetchRequests}
@@ -590,20 +590,20 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
                       <span className="ml-2 text-sm text-gray-600">Loading available tutors...</span>
-                    </div>
+                </div>
                   ) : availableTutors.length > 0 ? (
-                    <select
+                  <select
                       value={selectedTutorId}
                       onChange={(e) => setSelectedTutorId(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
                       <option value="">Use requested/original tutor</option>
                       {availableTutors.map((tutor) => (
                         <option key={tutor.tutorId} value={tutor.tutorId}>
                           {tutor.fullName} {tutor.rating ? `(${tutor.rating.toFixed(1)}⭐)` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      </option>
+                    ))}
+                  </select>
                   ) : (
                     <div className="text-sm text-gray-500 py-2">
                       No substitute tutors available. Will use requested tutor or original tutor.

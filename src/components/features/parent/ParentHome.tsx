@@ -145,7 +145,7 @@ const ParentHome: React.FC = () => {
     { title: t('viewPackages'), description: t('browsePackages'), icon: BookOpen, color: 'green', onClick: () => navigate('/packages') },
     { title: 'Study Schedule', description: 'View your child\'s study schedule', icon: Calendar, color: 'orange', onClick: () => navigate('/parent/schedule') },
     { title: t('createContract'), description: t('bookSessions'), icon: FileText, color: 'purple', onClick: () => navigate('/contracts/create') },
-    { title: t('viewProgress'), description: t('trackProgress'), icon: TrendingUp, color: 'yellow', onClick: () => navigate('/progress') }
+    { title: t('viewProgress'), description: t('trackProgress'), icon: TrendingUp, color: 'yellow', onClick: () => navigate('/daily-reports') }
   ];
 
   const getColorClasses = (color: string) => {
@@ -392,8 +392,8 @@ const ParentHome: React.FC = () => {
                 </div>
                 <div className="p-5 bg-green-50 rounded-xl hover:shadow-lg transition">
                   <BarChart3 className="h-10 w-10 text-green-600 mb-3" />
-                  <h3 className="font-bold mb-2">Progress Reports</h3>
-                  <button onClick={() => navigate('/progress')} className="text-green-600 font-medium">View</button>
+                  <h3 className="font-bold mb-2">Daily Reports</h3>
+                  <button onClick={() => navigate('/daily-reports')} className="text-green-600 font-medium">View</button>
                 </div>
                 <div className="p-5 bg-purple-50 rounded-xl hover:shadow-lg transition">
                   <MessageCircle className="h-10 w-10 text-purple-600 mb-3" />

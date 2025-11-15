@@ -34,8 +34,9 @@ import {
   PackageSelectionPage,
   CreateContractPage,
   ContractDetailPage,
+  FinalFeedbackPage,
   TutorDetailPage,
-  ProgressReportsPage,
+  ParentDailyReportsPage,
   AdminDashboardPage,
   UserManagementPage,
   CenterManagementPage,
@@ -47,6 +48,8 @@ import {
   ContractManagementPage,
   ContractDetailStaffPage,
   RescheduleManagementPage,
+  StaffDailyReportsPage,
+  TutorDailyReportPage,
 } from './pages/features';
 
 // Protected Route Component (supports role-based guard)
@@ -219,6 +222,11 @@ function App() {
                 <TutorDashboard />
               </ProtectedRoute>
             } />
+            <Route path="tutor/daily-reports" element={
+              <ProtectedRoute requiredRole="tutor">
+                <TutorDailyReportPage />
+              </ProtectedRoute>
+            } />
             
             {/* Center Routes */}
             <Route path="centers" element={
@@ -275,6 +283,11 @@ function App() {
                 <ContractDetailPage />
               </ProtectedRoute>
             } />
+            <Route path="contracts/:id/feedback" element={
+              <ProtectedRoute>
+                <FinalFeedbackPage />
+              </ProtectedRoute>
+            } />
             <Route path="tutors/:id" element={
               <ProtectedRoute>
                 <TutorDetailPage />
@@ -282,7 +295,12 @@ function App() {
             } />
             <Route path="progress" element={
               <ProtectedRoute>
-                <ProgressReportsPage />
+                <ParentDailyReportsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="daily-reports" element={
+              <ProtectedRoute requiredRole="parent">
+                <ParentDailyReportsPage />
               </ProtectedRoute>
             } />
             
@@ -342,6 +360,11 @@ function App() {
             <Route path="staff/reschedules" element={
               <ProtectedRoute>
                 <RescheduleManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/daily-reports" element={
+              <ProtectedRoute>
+                <StaffDailyReportsPage />
               </ProtectedRoute>
             } />
           </Route>

@@ -12,8 +12,8 @@ const Layout: React.FC = () => {
 
   const userRole = user?.role ?? '';
 
-  // Hide header for admin and staff roles
-  const shouldHideHeader = userRole === 'admin' || userRole === 'staff';
+  // Hide header for admin, staff, and tutor roles
+  const shouldHideHeader = userRole === 'admin' || userRole === 'staff' || userRole === 'tutor';
 
   // Only show AI chat support to roles that should have access (e.g., parents/guests)
   const shouldShowSupportButton = !['admin', 'staff', 'tutor'].includes(userRole);

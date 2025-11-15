@@ -146,6 +146,23 @@ class ApiService {
           errorDetails = text;
         }
         
+        // Handle 403 Forbidden - user doesn't have permission to access this resource
+        if (response.status === 403) {
+          // Provide a more user-friendly error message
+          if (!errorMessage || errorMessage.includes('HTTP error! status: 403')) {
+            errorMessage = 'You do not have permission to access this resource. Please check if you have the required access rights.';
+          }
+          // Don't clear token for 403 as it might be a permission issue, not auth issue
+          // But log it for debugging
+          if (import.meta.env.DEV) {
+            console.warn('403 Forbidden - User may not have permission to access this resource:', {
+              url,
+              errorMessage,
+              userRole: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').role : 'unknown'
+            });
+          }
+        }
+        
         // Log error information for debugging (only in development)
         // Skip logging for unauthorized access errors (500 with "Unauthorized access" message)
         const isUnauthorizedAccess = response.status === 500 && 
@@ -2996,4 +3013,790 @@ export async function getRevenueTrends(startDate: string, endDate: string) {
       method: 'GET',
     }
   );
+}
+
+// ==================== Daily Report APIs ====================
+
+export interface DailyReport {
+  reportId: string;
+  childId: string;
+  tutorId: string;
+  bookingId: string;
+  notes?: string;
+  onTrack: boolean;
+  haveHomework: boolean;
+  createdDate: string; // DateOnly format (YYYY-MM-DD)
+  unitId: string;
+  testId?: string;
+  // Additional fields from backend (if available)
+  childName?: string;
+  tutorName?: string;
+  unitName?: string;
+  sessionDate?: string;
+}
+
+export interface CreateDailyReportRequest {
+  childId: string; // Required
+  bookingId: string; // Required
+  notes?: string; // Optional, max 1000 chars
+  onTrack: boolean; // Required
+  haveHomework: boolean; // Required
+  unitId: string; // Required
+}
+
+export interface UpdateDailyReportRequest {
+  notes?: string; // Optional, max 1000 chars
+  onTrack?: boolean; // Optional
+  haveHomework?: boolean; // Optional
+  unitId?: string; // Optional
+}
+
+export interface LearningCompletionForecast {
+  childId: string;
+  childName: string;
+  curriculumId: string;
+  curriculumName: string;
+  startingUnitId: string;
+  startingUnitName: string;
+  startingUnitOrder: number;
+  lastUnitId: string;
+  lastUnitName: string;
+  lastUnitOrder: number;
+  totalUnitsToComplete: number;
+  startDate: string; // DateOnly
+  estimatedCompletionDate: string; // DateTime
+  daysToCompletion: number;
+  weeksToCompletion: number;
+  message: string;
+}
+
+export interface UnitProgressDetail {
+  unitId: string;
+  unitName: string;
+  unitOrder: number;
+  timesLearned: number;
+  firstLearnedDate: string; // DateOnly
+  lastLearnedDate: string; // DateOnly
+  isCompleted: boolean;
+}
+
+export interface ChildUnitProgress {
+  childId: string;
+  childName: string;
+  totalReports: number;
+  unitsProgress: UnitProgressDetail[];
+}
+
+// Get daily report by ID
+export async function getDailyReportById(reportId: string) {
+  try {
+    const result = await apiService.request<any>(`/daily-reports/${reportId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: DailyReport = {
+        reportId: item.reportId || item.ReportId || reportId,
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to fetch daily report',
+    };
+  }
+}
+
+// Get all daily reports for logged-in tutor
+export async function getDailyReportsByTutor() {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports/tutor`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch daily reports',
+    };
+  }
+}
+
+// Get all daily reports for a child
+export async function getDailyReportsByChild(childId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports/child/${childId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch daily reports',
+    };
+  }
+}
+
+// Get all daily reports for a booking/session
+export async function getDailyReportsByBooking(bookingId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports/booking/${bookingId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch daily reports',
+    };
+  }
+}
+
+// Get learning completion forecast for a child
+export async function getLearningCompletionForecast(childId: string) {
+  try {
+    const result = await apiService.request<any>(`/daily-reports/child/${childId}/learning-forecast`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: LearningCompletionForecast = {
+        childId: item.childId || item.ChildId || childId,
+        childName: item.childName || item.ChildName || '',
+        curriculumId: item.curriculumId || item.CurriculumId || '',
+        curriculumName: item.curriculumName || item.CurriculumName || '',
+        startingUnitId: item.startingUnitId || item.StartingUnitId || '',
+        startingUnitName: item.startingUnitName || item.StartingUnitName || '',
+        startingUnitOrder: item.startingUnitOrder || item.StartingUnitOrder || 0,
+        lastUnitId: item.lastUnitId || item.LastUnitId || '',
+        lastUnitName: item.lastUnitName || item.LastUnitName || '',
+        lastUnitOrder: item.lastUnitOrder || item.LastUnitOrder || 0,
+        totalUnitsToComplete: item.totalUnitsToComplete || item.TotalUnitsToComplete || 0,
+        startDate: item.startDate || item.StartDate || '',
+        estimatedCompletionDate: item.estimatedCompletionDate || item.EstimatedCompletionDate || '',
+        daysToCompletion: item.daysToCompletion || item.DaysToCompletion || 0,
+        weeksToCompletion: item.weeksToCompletion || item.WeeksToCompletion || 0,
+        message: item.message || item.Message || '',
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to fetch learning forecast',
+    };
+  }
+}
+
+// Get child unit progress
+export async function getChildUnitProgress(childId: string) {
+  try {
+    const result = await apiService.request<any>(`/daily-reports/child/${childId}/unit-progress`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: ChildUnitProgress = {
+        childId: item.childId || item.ChildId || childId,
+        childName: item.childName || item.ChildName || '',
+        totalReports: item.totalReports || item.TotalReports || 0,
+        unitsProgress: (item.unitsProgress || item.UnitsProgress || []).map((up: any) => ({
+          unitId: up.unitId || up.UnitId || '',
+          unitName: up.unitName || up.UnitName || '',
+          unitOrder: up.unitOrder || up.UnitOrder || 0,
+          timesLearned: up.timesLearned || up.TimesLearned || 0,
+          firstLearnedDate: up.firstLearnedDate || up.FirstLearnedDate || '',
+          lastLearnedDate: up.lastLearnedDate || up.LastLearnedDate || '',
+          isCompleted: up.isCompleted ?? up.IsCompleted ?? false,
+        })),
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to fetch child unit progress',
+    };
+  }
+}
+
+// Create daily report
+export async function createDailyReport(data: CreateDailyReportRequest) {
+  try {
+    // Validate required fields
+    if (!data.childId || !data.bookingId || !data.unitId) {
+      return {
+        success: false,
+        data: null,
+        error: 'Missing required fields: childId, bookingId, and unitId are required',
+      };
+    }
+
+    // Validate notes length
+    if (data.notes && data.notes.length > 1000) {
+      return {
+        success: false,
+        data: null,
+        error: 'Notes cannot exceed 1000 characters',
+      };
+    }
+
+    const requestBody: any = {
+      childId: data.childId,
+      bookingId: data.bookingId,
+      onTrack: data.onTrack,
+      haveHomework: data.haveHomework,
+      unitId: data.unitId,
+    };
+    
+    if (data.notes && data.notes.trim() !== '') {
+      requestBody.notes = data.notes.trim();
+    }
+    
+    const result = await apiService.request<{ message: string; reportId: string }>(`/daily-reports`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (!result.success && result.error) {
+      return {
+        success: false,
+        data: null,
+        error: result.error,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    console.error('Error creating daily report:', error);
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create daily report';
+    return {
+      success: false,
+      data: null,
+      error: errorMessage,
+    };
+  }
+}
+
+// Update daily report
+export async function updateDailyReport(reportId: string, data: UpdateDailyReportRequest) {
+  try {
+    if (!reportId) {
+      return {
+        success: false,
+        data: null,
+        error: 'Report ID is required',
+      };
+    }
+
+    // Validate notes length
+    if (data.notes && data.notes.length > 1000) {
+      return {
+        success: false,
+        data: null,
+        error: 'Notes cannot exceed 1000 characters',
+      };
+    }
+
+    const requestBody: any = {};
+    
+    if (data.notes !== undefined) {
+      requestBody.notes = data.notes.trim() || null;
+    }
+    if (data.onTrack !== undefined) {
+      requestBody.onTrack = data.onTrack;
+    }
+    if (data.haveHomework !== undefined) {
+      requestBody.haveHomework = data.haveHomework;
+    }
+    if (data.unitId !== undefined && data.unitId) {
+      requestBody.unitId = data.unitId;
+    }
+    
+    const result = await apiService.request<{ message: string; reportId: string }>(`/daily-reports/${reportId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (!result.success && result.error) {
+      return {
+        success: false,
+        data: null,
+        error: result.error,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    console.error('Error updating daily report:', error);
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to update daily report';
+    return {
+      success: false,
+      data: null,
+      error: errorMessage,
+    };
+  }
+}
+
+// Delete daily report
+export async function deleteDailyReport(reportId: string) {
+  try {
+    const result = await apiService.request<{ message: string }>(`/daily-reports/${reportId}`, {
+      method: 'DELETE',
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to delete daily report',
+    };
+  }
+}
+
+// Final Feedback Types
+export interface FinalFeedback {
+  feedbackId: string;
+  userId: string;
+  contractId: string;
+  feedbackProviderType: string;
+  feedbackText?: string;
+  overallSatisfactionRating: number;
+  communicationRating?: number;
+  sessionQualityRating?: number;
+  learningProgressRating?: number;
+  professionalismRating?: number;
+  wouldRecommend: boolean;
+  wouldWorkTogetherAgain: boolean;
+  contractObjectivesMet?: boolean;
+  improvementSuggestions?: string;
+  additionalComments?: string;
+  feedbackStatus: string;
+  createdDate: string;
+  userFullName?: string;
+  contractTitle?: string;
+}
+
+export interface CreateFinalFeedbackRequest {
+  userId: string;
+  contractId: string;
+  feedbackProviderType: string;
+  feedbackText?: string;
+  overallSatisfactionRating: number;
+  communicationRating?: number;
+  sessionQualityRating?: number;
+  learningProgressRating?: number;
+  professionalismRating?: number;
+  wouldRecommend: boolean;
+  wouldWorkTogetherAgain: boolean;
+  contractObjectivesMet?: boolean;
+  improvementSuggestions?: string;
+  additionalComments?: string;
+}
+
+export interface UpdateFinalFeedbackRequest {
+  feedbackText?: string;
+  overallSatisfactionRating?: number;
+  communicationRating?: number;
+  sessionQualityRating?: number;
+  learningProgressRating?: number;
+  professionalismRating?: number;
+  wouldRecommend?: boolean;
+  wouldWorkTogetherAgain?: boolean;
+  contractObjectivesMet?: boolean;
+  improvementSuggestions?: string;
+  additionalComments?: string;
+  feedbackStatus?: string;
+}
+
+// Get final feedback by ID
+export async function getFinalFeedbackById(feedbackId: string) {
+  try {
+    const result = await apiService.request<any>(`/finalfeedback/${feedbackId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: FinalFeedback = {
+        feedbackId: item.feedbackId || item.FeedbackId || feedbackId,
+        userId: item.userId || item.UserId || '',
+        contractId: item.contractId || item.ContractId || '',
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || '',
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to get final feedback',
+    };
+  }
+}
+
+// Get final feedbacks by contract ID
+export async function getFinalFeedbacksByContractId(contractId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/finalfeedback/contract/${contractId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: FinalFeedback[] = result.data.map((item: any) => ({
+        feedbackId: item.feedbackId || item.FeedbackId || '',
+        userId: item.userId || item.UserId || '',
+        contractId: item.contractId || item.ContractId || contractId,
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || '',
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to get final feedbacks',
+    };
+  }
+}
+
+// Get final feedback by contract and provider type
+export async function getFinalFeedbackByContractAndProvider(contractId: string, providerType: string) {
+  try {
+    const result = await apiService.request<any>(`/finalfeedback/contract/${contractId}/provider/${providerType}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: FinalFeedback = {
+        feedbackId: item.feedbackId || item.FeedbackId || '',
+        userId: item.userId || item.UserId || '',
+        contractId: item.contractId || item.ContractId || contractId,
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || providerType,
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to get final feedback',
+    };
+  }
+}
+
+// Create final feedback
+export async function createFinalFeedback(data: CreateFinalFeedbackRequest) {
+  try {
+    const requestBody: any = {
+      userId: data.userId,
+      contractId: data.contractId,
+      feedbackProviderType: data.feedbackProviderType,
+      overallSatisfactionRating: data.overallSatisfactionRating,
+      wouldRecommend: data.wouldRecommend,
+      wouldWorkTogetherAgain: data.wouldWorkTogetherAgain,
+    };
+    
+    if (data.feedbackText) requestBody.feedbackText = data.feedbackText;
+    if (data.communicationRating !== undefined) requestBody.communicationRating = data.communicationRating;
+    if (data.sessionQualityRating !== undefined) requestBody.sessionQualityRating = data.sessionQualityRating;
+    if (data.learningProgressRating !== undefined) requestBody.learningProgressRating = data.learningProgressRating;
+    if (data.professionalismRating !== undefined) requestBody.professionalismRating = data.professionalismRating;
+    if (data.contractObjectivesMet !== undefined) requestBody.contractObjectivesMet = data.contractObjectivesMet;
+    if (data.improvementSuggestions) requestBody.improvementSuggestions = data.improvementSuggestions;
+    if (data.additionalComments) requestBody.additionalComments = data.additionalComments;
+    
+    const result = await apiService.request<any>(`/finalfeedback`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: FinalFeedback = {
+        feedbackId: item.feedbackId || item.FeedbackId || '',
+        userId: item.userId || item.UserId || data.userId,
+        contractId: item.contractId || item.ContractId || data.contractId,
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || data.feedbackProviderType,
+        feedbackText: item.feedbackText || item.FeedbackText || data.feedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? data.overallSatisfactionRating,
+        communicationRating: item.communicationRating ?? item.CommunicationRating ?? data.communicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating ?? data.sessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating ?? data.learningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating ?? data.professionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? data.wouldRecommend,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? data.wouldWorkTogetherAgain,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet ?? data.contractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions || data.improvementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments || data.additionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to create final feedback',
+    };
+  }
+}
+
+// Update final feedback
+export async function updateFinalFeedback(feedbackId: string, data: UpdateFinalFeedbackRequest) {
+  try {
+    const requestBody: any = {};
+    
+    if (data.feedbackText !== undefined) requestBody.feedbackText = data.feedbackText;
+    if (data.overallSatisfactionRating !== undefined) requestBody.overallSatisfactionRating = data.overallSatisfactionRating;
+    if (data.communicationRating !== undefined) requestBody.communicationRating = data.communicationRating;
+    if (data.sessionQualityRating !== undefined) requestBody.sessionQualityRating = data.sessionQualityRating;
+    if (data.learningProgressRating !== undefined) requestBody.learningProgressRating = data.learningProgressRating;
+    if (data.professionalismRating !== undefined) requestBody.professionalismRating = data.professionalismRating;
+    if (data.wouldRecommend !== undefined) requestBody.wouldRecommend = data.wouldRecommend;
+    if (data.wouldWorkTogetherAgain !== undefined) requestBody.wouldWorkTogetherAgain = data.wouldWorkTogetherAgain;
+    if (data.contractObjectivesMet !== undefined) requestBody.contractObjectivesMet = data.contractObjectivesMet;
+    if (data.improvementSuggestions !== undefined) requestBody.improvementSuggestions = data.improvementSuggestions;
+    if (data.additionalComments !== undefined) requestBody.additionalComments = data.additionalComments;
+    if (data.feedbackStatus !== undefined) requestBody.feedbackStatus = data.feedbackStatus;
+    
+    const result = await apiService.request<any>(`/finalfeedback/${feedbackId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    });
+    
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: FinalFeedback = {
+        feedbackId: item.feedbackId || item.FeedbackId || feedbackId,
+        userId: item.userId || item.UserId || '',
+        contractId: item.contractId || item.ContractId || '',
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || '',
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      };
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to update final feedback',
+    };
+  }
 }

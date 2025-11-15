@@ -332,11 +332,11 @@ const ChildManagement: React.FC = () => {
                     <span className="text-sm">Edit</span>
                   </button>
                   <button
-                    onClick={() => navigate(`/parent/children/${child.id}/progress`)}
+                    onClick={() => navigate(`/daily-reports`)}
                     className="flex-1 px-3 py-2 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors flex items-center justify-center space-x-1"
                   >
                     <BookOpen className="w-4 h-4" />
-                    <span className="text-sm">Progress</span>
+                    <span className="text-sm">Daily Reports</span>
                   </button>
                   <button
                     onClick={() => handleDeleteClick(child.id)}
