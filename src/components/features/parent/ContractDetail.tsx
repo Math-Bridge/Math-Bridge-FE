@@ -21,9 +21,10 @@ import {
   Phone
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 
 interface Session {
   id: string;
@@ -89,6 +90,10 @@ const ContractDetail: React.FC = () => {
   // Tutor rating states
   const [tutorFeedbacks, setTutorFeedbacks] = useState<FinalFeedback[]>([]);
   const [loadingTutorRatings, setLoadingTutorRatings] = useState(false);
+  
+  // Unit progress states
+  const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
+  const [loadingUnitProgress, setLoadingUnitProgress] = useState(false);
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -205,6 +210,24 @@ const ContractDetail: React.FC = () => {
         };
 
         setContract(mappedContract);
+
+        // Fetch unit progress for active/completed contracts
+        const childId = contractData.ChildId || contractData.childId;
+        if (childId && (contractStatus === 'active' || contractStatus === 'completed')) {
+          try {
+            setLoadingUnitProgress(true);
+            const progressResult = await getChildUnitProgress(childId);
+            if (progressResult.success && progressResult.data) {
+              setUnitProgress(progressResult.data);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching unit progress:', err);
+            }
+          } finally {
+            setLoadingUnitProgress(false);
+          }
+        }
 
         // Fetch final feedback if contract is completed
         if (contractStatus === 'completed' && contractId) {
@@ -736,30 +759,13 @@ const ContractDetail: React.FC = () => {
               </div>
 
               <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Progress</h3>
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Sessions Completed</span>
-                    <span className="text-sm text-gray-600">
-                      {contract.completedSessions}/{contract.totalSessions}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-1000 ease-out shadow-inner"
-                      style={{ 
-                        width: contract.totalSessions > 0 
-                          ? `${Math.min((contract.completedSessions / contract.totalSessions) * 100, 100)}%`
-                          : '0%'
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {contract.totalSessions > 0
-                      ? `${Math.round((contract.completedSessions / contract.totalSessions) * 100)}% complete`
-                      : '0% complete'}
-                  </p>
-                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Learning Progress</h3>
+                <UnitProgressDisplay 
+                  progress={unitProgress}
+                  loading={loadingUnitProgress}
+                  compact={false}
+                  showDetailedUnits={true}
+                />
               </div>
 
               <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">

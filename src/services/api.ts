@@ -3083,8 +3083,13 @@ export interface UnitProgressDetail {
 export interface ChildUnitProgress {
   childId: string;
   childName: string;
-  totalReports: number;
+  totalUnitsLearned: number;
+  uniqueLessonsCompleted: number;
   unitsProgress: UnitProgressDetail[];
+  firstLessonDate: string | null;
+  lastLessonDate: string | null;
+  percentageOfCurriculumCompleted: number;
+  message: string | null;
 }
 
 // Get daily report by ID
@@ -3313,7 +3318,8 @@ export async function getChildUnitProgress(childId: string) {
       const mappedData: ChildUnitProgress = {
         childId: item.childId || item.ChildId || childId,
         childName: item.childName || item.ChildName || '',
-        totalReports: item.totalReports || item.TotalReports || 0,
+        totalUnitsLearned: item.totalUnitsLearned || item.TotalUnitsLearned || 0,
+        uniqueLessonsCompleted: item.uniqueLessonsCompleted || item.UniqueLessonsCompleted || 0,
         unitsProgress: (item.unitsProgress || item.UnitsProgress || []).map((up: any) => ({
           unitId: up.unitId || up.UnitId || '',
           unitName: up.unitName || up.UnitName || '',
@@ -3323,6 +3329,10 @@ export async function getChildUnitProgress(childId: string) {
           lastLearnedDate: up.lastLearnedDate || up.LastLearnedDate || '',
           isCompleted: up.isCompleted ?? up.IsCompleted ?? false,
         })),
+        firstLessonDate: item.firstLessonDate || item.FirstLessonDate || null,
+        lastLessonDate: item.lastLessonDate || item.LastLessonDate || null,
+        percentageOfCurriculumCompleted: item.percentageOfCurriculumCompleted ?? item.PercentageOfCurriculumCompleted ?? 0,
+        message: item.message || item.Message || null,
       };
       
       return {
