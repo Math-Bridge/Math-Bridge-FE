@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Video, MapPin, User, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar } from 'lucide-react';
 import { getParentSessions, Session } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
+import RescheduleRequestPopup from './RescheduleRequestPopup';
 
 const ParentScheduleCalendar: React.FC = () => {
   const { showError } = useToast();
@@ -10,9 +11,12 @@ const ParentScheduleCalendar: React.FC = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [isReschedulePopupOpen, setIsReschedulePopupOpen] = useState(false);
 
   useEffect(() => {
     fetchSessions();
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const fetchSessions = async () => {
@@ -128,6 +132,19 @@ const ParentScheduleCalendar: React.FC = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
+const handleSessionClick = (session: Session) => {
+    // Only allow rescheduling for scheduled sessions
+    if (session.status === 'scheduled') {
+      setSelectedSession(session);
+      setIsReschedulePopupOpen(true);
+    }
+  };
+
+  const handleRescheduleSuccess = () => {
+    // Refresh sessions after successful reschedule
+    fetchSessions();
+  };
+
   const daysInMonth = getDaysInMonth(currentDate);
   const upcomingSessions = sessions.filter(s => {
     const sessionDate = new Date(s.startTime);
@@ -231,8 +248,9 @@ const ParentScheduleCalendar: React.FC = () => {
                       daySessions.map((session) => (
                         <div
                           key={session.bookingId}
-                          className={`text-[10px] px-1.5 py-1 rounded mb-0.5 border ${getStatusColor(session.status)}`}
-                          title={`${formatTime(session.startTime)} - ${formatTime(session.endTime)}${session.studentName || session.childName ? ` | ${session.studentName || session.childName}` : ''}`}
+                          onClick={() => handleSessionClick(session)}
+                          className={`text-[10px] px-1.5 py-1 rounded mb-0.5 border ${getStatusColor(session.status)} ${session.status === 'scheduled' ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : 'cursor-default'}`}
+                          title={`${formatTime(session.startTime)} - ${formatTime(session.endTime)}${session.studentName || session.childName ? ` | ${session.studentName || session.childName}` : ''}${session.status === 'scheduled' ? ' - Click to reschedule' : ''}`}
                         >
                           <div className="font-semibold truncate">
                             {formatTime(session.startTime)}
@@ -260,8 +278,29 @@ const ParentScheduleCalendar: React.FC = () => {
               );
             })}
           </div>
-        </div>
+</div>
       </div>
+
+      {/* Reschedule Request Popup */}
+      {selectedSession && (
+        <RescheduleRequestPopup
+          isOpen={isReschedulePopupOpen}
+          onClose={() => {
+            setIsReschedulePopupOpen(false);
+            setSelectedSession(null);
+          }}
+          onSuccess={handleRescheduleSuccess}
+          currentSession={{
+            bookingId: selectedSession.bookingId,
+            date: selectedSession.sessionDate,
+            // Pass HH:mm format so popup can block the same slot accurately
+            time: new Date(selectedSession.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            topic: selectedSession.packageName || 'Session',
+          }}
+          tutorName={selectedSession.tutorName || 'Tutor'}
+          childId={undefined} // Optional: Add childId if available in Session type
+        />
+      )}
     </div>
   );
 };
