@@ -3083,8 +3083,13 @@ export interface UnitProgressDetail {
 export interface ChildUnitProgress {
   childId: string;
   childName: string;
-  totalReports: number;
+  totalUnitsLearned: number;
+  uniqueLessonsCompleted: number;
   unitsProgress: UnitProgressDetail[];
+  firstLessonDate: string | null;
+  lastLessonDate: string | null;
+  percentageOfCurriculumCompleted: number;
+  message: string | null;
 }
 
 // Get daily report by ID
@@ -3313,7 +3318,8 @@ export async function getChildUnitProgress(childId: string) {
       const mappedData: ChildUnitProgress = {
         childId: item.childId || item.ChildId || childId,
         childName: item.childName || item.ChildName || '',
-        totalReports: item.totalReports || item.TotalReports || 0,
+        totalUnitsLearned: item.totalUnitsLearned || item.TotalUnitsLearned || 0,
+        uniqueLessonsCompleted: item.uniqueLessonsCompleted || item.UniqueLessonsCompleted || 0,
         unitsProgress: (item.unitsProgress || item.UnitsProgress || []).map((up: any) => ({
           unitId: up.unitId || up.UnitId || '',
           unitName: up.unitName || up.UnitName || '',
@@ -3323,6 +3329,10 @@ export async function getChildUnitProgress(childId: string) {
           lastLearnedDate: up.lastLearnedDate || up.LastLearnedDate || '',
           isCompleted: up.isCompleted ?? up.IsCompleted ?? false,
         })),
+        firstLessonDate: item.firstLessonDate || item.FirstLessonDate || null,
+        lastLessonDate: item.lastLessonDate || item.LastLessonDate || null,
+        percentageOfCurriculumCompleted: item.percentageOfCurriculumCompleted ?? item.PercentageOfCurriculumCompleted ?? 0,
+        message: item.message || item.Message || null,
       };
       
       return {
@@ -3668,6 +3678,53 @@ export async function getFinalFeedbackByContractAndProvider(contractId: string, 
       success: false,
       data: null,
       error: error?.message || 'Failed to get final feedback',
+    };
+  }
+}
+
+
+// Get final feedbacks by user ID (for tutor ratings)
+export async function getFinalFeedbacksByUserId(userId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/finalfeedback/user/${userId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: FinalFeedback[] = result.data.map((item: any) => ({
+        feedbackId: item.feedbackId || item.FeedbackId || '',
+        userId: item.userId || item.UserId || userId,
+        contractId: item.contractId || item.ContractId || '',
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || '',
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to get tutor feedback',
     };
   }
 }

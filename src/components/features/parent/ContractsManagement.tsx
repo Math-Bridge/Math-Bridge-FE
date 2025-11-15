@@ -21,10 +21,11 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getContractsByParent, getChildrenByParent } from '../../../services/api';
+import { getContractsByParent, getChildrenByParent, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
+import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 
 interface Contract {
   id: string;
@@ -58,6 +59,8 @@ const ContractsManagement: React.FC = () => {
   const [selectedChildId, setSelectedChildId] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
+  const [unitProgressMap, setUnitProgressMap] = useState<Record<string, ChildUnitProgress | null>>({});
+  const [loadingProgress, setLoadingProgress] = useState<Record<string, boolean>>({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -170,6 +173,41 @@ const ContractsManagement: React.FC = () => {
   }, [user?.id, showError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Fetch unit progress for active/completed contracts
+  useEffect(() => {
+    const fetchUnitProgress = async () => {
+      if (contracts.length === 0) return;
+      
+      // Only fetch for active and completed contracts
+      const contractsNeedingProgress = contracts.filter(c => 
+        (c.status === 'active' || c.status === 'completed') && c.childId
+      );
+
+      for (const contract of contractsNeedingProgress) {
+        // Skip if already loading or loaded
+        if (loadingProgress[contract.id] || unitProgressMap[contract.id]) continue;
+
+        setLoadingProgress(prev => ({ ...prev, [contract.id]: true }));
+
+        try {
+          const result = await getChildUnitProgress(contract.childId);
+          if (result.success && result.data) {
+            setUnitProgressMap(prev => ({ ...prev, [contract.id]: result.data }));
+          } else {
+            setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
+          }
+        } catch (error) {
+          console.error(`Error fetching progress for contract ${contract.id}:`, error);
+          setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
+        } finally {
+          setLoadingProgress(prev => ({ ...prev, [contract.id]: false }));
+        }
+      }
+    };
+
+    fetchUnitProgress();
+  }, [contracts]);
 
   const filteredContracts = contracts.filter(c => 
     (filter === 'all' || c.status === filter) && 
@@ -325,9 +363,6 @@ const ContractsManagement: React.FC = () => {
           {paginatedContracts.map((contract, idx) => {
             const statusConfig = getStatusConfig(contract.status);
             const StatusIcon = statusConfig.icon;
-            const progress = contract.totalSessions > 0 
-              ? Math.min((contract.completedSessions / contract.totalSessions) * 100, 100) 
-              : 0;
 
             return (
               <div
@@ -395,9 +430,9 @@ const ContractsManagement: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <User className="w-5 h-5 text-purple-600" />
                       <div>
-                        <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Progress</p>
+                        <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Units Learned</p>
                         <p className="text-lg font-bold text-gray-900">
-                          {contract.completedSessions}/{contract.totalSessions}
+                          {unitProgressMap[contract.id]?.totalUnitsLearned || 0}
                         </p>
                       </div>
                     </div>
@@ -419,21 +454,14 @@ const ContractsManagement: React.FC = () => {
                   </div>
                 </div>
 
-                {/* PROGRESS BAR */}
-                {contract.status === 'active' && (
+                {/* UNIT PROGRESS */}
+                {(contract.status === 'active' || contract.status === 'completed') && (
                   <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-gray-700">Session Progress</span>
-                      <span className="text-lg font-bold text-emerald-600">{Math.round(progress)}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-1000 ease-out shadow-inner"
-                        style={{ width: `${progress}%` }}
-                      >
-                        <div className="h-full bg-white/30 animate-pulse"></div>
-                      </div>
-                    </div>
+                    <UnitProgressDisplay 
+                      progress={unitProgressMap[contract.id] || null}
+                      loading={loadingProgress[contract.id] || false}
+                      compact={true}
+                    />
                   </div>
                 )}
 
@@ -447,15 +475,7 @@ const ContractsManagement: React.FC = () => {
                     <span>View Details</span>
                   </button>
 
-                  {contract.status === 'active' && (
-                    <button
-                      onClick={() => handleReschedule(contract.id)}
-                      className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
-                    >
-                      <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                      <span>Reschedule</span>
-                    </button>
-                  )}
+
 
                   {contract.status === 'completed' && (
                     <button

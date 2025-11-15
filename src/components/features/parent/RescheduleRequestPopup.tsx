@@ -4,10 +4,6 @@ import {
   Clock, 
   X, 
   CheckCircle,
-  AlertCircle,
-  User,
-  MessageSquare,
-  RefreshCw,
   Loader2,
   ChevronLeft,
   ChevronRight
@@ -67,13 +63,17 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
 
   // Generate weekly schedule (7 days starting from today, excluding past dates)
   const generateWeeklySchedule = () => {
+    // Use local date to avoid timezone issues
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
+    
+    // Create date at midnight local time (not UTC)
+    const localToday = new Date(year, month, day);
     
     // Start from today + (selectedWeek * 7) days
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() + (selectedWeek * 7));
+    const startDate = new Date(year, month, day + (selectedWeek * 7));
     
     const weekDays = [];
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -82,13 +82,15 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      date.setHours(0, 0, 0, 0);
-      const dateStr = date.toISOString().split('T')[0];
-      const dateOnly = new Date(dateStr);
-      const todayOnly = new Date(todayStr);
       
       // Only include dates that are today or in the future
-      if (dateOnly >= todayOnly) {
+      if (date >= localToday) {
+        // Format date as YYYY-MM-DD in local timezone
+        const dateYear = date.getFullYear();
+        const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const dateDay = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${dateYear}-${dateMonth}-${dateDay}`;
+        
         weekDays.push({
           date: dateStr,
           dayName: dayNames[date.getDay()],
@@ -104,7 +106,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     }
     
     return weekDays;
-  };
+  };;
 
   const weeklySchedule = generateWeeklySchedule();
 
@@ -142,6 +144,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
 
   // Check if a slot conflicts with existing sessions
   const isSlotBooked = (date: string, time: string): boolean => {
+    // Check if this is the same time slot as the current session being rescheduled
+    // Prevent rescheduling to the same time slot
+    if (currentSession.date === date && currentSession.time === time) {
+      return true; // Block the current time slot
+    }
+    
     if (existingSessions.length === 0) return false;
     
     // Create slot start and end times
@@ -152,6 +160,9 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     slotEnd.setMinutes(slotEnd.getMinutes() + 90);
     
     return existingSessions.some((session) => {
+      // Exclude the current session being rescheduled from conflict checking
+      if (session.bookingId === currentSession.bookingId) return false;
+      
       if (!session.sessionDate || !session.startTime || !session.endTime) return false;
       
       // Parse session date
@@ -168,25 +179,30 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       // Check for time overlap: slot overlaps if it starts before session ends and ends after session starts
       return (slotStart < sessionEnd && slotEnd > sessionStart);
     });
-  };
+  };;
 
   const handleDateTimeSelect = (date: string, time: string) => {
-    const selectedDate = new Date(date);
-    const today = new Date(new Date().toISOString().split('T')[0]);
+    // Parse selected date (YYYY-MM-DD format)
+    const [year, month, day] = date.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, day);
+    
+    // Get today in local timezone
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Don't allow selecting past dates
     if (selectedDate < today) {
       return;
     }
     
-    // Don't allow selecting booked slots
+    // Don't allow selecting booked slots (including current session time)
     if (isSlotBooked(date, time)) {
       return;
     }
     
     setRequestedDate(date);
     setStartTime(time);
-  };
+  };;
 
   const reasonOptions = [
     t('personalEmergency'),
@@ -252,9 +268,10 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           showError(errorMsg);
         }
       }
-    } catch (error: any) {
+} catch (error: unknown) {
       console.error('Error creating reschedule request:', error);
-      showError(error?.message || 'Failed to submit reschedule request');
+const errorMessage = error instanceof Error ? error.message : 'Failed to submit reschedule request';
+      showError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

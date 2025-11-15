@@ -10,3 +10,4 @@ export { default as ConfirmDialog } from './ConfirmDialog';
 export { SSENotificationProvider } from './SSENotificationProvider';
 export { default as CustomerSupportButton } from './CustomerSupportButton';
 export { default as CustomerSupportChat } from './CustomerSupportChat';
+export { default as UnitProgressDisplay } from './UnitProgressDisplay';

@@ -9,6 +9,16 @@ import {
   createVideoConference,
   CreateVideoConferenceRequest,
 } from '../../../services/api';
+
+// Lightweight representation of raw child coming from API mapping with varied casing
+interface ChildRaw {
+  ChildId?: string; childId?: string;
+  FullName?: string; fullName?: string;
+  SchoolId?: string; schoolId?: string;
+  SchoolName?: string; schoolName?: string;
+  Grade?: string; grade?: string;
+  Status?: string; status?: string;
+}
 import { useToast } from '../../../contexts/ToastContext';
 import RescheduleRequestPopup from './RescheduleRequestPopup';
 import { useAuth } from '../../../hooks/useAuth';
@@ -47,17 +57,17 @@ const StudySchedule: React.FC = () => {
       if (childrenRes.success && childrenRes.data) {
         const childrenData = Array.isArray(childrenRes.data) ? childrenRes.data : [];
         const mappedChildren = childrenData
-          .filter((child: any) => {
-            const status = child.Status || child.status || 'active';
+          .filter((child: ChildRaw) => {
+            const status = (child.Status || child.status || 'active') as string;
             return status !== 'deleted';
           })
-          .map((child: any) => ({
+          .map((child: ChildRaw) => ({
             childId: child.ChildId || child.childId || '',
             fullName: child.FullName || child.fullName || '',
             schoolId: child.SchoolId || child.schoolId || '',
             schoolName: child.SchoolName || child.schoolName || '',
             grade: child.Grade || child.grade || '',
-            status: child.Status || child.status || 'active'
+            status: (child.Status || child.status || 'active') as string,
           }));
         setChildren(mappedChildren);
 
@@ -108,6 +118,7 @@ const StudySchedule: React.FC = () => {
 
   useEffect(() => {
     fetchChildren();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   // Fetch sessions when child is selected
@@ -290,7 +301,7 @@ const StudySchedule: React.FC = () => {
       
       if (session.sessionDate) {
         // Parse sessionDate - handle both date strings and ISO strings
-        let dateToParse = session.sessionDate;
+        const dateToParse = session.sessionDate;
         if (dateToParse.includes('T')) {
           // ISO string - parse and use local date
           sessionDate = new Date(dateToParse);
@@ -868,13 +879,14 @@ const StudySchedule: React.FC = () => {
             setShowReschedulePopup(false);
             // Refresh sessions after successful reschedule request
             if (selectedChildId) {
-              fetchSessions(selectedChildId);
+              fetchSessionsForChild(selectedChildId);
             }
           }}
           currentSession={{
             bookingId: selectedSession.bookingId,
             date: selectedSession.sessionDate || '',
-            time: selectedSession.startTime || '',
+            // Pass HH:mm format so popup can block the same slot accurately
+            time: new Date(selectedSession.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             topic: selectedSession.childName || selectedSession.studentName || 'Session',
           }}
           tutorName={selectedSession.tutorName || 'Tutor'}

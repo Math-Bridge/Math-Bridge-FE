@@ -11,7 +11,6 @@ import {
   AlertCircle,
   ArrowLeft,
   RefreshCw,
-  MessageSquare,
   BookOpen,
   Award,
   Copy,
@@ -22,9 +21,10 @@ import {
   Phone
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 
 interface Session {
   id: string;
@@ -84,6 +84,16 @@ const ContractDetail: React.FC = () => {
   // Substitute tutors info
   const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
   const [substituteTutor2Info, setSubstituteTutor2Info] = useState<any>(null);
+  const [finalFeedback, setFinalFeedback] = useState<FinalFeedback | null>(null);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  
+  // Tutor rating states
+  const [tutorFeedbacks, setTutorFeedbacks] = useState<FinalFeedback[]>([]);
+  const [loadingTutorRatings, setLoadingTutorRatings] = useState(false);
+  
+  // Unit progress states
+  const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
+  const [loadingUnitProgress, setLoadingUnitProgress] = useState(false);
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -201,6 +211,24 @@ const ContractDetail: React.FC = () => {
 
         setContract(mappedContract);
 
+        // Fetch unit progress for active/completed contracts
+        const childId = contractData.ChildId || contractData.childId;
+        if (childId && (contractStatus === 'active' || contractStatus === 'completed')) {
+          try {
+            setLoadingUnitProgress(true);
+            const progressResult = await getChildUnitProgress(childId);
+            if (progressResult.success && progressResult.data) {
+              setUnitProgress(progressResult.data);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching unit progress:', err);
+            }
+          } finally {
+            setLoadingUnitProgress(false);
+          }
+        }
+
         // Fetch final feedback if contract is completed
         if (contractStatus === 'completed' && contractId) {
           try {
@@ -215,6 +243,24 @@ const ContractDetail: React.FC = () => {
             }
           } finally {
             setLoadingFeedback(false);
+          }
+        }
+
+        // Fetch tutor ratings/feedbacks
+        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+        if (mainTutorId) {
+          try {
+            setLoadingTutorRatings(true);
+            const tutorFeedbacksResult = await getFinalFeedbacksByUserId(mainTutorId);
+            if (tutorFeedbacksResult.success && tutorFeedbacksResult.data) {
+              setTutorFeedbacks(tutorFeedbacksResult.data);
+            }
+          } catch (err) {
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching tutor ratings:', err);
+            }
+          } finally {
+            setLoadingTutorRatings(false);
           }
         }
 
@@ -518,7 +564,7 @@ const ContractDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -526,7 +572,7 @@ const ContractDetail: React.FC = () => {
 
   if (error || !contract) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -555,13 +601,13 @@ const ContractDetail: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 py-8 animate-slide-in-left">
       {/* Back Button - Top Left Corner (Only for non-staff roles) */}
       {user?.role !== 'staff' && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
           <button
             onClick={() => navigate('/contracts')}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-200 font-semibold shadow-sm hover:shadow-md"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-white/90 backdrop-blur-sm border border-emerald-200 rounded-2xl text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all duration-300 font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Contracts</span>
@@ -574,8 +620,8 @@ const ContractDetail: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{contract.packageName}</h1>
-              <p className="text-gray-600 mt-2">{contract.subject}</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent animate-fade-in">{contract.packageName}</h1>
+              <p className="text-gray-600 mt-2 text-lg animate-fade-in stagger-1">{contract.subject}</p>
             </div>
             <div className="flex items-center space-x-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
@@ -588,9 +634,9 @@ const ContractDetail: React.FC = () => {
           {/* Children and Tutor Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {/* Children Card */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border-2 border-blue-200 p-6">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-3xl flex items-center justify-center shadow-lg">
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div className="flex-1">
@@ -602,16 +648,16 @@ const ContractDetail: React.FC = () => {
             </div>
 
             {/* Tutor Card */}
-            <div className={`rounded-xl shadow-sm border-2 p-6 ${
+            <div className={`rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300 ${
               contract.tutorName === 'Tutor not assigned' 
-                ? 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200' 
-                : 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+                ? 'bg-white/70 backdrop-blur-xl' 
+                : 'bg-white/90 backdrop-blur-xl'
             }`}>
               <div className="flex items-center space-x-4">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg ${
                   contract.tutorName === 'Tutor not assigned' 
                     ? 'bg-gray-400' 
-                    : 'bg-purple-500'
+                    : 'bg-gradient-to-br from-purple-400 to-indigo-500'
                 }`}>
                   <User className="w-8 h-8 text-white" />
                 </div>
@@ -647,8 +693,8 @@ const ContractDetail: React.FC = () => {
 
         {/* Tabs */}
         <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-4">
+            <nav className="flex space-x-4">
               {[
                 { key: 'overview', label: 'Overview', icon: FileText },
                 { key: 'sessions', label: 'Sessions', icon: Calendar },
@@ -657,10 +703,10 @@ const ContractDetail: React.FC = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-2 py-3 px-6 rounded-2xl font-bold text-sm transition-all duration-300 transform hover:scale-105 ${
                     activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg'
+                      : 'bg-white/50 text-gray-600 hover:bg-white hover:text-gray-800'
                   }`}
                 >
                   <tab.icon className="w-4 h-4" />
@@ -676,7 +722,7 @@ const ContractDetail: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Contract Details */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Contract Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center space-x-3">
@@ -712,34 +758,17 @@ const ContractDetail: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Progress</h3>
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Sessions Completed</span>
-                    <span className="text-sm text-gray-600">
-                      {contract.completedSessions}/{contract.totalSessions}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ 
-                        width: contract.totalSessions > 0 
-                          ? `${Math.min((contract.completedSessions / contract.totalSessions) * 100, 100)}%`
-                          : '0%'
-                      }}
-                    ></div>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {contract.totalSessions > 0
-                      ? `${Math.round((contract.completedSessions / contract.totalSessions) * 100)}% complete`
-                      : '0% complete'}
-                  </p>
-                </div>
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Learning Progress</h3>
+                <UnitProgressDisplay 
+                  progress={unitProgress}
+                  loading={loadingUnitProgress}
+                  compact={false}
+                  showDetailedUnits={true}
+                />
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Center Information</h3>
                 <div className="flex items-start space-x-3">
                   <MapPin className="w-5 h-5 text-gray-400 mt-1" />
@@ -753,14 +782,14 @@ const ContractDetail: React.FC = () => {
 
             {/* Quick Actions */}
             <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="space-y-3">
                   {contract.status === 'unpaid' && (
                     <button
                       onClick={handlePayment}
                       disabled={isCreatingPayment}
-                      className="w-full flex items-center space-x-3 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed justify-center"
+                      className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed justify-center font-bold"
                     >
                       {isCreatingPayment ? (
                         <>
@@ -775,30 +804,14 @@ const ContractDetail: React.FC = () => {
                       )}
                     </button>
                   )}
-                  {contract.status === 'active' && (
-                    <button
-                      onClick={() => navigate(`/contracts/${contract.id}/reschedule`)}
-                      className="w-full flex items-center space-x-3 p-3 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                      <span>Request Reschedule</span>
-                    </button>
-                  )}
-                  {contract.tutorName !== 'Tutor not assigned' && (
-                    <button
-                      onClick={() => navigate(`/user/chat?tutor=${contract.tutorName}`)}
-                      className="w-full flex items-center space-x-3 p-3 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-                    >
-                      <MessageSquare className="w-5 h-5" />
-                      <span>Chat with Tutor</span>
-                    </button>
-                  )}
+
+
                   {contract.status === 'completed' && (
                     <>
                       {finalFeedback ? (
                         <button
                           onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
-                          className="w-full flex items-center space-x-3 p-3 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                          className="w-full flex items-center space-x-3 p-3 text-blue-600 border-2 border-blue-200 rounded-2xl hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
                         >
                           <Star className="w-5 h-5" />
                           <span>View/Update Feedback</span>
@@ -806,7 +819,7 @@ const ContractDetail: React.FC = () => {
                       ) : (
                         <button
                           onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
-                          className="w-full flex items-center space-x-3 p-3 text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition-colors"
+                          className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
                         >
                           <Star className="w-5 h-5" />
                           <span>Submit Feedback</span>
@@ -817,29 +830,159 @@ const ContractDetail: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Tutor Rating</h3>
-                <div className="flex items-center space-x-2 mb-2">
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-5 h-5 ${
-                          i < Math.floor(contract.tutorRating)
-                            ? 'text-yellow-400 fill-current'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
+                {loadingTutorRatings ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
-                  <span className="font-semibold text-gray-900">{contract.tutorRating}</span>
-                </div>
-                <p className="text-sm text-gray-600">{contract.tutorExperience}</p>
+                ) : tutorFeedbacks.length > 0 ? (
+                  <>
+                    {/* Calculate average ratings */}
+                    {(() => {
+                      const totalReviews = tutorFeedbacks.length;
+                      const avgOverall = tutorFeedbacks.reduce((sum, f) => sum + (f.overallSatisfactionRating || 0), 0) / totalReviews;
+                      const avgCommunication = tutorFeedbacks.reduce((sum, f) => sum + (f.communicationRating || 0), 0) / tutorFeedbacks.filter(f => f.communicationRating).length || 0;
+                      const avgSessionQuality = tutorFeedbacks.reduce((sum, f) => sum + (f.sessionQualityRating || 0), 0) / tutorFeedbacks.filter(f => f.sessionQualityRating).length || 0;
+                      const avgLearningProgress = tutorFeedbacks.reduce((sum, f) => sum + (f.learningProgressRating || 0), 0) / tutorFeedbacks.filter(f => f.learningProgressRating).length || 0;
+                      const avgProfessionalism = tutorFeedbacks.reduce((sum, f) => sum + (f.professionalismRating || 0), 0) / tutorFeedbacks.filter(f => f.professionalismRating).length || 0;
+                      const wouldRecommendCount = tutorFeedbacks.filter(f => f.wouldRecommend).length;
+                      const recommendPercentage = (wouldRecommendCount / totalReviews) * 100;
+                      
+                      return (
+                        <div className="space-y-4">
+                          {/* Overall Rating */}
+                          <div className="text-center pb-4 border-b border-gray-200">
+                            <div className="flex items-center justify-center space-x-2 mb-2">
+                              <div className="flex">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-6 h-6 ${
+                                      i < Math.floor(avgOverall)
+                                        ? 'text-yellow-400 fill-current'
+                                        : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-2xl font-bold text-gray-900">{avgOverall.toFixed(1)}</span>
+                            </div>
+                            <p className="text-sm text-gray-600">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</p>
+                            <p className="text-xs text-green-600 mt-1">{recommendPercentage.toFixed(0)}% would recommend</p>
+                          </div>
+                          
+                          {/* Individual Rating Breakdown */}
+                          <div className="space-y-3">
+                            {avgCommunication > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-600">Communication</span>
+                                  <span className="text-sm font-semibold text-gray-900">{avgCommunication.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full" 
+                                    style={{ width: `${(avgCommunication / 5) * 100}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {avgSessionQuality > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-600">Session Quality</span>
+                                  <span className="text-sm font-semibold text-gray-900">{avgSessionQuality.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-purple-600 h-2 rounded-full" 
+                                    style={{ width: `${(avgSessionQuality / 5) * 100}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {avgLearningProgress > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-600">Learning Progress</span>
+                                  <span className="text-sm font-semibold text-gray-900">{avgLearningProgress.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-green-600 h-2 rounded-full" 
+                                    style={{ width: `${(avgLearningProgress / 5) * 100}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {avgProfessionalism > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-600">Professionalism</span>
+                                  <span className="text-sm font-semibold text-gray-900">{avgProfessionalism.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-indigo-600 h-2 rounded-full" 
+                                    style={{ width: `${(avgProfessionalism / 5) * 100}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Recent Comments */}
+                          {tutorFeedbacks.slice(0, 2).some(f => f.feedbackText || f.additionalComments) && (
+                            <div className="pt-4 border-t border-gray-200">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Recent Reviews</h4>
+                              <div className="space-y-2">
+                                {tutorFeedbacks.slice(0, 2).map((feedback, idx) => {
+                                  const comment = feedback.feedbackText || feedback.additionalComments;
+                                  if (!comment) return null;
+                                  return (
+                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <div className="flex">
+                                          {[...Array(5)].map((_, i) => (
+                                            <Star
+                                              key={i}
+                                              className={`w-3 h-3 ${
+                                                i < Math.floor(feedback.overallSatisfactionRating)
+                                                  ? 'text-yellow-400 fill-current'
+                                                  : 'text-gray-300'
+                                              }`}
+                                            />
+                                          ))}
+                                        </div>
+                                        <span className="text-xs text-gray-500">
+                                          {feedback.userFullName || 'Anonymous'}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-gray-700 line-clamp-2">{comment}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">No reviews yet</p>
+                  </div>
+                )}
               </div>
 
               {/* Final Feedback Section */}
               {contract.status === 'completed' && finalFeedback && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Your Feedback</h3>
                     <span className="text-xs text-gray-500 bg-green-100 text-green-700 px-2 py-1 rounded-full">
@@ -898,7 +1041,7 @@ const ContractDetail: React.FC = () => {
 
         {activeTab === 'sessions' && (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
               <div className="p-6 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Session History</h3>
               </div>
@@ -941,7 +1084,7 @@ const ContractDetail: React.FC = () => {
 
         {activeTab === 'tutor' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
               <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
                 <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
                   <User className="w-6 h-6 text-white" />
@@ -1006,7 +1149,7 @@ const ContractDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Qualifications</h3>
               <div className="space-y-3">
                 {contract.tutorQualifications.map((qualification, index) => (
@@ -1028,7 +1171,7 @@ const ContractDetail: React.FC = () => {
               const contractData = (contract as any);
               const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
               return substituteTutor1Id ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                   <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
                     <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
                       <User className="w-6 h-6 text-white" />
@@ -1079,7 +1222,7 @@ const ContractDetail: React.FC = () => {
               const contractData = (contract as any);
               const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
               return substituteTutor2Id ? (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                   <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
                     <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
                       <User className="w-6 h-6 text-white" />
