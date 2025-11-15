@@ -447,15 +447,7 @@ const ContractsManagement: React.FC = () => {
                     <span>View Details</span>
                   </button>
 
-                  {contract.status === 'active' && (
-                    <button
-                      onClick={() => handleReschedule(contract.id)}
-                      className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
-                    >
-                      <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-                      <span>Reschedule</span>
-                    </button>
-                  )}
+
 
                   {contract.status === 'completed' && (
                     <button

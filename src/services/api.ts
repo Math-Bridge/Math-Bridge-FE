@@ -3672,6 +3672,53 @@ export async function getFinalFeedbackByContractAndProvider(contractId: string, 
   }
 }
 
+
+// Get final feedbacks by user ID (for tutor ratings)
+export async function getFinalFeedbacksByUserId(userId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/finalfeedback/user/${userId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: FinalFeedback[] = result.data.map((item: any) => ({
+        feedbackId: item.feedbackId || item.FeedbackId || '',
+        userId: item.userId || item.UserId || userId,
+        contractId: item.contractId || item.ContractId || '',
+        feedbackProviderType: item.feedbackProviderType || item.FeedbackProviderType || '',
+        feedbackText: item.feedbackText || item.FeedbackText,
+        overallSatisfactionRating: item.overallSatisfactionRating ?? item.OverallSatisfactionRating ?? 0,
+        communicationRating: item.communicationRating ?? item.CommunicationRating,
+        sessionQualityRating: item.sessionQualityRating ?? item.SessionQualityRating,
+        learningProgressRating: item.learningProgressRating ?? item.LearningProgressRating,
+        professionalismRating: item.professionalismRating ?? item.ProfessionalismRating,
+        wouldRecommend: item.wouldRecommend ?? item.WouldRecommend ?? false,
+        wouldWorkTogetherAgain: item.wouldWorkTogetherAgain ?? item.WouldWorkTogetherAgain ?? false,
+        contractObjectivesMet: item.contractObjectivesMet ?? item.ContractObjectivesMet,
+        improvementSuggestions: item.improvementSuggestions || item.ImprovementSuggestions,
+        additionalComments: item.additionalComments || item.AdditionalComments,
+        feedbackStatus: item.feedbackStatus || item.FeedbackStatus || 'Submitted',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        userFullName: item.userFullName || item.UserFullName,
+        contractTitle: item.contractTitle || item.ContractTitle,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to get tutor feedback',
+    };
+  }
+}
+
 // Create final feedback
 export async function createFinalFeedback(data: CreateFinalFeedbackRequest) {
   try {
