@@ -11,6 +11,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,9 +112,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   userRole = (backendUser.role || backendUser.Role).toLowerCase();
                 }
                 
-                // Check if user has a placeId
+                // Check if user has a placeId or needs phone update
                 const userPlaceId = backendUser.placeId || backendUser.PlaceId;
-                const needsLocation = !userPlaceId;
+                const userPhoneNumber = backendUser.phoneNumber || backendUser.PhoneNumber;
+                const needsLocation = !userPlaceId || userPhoneNumber === 'N/A';
 
                 const user: User = {
                   id: backendUser.userId || backendUser.UserId || userId,
@@ -271,6 +273,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUser = () => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        console.log('User refreshed from localStorage:', parsedUser);
+      } catch (error) {
+        console.error('Error refreshing user:', error);
+      }
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -281,6 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     forgotPassword,
     resendVerification,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
