@@ -1720,6 +1720,33 @@ export async function rejectRescheduleRequest(requestId: string, data: RejectRes
   }
 }
 
+// Cancel session and refund when no tutors available
+export interface CancelSessionResponse {
+  requestId: string;
+  status: string;
+  message: string;
+  processedDate: string;
+}
+
+export async function cancelRescheduleSession(bookingId: string, rescheduleRequestId: string) {
+  try {
+    const result = await apiService.request<CancelSessionResponse>(
+      `/reschedule/cancel-session/${bookingId}?rescheduleRequestId=${rescheduleRequestId}`, 
+      {
+        method: 'POST',
+      }
+    );
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to cancel session',
+    };
+  }
+}
+
 // Staff Dashboard Stats
 export interface StaffStats {
   pendingContracts: number;
