@@ -22,6 +22,7 @@ import {
   ApproveRescheduleRequest,
   getAvailableSubTutors,
   AvailableSubTutor,
+  cancelRescheduleSession,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -49,6 +50,10 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   const [selectedTutorId, setSelectedTutorId] = useState<string>('');
   const [availableTutors, setAvailableTutors] = useState<AvailableSubTutor[]>([]);
   const [loadingTutors, setLoadingTutors] = useState(false);
+  
+  // Cancel session states
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
   // Helper functions for formatting
   const formatDate = (dateStr: string | undefined): string => {
@@ -239,6 +244,31 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
       console.error('Error rejecting request:', error);
       const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to reject request';
       showError(errorMsg);
+    }
+  };
+
+  const handleCancelSession = async () => {
+    if (!selectedRequest) return;
+    
+    try {
+      setCancelLoading(true);
+      const result = await cancelRescheduleSession(selectedRequest.bookingId, selectedRequest.requestId);
+      if (result.success) {
+        showSuccess(result.data?.message || 'Session cancelled successfully. Refund has been added to wallet.');
+        setShowCancelModal(false);
+        setSelectedRequest(null);
+        await fetchRequests();
+      } else {
+        const errorMsg = result.error || 'Failed to cancel session';
+        showError(errorMsg);
+        console.error('Cancel session error:', errorMsg);
+      }
+    } catch (error: any) {
+      console.error('Error cancelling session:', error);
+      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to cancel session';
+      showError(errorMsg);
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -639,12 +669,30 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
               >
                 Cancel
               </button>
-              <button
-                onClick={handleApprove}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Approve Request
-              </button>
+              {!loadingTutors && availableTutors.length === 0 ? (
+                <button
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setShowCancelModal(true);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
+                  style={{
+                    backgroundColor: '#dc3545',
+                  }}
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Cancel Session & Refund</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleApprove}
+                  disabled={loadingTutors}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  id="approve-reschedule-btn"
+                >
+                  Approve Request
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -685,6 +733,80 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Session Modal */}
+      {showCancelModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                <XCircle className="w-6 h-6 text-red-600" />
+                <span>Cancel Session</span>
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-yellow-800 font-semibold mb-2">⚠️ No Tutors Available</p>
+                <p className="text-yellow-700 text-sm">
+                  No tutors are available for the requested time slot.
+                </p>
+              </div>
+              <p className="text-gray-700 mb-4">
+                No tutors are available for rescheduling. Do you want to cancel this session and receive a refund to the wallet?
+              </p>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Session Details:</p>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div><strong>Parent:</strong> {selectedRequest.parentName}</div>
+                  <div><strong>Child:</strong> {selectedRequest.childName || 'N/A'}</div>
+                  <div><strong>Requested Date:</strong> {formatDate(selectedRequest.requestedDate)}</div>
+                  <div><strong>Time:</strong> {
+                    selectedRequest.startTime && selectedRequest.endTime 
+                      ? formatTimeRange(selectedRequest.startTime, selectedRequest.endTime)
+                      : selectedRequest.requestedTimeSlot || 'N/A'
+                  }</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSelectedRequest(null);
+                }}
+                disabled={cancelLoading}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                id="cancel-session-no-btn"
+              >
+                No, Keep Request
+              </button>
+              <button
+                onClick={handleCancelSession}
+                disabled={cancelLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                id="cancel-session-btn"
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: '#ffffff',
+                  border: 'none',
+                }}
+              >
+                {cancelLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Yes, Cancel Session</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

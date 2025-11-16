@@ -96,10 +96,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
     }
   }
 
-  // Check if user needs to set up location (skip for profile pages)
-  if (!skipLocationCheck && user && !user.placeId) {
-    console.log('User missing placeId, redirecting to profile for location setup');
-    return <Navigate to="/user-profile" replace state={{ needsLocation: true }} />;
+  // Check if user needs to set up location or phone (skip for profile pages)
+  if (!skipLocationCheck && user && (!user.placeId || user.phone === 'N/A')) {
+    console.log('User missing required data (placeId or phone), redirecting to profile');
+    return <Navigate to="/user-profile" replace state={{ needsLocation: !user.placeId, needsPhone: user.phone === 'N/A' }} />;
   }
 
   console.log('User authenticated (and role ok if required), showing protected content');
