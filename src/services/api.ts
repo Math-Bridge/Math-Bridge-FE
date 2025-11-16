@@ -61,6 +61,63 @@ export interface Activity {
   type: string;
 }
 
+// Notification types (API response format)
+export interface NotificationApiResponse {
+  notificationId: string;
+  userId: string;
+  contractId?: string;
+  bookingId?: string;
+  title: string;
+  message: string;
+  notificationType: string;
+  status: string;
+  createdDate: string;
+  sentDate: string;
+  isRead: boolean;
+}
+
+// Notification type (internal format)
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  link?: string;
+  type?: string;
+  contractId?: string;
+  bookingId?: string;
+}
+
+export interface PaginatedNotificationsResponse {
+  items: Notification[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}
+
+
+// Helper function to map API notification response to internal format
+function mapNotificationFromApi(apiNotification: NotificationApiResponse): Notification {
+  return {
+    id: apiNotification.notificationId,
+    title: apiNotification.title,
+    message: apiNotification.message,
+    isRead: apiNotification.isRead,
+    createdAt: apiNotification.createdDate,
+    type: apiNotification.notificationType,
+    contractId: apiNotification.contractId,
+    bookingId: apiNotification.bookingId,
+    // Generate link based on notification type
+    link: apiNotification.contractId ? `/contracts/${apiNotification.contractId}` : undefined,
+  };
+}
+
 class ApiService {
   public async request<T>(
     endpoint: string,
@@ -411,6 +468,68 @@ class ApiService {
 
   async getAllUsers(): Promise<ApiResponse<any[]>> {
     return this.request('/admin/users');
+  }
+
+
+  // Notification endpoints
+  async getUnreadCount(): Promise<ApiResponse<UnreadCountResponse>> {
+    return this.request<UnreadCountResponse>('/Notification/unread-count');
+  }
+
+  async getAllNotifications(pageNumber: number = 1, pageSize: number = 10): Promise<ApiResponse<Notification[]>> {
+    const response = await this.request<NotificationApiResponse[]>(`/Notification?pageNumber=${pageNumber}&pageSize=${pageSize}`);
+    
+    // Transform API response to internal format
+    if (response.success && response.data && Array.isArray(response.data)) {
+      return {
+        ...response,
+        data: response.data.map(mapNotificationFromApi)
+      };
+    }
+    
+    return response as ApiResponse<Notification[]>;
+  }
+
+  async getUnreadNotifications(): Promise<ApiResponse<Notification[]>> {
+    const response = await this.request<NotificationApiResponse[]>('/Notification/unread');
+    
+    // Transform API response to internal format
+    if (response.success && response.data && Array.isArray(response.data)) {
+      return {
+        ...response,
+        data: response.data.map(mapNotificationFromApi)
+      };
+    }
+    
+    return response as ApiResponse<Notification[]>;
+  }
+
+  async getNotificationById(id: string): Promise<ApiResponse<Notification>> {
+    return this.request<Notification>(`/Notification/${id}`);
+  }
+
+  async markNotificationAsRead(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/Notification/${id}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async markAllNotificationsAsRead(): Promise<ApiResponse<void>> {
+    return this.request<void>('/Notification/mark-all-read', {
+      method: 'PUT',
+    });
+  }
+
+  async deleteNotification(id: string): Promise<ApiResponse<void>> {
+    return this.request<void>(`/Notification/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAllNotifications(): Promise<ApiResponse<void>> {
+    return this.request<void>('/Notification', {
+      method: 'DELETE',
+    });
   }
 }
 

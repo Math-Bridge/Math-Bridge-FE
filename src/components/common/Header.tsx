@@ -18,6 +18,7 @@ import {
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
 import SettingsModal from './SettingsModal';
+import NotificationBell from './NotificationBell';
 import { useTranslation } from '../../hooks/useTranslation';
 
 const Header: React.FC = () => {
@@ -264,6 +265,9 @@ const Header: React.FC = () => {
                     </span>
                   </button>
                 )}
+
+                {/* Notification Bell */}
+                <NotificationBell />
 
                 {/* User Menu */}
                 <div className="relative" ref={userDropdownRef}>

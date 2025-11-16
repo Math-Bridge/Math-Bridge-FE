@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { TutorSessions, TutorProfile, TutorDailyReport } from '.';
 import { useAuth } from '../../../hooks/useAuth';
+import NotificationBell from '../../common/NotificationBell';
 
 const TutorDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -171,21 +172,39 @@ const TutorDashboard: React.FC = () => {
           showSidebar ? 'lg:ml-64' : 'lg:ml-0'
         }`}
       >
-        {/* Mobile Menu Button */}
-        <div className="lg:hidden fixed top-4 left-4 z-30">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 bg-white border border-gray-200 rounded-lg shadow-sm text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+        {/* Top Bar */}
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4">
+            {/* Left: Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+
+            {/* Center: Title (visible on desktop) */}
+            <div className="hidden lg:block">
+              <h1 className="text-2xl font-bold text-gray-900">Tutor Dashboard</h1>
+            </div>
+
+            {/* Right: Notification Bell */}
+            <div className="ml-auto">
+              <NotificationBell />
+            </div>
+          </div>
         </div>
 
         <div className="p-6 lg:p-8">
-          {/* Dashboard Header */}
-          <div className="mb-6">
+          {/* Dashboard Header (mobile only) */}
+          <div className="mb-6 lg:hidden">
             <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
+          </div>
+
+          {/* Subheader (desktop only) */}
+          <div className="mb-6 hidden lg:block">
+            <p className="text-gray-600">Manage your tutoring sessions and performance</p>
           </div>
 
           {/* Content */}
