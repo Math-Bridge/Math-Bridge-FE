@@ -22,9 +22,9 @@ import {
   DailyReport,
   CreateDailyReportRequest,
   UpdateDailyReportRequest,
+  getUnitsByContractId,
+  getAllUnits,
   getContractById,
-  getPackageById,
-  apiService,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -53,6 +53,7 @@ const TutorDailyReport: React.FC = () => {
   const [onTrack, setOnTrack] = useState(true);
   const [haveHomework, setHaveHomework] = useState(false);
   const [notes, setNotes] = useState('');
+  const [childId, setChildId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSessions();
@@ -62,9 +63,11 @@ const TutorDailyReport: React.FC = () => {
     if (selectedSession) {
       fetchExistingReport();
       fetchUnits();
+      fetchChildIdFromContract();
     } else {
       setExistingReport(null);
       resetForm();
+      setChildId(null);
     }
   }, [selectedSession]);
 
@@ -145,48 +148,72 @@ const TutorDailyReport: React.FC = () => {
   };
 
   const fetchUnits = async () => {
-    if (!selectedSession?.contractId) return;
+    if (!selectedSession?.contractId) {
+      // If no contract, try to load all units as fallback
+      await fetchAllUnits();
+      return;
+    }
 
     try {
-      // Get contract to find curriculum/package
-      const contractResult = await getContractById(selectedSession.contractId);
+      // Use the new API endpoint to get units by contract ID
+      const result = await getUnitsByContractId(selectedSession.contractId);
       
-      if (contractResult.success && contractResult.data) {
-        const contract = contractResult.data;
-        // Try to get curriculumId from package
-        // Note: You may need to adjust this based on your contract structure
-        const packageId = contract.packageId;
-        
-        if (packageId) {
-          // Get package to find curriculum
-          const packageResult = await getPackageById(packageId);
-          
-          if (packageResult.success && packageResult.data) {
-            const curriculumId = packageResult.data.curriculumId;
-            
-            if (curriculumId) {
-              // Get units by curriculum
-              const unitsResult = await apiService.request<any>(`/units/by-curriculum/${curriculumId}`, {
-                method: 'GET',
-              });
-              
-              if (unitsResult.success && unitsResult.data?.data) {
-                setUnits(
-                  unitsResult.data.data.map((u: any) => ({
-                    unitId: u.unitId || u.UnitId || '',
-                    unitName: u.unitName || u.UnitName || '',
-                    unitOrder: u.unitOrder || u.UnitOrder || 0,
-                    curriculumId: u.curriculumId || u.CurriculumId || '',
-                  }))
-                );
-              }
-            }
-          }
-        }
+      if (result.success && result.data && result.data.length > 0) {
+        setUnits(
+          result.data.map((u) => ({
+            unitId: u.unitId,
+            unitName: u.unitName,
+            unitOrder: u.unitOrder,
+            curriculumId: u.curriculumId,
+          }))
+        );
+        return; // Successfully loaded contract-specific units
+      }
+      
+      // Fallback: if contract-specific units failed or empty, load all units
+      await fetchAllUnits();
+    } catch (error: any) {
+      console.warn('Could not fetch units by contract, using all units:', error);
+      // Fallback: try to load all units
+      await fetchAllUnits();
+    }
+  };
+
+  const fetchAllUnits = async () => {
+    try {
+      const result = await getAllUnits();
+      if (result.success && result.data) {
+        setUnits(
+          result.data.map((u) => ({
+            unitId: u.unitId,
+            unitName: u.unitName,
+            unitOrder: u.unitOrder,
+            curriculumId: u.curriculumId,
+          }))
+        );
       }
     } catch (error) {
-      console.error('Error fetching units:', error);
-      // Continue without units - tutor can still create report by entering unit ID manually
+      console.error('Error fetching all units:', error);
+      // If this also fails, units array will remain empty and text input will be shown
+    }
+  };
+
+  const fetchChildIdFromContract = async () => {
+    if (!selectedSession?.contractId) {
+      setChildId(null);
+      return;
+    }
+
+    try {
+      const result = await getContractById(selectedSession.contractId);
+      if (result.success && result.data) {
+        setChildId(result.data.childId || null);
+      } else {
+        setChildId(null);
+      }
+    } catch (error) {
+      console.error('Error fetching contract to get childId:', error);
+      setChildId(null);
     }
   };
 
@@ -195,6 +222,7 @@ const TutorDailyReport: React.FC = () => {
     setOnTrack(true);
     setHaveHomework(false);
     setNotes('');
+    // Don't reset units here - they will be reloaded when fetchUnits is called
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -210,8 +238,8 @@ const TutorDailyReport: React.FC = () => {
       return;
     }
 
-    if (!selectedSession.childId || !selectedSession.bookingId) {
-      showError('Session information is incomplete');
+    if (!childId || !selectedSession.bookingId) {
+      showError('Session information is incomplete. Please wait for contract information to load.');
       return;
     }
 
@@ -245,7 +273,7 @@ const TutorDailyReport: React.FC = () => {
       } else {
         // Create new report
         const createData: CreateDailyReportRequest = {
-          childId: selectedSession.childId,
+          childId: childId,
           bookingId: selectedSession.bookingId,
           unitId,
           onTrack,

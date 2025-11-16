@@ -2734,7 +2734,8 @@ export async function getSessionByIdForTutor(bookingId: string) {
 
 // Update session status
 // Backend endpoint: PUT /api/sessions/{bookingId}/status
-export async function updateSessionStatus(bookingId: string, status: 'completed' | 'cancelled') {
+// Note: Tutors can only set status to 'processing' or 'completed'
+export async function updateSessionStatus(bookingId: string, status: 'processing' | 'completed') {
   const result = await apiService.request<{ success: boolean; message: string }>(
     `/sessions/${bookingId}/status`,
     {
@@ -3090,6 +3091,17 @@ export interface ChildUnitProgress {
   lastLessonDate: string | null;
   percentageOfCurriculumCompleted: number;
   message: string | null;
+}
+
+export interface Unit {
+  unitId: string;
+  unitName: string;
+  unitOrder: number;
+  curriculumId: string;
+  curriculumName?: string;
+  description?: string;
+  createdDate?: string;
+  updatedDate?: string;
 }
 
 // Get daily report by ID
@@ -3854,6 +3866,92 @@ export async function updateFinalFeedback(feedbackId: string, data: UpdateFinalF
       success: false,
       data: null,
       error: error?.message || 'Failed to update final feedback',
+    };
+  }
+}
+
+// Get all units
+export async function getAllUnits() {
+  try {
+    const result = await apiService.request<any>('/units', {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const data = result.data;
+      // Handle both direct array and wrapped response
+      const unitsArray = Array.isArray(data) ? data : (data.data || []);
+      
+      const mappedData: Unit[] = unitsArray.map((item: any) => ({
+        unitId: item.unitId || item.UnitId || '',
+        unitName: item.unitName || item.UnitName || '',
+        unitOrder: item.unitOrder || item.UnitOrder || 0,
+        curriculumId: item.curriculumId || item.CurriculumId || '',
+        curriculumName: item.curriculumName || item.CurriculumName,
+        description: item.description || item.Description,
+        createdDate: item.createdDate || item.CreatedDate,
+        updatedDate: item.updatedDate || item.UpdatedDate,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return {
+      success: false,
+      data: [],
+      error: result.error || 'Failed to fetch units',
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch units',
+    };
+  }
+}
+
+// Get units by contract ID
+export async function getUnitsByContractId(contractId: string) {
+  try {
+    const result = await apiService.request<any>(`/units/by-contract/${contractId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const data = result.data;
+      // Handle both direct array and wrapped response
+      const unitsArray = Array.isArray(data) ? data : (data.data || []);
+      
+      const mappedData: Unit[] = unitsArray.map((item: any) => ({
+        unitId: item.unitId || item.UnitId || '',
+        unitName: item.unitName || item.UnitName || '',
+        unitOrder: item.unitOrder || item.UnitOrder || 0,
+        curriculumId: item.curriculumId || item.CurriculumId || '',
+        curriculumName: item.curriculumName || item.CurriculumName,
+        description: item.description || item.Description,
+        createdDate: item.createdDate || item.CreatedDate,
+        updatedDate: item.updatedDate || item.UpdatedDate,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+      };
+    }
+    
+    return {
+      success: false,
+      data: [],
+      error: result.error || 'Failed to fetch units by contract',
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch units by contract',
     };
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, X, User, BookOpen, CheckCircle, XCircle, ExternalLink, Link as LinkIcon, Plus, Monitor, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, X, User, BookOpen, CheckCircle, XCircle, ExternalLink, Link as LinkIcon, Plus, Monitor, Copy, Check, Play } from 'lucide-react';
 import { getTutorSessions, getSessionById, updateSessionStatus, createVideoConference, CreateVideoConferenceRequest, Session } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -171,7 +171,7 @@ const TutorSessions: React.FC = () => {
     await fetchSessionDetail(session.bookingId, true); // Pass true to enable auto-create
   };
 
-  const handleUpdateStatus = async (bookingId: string, status: 'completed' | 'cancelled') => {
+  const handleUpdateStatus = async (bookingId: string, status: 'processing' | 'completed') => {
     if (!bookingId) return;
 
     try {
@@ -200,8 +200,8 @@ const TutorSessions: React.FC = () => {
       const result = await updateSessionStatus(bookingId, status);
       if (result.success) {
         const statusMessages: Record<string, string> = {
+          processing: 'Session started',
           completed: 'Session marked as completed',
-          cancelled: 'Session cancelled',
         };
         showSuccess(result.message || statusMessages[status] || `Session status updated to ${status}`);
         
@@ -429,10 +429,29 @@ const TutorSessions: React.FC = () => {
               {/* Status Update Buttons - Small in header corner */}
               {(() => {
                 const currentStatus = sessionDetail?.status || selectedSession?.status;
-                if (currentStatus && (currentStatus.toLowerCase() === 'scheduled' || currentStatus.toLowerCase() === 'processing')) {
-                  const bookingId = sessionDetail?.bookingId || selectedSession?.bookingId;
-                  return (
-                    <div className="flex items-center gap-1">
+                const bookingId = sessionDetail?.bookingId || selectedSession?.bookingId;
+                
+                if (currentStatus) {
+                  const statusLower = currentStatus.toLowerCase();
+                  
+                  // Show "Start Session" button if status is 'scheduled'
+                  if (statusLower === 'scheduled') {
+                    return (
+                      <button
+                        onClick={() => bookingId && handleUpdateStatus(bookingId, 'processing')}
+                        disabled={updatingStatus || !bookingId}
+                        className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        title="Start Session"
+                      >
+                        <Play className="w-3 h-3" />
+                        <span className="hidden sm:inline">Start</span>
+                      </button>
+                    );
+                  }
+                  
+                  // Show "Complete" button if status is 'processing'
+                  if (statusLower === 'processing') {
+                    return (
                       <button
                         onClick={() => bookingId && handleUpdateStatus(bookingId, 'completed')}
                         disabled={updatingStatus || !bookingId}
@@ -442,17 +461,8 @@ const TutorSessions: React.FC = () => {
                         <CheckCircle className="w-3 h-3" />
                         <span className="hidden sm:inline">Complete</span>
                       </button>
-                      <button
-                        onClick={() => bookingId && handleUpdateStatus(bookingId, 'cancelled')}
-                        disabled={updatingStatus || !bookingId}
-                        className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                        title="Cancel Session"
-                      >
-                        <XCircle className="w-3 h-3" />
-                        <span className="hidden sm:inline">Cancel</span>
-                      </button>
-                    </div>
-                  );
+                    );
+                  }
                 }
                 return null;
               })()}

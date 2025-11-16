@@ -21,6 +21,8 @@ import {
   DailyReport,
   getChildrenByParent,
   Child,
+  getAllUnits,
+  Unit,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -34,10 +36,13 @@ const StaffDailyReports: React.FC = () => {
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterOnTrack, setFilterOnTrack] = useState<'all' | 'onTrack' | 'offTrack'>('all');
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [units, setUnits] = useState<Unit[]>([]);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAllReports();
+    fetchUnits();
   }, []);
 
   useEffect(() => {
@@ -93,6 +98,17 @@ const StaffDailyReports: React.FC = () => {
     }
   };
 
+  const fetchUnits = async () => {
+    try {
+      const result = await getAllUnits();
+      if (result.success && result.data) {
+        setUnits(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching units:', error);
+    }
+  };
+
   const handleDelete = async (reportId: string) => {
     if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
       return;
@@ -139,7 +155,9 @@ const StaffDailyReports: React.FC = () => {
       (filterOnTrack === 'onTrack' && report.onTrack) ||
       (filterOnTrack === 'offTrack' && !report.onTrack);
 
-    return matchesSearch && matchesFilter;
+    const matchesUnit = !selectedUnitId || report.unitId === selectedUnitId;
+
+    return matchesSearch && matchesFilter && matchesUnit;
   });
 
   if (loading) {
@@ -179,7 +197,7 @@ const StaffDailyReports: React.FC = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -200,6 +218,23 @@ const StaffDailyReports: React.FC = () => {
                 <option value="all">All Reports</option>
                 <option value="onTrack">On Track</option>
                 <option value="offTrack">Off Track</option>
+              </select>
+            </div>
+            <div className="relative">
+              <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={selectedUnitId || ''}
+                onChange={(e) => setSelectedUnitId(e.target.value || null)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+              >
+                <option value="">All Units</option>
+                {units
+                  .sort((a, b) => a.unitOrder - b.unitOrder)
+                  .map((unit) => (
+                    <option key={unit.unitId} value={unit.unitId}>
+                      {unit.unitName} (Unit {unit.unitOrder})
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
