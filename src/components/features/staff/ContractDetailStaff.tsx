@@ -21,7 +21,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -54,6 +54,10 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [mainTutorInfo, setMainTutorInfo] = useState<any>(null);
   const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
   const [substituteTutor2Info, setSubstituteTutor2Info] = useState<any>(null);
+  
+  // Feedback states
+  const [parentFeedback, setParentFeedback] = useState<FinalFeedback | null>(null);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
 
   useEffect(() => {
     if (contractId) {
@@ -236,6 +240,24 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
               email: contractData.substituteTutor2Email || contractData.SubstituteTutor2Email,
               phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
             });
+          }
+        }
+
+        // Fetch parent feedback if contract is completed
+        if (contractData.status === 'completed' && contractId) {
+          try {
+            setLoadingFeedback(true);
+            const feedbackResult = await getFinalFeedbackByContractAndProvider(contractId, 'parent');
+            if (feedbackResult.success && feedbackResult.data) {
+              setParentFeedback(feedbackResult.data);
+            }
+          } catch (err) {
+            // Silently handle - feedback may not exist yet
+            if (import.meta.env.DEV) {
+              console.log('No parent feedback found');
+            }
+          } finally {
+            setLoadingFeedback(false);
           }
         }
       } else {
@@ -669,6 +691,146 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                       <p className="font-medium text-gray-900">{contract.centerName}</p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Parent Feedback Section */}
+              {contract.status === 'completed' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Star className="w-5 h-5 mr-2 text-yellow-500" />
+                    Parent Feedback
+                  </h3>
+                  {loadingFeedback ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : parentFeedback ? (
+                    <div className="space-y-4">
+                      {/* Overall Rating */}
+                      <div>
+                        <p className="text-sm text-gray-600 mb-2">Overall Satisfaction</p>
+                        <div className="flex items-center space-x-2">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-5 h-5 ${
+                                  i < parentFeedback.overallSatisfactionRating
+                                    ? 'text-yellow-400 fill-current'
+                                    : 'text-gray-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="font-semibold text-gray-900">
+                            {parentFeedback.overallSatisfactionRating}/5
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Detailed Ratings */}
+                      {(parentFeedback.communicationRating || 
+                        parentFeedback.sessionQualityRating || 
+                        parentFeedback.learningProgressRating || 
+                        parentFeedback.professionalismRating) && (
+                        <div className="space-y-2 pt-2 border-t border-gray-200">
+                          {parentFeedback.communicationRating && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">Communication</span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {parentFeedback.communicationRating}/5
+                              </span>
+                            </div>
+                          )}
+                          {parentFeedback.sessionQualityRating && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">Session Quality</span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {parentFeedback.sessionQualityRating}/5
+                              </span>
+                            </div>
+                          )}
+                          {parentFeedback.learningProgressRating && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">Learning Progress</span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {parentFeedback.learningProgressRating}/5
+                              </span>
+                            </div>
+                          )}
+                          {parentFeedback.professionalismRating && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">Professionalism</span>
+                              <span className="text-sm font-semibold text-gray-900">
+                                {parentFeedback.professionalismRating}/5
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Comments */}
+                      {parentFeedback.additionalComments && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 mb-1">Comments</p>
+                          <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
+                            {parentFeedback.additionalComments}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Improvement Suggestions */}
+                      {parentFeedback.improvementSuggestions && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 mb-1">Improvement Suggestions</p>
+                          <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
+                            {parentFeedback.improvementSuggestions}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Recommendations */}
+                      <div className="flex items-center space-x-4 pt-2 border-t border-gray-200">
+                        {parentFeedback.wouldRecommend && (
+                          <div className="flex items-center space-x-1 text-green-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs font-medium">Would Recommend</span>
+                          </div>
+                        )}
+                        {parentFeedback.wouldWorkTogetherAgain && (
+                          <div className="flex items-center space-x-1 text-blue-600">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="text-xs font-medium">Would Work Again</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contract Objectives Met */}
+                      {parentFeedback.contractObjectivesMet !== undefined && (
+                        <div className="pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 mb-1">Contract Objectives</p>
+                          <div className="flex items-center space-x-2">
+                            {parentFeedback.contractObjectivesMet ? (
+                              <div className="flex items-center space-x-1 text-green-600">
+                                <CheckCircle className="w-4 h-4" />
+                                <span className="text-xs font-medium">Objectives Met</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-1 text-red-600">
+                                <XCircle className="w-4 h-4" />
+                                <span className="text-xs font-medium">Objectives Not Met</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500">No feedback submitted yet</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

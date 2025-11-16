@@ -32,6 +32,7 @@ import ContractManagement from './ContractManagement';
 import RescheduleManagement from './RescheduleManagement';
 import TutorVerificationManagement from './TutorVerificationManagement';
 import StaffDailyReports from './StaffDailyReports';
+import FinalFeedbackManagement from './FinalFeedbackManagement';
 
 interface RecentActivity {
   id: string;
@@ -59,7 +60,7 @@ const StaffDashboard: React.FC = () => {
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification' | 'daily-reports'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification' | 'daily-reports' | 'final-feedback'>('dashboard');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
@@ -103,7 +104,7 @@ const StaffDashboard: React.FC = () => {
   // Sync currentView with location state (for navigation from detail pages)
   useEffect(() => {
     const state = location.state as { view?: string } | null;
-    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification', 'daily-reports'].includes(state.view)) {
+    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification', 'daily-reports', 'final-feedback'].includes(state.view)) {
       setCurrentView(state.view as typeof currentView);
     }
   }, [location.state]);
@@ -113,7 +114,7 @@ const StaffDashboard: React.FC = () => {
     { name: 'Tutor Verification', icon: UserCheck, path: '/staff/tutor-verification', view: 'tutor-verification' as const },
     { name: 'Contract Management', icon: FileText, path: '/staff/contracts', view: 'contracts' as const },
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
-    { name: 'Daily Reports', icon: BarChart3, path: '/staff/daily-reports', view: 'daily-reports' as const },
+    { name: 'Final Feedback Management', icon: Star, path: '/staff/final-feedback', view: 'final-feedback' as const },
     { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
     { name: 'Center Management', icon: Building, path: '/staff/centers', view: 'centers' as const },
   ];
@@ -164,6 +165,8 @@ const StaffDashboard: React.FC = () => {
         return <RescheduleManagement hideBackButton />;
       case 'daily-reports':
         return <StaffDailyReports />;
+      case 'final-feedback':
+        return <FinalFeedbackManagement />;
       case 'chat':
     return (
           <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">

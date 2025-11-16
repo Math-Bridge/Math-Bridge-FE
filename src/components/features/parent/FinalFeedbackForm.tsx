@@ -19,7 +19,6 @@ import {
   getContractById,
   getFinalFeedbackByContractAndProvider,
   createFinalFeedback,
-  updateFinalFeedback,
   CreateFinalFeedbackRequest,
   FinalFeedback,
   Contract,
@@ -81,21 +80,22 @@ const FinalFeedbackForm: React.FC = () => {
         return;
       }
 
-      // Check for existing feedback (parent feedback)
-      const feedbackResult = await getFinalFeedbackByContractAndProvider(contractId, 'parent');
-      if (feedbackResult.success && feedbackResult.data) {
-        setExistingFeedback(feedbackResult.data);
-        // Load existing feedback data
-        setOverallRating(feedbackResult.data.overallSatisfactionRating);
-        setCommunicationRating(feedbackResult.data.communicationRating);
-        setSessionQualityRating(feedbackResult.data.sessionQualityRating);
-        setLearningProgressRating(feedbackResult.data.learningProgressRating);
-        setProfessionalismRating(feedbackResult.data.professionalismRating);
-        setWouldRecommend(feedbackResult.data.wouldRecommend);
-        setWouldWorkTogetherAgain(feedbackResult.data.wouldWorkTogetherAgain);
-        setContractObjectivesMet(feedbackResult.data.contractObjectivesMet);
-        setImprovementSuggestions(feedbackResult.data.improvementSuggestions || '');
-        setAdditionalComments(feedbackResult.data.additionalComments || '');
+      // Check for existing feedback (parent feedback) - only allow 1 feedback per parent
+      try {
+        const feedbackResult = await getFinalFeedbackByContractAndProvider(contractId, 'parent');
+        if (feedbackResult.success && feedbackResult.data) {
+          setExistingFeedback(feedbackResult.data);
+          // Parent already submitted feedback - show message and redirect
+          showError('You have already submitted feedback for this contract. Each parent can only submit feedback once.');
+          navigate(`/contracts/${contractId}`);
+          return;
+        }
+        // If feedback doesn't exist, that's fine - user will create new feedback
+      } catch (feedbackError) {
+        // Silently handle feedback not found - it's normal for new feedback
+        if (import.meta.env.DEV) {
+          console.log('No existing feedback found, user will create new feedback');
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -122,7 +122,10 @@ const FinalFeedbackForm: React.FC = () => {
       case 1:
         return overallRating > 0;
       case 2:
-        return communicationRating && sessionQualityRating && learningProgressRating && professionalismRating;
+        return communicationRating !== undefined && 
+               sessionQualityRating !== undefined && 
+               learningProgressRating !== undefined && 
+               professionalismRating !== undefined;
       case 3:
         return true; // Optional step
       case 4:
@@ -162,17 +165,18 @@ const FinalFeedbackForm: React.FC = () => {
         additionalComments: additionalComments || undefined,
       };
 
-      let result;
+      // Parent can only submit feedback once - no updates allowed
       if (existingFeedback) {
-        // Update existing feedback
-        result = await updateFinalFeedback(existingFeedback.feedbackId, feedbackData);
-      } else {
-        // Create new feedback
-        result = await createFinalFeedback(feedbackData);
+        showError('You have already submitted feedback for this contract. Each parent can only submit feedback once.');
+        navigate(`/contracts/${contractId}`);
+        return;
       }
 
+      // Create new feedback only
+      const result = await createFinalFeedback(feedbackData);
+
       if (result.success) {
-        showSuccess(existingFeedback ? 'Feedback updated successfully!' : 'Feedback submitted successfully!');
+        showSuccess('Feedback submitted successfully!');
         navigate(`/contracts/${contractId}`);
       } else {
         showError(result.error || 'Failed to submit feedback');
@@ -226,7 +230,7 @@ const FinalFeedbackForm: React.FC = () => {
             <span>Back to Contract</span>
           </button>
           <h1 className="text-3xl font-bold text-gray-900">
-            {existingFeedback ? 'Update Final Feedback' : 'Submit Final Feedback'}
+            Submit Final Feedback
           </h1>
           <p className="text-gray-600 mt-2">
             Share your experience and help us improve our tutoring services
@@ -566,7 +570,7 @@ const FinalFeedbackForm: React.FC = () => {
                 ) : (
                   <>
                     <CheckCircle className="w-5 h-5" />
-                    <span>{existingFeedback ? 'Update Feedback' : 'Submit Feedback'}</span>
+                    <span>Submit Feedback</span>
                   </>
                 )}
               </button>

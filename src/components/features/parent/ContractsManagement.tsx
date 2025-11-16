@@ -21,7 +21,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getContractsByParent, getChildrenByParent, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
+import { getContractsByParent, getChildrenByParent, getChildUnitProgress, ChildUnitProgress, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -61,6 +61,7 @@ const ContractsManagement: React.FC = () => {
   const itemsPerPage = 3;
   const [unitProgressMap, setUnitProgressMap] = useState<Record<string, ChildUnitProgress | null>>({});
   const [loadingProgress, setLoadingProgress] = useState<Record<string, boolean>>({});
+  const [finalFeedbackMap, setFinalFeedbackMap] = useState<Record<string, FinalFeedback | null>>({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -207,6 +208,35 @@ const ContractsManagement: React.FC = () => {
     };
 
     fetchUnitProgress();
+  }, [contracts]);
+
+  // Fetch final feedback for completed contracts
+  useEffect(() => {
+    const fetchFinalFeedbacks = async () => {
+      if (contracts.length === 0) return;
+      
+      // Only fetch for completed contracts
+      const completedContracts = contracts.filter(c => c.status === 'completed');
+
+      for (const contract of completedContracts) {
+        // Skip if already loaded
+        if (finalFeedbackMap[contract.id] !== undefined) continue;
+
+        try {
+          const result = await getFinalFeedbackByContractAndProvider(contract.id, 'parent');
+          if (result.success && result.data) {
+            setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: result.data }));
+          } else {
+            setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: null }));
+          }
+        } catch (error) {
+          // Silently handle - feedback may not exist yet
+          setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: null }));
+        }
+      }
+    };
+
+    fetchFinalFeedbacks();
   }, [contracts]);
 
   const filteredContracts = contracts.filter(c => 
@@ -477,7 +507,7 @@ const ContractsManagement: React.FC = () => {
 
 
 
-                  {contract.status === 'completed' && (
+                  {contract.status === 'completed' && !finalFeedbackMap[contract.id] && (
                     <button
                       onClick={() => handleFeedback(contract.id)}
                       className="group px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-2xl hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"

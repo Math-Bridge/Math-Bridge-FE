@@ -15,6 +15,7 @@ import {
   Award,
   Copy,
   X,
+  XCircle,
   CreditCard,
   Heart,
   Mail,
@@ -806,26 +807,14 @@ const ContractDetail: React.FC = () => {
                   )}
 
 
-                  {contract.status === 'completed' && (
-                    <>
-                      {finalFeedback ? (
-                        <button
-                          onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
-                          className="w-full flex items-center space-x-3 p-3 text-blue-600 border-2 border-blue-200 rounded-2xl hover:bg-blue-50 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
-                        >
-                          <Star className="w-5 h-5" />
-                          <span>View/Update Feedback</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
-                          className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
-                        >
-                          <Star className="w-5 h-5" />
-                          <span>Submit Feedback</span>
-                        </button>
-                      )}
-                    </>
+                  {contract.status === 'completed' && !finalFeedback && (
+                    <button
+                      onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
+                      className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
+                    >
+                      <Star className="w-5 h-5" />
+                      <span>Submit Feedback</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -1010,14 +999,69 @@ const ContractDetail: React.FC = () => {
                         </span>
                       </div>
                     </div>
+
+                    {/* Detailed Ratings */}
+                    {(finalFeedback.communicationRating || 
+                      finalFeedback.sessionQualityRating || 
+                      finalFeedback.learningProgressRating || 
+                      finalFeedback.professionalismRating) && (
+                      <div className="space-y-2 pt-2 border-t border-gray-200">
+                        {finalFeedback.communicationRating && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Communication</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {finalFeedback.communicationRating}/5
+                            </span>
+                          </div>
+                        )}
+                        {finalFeedback.sessionQualityRating && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Session Quality</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {finalFeedback.sessionQualityRating}/5
+                            </span>
+                          </div>
+                        )}
+                        {finalFeedback.learningProgressRating && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Learning Progress</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {finalFeedback.learningProgressRating}/5
+                            </span>
+                          </div>
+                        )}
+                        {finalFeedback.professionalismRating && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-600">Professionalism</span>
+                            <span className="text-sm font-semibold text-gray-900">
+                              {finalFeedback.professionalismRating}/5
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Comments */}
                     {finalFeedback.additionalComments && (
-                      <div>
+                      <div className="pt-2 border-t border-gray-200">
                         <p className="text-sm text-gray-600 mb-1">Comments</p>
                         <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
                           {finalFeedback.additionalComments}
                         </p>
                       </div>
                     )}
+
+                    {/* Improvement Suggestions */}
+                    {finalFeedback.improvementSuggestions && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-sm text-gray-600 mb-1">Improvement Suggestions</p>
+                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg">
+                          {finalFeedback.improvementSuggestions}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Recommendations */}
                     <div className="flex items-center space-x-4 pt-2 border-t border-gray-200">
                       {finalFeedback.wouldRecommend && (
                         <div className="flex items-center space-x-1 text-green-600">
@@ -1032,6 +1076,26 @@ const ContractDetail: React.FC = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Contract Objectives Met */}
+                    {finalFeedback.contractObjectivesMet !== undefined && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <p className="text-sm text-gray-600 mb-1">Contract Objectives</p>
+                        <div className="flex items-center space-x-2">
+                          {finalFeedback.contractObjectivesMet ? (
+                            <div className="flex items-center space-x-1 text-green-600">
+                              <CheckCircle className="w-4 h-4" />
+                              <span className="text-xs font-medium">Objectives Met</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-1 text-red-600">
+                              <XCircle className="w-4 h-4" />
+                              <span className="text-xs font-medium">Objectives Not Met</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

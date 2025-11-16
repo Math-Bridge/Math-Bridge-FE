@@ -49,6 +49,7 @@ import {
   ContractDetailStaffPage,
   RescheduleManagementPage,
   StaffDailyReportsPage,
+  FinalFeedbackManagementPage,
   TutorDailyReportPage,
 } from './pages/features';
 
@@ -365,6 +366,11 @@ function App() {
             <Route path="staff/daily-reports" element={
               <ProtectedRoute>
                 <StaffDailyReportsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/final-feedback" element={
+              <ProtectedRoute>
+                <FinalFeedbackManagementPage />
               </ProtectedRoute>
             } />
           </Route>
