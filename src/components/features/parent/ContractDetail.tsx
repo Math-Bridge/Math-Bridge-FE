@@ -19,26 +19,19 @@ import {
   CreditCard,
   Heart,
   Mail,
-  Phone
+  Phone,
+  MessageSquare
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
+import ParentDailyReports from './ParentDailyReports';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 
-interface Session {
-  id: string;
-  date: string;
-  time: string;
-  status: 'completed' | 'upcoming' | 'cancelled';
-  topic: string;
-  notes?: string;
-  rating?: number;
-}
-
 interface ContractDetail {
   id: string;
+  childId: string;
   childName: string;
   tutorName: string;
   tutorEmail: string;
@@ -55,7 +48,6 @@ interface ContractDetail {
   centerName: string;
   centerAddress: string;
   createdAt: string;
-  sessions: Session[];
   tutorRating: number;
   tutorExperience: string;
   tutorQualifications: string[];
@@ -69,7 +61,7 @@ const ContractDetail: React.FC = () => {
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'tutor'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'tutor'>('overview');
   
   // Payment states
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
@@ -188,6 +180,7 @@ const ContractDetail: React.FC = () => {
         // Map to frontend format
         const mappedContract: ContractDetail = {
           id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
+          childId: contractData.ChildId || contractData.childId || '',
           childName: contractData.ChildName || contractData.childName || 'N/A',
           tutorName: contractData.MainTutorName || contractData.mainTutorName || 'Tutor not assigned',
           tutorEmail: contractData.MainTutorEmail || contractData.mainTutorEmail || '',
@@ -204,7 +197,6 @@ const ContractDetail: React.FC = () => {
           centerName: contractData.CenterName || contractData.centerName || 'Online',
           centerAddress: contractData.CenterAddress || contractData.centerAddress || '',
           createdAt: contractData.CreatedDate || contractData.createdDate || contractData.CreatedAt || contractData.createdAt || '',
-          sessions: [], // TODO: Fetch sessions from API
           tutorRating: contractData.TutorRating || contractData.tutorRating || 0,
           tutorExperience: contractData.TutorExperience || contractData.tutorExperience || '',
           tutorQualifications: contractData.TutorQualifications || contractData.tutorQualifications || []
@@ -548,21 +540,6 @@ const ContractDetail: React.FC = () => {
     }
   };
 
-  const getSessionStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'upcoming':
-        return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
-        return 'bg-red-100 text-red-800';
-      case 'rescheduled':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 flex items-center justify-center">
@@ -698,7 +675,7 @@ const ContractDetail: React.FC = () => {
             <nav className="flex space-x-4">
               {[
                 { key: 'overview', label: 'Overview', icon: FileText },
-                { key: 'sessions', label: 'Sessions', icon: Calendar },
+                { key: 'reports', label: 'Daily Reports', icon: BookOpen },
                 { key: 'tutor', label: 'Tutor Info', icon: User }
               ].map((tab) => (
                 <button
@@ -1103,47 +1080,8 @@ const ContractDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'sessions' && (
-          <div className="space-y-6">
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Session History</h3>
-              </div>
-              <div className="divide-y divide-gray-200">
-                {contract.sessions.map((session) => (
-                  <div key={session.id} className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <BookOpen className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{session.topic}</h4>
-                          <p className="text-sm text-gray-600">
-                            {new Date(session.date).toLocaleDateString()} at {session.time}
-                          </p>
-                          {session.notes && (
-                            <p className="text-sm text-gray-500 mt-1">{session.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getSessionStatusColor(session.status)}`}>
-                          <span className="capitalize">{session.status}</span>
-                        </span>
-                        {session.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium">{session.rating}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {activeTab === 'reports' && (
+          <ParentDailyReports contractId={contractId} childId={contract.childId} />
         )}
 
         {activeTab === 'tutor' && (

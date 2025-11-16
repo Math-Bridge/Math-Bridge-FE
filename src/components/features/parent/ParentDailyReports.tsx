@@ -32,11 +32,16 @@ import {
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 
-const ParentDailyReports: React.FC = () => {
+interface ParentDailyReportsProps {
+  contractId?: string;
+  childId?: string;
+}
+
+const ParentDailyReports: React.FC<ParentDailyReportsProps> = ({ contractId, childId }) => {
   const { user } = useAuth();
   const { showError } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(childId || null);
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
   const [forecast, setForecast] = useState<LearningCompletionForecast | null>(null);
@@ -49,9 +54,16 @@ const ParentDailyReports: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
 
   useEffect(() => {
-    fetchChildren();
+    // If childId is provided via props, use it directly (contract detail view)
+    if (childId) {
+      setSelectedChildId(childId);
+      setLoading(false); // Set loading to false when childId is provided
+    } else {
+      // Otherwise fetch all children (standalone view)
+      fetchChildren();
+    }
     fetchUnits();
-  }, []);
+  }, [childId]);
 
   useEffect(() => {
     if (selectedChildId) {
@@ -199,25 +211,27 @@ const ParentDailyReports: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-              <FileText className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                Daily Reports
-              </h1>
-              <p className="text-gray-600 mt-1 text-lg">Track your child's learning progress and achievements</p>
+    <div className={childId ? "" : "min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8"}>
+      <div className={childId ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
+        {/* Header - Only show if not in contract detail view */}
+        {!childId && (
+          <div className="mb-8">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                <FileText className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                  Daily Reports
+                </h1>
+                <p className="text-gray-600 mt-1 text-lg">Track your child's learning progress and achievements</p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Child Selection */}
-        {children.length > 0 && (
+        {/* Child Selection - Only show if childId is not provided via props */}
+        {!childId && children.length > 0 && (
           <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-6 mb-6 backdrop-blur-sm">
             <div className="flex items-center space-x-2 mb-3">
               <User className="w-5 h-5 text-blue-600" />
