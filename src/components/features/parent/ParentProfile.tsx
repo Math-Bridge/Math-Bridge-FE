@@ -26,7 +26,7 @@ interface LocationPrediction {
 }
 
 const ParentProfile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showSuccess, showError } = useToast();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
@@ -81,6 +81,31 @@ const ParentProfile: React.FC = () => {
       return;
     }
 
+    // Validate required fields if user was forced to update
+    const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
+    
+    // Validate phone number format and length
+    if (formData.phone && formData.phone !== 'N/A') {
+      const digitsOnly = formData.phone.replace(/[^0-9]/g, '');
+      
+      if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+        showError('Phone number must be between 10 and 15 digits');
+        return;
+      }
+    }
+    
+    // If user needs location and it's still missing, show error
+    if (state?.needsLocation && !selectedPlaceId && !formData.address) {
+      showError('Please set your location before continuing');
+      return;
+    }
+    
+    // If user needs phone and it's still 'N/A' or empty, show error
+    if (state?.needsPhone && (!formData.phone || formData.phone === 'N/A')) {
+      showError('Please update your phone number before continuing');
+      return;
+    }
+    
     // If location is being edited and no place is selected, warn user
     if (isEditing && locationInput && !selectedPlaceId && locationInput !== formData.address) {
       showError('Please select a location from the dropdown');
@@ -144,6 +169,30 @@ const ParentProfile: React.FC = () => {
 
       console.log('User update successful!');
 
+      // Update localStorage with ALL updated data
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const parsedUser = JSON.parse(savedUser);
+          const updatedUser = {
+            ...parsedUser,
+            name: updateData.FullName || parsedUser.name,
+            phone: updateData.PhoneNumber || parsedUser.phone
+          };
+          
+          // Add location data if it was updated
+          if (selectedPlaceId) {
+            updatedUser.placeId = selectedPlaceId;
+            updatedUser.formattedAddress = locationInput;
+          }
+          
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          console.log('Updated user in localStorage:', updatedUser);
+        } catch (err) {
+          console.error('Error updating localStorage:', err);
+        }
+      }
+
       // Step 3: Save location if placeId is selected
       if (selectedPlaceId) {
         console.log('Saving location with placeId:', selectedPlaceId);
@@ -159,33 +208,28 @@ const ParentProfile: React.FC = () => {
         }
 
         console.log('Location saved successfully!');
-
-        // Update localStorage immediately before redirect
-        const savedUser = localStorage.getItem('user');
-        if (savedUser) {
-          try {
-            const parsedUser = JSON.parse(savedUser);
-            const updatedUser = {
-              ...parsedUser,
-              placeId: selectedPlaceId,
-              formattedAddress: locationInput
-            };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            console.log('Updated user in localStorage before redirect:', updatedUser.placeId);
-          } catch (err) {
-            console.error('Error updating localStorage:', err);
-          }
+      }
+      
+      // Check if this was a forced update (user was redirected here due to missing data)
+      const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
+      const wasForcedUpdate = state?.needsLocation || state?.needsPhone;
+      
+      // Refresh user context from localStorage to update the auth state
+      refreshUser();
+      
+      // If it was a forced update and user completed required fields, redirect to home
+      if (wasForcedUpdate) {
+        const locationComplete = !state?.needsLocation || selectedPlaceId || formData.address;
+        const phoneComplete = !state?.needsPhone || (formData.phone && formData.phone !== 'N/A');
+        
+        if (locationComplete && phoneComplete) {
+          showSuccess('Profile updated successfully! Redirecting...');
+          // Use window.location to force full reload and re-check in ProtectedRoute
+          setTimeout(() => {
+            window.location.href = '/home';
+          }, 500);
+          return; // Exit early
         }
-
-        // Show success message and redirect after a short delay
-        showSuccess('Location updated successfully! Redirecting...');
-
-        // Use setTimeout to ensure success message is shown and state is updated before redirect
-        setTimeout(() => {
-          window.location.href = '/home';
-        }, 500);
-
-        return; // Exit early, don't execute code below
       }
 
       // If no location was updated, just show success and refresh data
@@ -410,9 +454,9 @@ const ParentProfile: React.FC = () => {
       fetchUserData();
     }
 
-    // Check if redirected here for location setup
-    const state = location.state as { needsLocation?: boolean } | null;
-    if (state?.needsLocation) {
+    // Check if redirected here for location or phone setup
+    const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
+    if (state?.needsLocation || state?.needsPhone) {
       setShowLocationBanner(true);
       setIsEditing(true);
       setActiveTab('profile');
@@ -422,18 +466,37 @@ const ParentProfile: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Location Setup Banner */}
-        {showLocationBanner && !formData.address && (
+        {/* Profile Setup Banner */}
+        {showLocationBanner && (
           <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 rounded-lg shadow-sm animate-fade-in">
             <div className="flex items-start">
               <AlertCircle className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-blue-900 mb-1">
-                  Welcome! Please set up your location
+                  {(() => {
+                    const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
+                    if (state?.needsLocation && state?.needsPhone) {
+                      return 'Welcome! Please update your profile';
+                    } else if (state?.needsLocation) {
+                      return 'Welcome! Please set up your location';
+                    } else if (state?.needsPhone) {
+                      return 'Welcome! Please update your phone number';
+                    }
+                    return 'Welcome! Please complete your profile';
+                  })()}
                 </h3>
                 <p className="text-blue-800 text-sm">
-                  To help us provide you with the best tutoring services, please add your location below. 
-                  Start typing your address and select from the suggestions.
+                  {(() => {
+                    const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
+                    if (state?.needsLocation && state?.needsPhone) {
+                      return 'To help us provide you with the best services, please update your location and phone number below.';
+                    } else if (state?.needsLocation) {
+                      return 'To help us provide you with the best tutoring services, please add your location below. Start typing your address and select from the suggestions.';
+                    } else if (state?.needsPhone) {
+                      return 'To help us keep in touch with you, please update your phone number below.';
+                    }
+                    return 'Please complete the required information below.';
+                  })()}
                 </p>
               </div>
               <button
@@ -588,6 +651,11 @@ const ParentProfile: React.FC = () => {
                           placeholder="Enter your phone number"
                         />
                       </div>
+                      {isEditing && (
+                        <p className="mt-1 text-sm text-slate-500">
+                          Must be between 10-15 digits
+                        </p>
+                      )}
                     </div>
 
                     {/* Location Field with Autocomplete */}

@@ -74,44 +74,65 @@ const Login: React.FC = () => {
     setErrors({});
 
     try {
+      console.log('Starting Google login flow...');
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
+      console.log('Google OAuth successful, token obtained');
 
       // Use useAuth.googleLogin instead of direct API call
       const loginResult = await googleLogin(idToken);
+      console.log('Google login result:', loginResult);
       
       if (loginResult.success) {
+        console.log('Google login successful, preparing navigation...');
+        
+        // Add a small delay to ensure state updates have propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Check if user needs to set up location
         if (loginResult.needsLocationSetup) {
+          console.log('Redirecting to profile for location setup');
           navigate('/user-profile', { replace: true, state: { needsLocation: true } });
           return;
         }
 
         // Get user role from localStorage to determine redirect
         const savedUser = localStorage.getItem('user');
+        console.log('Checking saved user for role-based redirect:', savedUser);
+        
         if (savedUser) {
           try {
             const user = JSON.parse(savedUser);
+            console.log('User role:', user.role);
+            
             if (user.role === 'admin') {
+              console.log('Redirecting to admin dashboard');
               navigate("/admin", { replace: true });
             } else if (user.role === 'tutor') {
+              console.log('Redirecting to tutor dashboard');
               navigate("/tutor/dashboard", { replace: true });
             } else if (user.role === 'staff') {
+              console.log('Redirecting to staff dashboard');
               navigate("/staff", { replace: true });
             } else {
+              console.log('Redirecting to parent home');
               navigate("/home", { replace: true });
             }
-          } catch {
+          } catch (parseError) {
+            console.error('Error parsing saved user:', parseError);
             navigate("/home", { replace: true });
           }
         } else {
+          console.log('No saved user found, redirecting to home');
           navigate("/home", { replace: true });
         }
       } else {
+        console.error('Google login failed:', loginResult.error);
         setErrors({ general: loginResult.error || "Google login failed" });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Google login error:', error);
       setErrors({ general: error.message || "Google login failed" });
     } finally {
       setIsGoogleLoading(false);

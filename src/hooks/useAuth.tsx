@@ -11,6 +11,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
+  refreshUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -111,9 +112,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   userRole = (backendUser.role || backendUser.Role).toLowerCase();
                 }
                 
-                // Check if user has a placeId
+                // Check if user has a placeId or needs phone update
                 const userPlaceId = backendUser.placeId || backendUser.PlaceId;
-                const needsLocation = !userPlaceId;
+                const userPhoneNumber = backendUser.phoneNumber || backendUser.PhoneNumber;
+                const needsLocation = !userPlaceId || userPhoneNumber === 'N/A';
 
                 const user: User = {
                   id: backendUser.userId || backendUser.UserId || userId,
@@ -170,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const googleLogin = async (idToken: string) => {
+  const googleLogin = async (idToken: string): Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }> => {
     console.log('useAuth.googleLogin called with token length:', idToken.length);
     setIsLoading(true);
     try {
@@ -178,25 +180,111 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Google login API response:', response);
       
       if (response.success && response.data) {
-        const token = response.data.token;
-        const needsLocationSetup = response.data.needsLocationSetup;
+        // Backend returns nested structure: { data: { token: { token, userId, role, roleId } } }
+        const data = response.data as any;
+        console.log('Google login response data:', data);
+        
+        // Handle nested token object
+        const tokenData = data.token || data;
+        console.log('Token data:', tokenData);
+        
+        const token = tokenData.token || tokenData.Token;
+        const userId = tokenData.userId || tokenData.UserId;
+        const roleName = tokenData.role || tokenData.Role;
+        const roleId = tokenData.roleId || tokenData.RoleId;
 
-        if (!token) {
-          console.log('Google login failed: No token received');
+        console.log('Extracted values:', { token: token ? 'exists' : 'missing', userId, roleName, roleId });
+
+        if (!token || typeof token !== 'string') {
+          console.error('Google login failed: No valid token received');
           return { success: false, error: 'No token received from server' };
         }
 
-        // Save the token first
+        if (!userId) {
+          console.error('Google login failed: No user ID received');
+          return { success: false, error: 'No user ID received from server' };
+        }
+
+        // Save token first
         localStorage.setItem('authToken', token);
         console.log('Auth token saved to localStorage');
 
-        return { success: true, needsLocationSetup };
+        // Map role - use roleId if available, otherwise use roleName directly
+        let userRole: string;
+        if (roleId) {
+          userRole = mapRoleIdToRole(roleId);
+        } else if (roleName) {
+          userRole = typeof roleName === 'string' ? roleName.toLowerCase() : 'parent';
+        } else {
+          userRole = 'parent';
+        }
+        console.log('User ID from response:', userId);
+        console.log('User role from response:', roleName, '(ID:', roleId, ') → mapped to:', userRole);
+        
+        // Fetch full user data from backend
+        try {
+          const userResponse = await apiService.request<any>(`/users/${userId}`);
+          if (userResponse.success && userResponse.data) {
+            const backendUser = userResponse.data;
+            
+            // Check if user has a placeId or needs phone update
+            const userPlaceId = backendUser.placeId || backendUser.PlaceId;
+            const userPhoneNumber = backendUser.phoneNumber || backendUser.PhoneNumber;
+            const needsLocation = !userPlaceId || userPhoneNumber === 'N/A';
+
+            const user: User = {
+              id: userId,
+              email: backendUser.email || backendUser.Email || '',
+              name: backendUser.fullName || backendUser.FullName || 'User',
+              phone: userPhoneNumber,
+              placeId: userPlaceId,
+              formattedAddress: backendUser.formattedAddress || backendUser.FormattedAddress,
+              createdAt: backendUser.createdDate || backendUser.CreatedDate || new Date().toISOString(),
+              role: userRole
+            };
+            
+            console.log('Google login successful, user data fetched:', user);
+            console.log('User needs location setup:', needsLocation);
+            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
+            console.log('User state updated');
+            return { success: true, needsLocationSetup: needsLocation };
+          } else {
+            // If can't fetch user, create minimal user from response data
+            console.log('Failed to fetch user details, creating minimal user from response');
+            const user: User = {
+              id: userId,
+              email: '', // We don't have email in the response
+              name: roleName || 'User',
+              createdAt: new Date().toISOString(),
+              role: userRole
+            };
+            localStorage.setItem('user', JSON.stringify(user));
+            setUser(user);
+            console.log('User state updated with minimal data');
+            return { success: true };
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // Still set minimal user to avoid redirect loop
+          const user: User = {
+            id: userId,
+            email: '',
+            name: roleName || 'User',
+            createdAt: new Date().toISOString(),
+            role: userRole
+          };
+          localStorage.setItem('user', JSON.stringify(user));
+          setUser(user);
+          console.log('User state updated with minimal data after error');
+          return { success: true };
+        }
       } else {
-        console.log('Google login failed:', response.error);
+        console.error('Google login failed:', response.error);
         return { success: false, error: response.error || 'Google login failed' };
       }
     } catch (error) {
-      console.log('Google login network error:', error);
+      console.error('Google login network error:', error);
       return { success: false, error: 'Network error occurred during Google login' };
     } finally {
       setIsLoading(false);
@@ -271,6 +359,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUser = () => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        console.log('User refreshed from localStorage:', parsedUser);
+      } catch (error) {
+        console.error('Error refreshing user:', error);
+      }
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -281,6 +382,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
     forgotPassword,
     resendVerification,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
