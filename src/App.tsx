@@ -52,6 +52,7 @@ import {
   FinalFeedbackManagementPage,
   TutorDailyReportPage,
 } from './pages/features';
+import UnauthorizedPage from './pages/UnauthorizedPage';
 
 // Protected Route Component (supports role-based guard)
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[]; skipLocationCheck?: boolean }> = ({ children, requiredRole, skipLocationCheck = false }) => {
@@ -81,18 +82,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
     const userRole = user?.role;
     if (!userRole || !roles.includes(userRole)) {
       console.warn('Access denied due to role mismatch', { requiredRole: roles, userRole });
-      // Redirect to appropriate dashboard based on user role instead of login
-      if (userRole === 'admin') {
-        return <Navigate to="/admin" replace />;
-      } else if (userRole === 'tutor') {
-        return <Navigate to="/tutor/dashboard" replace />;
-      } else if (userRole === 'staff') {
-        return <Navigate to="/staff" replace />;
-      } else if (userRole === 'parent') {
-        return <Navigate to="/home" replace />;
-      }
-      // Fallback to login if role is unknown
-      return <Navigate to="/login" replace />;
+      // Redirect to unauthorized page with role information
+      return (
+        <Navigate
+          to="/unauthorized"
+          replace
+          state={{
+            requiredRole: roles,
+            attemptedPath: window.location.pathname,
+          }}
+        />
+      );
     }
   }
 
@@ -155,6 +155,7 @@ function App() {
               <Route path="forgot-password" element={<ForgotPassword />} />
               <Route path="reset-password" element={<ResetPassword />} />
               <Route path="verify-reset" element={<VerifyResetRedirect />} />
+              <Route path="unauthorized" element={<UnauthorizedPage />} />
             {/* Original Routes */}
             <Route path="home" element={
               <ProtectedRoute requiredRole="parent">
