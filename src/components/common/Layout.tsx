@@ -9,6 +9,7 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
+  const isUnauthorizedPage = location.pathname === '/unauthorized';
 
   const userRole = user?.role ?? '';
 
@@ -17,6 +18,10 @@ const Layout: React.FC = () => {
 
   // Only show AI chat support to roles that should have access (e.g., parents/guests)
   const shouldShowSupportButton = !['admin', 'staff', 'tutor'].includes(userRole);
+
+  if (isUnauthorizedPage) {
+    return <Outlet />;
+  }
 
   if (isAuthPage) {
     return (
