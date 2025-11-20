@@ -564,7 +564,15 @@ const TutorTestResult: React.FC = () => {
                         <span>Test Results for This Session</span>
                       </h3>
                       <div className="space-y-3">
-                        {sessionTestResults.map((result) => (
+                        {sessionTestResults.map((result) => {
+                          const scoreColorClass =
+                            result.score >= 8
+                              ? 'bg-green-100 text-green-800'
+                              : result.score >= 5
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800';
+                          
+                          return (
                           <div
                             key={result.resultId}
                             className={`border rounded-lg p-4 ${
@@ -577,7 +585,7 @@ const TutorTestResult: React.FC = () => {
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-2">
                                   <h4 className="font-semibold text-gray-900">{result.testType}</h4>
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded">
+                                  <span className={`px-2 py-1 ${scoreColorClass} text-sm font-semibold rounded`}>
                                     Score: {result.score}
                                   </span>
                                 </div>
@@ -615,7 +623,8 @@ const TutorTestResult: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -628,7 +637,15 @@ const TutorTestResult: React.FC = () => {
                         <span>Other Test Results (Same Contract)</span>
                       </h3>
                       <div className="space-y-3">
-                        {otherTestResults.map((result) => (
+                        {otherTestResults.map((result) => {
+                          const scoreColorClass =
+                            result.score >= 8
+                              ? 'bg-green-100 text-green-800'
+                              : result.score >= 5
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800';
+                          
+                          return (
                           <div
                             key={result.resultId}
                             className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:border-gray-300 transition-colors"
@@ -637,7 +654,7 @@ const TutorTestResult: React.FC = () => {
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-2">
                                   <h4 className="font-semibold text-gray-900">{result.testType}</h4>
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded">
+                                  <span className={`px-2 py-1 ${scoreColorClass} text-sm font-semibold rounded`}>
                                     Score: {result.score}
                                   </span>
                                 </div>
@@ -669,7 +686,8 @@ const TutorTestResult: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

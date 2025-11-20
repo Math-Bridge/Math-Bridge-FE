@@ -270,9 +270,9 @@ const ParentTestResults: React.FC = () => {
               <div className="space-y-4">
                 {filteredResults.map((result) => {
                   const scoreColor =
-                    result.score >= 80
+                    result.score >= 8
                       ? 'from-green-500 to-emerald-600'
-                      : result.score >= 60
+                      : result.score >= 5
                       ? 'from-yellow-500 to-amber-600'
                       : 'from-red-500 to-rose-600';
 
@@ -347,4 +347,5 @@ const ParentTestResults: React.FC = () => {
 };
 
 export default ParentTestResults;
+
 
