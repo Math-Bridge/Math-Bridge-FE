@@ -107,35 +107,53 @@ const SessionStatistics: React.FC = () => {
     <div className="space-y-6">
       {/* Overview Cards */}
       {overview && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+        <div className="bg-white rounded-xl shadow-md border border-gray-200/50 p-6 backdrop-blur-sm">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
+            <Calendar className="w-6 h-6 text-blue-600" />
             Session Overview
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Sessions</div>
-              <div className="text-2xl font-bold text-blue-600">{overview.totalSessions}</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <TrendingUp className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Sessions</p>
+              <p className="text-3xl font-bold">{overview.totalSessions}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Completed</div>
-              <div className="text-2xl font-bold text-green-600">{overview.completedSessions}</div>
+
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <Monitor className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-green-100 text-sm font-medium mb-1">Completed</p>
+              <p className="text-3xl font-bold">{overview.completedSessions}</p>
+              <p className="text-green-100 text-xs mt-1">
+                {overview.totalSessions > 0 
+                  ? Math.round((overview.completedSessions / overview.totalSessions) * 100) 
+                  : 0}% of total
+              </p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Completion Rate</div>
-              <div className="text-2xl font-bold text-purple-600">{overview.completionRate}%</div>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Upcoming</div>
-              <div className="text-2xl font-bold text-orange-600">{overview.upcomingSessions}</div>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Cancelled</div>
-              <div className="text-2xl font-bold text-red-600">{overview.cancelledSessions}</div>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Rescheduled</div>
-              <div className="text-2xl font-bold text-yellow-600">{overview.rescheduledSessions}</div>
+
+            <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <Monitor className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-red-100 text-sm font-medium mb-1">Cancelled</p>
+              <p className="text-3xl font-bold">{overview.cancelledSessions}</p>
+              <p className="text-red-100 text-xs mt-1">
+                {overview.totalSessions > 0 
+                  ? Math.round((overview.cancelledSessions / overview.totalSessions) * 100) 
+                  : 0}% of total
+              </p>
             </div>
           </div>
         </div>

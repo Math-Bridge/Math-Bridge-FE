@@ -38,7 +38,6 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: '/admin/centers', label: 'Center Management', icon: Building },
     { path: '/admin/packages', label: 'Payment Packages', icon: CreditCard },
     { path: '/admin/finance', label: 'Finance & Reports', icon: BarChart3 },
-    { path: '/admin/logs', label: 'Audit & Logs', icon: FileText },
     { path: '/admin/settings', label: 'System Settings', icon: Settings },
   ];
 

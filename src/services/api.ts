@@ -420,7 +420,45 @@ class ApiService {
   }
 
   async getAllUsers(): Promise<ApiResponse<any[]>> {
-    return this.request('/admin/users');
+    try {
+      const result = await this.request<{ data: any[]; totalCount: number }>('/users', {
+        method: 'GET',
+      });
+      
+      if (result.success && result.data) {
+        // Backend returns { data: [...], totalCount: ... }
+        const usersData = result.data.data || result.data;
+        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => ({
+          userId: item.userId || item.UserId || '',
+          fullName: item.fullName || item.FullName || '',
+          email: item.email || item.Email || '',
+          phoneNumber: item.phoneNumber || item.PhoneNumber,
+          roleId: item.roleId ?? item.RoleId ?? 0,
+          roleName: item.roleName || item.RoleName,
+          status: item.status || item.Status || 'active',
+          formattedAddress: item.formattedAddress || item.FormattedAddress,
+          walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
+        }));
+        
+      return {
+        success: true,
+        data: mappedUsers,
+        error: undefined,
+      };
+      }
+      
+      return {
+        success: result.success,
+        data: [],
+        error: result.error,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        data: [],
+        error: error?.message || 'Failed to fetch users',
+      };
+    }
   }
 }
 
@@ -486,7 +524,52 @@ export async function getCenterStatistics() {
 
 // Get unassigned tutors (tutors without center)
 export async function getUnassignedTutors() {
-  return apiService.request<any[]>(`/tutors/unassigned`);
+  try {
+    const result = await apiService.request<any[]>(`/tutors/unassigned-to-center`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map PascalCase to camelCase
+      // Note: TutorInCenterDto doesn't include location info, so we'll need to fetch it separately if needed
+      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => ({
+        userId: item.userId || item.TutorId || '',
+        fullName: item.fullName || item.FullName || '',
+        email: item.email || item.Email || '',
+        phoneNumber: item.phoneNumber || item.PhoneNumber || '',
+        formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
+        city: item.city || item.City || undefined,
+        district: item.district || item.District || undefined,
+        latitude: item.latitude ?? item.Latitude ?? undefined,
+        longitude: item.longitude ?? item.Longitude ?? undefined,
+        tutorVerification: {
+          verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
+          hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
+          university: item.tutorVerification?.university || item.University || undefined,
+          major: item.tutorVerification?.major || item.Major || undefined,
+          bio: item.tutorVerification?.bio || item.Bio || undefined,
+        },
+      }));
+      
+      return {
+        success: true,
+        data: mappedTutors,
+        error: null,
+      };
+    }
+    
+    return {
+      success: result.success,
+      data: [],
+      error: result.error,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch unassigned tutors',
+    };
+  }
 }
 
 // Suggest centers for a tutor based on their address
@@ -504,7 +587,7 @@ export async function suggestCentersForTutor(tutorId: string, radiusKm: number =
 export async function assignTutorToCenter(centerId: string, tutorId: string) {
   return apiService.request<{ message: string }>(`/centers/${centerId}/assign-tutor`, {
     method: 'POST',
-    body: JSON.stringify({ tutorId }),
+    body: JSON.stringify({ TutorId: tutorId }),
   });
 }
 
@@ -1668,7 +1751,7 @@ export interface AvailableSubTutor {
 // Get all reschedule requests
 // Backend: GET /api/reschedule?parentId={parentId} (optional, staff sees all, parent sees only their own)
 // Note: Backend doesn't support status filter, filtering is done on frontend
-export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
+export async function getRescheduleRequests(_status?: 'pending' | 'approved' | 'rejected') {
   try {
     // Backend doesn't have status query param, we'll filter on frontend
     const result = await apiService.request<any[]>(`/reschedule`, {

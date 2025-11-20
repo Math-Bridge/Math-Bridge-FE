@@ -43,7 +43,6 @@ import {
   CenterManagementPage,
   PackageManagementPage,
   FinancePage,
-  LogsPage,
   SettingsPage,
   StaffDashboardPage,
   ContractManagementPage,
@@ -336,11 +335,6 @@ function App() {
             <Route path="admin/finance" element={
               <ProtectedRoute requiredRole="admin">
                 <FinancePage />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/logs" element={
-              <ProtectedRoute requiredRole="admin">
-                <LogsPage />
               </ProtectedRoute>
             } />
             <Route path="admin/settings" element={
