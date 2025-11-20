@@ -7,3 +7,4 @@ export { default as RescheduleManagement } from './RescheduleManagement';
 export { default as TutorVerificationManagement } from './TutorVerificationManagement';
 export { default as StaffDailyReports } from './StaffDailyReports';
 export { default as FinalFeedbackManagement } from './FinalFeedbackManagement';
+export { default as TutorCenterAssignment } from './TutorCenterAssignment';

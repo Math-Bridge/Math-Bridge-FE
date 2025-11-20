@@ -37,6 +37,7 @@ import {
   FinalFeedbackPage,
   TutorDetailPage,
   ParentDailyReportsPage,
+  ParentTestResultsPage,
   AdminDashboardPage,
   UserManagementPage,
   CenterManagementPage,
@@ -303,6 +304,11 @@ function App() {
             <Route path="daily-reports" element={
               <ProtectedRoute requiredRole="parent">
                 <ParentDailyReportsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="test-results" element={
+              <ProtectedRoute requiredRole="parent">
+                <ParentTestResultsPage />
               </ProtectedRoute>
             } />
             

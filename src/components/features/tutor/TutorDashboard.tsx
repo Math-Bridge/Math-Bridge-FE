@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
-  MapPin,
   BarChart3,
   User,
   Menu,
   X,
   LogOut,
-  GraduationCap
+  GraduationCap,
+  FileText
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { TutorSessions, TutorProfile, TutorDailyReport } from '.';
+import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult } from '.';
 import { useAuth } from '../../../hooks/useAuth';
 
 const TutorDashboard: React.FC = () => {
@@ -20,7 +20,7 @@ const TutorDashboard: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
-  type ActionKey = 'profile' | 'sessions' | 'centers' | 'reports';
+  type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
 
   useEffect(() => {
@@ -30,8 +30,8 @@ const TutorDashboard: React.FC = () => {
   const navigationItems = [
     { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },
     { key: 'reports' as ActionKey, name: 'Daily Reports', icon: BarChart3, description: 'Create and manage daily reports' },
+    { key: 'test-results' as ActionKey, name: 'Test Results', icon: FileText, description: 'Create and manage test results' },
     { key: 'profile' as ActionKey, name: 'Profile Settings', icon: User, description: 'Update your profile and qualifications' },
-    { key: 'centers' as ActionKey, name: 'Center Management', icon: MapPin, description: 'Manage your center assignments' },
   ];
 
   const handleLogout = async () => {
@@ -65,15 +65,10 @@ const TutorDashboard: React.FC = () => {
         return <TutorProfile />;
       case 'sessions':
         return <TutorSessions />;
-      case 'centers':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Center Management</h2>
-            <p className="text-gray-600">Coming soon: Center Management</p>
-          </div>
-        );
       case 'reports':
         return <TutorDailyReport />;
+      case 'test-results':
+        return <TutorTestResult />;
       default:
         return null;
     }

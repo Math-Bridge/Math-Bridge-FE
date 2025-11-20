@@ -16,3 +16,4 @@ export { default as BookSessionPopup } from './BookSessionPopup';
 export { default as RescheduleRequestPopup } from './RescheduleRequestPopup';
 export { default as TutorFeedbackForm } from './TutorFeedbackForm';
 export { default as ParentDailyReports } from './ParentDailyReports';
+export { default as ParentTestResults } from './ParentTestResults';

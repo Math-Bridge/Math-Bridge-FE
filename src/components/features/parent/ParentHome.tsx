@@ -20,8 +20,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   apiService,
   getContractsByParent,
-  getTopRatedTutorsFromList,
-  Tutor
+  getTopRatedTutors,
+  TopRatedTutorsListDto,
+  TopRatedTutorDto
 } from '../../../services/api';
 import ScheduleCalendarWidget from './ScheduleCalendarWidget';
 
@@ -54,7 +55,7 @@ const ParentHome: React.FC = () => {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([]);
   const [popularPackages, setPopularPackages] = useState<PopularPackage[]>([]);
-  const [topRatedTutors, setTopRatedTutors] = useState<Tutor[]>([]);
+  const [topRatedTutors, setTopRatedTutors] = useState<TopRatedTutorDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -76,9 +77,9 @@ const ParentHome: React.FC = () => {
         setWalletBalance(walletResponse.data.walletBalance);
       }
 
-      const tutorsResponse = await getTopRatedTutorsFromList(3);
-      if (tutorsResponse.success && tutorsResponse.data) {
-        setTopRatedTutors(tutorsResponse.data);
+      const tutorsResponse = await getTopRatedTutors(3);
+      if (tutorsResponse.success && tutorsResponse.data?.tutors) {
+        setTopRatedTutors(tutorsResponse.data.tutors);
       } else {
         setTopRatedTutors([]);
       }
@@ -351,28 +352,37 @@ const ParentHome: React.FC = () => {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {topRatedTutors.map((tutor) => {
-                  const avatarUrl = tutor.profilePictureUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName)}&background=random`;
-                  const specialty = tutor.specialties?.join(', ') || tutor.major || 'Tutor';
-                  return (
-                    <div key={tutor.userId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
-                      <div className="flex items-center gap-4 mb-4">
-                        <img src={avatarUrl} alt={tutor.fullName} className="w-14 h-14 rounded-full object-cover" />
-                        <div>
-                          <h3 className="font-bold">{tutor.fullName}</h3>
-                          <p className="text-sm text-gray-600">{specialty}</p>
+                {topRatedTutors.length > 0 ? (
+                  topRatedTutors.map((tutor) => {
+                    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.tutorName)}&background=random`;
+                    return (
+                      <div key={tutor.tutorId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
+                        <div className="flex items-center gap-4 mb-4">
+                          <img src={avatarUrl} alt={tutor.tutorName} className="w-14 h-14 rounded-full object-cover" />
+                          <div>
+                            <h3 className="font-bold">{tutor.tutorName}</h3>
+                            <p className="text-sm text-gray-600">Tutor</p>
+                          </div>
                         </div>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-5 w-5 text-yellow-400 fill-current" />
+                            <span className="font-bold">{tutor.averageRating.toFixed(1)}</span>
+                          </div>
+                          <span className="text-sm text-gray-500">{tutor.feedbackCount} feedback{tutor.feedbackCount !== 1 ? 's' : ''}</span>
+                        </div>
+                        <button onClick={() => navigate(`/tutors/${tutor.tutorId}`)} className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+                          View Profile
+                        </button>
                       </div>
-                      <div className="flex items-center gap-4 mb-4">
-                        {tutor.rating && <div className="flex items-center gap-1"><Star className="h-5 w-5 text-yellow-400 fill-current" /><span className="font-bold">{tutor.rating.toFixed(1)}</span></div>}
-                        <span className="text-sm text-gray-500">{tutor.studentCount || 0} students</span>
-                      </div>
-                      <button onClick={() => navigate(`/tutors/${tutor.userId}`)} className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
-                        View Profile
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="col-span-3 text-center py-8 text-gray-500">
+                    <Star className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No top rated tutors available yet</p>
+                  </div>
+                )}
               </div>
             </div>
           </section>

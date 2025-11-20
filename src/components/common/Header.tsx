@@ -14,6 +14,7 @@ import {
   Settings,
   Users,
   Calendar,
+  Award,
 } from 'lucide-react';
 import { apiService } from '../../services/api';
 import logo from '../../assets/logo.png';
@@ -53,6 +54,7 @@ const Header: React.FC = () => {
         { name: 'Contracts', href: '/contracts', icon: FileText },
         { name: 'Packages', href: '/packages', icon: BookOpen },
         { name: 'Schedule', href: '/parent/schedule', icon: Calendar },
+        { name: 'Test Results', href: '/test-results', icon: Award },
       ];
     } else if (user?.role === 'admin') {
       // Navigation for Admin role
