@@ -11,7 +11,9 @@ import {
   Phone,
   UserCog,
   TrendingUp,
-  Shield
+  Shield,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -36,6 +38,8 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
@@ -57,6 +61,7 @@ const UserManagement: React.FC = () => {
 
   useEffect(() => {
     filterUsers();
+    setCurrentPage(1); // Reset to first page when filters change
   }, [users, searchTerm, roleFilter, statusFilter]);
 
   const fetchUsers = async () => {
@@ -429,7 +434,15 @@ const UserManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  (() => {
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+                    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+                    return (
+                      <>
+                        {paginatedUsers.map((user) => (
                     <tr key={user.userId} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -493,11 +506,76 @@ const UserManagement: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
+                        ))}
+                        </>
+                      );
+                    })()
+                  )}
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {filteredUsers.length > 0 && (() => {
+            const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredUsers.length);
+            
+            return (
+              <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                  <span className="font-medium">{endIndex}</span> of{' '}
+                  <span className="font-medium">{filteredUsers.length}</span> results
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        return page === 1 || 
+                               page === totalPages || 
+                               (page >= currentPage - 1 && page <= currentPage + 1);
+                      })
+                      .map((page, index, array) => {
+                        const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsisBefore && (
+                              <span className="px-2 text-gray-500">...</span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white'
+                                  : 'border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

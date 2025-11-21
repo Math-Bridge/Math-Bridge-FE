@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Users,
   Building,
-  Settings,
   BarChart3,
   FileText,
   CreditCard,
@@ -35,10 +34,11 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
   const navItems: NavItem[] = [
     { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/admin/users', label: 'User Management', icon: Users },
+    { path: '/admin/curricula', label: 'Curriculum Management', icon: FileText },
+    { path: '/admin/units', label: 'Units Management', icon: FileText },
     { path: '/admin/centers', label: 'Center Management', icon: Building },
     { path: '/admin/packages', label: 'Payment Packages', icon: CreditCard },
     { path: '/admin/finance', label: 'Finance & Reports', icon: BarChart3 },
-    { path: '/admin/settings', label: 'System Settings', icon: Settings },
   ];
 
   const isActive = (path: string) => {

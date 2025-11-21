@@ -40,6 +40,8 @@ import {
   ParentTestResultsPage,
   AdminDashboardPage,
   UserManagementPage,
+  CurriculumManagementPage,
+  UnitManagementPage,
   CenterManagementPage,
   PackageManagementPage,
   FinancePage,
@@ -330,6 +332,16 @@ function App() {
             <Route path="admin/packages" element={
               <ProtectedRoute requiredRole="admin">
                 <PackageManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/curricula" element={
+              <ProtectedRoute requiredRole="admin">
+                <CurriculumManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="admin/units" element={
+              <ProtectedRoute requiredRole="admin">
+                <UnitManagementPage />
               </ProtectedRoute>
             } />
             <Route path="admin/finance" element={

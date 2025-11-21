@@ -9,7 +9,10 @@ import {
   Plus,
   X,
   MapPin,
-  Phone
+  Phone,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllCenters, createCenter, updateCenter, deleteCenter, Center, CreateCenterRequest, UpdateCenterRequest } from '../../../services/api';
@@ -31,10 +34,13 @@ const CenterManagement: React.FC = () => {
   const [filteredCenters, setFilteredCenters] = useState<Center[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [formData, setFormData] = useState<CreateCenterRequest>({
     name: '',
     address: '',
@@ -56,6 +62,7 @@ const CenterManagement: React.FC = () => {
 
   useEffect(() => {
     filterCenters();
+    setCurrentPage(1); // Reset to first page when filters change
   }, [centers, searchTerm]);
 
   // Close location dropdown when clicking outside
@@ -369,7 +376,15 @@ const CenterManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredCenters.map((center) => (
+                  (() => {
+                    const startIndex = (currentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedCenters = filteredCenters.slice(startIndex, endIndex);
+                    const totalPages = Math.ceil(filteredCenters.length / itemsPerPage);
+
+                    return (
+                      <>
+                        {paginatedCenters.map((center) => (
                     <tr key={center.centerId} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
@@ -396,29 +411,117 @@ const CenterManagement: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
+                        <div className="relative flex items-center justify-end">
                           <button
-                            onClick={() => openEditModal(center)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit"
+                            onClick={() => setOpenDropdownId(openDropdownId === center.centerId ? null : center.centerId)}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Actions"
                           >
-                            <Edit className="w-5 h-5" />
+                            <MoreVertical className="w-5 h-5" />
                           </button>
-                          <button
-                            onClick={() => openDeleteModal(center)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          {openDropdownId === center.centerId && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={() => setOpenDropdownId(null)}
+                              ></div>
+                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
+                                <button
+                                  onClick={() => {
+                                    openEditModal(center);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    openDeleteModal(center);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
+                        ))}
+                        </>
+                      );
+                    })()
+                  )}
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {filteredCenters.length > 0 && (() => {
+            const totalPages = Math.ceil(filteredCenters.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, filteredCenters.length);
+            
+            return (
+              <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                  <span className="font-medium">{endIndex}</span> of{' '}
+                  <span className="font-medium">{filteredCenters.length}</span> results
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        return page === 1 || 
+                               page === totalPages || 
+                               (page >= currentPage - 1 && page <= currentPage + 1);
+                      })
+                      .map((page, index, array) => {
+                        const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
+                        return (
+                          <React.Fragment key={page}>
+                            {showEllipsisBefore && (
+                              <span className="px-2 text-gray-500">...</span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white'
+                                  : 'border border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

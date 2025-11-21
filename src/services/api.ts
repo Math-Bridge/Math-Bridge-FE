@@ -3372,9 +3372,13 @@ export interface ChildUnitProgress {
 export interface Unit {
   unitId: string;
   unitName: string;
+  unitDescription?: string;
   unitOrder: number;
   curriculumId: string;
   curriculumName?: string;
+  credit?: number;
+  learningObjectives?: string;
+  isActive?: boolean;
   description?: string;
   createdDate?: string;
   updatedDate?: string;
@@ -4181,9 +4185,13 @@ export async function getAllUnits() {
       const mappedData: Unit[] = unitsArray.map((item: any) => ({
         unitId: item.unitId || item.UnitId || '',
         unitName: item.unitName || item.UnitName || '',
+        unitDescription: item.unitDescription || item.UnitDescription,
         unitOrder: item.unitOrder || item.UnitOrder || 0,
         curriculumId: item.curriculumId || item.CurriculumId || '',
         curriculumName: item.curriculumName || item.CurriculumName,
+        credit: item.credit || item.Credit || 0,
+        learningObjectives: item.learningObjectives || item.LearningObjectives,
+        isActive: item.isActive !== undefined ? item.isActive : (item.IsActive !== undefined ? item.IsActive : true),
         description: item.description || item.Description,
         createdDate: item.createdDate || item.CreatedDate,
         updatedDate: item.updatedDate || item.UpdatedDate,
@@ -4207,6 +4215,156 @@ export async function getAllUnits() {
       error: error?.message || 'Failed to fetch units',
     };
   }
+}
+
+// =====================
+// Curriculum & Unit admin CRUD (FE helpers)
+// These call assumed admin endpoints. Backend must enforce authorization.
+// =====================
+
+export interface Curriculum {
+  curriculumId: string;
+  curriculumName: string;
+  curriculumCode?: string;
+  description?: string;
+  grades?: string;
+  syllabusUrl?: string;
+  totalCredits?: number;
+  totalSchools?: number;
+  totalPackages?: number;
+  isActive?: boolean;
+  createdDate?: string;
+  updatedDate?: string;
+}
+
+export async function getAllCurriculums() {
+  try {
+    const result = await apiService.request<any>('/curricula', { method: 'GET' });
+    if (result.success && result.data) {
+      const data = Array.isArray(result.data) ? result.data : (result.data.data || []);
+      const mapped: Curriculum[] = data.map((item: any) => ({
+        curriculumId: item.curriculumId || item.CurriculumId || '',
+        curriculumName: item.curriculumName || item.CurriculumName || '',
+        curriculumCode: item.curriculumCode || item.CurriculumCode,
+        description: item.description || item.Description,
+        grades: item.grades || item.Grades,
+        syllabusUrl: item.syllabusUrl || item.SyllabusUrl,
+        totalCredits: item.totalCredits || item.TotalCredits || 0,
+        totalSchools: item.totalSchools || item.TotalSchools || 0,
+        totalPackages: item.totalPackages || item.TotalPackages || 0,
+        isActive: item.isActive !== undefined ? item.isActive : (item.IsActive !== undefined ? item.IsActive : true),
+        createdDate: item.createdDate || item.CreatedDate,
+        updatedDate: item.updatedDate || item.UpdatedDate,
+      }));
+
+      return { success: true, data: mapped };
+    }
+
+    return { success: false, data: [], error: result.error || 'Failed to fetch curriculums' };
+  } catch (error: any) {
+    return { success: false, data: [], error: error?.message || 'Failed to fetch curriculums' };
+  }
+}
+
+export async function createCurriculum(request: { 
+  CurriculumName: string; 
+  Description?: string;
+  CurriculumCode?: string;
+  Grades?: string;
+  SyllabusUrl?: string;
+  IsActive?: boolean;
+}) {
+  return apiService.request<any>('/curricula', {
+    method: 'POST',
+    body: JSON.stringify({ 
+      CurriculumName: request.CurriculumName, 
+      Description: request.Description,
+      CurriculumCode: request.CurriculumCode,
+      Grades: request.Grades,
+      SyllabusUrl: request.SyllabusUrl,
+      IsActive: request.IsActive,
+    }),
+  });
+}
+
+export async function updateCurriculum(curriculumId: string, request: { 
+  CurriculumName?: string; 
+  Description?: string;
+  CurriculumCode?: string;
+  Grades?: string;
+  SyllabusUrl?: string;
+  IsActive?: boolean;
+}) {
+  return apiService.request<any>(`/curricula/${curriculumId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ 
+      CurriculumName: request.CurriculumName, 
+      Description: request.Description,
+      CurriculumCode: request.CurriculumCode,
+      Grades: request.Grades,
+      SyllabusUrl: request.SyllabusUrl,
+      IsActive: request.IsActive,
+    }),
+  });
+}
+
+export async function deleteCurriculum(curriculumId: string) {
+  return apiService.request<any>(`/curricula/${curriculumId}`, {
+    method: 'DELETE',
+  });
+}
+
+// Create/Update/Delete units (admin)
+export async function createUnit(request: { 
+  UnitName: string; 
+  UnitOrder?: number; 
+  CurriculumId?: string;
+  UnitDescription?: string;
+  Credit?: number;
+  LearningObjectives?: string;
+  IsActive?: boolean;
+}) {
+  return apiService.request<any>('/units', {
+    method: 'POST',
+    body: JSON.stringify({ 
+      UnitName: request.UnitName, 
+      UnitOrder: request.UnitOrder, 
+      CurriculumId: request.CurriculumId,
+      UnitDescription: request.UnitDescription,
+      Credit: request.Credit,
+      LearningObjectives: request.LearningObjectives,
+      IsActive: request.IsActive,
+    }),
+  });
+}
+
+export async function updateUnit(unitId: string, request: { 
+  UnitName?: string; 
+  UnitOrder?: number; 
+  CurriculumId?: string;
+  UnitDescription?: string;
+  Credit?: number;
+  LearningObjectives?: string;
+  IsActive?: boolean;
+}) {
+  return apiService.request<any>(`/units/${unitId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ 
+      UnitName: request.UnitName, 
+      UnitOrder: request.UnitOrder, 
+      CurriculumId: request.CurriculumId,
+      UnitDescription: request.UnitDescription,
+      Credit: request.Credit,
+      LearningObjectives: request.LearningObjectives,
+      IsActive: request.IsActive,
+    }),
+  });
+}
+
+export async function deleteUnit(unitId: string) {
+  return apiService.request<any>(`/units/${unitId}`, {
+    method: 'DELETE',
+  });
 }
 
 // Get units by contract ID
