@@ -14,6 +14,7 @@ import {
   X,
   Calendar,
   MapPin,
+  Building,
 } from 'lucide-react';
 import { apiService, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -34,6 +35,25 @@ interface VerificationDetail {
   isDeleted: boolean;
 }
 
+interface Center {
+  centerId: string;
+  name: string;
+  formattedAddress?: string;
+  city?: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  tutorCount?: number;
+  createdDate?: string;
+}
+
+interface TutorCenter {
+  tutorCenterId: string;
+  centerId: string;
+  createdDate: string;
+  center?: Center;
+}
+
 const TutorProfile: React.FC = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
@@ -41,6 +61,8 @@ const TutorProfile: React.FC = () => {
   const [verificationDetail, setVerificationDetail] = useState<VerificationDetail | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tutorCenters, setTutorCenters] = useState<TutorCenter[]>([]);
+  const [loadingCenters, setLoadingCenters] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -53,6 +75,7 @@ const TutorProfile: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       fetchProfile();
+      fetchTutorCenters();
     }
   }, [user]);
 
@@ -84,6 +107,25 @@ const TutorProfile: React.FC = () => {
       showError('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTutorCenters = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoadingCenters(true);
+      const result = await apiService.request<any>(`/tutors/${user.id}`);
+      if (result.success && result.data) {
+        // Backend returns tutor with tutorCenters array
+        const centers = result.data.tutorCenters || result.data.TutorCenters || [];
+        setTutorCenters(centers);
+      }
+    } catch (error) {
+      console.error('Error fetching tutor centers:', error);
+      // Don't show error, just log it - centers are optional
+    } finally {
+      setLoadingCenters(false);
     }
   };
 
@@ -397,6 +439,72 @@ const TutorProfile: React.FC = () => {
             ) : (
               <p className="text-gray-500 italic">No biography provided</p>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Center Assignment */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+          <Building className="w-5 h-5" />
+          <span>Center Assignment</span>
+        </h3>
+        {loadingCenters ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : tutorCenters.length === 0 ? (
+          <div className="text-center py-8">
+            <Building className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-600 font-medium">No Center Assigned</p>
+            <p className="text-sm text-gray-500 mt-2">
+              You have not been assigned to any center yet. Staff will assign you to a center based on your location.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {tutorCenters.map((tutorCenter) => {
+              const center = tutorCenter.center || tutorCenter.Center;
+              if (!center) return null;
+              
+              return (
+                <div
+                  key={tutorCenter.tutorCenterId || tutorCenter.TutorCenterId}
+                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Building className="w-5 h-5 text-blue-600" />
+                        <h4 className="font-semibold text-gray-900">{center.name || center.Name}</h4>
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                          Assigned
+                        </span>
+                      </div>
+                      {center.formattedAddress || center.FormattedAddress ? (
+                        <div className="flex items-start space-x-1 mb-2">
+                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-gray-600">
+                            {center.formattedAddress || center.FormattedAddress}
+                          </p>
+                        </div>
+                      ) : null}
+                      {(center.city || center.City) && (
+                        <p className="text-sm text-gray-500">
+                          {center.city || center.City}
+                          {center.district || center.District ? `, ${center.district || center.District}` : ''}
+                        </p>
+                      )}
+                      {tutorCenter.createdDate && (
+                        <p className="text-xs text-gray-400 mt-2">
+                          Assigned on: {formatDate(tutorCenter.createdDate)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -37,12 +37,12 @@ import {
   FinalFeedbackPage,
   TutorDetailPage,
   ParentDailyReportsPage,
+  ParentTestResultsPage,
   AdminDashboardPage,
   UserManagementPage,
   CenterManagementPage,
   PackageManagementPage,
   FinancePage,
-  LogsPage,
   SettingsPage,
   StaffDashboardPage,
   ContractManagementPage,
@@ -305,6 +305,11 @@ function App() {
                 <ParentDailyReportsPage />
               </ProtectedRoute>
             } />
+            <Route path="test-results" element={
+              <ProtectedRoute requiredRole="parent">
+                <ParentTestResultsPage />
+              </ProtectedRoute>
+            } />
             
             {/* Admin Routes */}
             <Route path="admin" element={
@@ -330,11 +335,6 @@ function App() {
             <Route path="admin/finance" element={
               <ProtectedRoute requiredRole="admin">
                 <FinancePage />
-              </ProtectedRoute>
-            } />
-            <Route path="admin/logs" element={
-              <ProtectedRoute requiredRole="admin">
-                <LogsPage />
               </ProtectedRoute>
             } />
             <Route path="admin/settings" element={

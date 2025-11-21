@@ -225,7 +225,17 @@ class ApiService {
         const isUnauthorizedAccess = response.status === 500 && 
           (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('unauthorized'));
         
-        if (import.meta.env.DEV && !isUnauthorizedAccess) {
+        // Skip logging for 404 errors - these are expected when resources don't exist
+        const isNotFound = response.status === 404;
+        
+        // Skip logging for expected 404s (learning forecast, unit progress when no reports exist)
+        const isExpectedNotFound = isNotFound && (
+          url.includes('/learning-forecast') || 
+          url.includes('/unit-progress') ||
+          (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('no daily reports found'))
+        );
+        
+        if (import.meta.env.DEV && !isUnauthorizedAccess && !isExpectedNotFound) {
           console.error('API Error:', {
             url,
             status: response.status,
@@ -467,7 +477,45 @@ class ApiService {
   }
 
   async getAllUsers(): Promise<ApiResponse<any[]>> {
-    return this.request('/admin/users');
+    try {
+      const result = await this.request<{ data: any[]; totalCount: number }>('/users', {
+        method: 'GET',
+      });
+      
+      if (result.success && result.data) {
+        // Backend returns { data: [...], totalCount: ... }
+        const usersData = result.data.data || result.data;
+        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => ({
+          userId: item.userId || item.UserId || '',
+          fullName: item.fullName || item.FullName || '',
+          email: item.email || item.Email || '',
+          phoneNumber: item.phoneNumber || item.PhoneNumber,
+          roleId: item.roleId ?? item.RoleId ?? 0,
+          roleName: item.roleName || item.RoleName,
+          status: item.status || item.Status || 'active',
+          formattedAddress: item.formattedAddress || item.FormattedAddress,
+          walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
+        }));
+        
+      return {
+        success: true,
+        data: mappedUsers,
+        error: undefined,
+      };
+      }
+      
+      return {
+        success: result.success,
+        data: [],
+        error: result.error,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        data: [],
+        error: error?.message || 'Failed to fetch users',
+      };
+    }
   }
 
 
@@ -591,6 +639,215 @@ export async function getTutorsByCenter(centerId: string) {
 
 export async function getCenterStatistics() {
   return apiService.request<any>(`/centers/statistics`);
+}
+
+// Get unassigned tutors (tutors without center)
+export async function getUnassignedTutors() {
+  try {
+    const result = await apiService.request<any[]>(`/tutors/unassigned-to-center`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map PascalCase to camelCase
+      // Note: TutorInCenterDto doesn't include location info, so we'll need to fetch it separately if needed
+      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => ({
+        userId: item.userId || item.TutorId || '',
+        fullName: item.fullName || item.FullName || '',
+        email: item.email || item.Email || '',
+        phoneNumber: item.phoneNumber || item.PhoneNumber || '',
+        formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
+        city: item.city || item.City || undefined,
+        district: item.district || item.District || undefined,
+        latitude: item.latitude ?? item.Latitude ?? undefined,
+        longitude: item.longitude ?? item.Longitude ?? undefined,
+        tutorVerification: {
+          verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
+          hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
+          university: item.tutorVerification?.university || item.University || undefined,
+          major: item.tutorVerification?.major || item.Major || undefined,
+          bio: item.tutorVerification?.bio || item.Bio || undefined,
+        },
+      }));
+      
+      return {
+        success: true,
+        data: mappedTutors,
+        error: null,
+      };
+    }
+    
+    return {
+      success: result.success,
+      data: [],
+      error: result.error,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch unassigned tutors',
+    };
+  }
+}
+
+// Suggest centers for a tutor based on their address
+export async function suggestCentersForTutor(tutorId: string, radiusKm: number = 10) {
+  return apiService.request<{
+    success: boolean;
+    tutorId: string;
+    radiusKm: number;
+    suggestedCenters: any[];
+    totalCount: number;
+  }>(`/centers/suggest-for-tutor/${tutorId}?radiusKm=${radiusKm}`);
+}
+
+// Assign tutor to center
+export async function assignTutorToCenter(centerId: string, tutorId: string) {
+  return apiService.request<{ message: string }>(`/centers/${centerId}/assign-tutor`, {
+    method: 'POST',
+    body: JSON.stringify({ TutorId: tutorId }),
+  });
+}
+
+// Test Result API functions
+export interface TestResult {
+  resultId: string;
+  testType: string;
+  score: number;
+  notes?: string;
+  createdDate: string;
+  updatedDate: string;
+  contractId: string;
+  bookingId?: string;
+}
+
+export interface CreateTestResultRequest {
+  testType: string;
+  score: number;
+  notes?: string;
+  contractId: string;
+  bookingId?: string;
+}
+
+export interface UpdateTestResultRequest {
+  testType?: string;
+  score?: number;
+  notes?: string;
+  contractId?: string;
+  bookingId?: string;
+}
+
+// Get test result by ID
+export async function getTestResultById(resultId: string) {
+  return apiService.request<TestResult>(`/test-results/${resultId}`);
+}
+
+// Get test results by contract ID
+export async function getTestResultsByContractId(contractId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/test-results/contract/${contractId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: TestResult[] = result.data.map((item: any) => ({
+        resultId: item.resultId || item.ResultId || '',
+        testType: item.testType || item.TestType || '',
+        score: item.score ?? item.Score ?? 0,
+        notes: item.notes || item.Notes,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        updatedDate: item.updatedDate || item.UpdatedDate || '',
+        contractId: item.contractId || item.ContractId || contractId,
+        bookingId: item.bookingId || item.BookingId,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch test results',
+    };
+  }
+}
+
+// Get test results by child ID
+export async function getTestResultsByChildId(childId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/test-results/child/${childId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      const mappedData: TestResult[] = result.data.map((item: any) => ({
+        resultId: item.resultId || item.ResultId || '',
+        testType: item.testType || item.TestType || '',
+        score: item.score ?? item.Score ?? 0,
+        notes: item.notes || item.Notes,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        updatedDate: item.updatedDate || item.UpdatedDate || '',
+        contractId: item.contractId || item.ContractId || '',
+        bookingId: item.bookingId || item.BookingId,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch test results',
+    };
+  }
+}
+
+// Create test result
+export async function createTestResult(request: CreateTestResultRequest) {
+  return apiService.request<{ message: string; resultId: string }>(`/test-results`, {
+    method: 'POST',
+    body: JSON.stringify({
+      TestType: request.testType,
+      Score: request.score,
+      Notes: request.notes,
+      ContractId: request.contractId,
+      BookingId: request.bookingId,
+    }),
+  });
+}
+
+// Update test result
+export async function updateTestResult(resultId: string, request: UpdateTestResultRequest) {
+  return apiService.request<{ message: string }>(`/test-results/${resultId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      TestType: request.testType,
+      Score: request.score,
+      Notes: request.notes,
+      ContractId: request.contractId,
+      BookingId: request.bookingId,
+    }),
+  });
+}
+
+// Delete test result
+export async function deleteTestResult(resultId: string) {
+  return apiService.request<{ message: string }>(`/test-results/${resultId}`, {
+    method: 'DELETE',
+  });
 }
 
 // Get centers near an address (within radius)
@@ -1613,7 +1870,7 @@ export interface AvailableSubTutor {
 // Get all reschedule requests
 // Backend: GET /api/reschedule?parentId={parentId} (optional, staff sees all, parent sees only their own)
 // Note: Backend doesn't support status filter, filtering is done on frontend
-export async function getRescheduleRequests(status?: 'pending' | 'approved' | 'rejected') {
+export async function getRescheduleRequests(_status?: 'pending' | 'approved' | 'rejected') {
   try {
     // Backend doesn't have status query param, we'll filter on frontend
     const result = await apiService.request<any[]>(`/reschedule`, {
@@ -3426,6 +3683,16 @@ export async function getLearningCompletionForecast(childId: string) {
       method: 'GET',
     });
     
+    // Handle 404 gracefully - no daily reports means no forecast
+    if (!result.success && result.error && 
+        (result.error.includes('No daily reports found') || result.error.includes('404'))) {
+      return {
+        success: false,
+        data: null,
+        error: null, // Don't treat as error, just no data available
+      };
+    }
+    
     if (result.success && result.data) {
       const item = result.data;
       const mappedData: LearningCompletionForecast = {
@@ -3470,6 +3737,16 @@ export async function getChildUnitProgress(childId: string) {
     const result = await apiService.request<any>(`/daily-reports/child/${childId}/unit-progress`, {
       method: 'GET',
     });
+    
+    // Handle 404 gracefully - no daily reports means no progress data
+    if (!result.success && result.error && 
+        (result.error.includes('No daily reports found') || result.error.includes('404'))) {
+      return {
+        success: false,
+        data: null,
+        error: null, // Don't treat as error, just no data available
+      };
+    }
     
     if (result.success && result.data) {
       const item = result.data;

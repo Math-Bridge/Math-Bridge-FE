@@ -76,7 +76,19 @@ const CenterManagement: React.FC = () => {
       const result = await getAllCenters();
       if (result.success && result.data) {
         const centersData = Array.isArray(result.data) ? result.data : result.data.data || [];
-        setCenters(centersData);
+        // Map PascalCase to camelCase and handle FormattedAddress
+        const mappedCenters = centersData.map((center: any) => ({
+          centerId: center.centerId || center.CenterId || '',
+          name: center.name || center.Name || '',
+          address: center.address || center.Address || center.FormattedAddress || center.formattedAddress || '',
+          phone: center.phone || center.Phone || center.PhoneNumber || center.phoneNumber || '',
+          status: center.status || center.Status || 'active',
+          // Keep PascalCase fields for compatibility
+          FormattedAddress: center.FormattedAddress || center.formattedAddress || center.address || center.Address || '',
+          City: center.City || center.city || '',
+          District: center.District || center.district || '',
+        }));
+        setCenters(mappedCenters);
       } else {
         setCenters([]);
       }
@@ -343,9 +355,6 @@ const CenterManagement: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Address
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Phone
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -354,7 +363,7 @@ const CenterManagement: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredCenters.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
                       <Building className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                       <p>No centers found</p>
                     </td>
@@ -372,25 +381,19 @@ const CenterManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-start space-x-2 text-sm text-gray-600">
-                          {center.address ? (
-                            <>
-                              <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                              <span className="flex-1">{center.address}</span>
-                            </>
-                          ) : (
-                            <span className="text-gray-400">N/A</span>
-                          )}
+                          {(() => {
+                            const address = center.address || (center as any).FormattedAddress || (center as any).formattedAddress || '';
+                            if (address) {
+                              return (
+                                <>
+                                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                  <span className="flex-1">{address}</span>
+                                </>
+                              );
+                            }
+                            return <span className="text-gray-400">N/A</span>;
+                          })()}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {center.phone ? (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <Phone className="w-4 h-4 flex-shrink-0" />
-                            <span>{center.phone}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">N/A</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
@@ -499,17 +502,6 @@ const CenterManagement: React.FC = () => {
                   <p className="mt-1 text-sm text-gray-500">
                     Type at least 3 characters to search for your location
                   </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
                 </div>
               </div>
               <div className="mt-6 flex items-center justify-end space-x-3">
@@ -620,17 +612,6 @@ const CenterManagement: React.FC = () => {
                   <p className="mt-1 text-sm text-gray-500">
                     Type at least 3 characters to search for your location
                   </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
                 </div>
               </div>
               <div className="mt-6 flex items-center justify-end space-x-3">

@@ -33,6 +33,7 @@ import RescheduleManagement from './RescheduleManagement';
 import TutorVerificationManagement from './TutorVerificationManagement';
 import StaffDailyReports from './StaffDailyReports';
 import FinalFeedbackManagement from './FinalFeedbackManagement';
+import TutorCenterAssignment from './TutorCenterAssignment';
 
 interface RecentActivity {
   id: string;
@@ -60,7 +61,7 @@ const StaffDashboard: React.FC = () => {
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'centers' | 'tutor-verification' | 'daily-reports' | 'final-feedback'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'tutor-verification' | 'daily-reports' | 'final-feedback' | 'tutor-center-assignment'>('dashboard');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
@@ -104,7 +105,7 @@ const StaffDashboard: React.FC = () => {
   // Sync currentView with location state (for navigation from detail pages)
   useEffect(() => {
     const state = location.state as { view?: string } | null;
-    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'centers', 'tutor-verification', 'daily-reports', 'final-feedback'].includes(state.view)) {
+    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'tutor-verification', 'daily-reports', 'final-feedback', 'tutor-center-assignment'].includes(state.view)) {
       setCurrentView(state.view as typeof currentView);
     }
   }, [location.state]);
@@ -112,11 +113,11 @@ const StaffDashboard: React.FC = () => {
   const navigationItems = [
     { name: 'Home', icon: Home, path: '/staff', view: 'dashboard' as const },
     { name: 'Tutor Verification', icon: UserCheck, path: '/staff/tutor-verification', view: 'tutor-verification' as const },
+    { name: 'Tutor Center Assignment', icon: Building, path: '/staff/tutor-center-assignment', view: 'tutor-center-assignment' as const },
     { name: 'Contract Management', icon: FileText, path: '/staff/contracts', view: 'contracts' as const },
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
     { name: 'Final Feedback Management', icon: Star, path: '/staff/final-feedback', view: 'final-feedback' as const },
     { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
-    { name: 'Center Management', icon: Building, path: '/staff/centers', view: 'centers' as const },
   ];
 
   const getCurrentDate = () => {
@@ -167,6 +168,8 @@ const StaffDashboard: React.FC = () => {
         return <StaffDailyReports />;
       case 'final-feedback':
         return <FinalFeedbackManagement />;
+      case 'tutor-center-assignment':
+        return <TutorCenterAssignment hideBackButton />;
       case 'chat':
     return (
           <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -174,13 +177,6 @@ const StaffDashboard: React.FC = () => {
             <p className="text-gray-600">Coming soon...</p>
       </div>
     );
-      case 'centers':
-  return (
-          <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Center Management</h2>
-            <p className="text-gray-600">Coming soon...</p>
-          </div>
-        );
       case 'dashboard':
       default:
         return renderDashboardView();
