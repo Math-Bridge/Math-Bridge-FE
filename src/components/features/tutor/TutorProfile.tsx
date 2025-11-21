@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -19,6 +20,13 @@ import {
 import { apiService, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+
+interface LocationPrediction {
+  placeId: string;
+  description: string;
+  mainText: string;
+  secondaryText: string;
+}
 
 interface VerificationDetail {
   verificationId: string;
@@ -55,14 +63,24 @@ interface TutorCenter {
 }
 
 const TutorProfile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { showSuccess, showError } = useToast();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [verificationDetail, setVerificationDetail] = useState<VerificationDetail | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tutorCenters, setTutorCenters] = useState<TutorCenter[]>([]);
   const [loadingCenters, setLoadingCenters] = useState(false);
+  
+  // Location autocomplete state
+  const [locationInput, setLocationInput] = useState('');
+  const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [selectedPlaceId, setSelectedPlaceId] = useState('');
+  const locationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -71,13 +89,35 @@ const TutorProfile: React.FC = () => {
     hourlyRate: 0,
     bio: '',
   });
+  
+  // User location state
+  const [userLocation, setUserLocation] = useState({
+    formattedAddress: '',
+    city: '',
+    district: '',
+  });
 
   useEffect(() => {
     if (user?.id) {
       fetchProfile();
       fetchTutorCenters();
+      fetchUserLocation();
     }
   }, [user]);
+
+  // Close location dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const fetchProfile = async () => {
     if (!user?.id) return;
@@ -115,7 +155,7 @@ const TutorProfile: React.FC = () => {
     
     try {
       setLoadingCenters(true);
-      const result = await apiService.request<any>(`/tutors/${user.id}`);
+      const result = await apiService.request<any>(`/Tutors/${user.id}`);
       if (result.success && result.data) {
         // Backend returns tutor with tutorCenters array
         const centers = result.data.tutorCenters || result.data.TutorCenters || [];
@@ -129,8 +169,76 @@ const TutorProfile: React.FC = () => {
     }
   };
 
+  const fetchUserLocation = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const result = await apiService.request<any>(`/Tutors/${user.id}`);
+      if (result.success && result.data) {
+        const tutorData = result.data;
+        setUserLocation({
+          formattedAddress: tutorData.formattedAddress || tutorData.FormattedAddress || '',
+          city: tutorData.city || tutorData.City || '',
+          district: tutorData.district || tutorData.District || '',
+        });
+        setLocationInput(tutorData.formattedAddress || tutorData.FormattedAddress || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user location:', error);
+    }
+  };
+
+  // Location autocomplete handler
+  const handleLocationInputChange = async (value: string) => {
+    setLocationInput(value);
+    setSelectedPlaceId('');
+
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+
+    if (value.trim().length < 3) {
+      setLocationPredictions([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+
+    locationTimeoutRef.current = setTimeout(async () => {
+      setIsLoadingLocation(true);
+      try {
+        const response = await apiService.getAddressAutocomplete(value, 'VN');
+        if (response.success && response.data?.predictions) {
+          const predictions = response.data.predictions.map((pred: any) => {
+            const predictionObj: LocationPrediction = {
+              placeId: pred.placeId || pred.place_id || '',
+              description: pred.description || '',
+              mainText: pred.mainText || pred.structured_formatting?.main_text || pred.main_text || '',
+              secondaryText: pred.secondaryText || pred.structured_formatting?.secondary_text || pred.secondary_text || ''
+            };
+            return predictionObj;
+          });
+          setLocationPredictions(predictions);
+          setShowLocationDropdown(true);
+        }
+      } catch (error) {
+        console.error('Error fetching location predictions:', error);
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    }, 300);
+  };
+
+  const handleLocationSelect = (prediction: LocationPrediction) => {
+    setLocationInput(prediction.description);
+    setSelectedPlaceId(prediction.placeId);
+    setShowLocationDropdown(false);
+    setLocationPredictions([]);
+  };
+
   const handleEdit = () => {
     setIsEditing(true);
+    setLocationInput(userLocation.formattedAddress);
+    setSelectedPlaceId('');
   };
 
   const handleCancel = () => {
@@ -142,6 +250,10 @@ const TutorProfile: React.FC = () => {
         bio: verificationDetail.bio || '',
       });
     }
+    setLocationInput(userLocation.formattedAddress);
+    setSelectedPlaceId('');
+    setLocationPredictions([]);
+    setShowLocationDropdown(false);
     setIsEditing(false);
   };
 
@@ -151,7 +263,26 @@ const TutorProfile: React.FC = () => {
     try {
       setSaving(true);
       
-      // First get verification ID
+      // Validate location if changed
+      if (locationInput && locationInput !== userLocation.formattedAddress && !selectedPlaceId) {
+        showError('Please select a location from the dropdown');
+        setSaving(false);
+        return;
+      }
+      
+      // Step 1: Update location if changed
+      if (selectedPlaceId && locationInput !== userLocation.formattedAddress) {
+        const locationResponse = await apiService.saveAddress(selectedPlaceId);
+        if (!locationResponse.success) {
+          showError(locationResponse.error || 'Failed to save location');
+          setSaving(false);
+          return;
+        }
+        // Refresh user location after save
+        await fetchUserLocation();
+      }
+      
+      // Step 2: Update verification (university, major, bio only - NOT hourlyRate)
       const verificationResult = await getTutorVerificationByUserId(user.id);
       let verificationId: string | null = null;
       
@@ -160,18 +291,57 @@ const TutorProfile: React.FC = () => {
       }
 
       if (verificationId) {
-        // Update existing verification
+        // Update existing verification (without hourlyRate - only admin can change it)
         const updateResult = await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
           method: 'PUT',
           body: JSON.stringify({
             University: formData.university,
             Major: formData.major,
-            HourlyRate: formData.hourlyRate,
+            // HourlyRate is NOT included - only admin can update it
             Bio: formData.bio,
           }),
         });
 
         if (updateResult.success) {
+          // Check if this was a forced update and validate all required fields
+          const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
+          const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
+          
+          // Refresh user context from localStorage to update the auth state
+          refreshUser();
+          
+          // For tutor, validate all required fields: location, university, major, bio
+          if (wasForcedUpdate) {
+            const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
+            const verificationComplete = !state?.needsVerification || (
+              formData.university && 
+              formData.major && 
+              formData.bio
+            );
+            
+            if (locationComplete && verificationComplete) {
+              showSuccess('Profile updated successfully! Redirecting...');
+              
+              // Redirect to tutor dashboard
+              setTimeout(() => {
+                window.location.href = '/tutor/dashboard';
+              }, 500);
+              return; // Exit early
+            } else {
+              // Show error if not all required fields are filled
+              const missingFields = [];
+              if (!locationComplete) missingFields.push('location');
+              if (!verificationComplete) {
+                if (!formData.university) missingFields.push('university');
+                if (!formData.major) missingFields.push('major');
+                if (!formData.bio) missingFields.push('bio');
+              }
+              showError(`Please complete all required fields: ${missingFields.join(', ')}`);
+              setSaving(false);
+              return;
+            }
+          }
+          
           showSuccess('Profile updated successfully!');
           setIsEditing(false);
           await fetchProfile();
@@ -179,19 +349,54 @@ const TutorProfile: React.FC = () => {
           showError(updateResult.error || 'Failed to update profile');
         }
       } else {
-        // Create new verification if doesn't exist
+        // Create new verification if doesn't exist (without hourlyRate)
         const createResult = await apiService.request<any>(`/tutor-verifications`, {
           method: 'POST',
           body: JSON.stringify({
             UserId: user.id,
             University: formData.university,
             Major: formData.major,
-            HourlyRate: formData.hourlyRate,
+            // HourlyRate is NOT included - only admin can set it
             Bio: formData.bio,
           }),
         });
 
         if (createResult.success) {
+          // Check if this was a forced update
+          const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
+          const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
+          
+          // Refresh user context
+          refreshUser();
+          
+          if (wasForcedUpdate) {
+            const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
+            const verificationComplete = !state?.needsVerification || (
+              formData.university && 
+              formData.major && 
+              formData.bio
+            );
+            
+            if (locationComplete && verificationComplete) {
+              showSuccess('Profile created successfully! Redirecting...');
+              setTimeout(() => {
+                window.location.href = '/tutor/dashboard';
+              }, 500);
+              return;
+            } else {
+              const missingFields = [];
+              if (!locationComplete) missingFields.push('location');
+              if (!verificationComplete) {
+                if (!formData.university) missingFields.push('university');
+                if (!formData.major) missingFields.push('major');
+                if (!formData.bio) missingFields.push('bio');
+              }
+              showError(`Please complete all required fields: ${missingFields.join(', ')}`);
+              setSaving(false);
+              return;
+            }
+          }
+          
           showSuccess('Profile created successfully!');
           setIsEditing(false);
           await fetchProfile();
@@ -372,22 +577,6 @@ const TutorProfile: React.FC = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-1">
-                <DollarSign className="w-4 h-4" />
-                <span>Hourly Rate (USD) <span className="text-red-500">*</span></span>
-              </label>
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={formData.hourlyRate}
-                onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) || 0 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter hourly rate"
-                required
-              />
-            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -403,11 +592,96 @@ const TutorProfile: React.FC = () => {
               <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
                 <DollarSign className="w-4 h-4" />
                 <span>Hourly Rate</span>
+                <span className="text-xs text-gray-400 ml-1">(Set by Admin)</span>
               </label>
               <p className="text-gray-900 mt-1">
-                {verificationDetail?.hourlyRate ? `$${verificationDetail.hourlyRate}/hour` : 'Not provided'}
+                {verificationDetail?.hourlyRate ? (
+                  <span>
+                    {new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    }).format(verificationDetail.hourlyRate * 25000)}
+                    /hour
+                  </span>
+                ) : (
+                  'Not set by admin yet'
+                )}
               </p>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Location */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+          <MapPin className="w-5 h-5" />
+          <span>Location</span>
+        </h3>
+        {isEditing ? (
+          <div className="space-y-4">
+            <div className="relative" ref={locationDropdownRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={locationInput}
+                onChange={(e) => handleLocationInputChange(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Start typing your address..."
+                required
+              />
+              {isLoadingLocation && (
+                <div className="absolute right-3 top-10">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {showLocationDropdown && locationPredictions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {locationPredictions.map((prediction, index) => (
+                    <div
+                      key={prediction.placeId || index}
+                      onClick={() => handleLocationSelect(prediction)}
+                      className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium text-gray-900">{prediction.mainText}</div>
+                      <div className="text-sm text-gray-500">{prediction.secondaryText}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {locationInput && !selectedPlaceId && locationInput !== userLocation.formattedAddress && (
+                <p className="text-xs text-amber-600 mt-1">Please select a location from the dropdown</p>
+              )}
+            </div>
+            {(userLocation.city || userLocation.district) && (
+              <div className="text-sm text-gray-600">
+                <p><strong>City:</strong> {userLocation.city || 'N/A'}</p>
+                <p><strong>District:</strong> {userLocation.district || 'N/A'}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {userLocation.formattedAddress ? (
+              <div>
+                <div className="flex items-start space-x-2">
+                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-gray-900">{userLocation.formattedAddress}</p>
+                </div>
+                {(userLocation.city || userLocation.district) && (
+                  <p className="text-sm text-gray-600 ml-7">
+                    {userLocation.district && `${userLocation.district}, `}
+                    {userLocation.city}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-500 italic">No location set</p>
+            )}
           </div>
         )}
       </div>

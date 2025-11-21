@@ -1,4 +1,9 @@
-const API_BASE_URL = 'https://api.vibe88.tech/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vibe88.tech/api';
+
+// Log which API base is being used in development to aid debugging
+if (import.meta.env.DEV) {
+  console.info('[api] Using API base URL:', API_BASE_URL);
+}
 
 // API Response types
 export interface ApiResponse<T> {
@@ -525,31 +530,44 @@ export async function getCenterStatistics() {
 // Get unassigned tutors (tutors without center)
 export async function getUnassignedTutors() {
   try {
-    const result = await apiService.request<any[]>(`/Tutors/without-center`, {
+    const result = await apiService.request<any[]>(`/Tutors/unassigned-to-center`, {
       method: 'GET',
     });
     
     if (result.success && result.data) {
       // Map PascalCase to camelCase
-      // Note: TutorInCenterDto doesn't include location info, so we'll need to fetch it separately if needed
-      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => ({
-        userId: item.userId || item.TutorId || '',
-        fullName: item.fullName || item.FullName || '',
-        email: item.email || item.Email || '',
-        phoneNumber: item.phoneNumber || item.PhoneNumber || '',
-        formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
-        city: item.city || item.City || undefined,
-        district: item.district || item.District || undefined,
-        latitude: item.latitude ?? item.Latitude ?? undefined,
-        longitude: item.longitude ?? item.Longitude ?? undefined,
-        tutorVerification: {
-          verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
-          hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
-          university: item.tutorVerification?.university || item.University || undefined,
-          major: item.tutorVerification?.major || item.Major || undefined,
-          bio: item.tutorVerification?.bio || item.Bio || undefined,
-        },
-      }));
+      // TutorInCenterDto now includes location fields (FormattedAddress, City, District, Latitude, Longitude)
+      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => {
+        const mapped = {
+          userId: item.userId || item.TutorId || '',
+          fullName: item.fullName || item.FullName || '',
+          email: item.email || item.Email || '',
+          phoneNumber: item.phoneNumber || item.PhoneNumber || '',
+          formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
+          city: item.city || item.City || undefined,
+          district: item.district || item.District || undefined,
+          latitude: item.latitude ?? item.Latitude ?? (typeof item.latitude === 'number' ? item.latitude : undefined),
+          longitude: item.longitude ?? item.Longitude ?? (typeof item.longitude === 'number' ? item.longitude : undefined),
+          tutorVerification: {
+            verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
+            hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
+            university: item.tutorVerification?.university || item.University || undefined,
+            major: item.tutorVerification?.major || item.Major || undefined,
+            bio: item.tutorVerification?.bio || item.Bio || undefined,
+          },
+        };
+        
+        // Debug log for troubleshooting
+        if (import.meta.env.DEV && (!mapped.formattedAddress && !mapped.city && !mapped.latitude)) {
+          console.warn('Tutor without address info:', {
+            userId: mapped.userId,
+            fullName: mapped.fullName,
+            rawItem: item
+          });
+        }
+        
+        return mapped;
+      });
       
       return {
         success: true,
@@ -572,8 +590,6 @@ export async function getUnassignedTutors() {
   }
 }
 
-// Note: suggestCentersForTutor endpoint removed - use assignTutorToCenter instead
-// If you need to suggest centers, use the search endpoint: /centers/search with location parameters
 
 // Assign tutor to center
 export async function assignTutorToCenter(centerId: string, tutorId: string) {
@@ -2326,6 +2342,17 @@ export async function verifyTutor(tutorId: string) {
         });
       }
     }
+    // If the GET returned a not-found response, return a clear error rather than trying legacy endpoints
+    if (!verificationResult.success && verificationResult.error && (
+      verificationResult.error.toString().toLowerCase().includes('404') ||
+      verificationResult.error.toString().toLowerCase().includes('not found') ||
+      verificationResult.error.toString().toLowerCase().includes('verification not found')
+    )) {
+      return {
+        success: false,
+        error: 'Verification not found for user.',
+      } as any;
+    }
     
     // If no verification found, try direct approve with userId (if backend supports it)
     // Fallback to old endpoints
@@ -2426,7 +2453,17 @@ export async function rejectTutorVerification(tutorId: string) {
         });
       }
     }
-    
+    // If the GET returned a not-found response, return a clear error rather than trying legacy endpoints
+    if (!verificationResult.success && verificationResult.error && (
+      verificationResult.error.toString().toLowerCase().includes('404') ||
+      verificationResult.error.toString().toLowerCase().includes('not found') ||
+      verificationResult.error.toString().toLowerCase().includes('verification not found')
+    )) {
+      return {
+        success: false,
+        error: 'Verification not found for user.',
+      } as any;
+    }
     // If no verification found, try direct reject with userId (if backend supports it)
     // Fallback to old endpoints
     try {

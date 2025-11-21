@@ -99,9 +99,34 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: strin
   }
 
   // Check if user needs to set up location or phone (skip for profile pages)
-  if (!skipLocationCheck && user && (!user.placeId || user.phone === 'N/A')) {
-    console.log('User missing required data (placeId or phone), redirecting to profile');
-    return <Navigate to="/user-profile" replace state={{ needsLocation: !user.placeId, needsPhone: user.phone === 'N/A' }} />;
+  if (!skipLocationCheck && user) {
+    const needsLocation = !user.placeId || user.phone === 'N/A';
+    
+    // For tutors, also check verification info
+    let needsVerification = false;
+    if (user.role === 'tutor') {
+      // Check from localStorage if verification is needed (set during login)
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          needsVerification = userData.needsVerification === true;
+        } catch (e) {
+          // If can't parse, assume needs verification for safety
+          needsVerification = true;
+        }
+      }
+    }
+    
+    if (needsLocation || needsVerification) {
+      console.log('User missing required data, redirecting to profile');
+      // Redirect tutor to tutor dashboard (which has profile), others to user-profile
+      if (user.role === 'tutor') {
+        return <Navigate to="/tutor/dashboard" replace state={{ needsLocation: !user.placeId, needsPhone: user.phone === 'N/A', needsVerification: needsVerification }} />;
+      } else {
+        return <Navigate to="/user-profile" replace state={{ needsLocation: !user.placeId, needsPhone: user.phone === 'N/A' }} />;
+      }
+    }
   }
 
   console.log('User authenticated (and role ok if required), showing protected content');

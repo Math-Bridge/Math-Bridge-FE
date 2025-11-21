@@ -425,7 +425,17 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {tutor.hourlyRate !== undefined ? `$${tutor.hourlyRate}/hour` : 'N/A'}
+                          {tutor.hourlyRate !== undefined ? (
+                            <>
+                              {new Intl.NumberFormat('vi-VN', {
+                                style: 'currency',
+                                currency: 'VND',
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              }).format(tutor.hourlyRate * 25000)}
+                              /hour
+                            </>
+                          ) : 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -692,7 +702,17 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                             <span>Hourly Rate</span>
                           </label>
                           <p className="text-gray-900 mt-1">
-                            {verificationDetail.hourlyRate ? `$${verificationDetail.hourlyRate}/hour` : 'N/A'}
+                            {verificationDetail.hourlyRate ? (
+                              <>
+                                {new Intl.NumberFormat('vi-VN', {
+                                  style: 'currency',
+                                  currency: 'VND',
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                }).format(verificationDetail.hourlyRate * 25000)}
+                                /hour
+                              </>
+                            ) : 'N/A'}
                           </p>
                         </div>
                       </div>

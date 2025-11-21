@@ -217,16 +217,41 @@ const ParentProfile: React.FC = () => {
       // Refresh user context from localStorage to update the auth state
       refreshUser();
       
-      // If it was a forced update and user completed required fields, redirect to home
+      // If it was a forced update and user completed required fields, redirect to role-appropriate page
       if (wasForcedUpdate) {
         const locationComplete = !state?.needsLocation || selectedPlaceId || formData.address;
         const phoneComplete = !state?.needsPhone || (formData.phone && formData.phone !== 'N/A');
         
         if (locationComplete && phoneComplete) {
           showSuccess('Profile updated successfully! Redirecting...');
+          
+          // Get user role to determine redirect destination
+          const savedUser = localStorage.getItem('user');
+          let redirectPath = '/home'; // Default for parent
+          
+          if (savedUser) {
+            try {
+              const userData = JSON.parse(savedUser);
+              const userRole = userData.role;
+              
+              if (userRole === 'admin') {
+                redirectPath = '/admin';
+              } else if (userRole === 'tutor') {
+                redirectPath = '/tutor/dashboard';
+              } else if (userRole === 'staff') {
+                redirectPath = '/staff';
+              } else {
+                redirectPath = '/home'; // Default for parent
+              }
+            } catch (error) {
+              console.error('Error parsing user data for redirect:', error);
+              // Fallback to home
+            }
+          }
+          
           // Use window.location to force full reload and re-check in ProtectedRoute
           setTimeout(() => {
-            window.location.href = '/home';
+            window.location.href = redirectPath;
           }, 500);
           return; // Exit early
         }

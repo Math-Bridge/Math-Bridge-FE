@@ -328,7 +328,12 @@ const TutorDetail: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing</h3>
                 <div className="text-center">
                   <p className="text-3xl font-bold text-gray-900">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tutor.hourlyRate)}
+                    {new Intl.NumberFormat('vi-VN', {
+                      style: 'currency',
+                      currency: 'VND',
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    }).format(tutor.hourlyRate * 25000)}
                   </p>
                   <p className="text-sm text-gray-600">per hour</p>
                 </div>

@@ -14,6 +14,8 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  Edit,
+  MapPin,
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -41,7 +43,10 @@ const UserManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [updatingProfile, setUpdatingProfile] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -52,7 +57,22 @@ const UserManagement: React.FC = () => {
     roleId: 3, // Default to parent
   });
 
+  const [editFormData, setEditFormData] = useState({
+    fullName: '',
+    phoneNumber: '',
+    gender: '',
+    formattedAddress: '',
+    hourlyRate: 0,
+  });
+
+  const [locationInput, setLocationInput] = useState('');
+  const [locationPredictions, setLocationPredictions] = useState<any[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [selectedPlaceId, setSelectedPlaceId] = useState('');
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -213,6 +233,175 @@ const UserManagement: React.FC = () => {
       showError(error?.message || 'Failed to update user status');
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleEditUser = async (user: User) => {
+    try {
+      // Fetch full user data
+      const userResponse = await apiService.getUserById(user.userId);
+      if (!userResponse.success || !userResponse.data) {
+        showError('Failed to load user data');
+        return;
+      }
+
+      const userData = userResponse.data;
+      setEditingUser(user);
+      
+      // Set edit form data
+      setEditFormData({
+        fullName: userData.fullName || userData.FullName || user.fullName,
+        phoneNumber: userData.phoneNumber || userData.PhoneNumber || user.phoneNumber || '',
+        gender: userData.gender || userData.Gender || 'male',
+        formattedAddress: userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '',
+        hourlyRate: 0,
+      });
+      
+      setLocationInput(userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '');
+      setSelectedPlaceId(userData.placeId || userData.PlaceId || '');
+      
+      // If tutor, fetch verification to get hourlyRate
+      if (user.roleId === 2) {
+        try {
+          const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${user.userId}`, {
+            method: 'GET',
+          });
+          if (verificationResponse.success && verificationResponse.data) {
+            const verification = verificationResponse.data;
+            setEditFormData(prev => ({
+              ...prev,
+              hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching tutor verification:', error);
+        }
+      }
+      
+      setShowEditModal(true);
+    } catch (error: any) {
+      showError(error?.message || 'Failed to load user data');
+    }
+  };
+
+  const handleLocationInputChange = async (value: string) => {
+    setLocationInput(value);
+    setSelectedPlaceId('');
+
+    if (value.trim().length < 3) {
+      setLocationPredictions([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+
+    setTimeout(async () => {
+      setIsLoadingLocation(true);
+      try {
+        const response = await apiService.getAddressAutocomplete(value, 'VN');
+        if (response.success && response.data?.predictions) {
+          const predictions = response.data.predictions.map((pred: any) => ({
+            placeId: pred.placeId || pred.place_id || '',
+            description: pred.description || '',
+            mainText: pred.mainText || pred.structured_formatting?.main_text || pred.main_text || '',
+            secondaryText: pred.secondaryText || pred.structured_formatting?.secondary_text || pred.secondary_text || ''
+          }));
+          setLocationPredictions(predictions);
+          setShowLocationDropdown(true);
+        }
+      } catch (error) {
+        console.error('Error fetching location predictions:', error);
+      } finally {
+        setIsLoadingLocation(false);
+      }
+    }, 300);
+  };
+
+  const handleLocationSelect = (prediction: any) => {
+    setLocationInput(prediction.description);
+    setSelectedPlaceId(prediction.placeId);
+    setShowLocationDropdown(false);
+    setLocationPredictions([]);
+  };
+
+  const handleUpdateProfile = async () => {
+    if (!editingUser) return;
+
+    // Validate
+    const errors: Record<string, string> = {};
+    if (!editFormData.fullName.trim()) {
+      errors.fullName = 'Full name is required';
+    }
+    if (!editFormData.phoneNumber.trim()) {
+      errors.phoneNumber = 'Phone number is required';
+    }
+    if (!editFormData.gender) {
+      errors.gender = 'Gender is required';
+    }
+    if (editingUser.roleId === 2 && editFormData.hourlyRate <= 0) {
+      errors.hourlyRate = 'Hourly rate must be greater than 0';
+    }
+
+    setEditFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
+    try {
+      setUpdatingProfile(true);
+      
+      // Step 1: Update user basic info
+      const updateData: any = {
+        FullName: editFormData.fullName.trim(),
+        PhoneNumber: editFormData.phoneNumber.trim(),
+        Gender: editFormData.gender,
+      };
+
+      const userResponse = await apiService.updateUser(editingUser.userId, updateData);
+      if (!userResponse.success) {
+        showError(userResponse.error || 'Failed to update user');
+        setUpdatingProfile(false);
+        return;
+      }
+
+      // Step 2: Update location if changed
+      if (selectedPlaceId && locationInput !== editFormData.formattedAddress) {
+        // Save location for the user (this requires the user to be logged in, so we might need a different approach)
+        // For now, we'll skip location update from admin panel
+        // TODO: Add admin endpoint to update user location
+      }
+
+      // Step 3: Update tutor hourly rate if tutor
+      if (editingUser.roleId === 2 && editFormData.hourlyRate > 0) {
+        try {
+          const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${editingUser.userId}`, {
+            method: 'GET',
+          });
+          
+          if (verificationResponse.success && verificationResponse.data) {
+            const verificationId = verificationResponse.data.verificationId || verificationResponse.data.verification_id;
+            if (verificationId) {
+              await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                  HourlyRate: editFormData.hourlyRate,
+                }),
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error updating hourly rate:', error);
+          // Don't fail the whole update if hourly rate update fails
+        }
+      }
+
+      showSuccess('User profile updated successfully');
+      setShowEditModal(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      showError(error?.message || 'Failed to update user profile');
+    } finally {
+      setUpdatingProfile(false);
     }
   };
 
@@ -476,6 +665,13 @@ const UserManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleEditUser(user)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Profile"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
                           {user.status === 'active' ? (
                             <button
                               onClick={() => handleUpdateStatus(user.userId, 'inactive')}
@@ -798,6 +994,186 @@ const UserManagement: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Edit User Profile</h2>
+                  <p className="text-sm text-gray-500 mt-1">Update user information</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                    setEditFormErrors({});
+                    setLocationInput('');
+                    setSelectedPlaceId('');
+                    setLocationPredictions([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.fullName}
+                    onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter full name"
+                  />
+                  {editFormErrors.fullName && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.fullName}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.phoneNumber}
+                    onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter phone number"
+                  />
+                  {editFormErrors.phoneNumber && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.phoneNumber}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Gender <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={editFormData.gender}
+                    onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {editFormErrors.gender && (
+                    <p className="text-red-500 text-xs mt-1">{editFormErrors.gender}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>Address</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={locationInput}
+                      onChange={(e) => handleLocationInputChange(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Start typing address..."
+                    />
+                    {isLoadingLocation && (
+                      <div className="absolute right-3 top-2.5">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      </div>
+                    )}
+                    {showLocationDropdown && locationPredictions.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {locationPredictions.map((prediction, index) => (
+                          <div
+                            key={prediction.placeId || index}
+                            onClick={() => handleLocationSelect(prediction)}
+                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{prediction.mainText}</div>
+                            <div className="text-sm text-gray-500">{prediction.secondaryText}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {editingUser.roleId === 2 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Hourly Rate (VND) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={editFormData.hourlyRate}
+                      onChange={(e) => setEditFormData({ ...editFormData, hourlyRate: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter hourly rate"
+                    />
+                    {editFormErrors.hourlyRate && (
+                      <p className="text-red-500 text-xs mt-1">{editFormErrors.hourlyRate}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Displayed as: {new Intl.NumberFormat('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format(editFormData.hourlyRate * 25000)}/hour
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingUser(null);
+                      setEditFormErrors({});
+                      setLocationInput('');
+                      setSelectedPlaceId('');
+                      setLocationPredictions([]);
+                    }}
+                    className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUpdateProfile}
+                    disabled={updatingProfile}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  >
+                    {updatingProfile ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Updating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCog className="w-4 h-4" />
+                        <span>Update Profile</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

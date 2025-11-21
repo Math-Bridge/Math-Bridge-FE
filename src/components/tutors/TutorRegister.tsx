@@ -522,7 +522,9 @@ const TutorRegister: React.FC = () => {
                   />
                 </div>
                 {errors.hourlyRate && <p className="text-red-500 text-sm mt-1">{errors.hourlyRate}</p>}
-                <p className="text-sm text-gray-500 mt-1">Recommended range: $25-$75 per hour</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Recommended range: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(25 * 25000)} - {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(75 * 25000)} per hour
+                </p>
               </div>
 
               {/* Availability */}

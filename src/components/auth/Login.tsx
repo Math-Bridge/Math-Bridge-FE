@@ -37,9 +37,24 @@ const Login: React.FC = () => {
     setErrors({}); // Clear previous errors
     const result = await login(email, password);
     if (result.success) {
-      // Check if user needs to set up location
+      // Check if user needs to set up location or verification
       if (result.needsLocationSetup) {
-        navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+        // Get user role to determine which profile page to redirect to
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            if (userData.role === 'tutor') {
+              navigate('/tutor/dashboard', { replace: true, state: { needsLocation: !userData.placeId, needsPhone: userData.phone === 'N/A', needsVerification: result.needsVerification } });
+            } else {
+              navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+            }
+          } catch {
+            navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+          }
+        } else {
+          navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+        }
         return;
       }
 

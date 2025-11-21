@@ -5,9 +5,9 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
-  googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
-  signup: (signupData: any) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean; needsVerification?: boolean }>;
+  googleLogin: (idToken: string) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean; needsVerification?: boolean }>;
+  signup: (signupData: any) => Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean; needsVerification?: boolean }>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -116,6 +116,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const userPlaceId = backendUser.placeId || backendUser.PlaceId;
                 const userPhoneNumber = backendUser.phoneNumber || backendUser.PhoneNumber;
                 const needsLocation = !userPlaceId || userPhoneNumber === 'N/A';
+                
+                // For tutors, also check if verification info is complete
+                let needsVerification = false;
+                if (userRole === 'tutor') {
+                  try {
+                    const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${userId}`, {
+                      method: 'GET',
+                    });
+                    
+                    if (!verificationResponse.success || !verificationResponse.data) {
+                      needsVerification = true;
+                    } else {
+                      const verification = verificationResponse.data;
+                      // Check if university, major, and bio are filled
+                      const hasUniversity = verification.university || verification.University;
+                      const hasMajor = verification.major || verification.Major;
+                      const hasBio = verification.bio || verification.Bio;
+                      needsVerification = !hasUniversity || !hasMajor || !hasBio;
+                    }
+                  } catch (error) {
+                    console.error('Error checking tutor verification:', error);
+                    needsVerification = true; // Assume needs verification if check fails
+                  }
+                }
 
                 const user: User = {
                   id: backendUser.userId || backendUser.UserId || userId,
@@ -130,10 +154,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 
                 console.log('Login successful, user data fetched:', user);
                 console.log('User needs location setup:', needsLocation);
+                console.log('User needs verification setup:', needsVerification);
                 localStorage.setItem('user', JSON.stringify(user));
                 setUser(user);
                 console.log('User state updated');
-                return { success: true, needsLocationSetup: needsLocation };
+                return { 
+                  success: true, 
+                  needsLocationSetup: needsLocation || needsVerification,
+                  needsVerification: needsVerification 
+                };
               } else {
                 // If can't fetch user, create minimal user from token
                 console.log('Failed to fetch user data, creating from token');
@@ -172,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const googleLogin = async (idToken: string): Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }> => {
+  const googleLogin = async (idToken: string): Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean; needsVerification?: boolean }> => {
     console.log('useAuth.googleLogin called with token length:', idToken.length);
     setIsLoading(true);
     try {
@@ -231,6 +260,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userPlaceId = backendUser.placeId || backendUser.PlaceId;
             const userPhoneNumber = backendUser.phoneNumber || backendUser.PhoneNumber;
             const needsLocation = !userPlaceId || userPhoneNumber === 'N/A';
+            
+            // For tutors, also check if verification info is complete
+            let needsVerification = false;
+            if (userRole === 'tutor') {
+              try {
+                const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${userId}`, {
+                  method: 'GET',
+                });
+                
+                if (!verificationResponse.success || !verificationResponse.data) {
+                  needsVerification = true;
+                } else {
+                  const verification = verificationResponse.data;
+                  // Check if university, major, and bio are filled
+                  const hasUniversity = verification.university || verification.University;
+                  const hasMajor = verification.major || verification.Major;
+                  const hasBio = verification.bio || verification.Bio;
+                  needsVerification = !hasUniversity || !hasMajor || !hasBio;
+                }
+              } catch (error) {
+                console.error('Error checking tutor verification:', error);
+                needsVerification = true; // Assume needs verification if check fails
+              }
+            }
 
             const user: User = {
               id: userId,
@@ -245,10 +298,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             console.log('Google login successful, user data fetched:', user);
             console.log('User needs location setup:', needsLocation);
+            console.log('User needs verification setup:', needsVerification);
             localStorage.setItem('user', JSON.stringify(user));
             setUser(user);
             console.log('User state updated');
-            return { success: true, needsLocationSetup: needsLocation };
+            return { 
+              success: true, 
+              needsLocationSetup: needsLocation || needsVerification,
+              needsVerification: needsVerification 
+            };
           } else {
             // If can't fetch user, create minimal user from response data
             console.log('Failed to fetch user details, creating minimal user from response');

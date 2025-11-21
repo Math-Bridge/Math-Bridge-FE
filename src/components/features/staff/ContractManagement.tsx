@@ -1250,7 +1250,12 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                     {tutorDetail.hourlyRate !== undefined && (
                       <div className="bg-purple-50 rounded-lg p-3 text-center">
                         <div className="text-lg font-bold text-purple-600">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tutorDetail.hourlyRate)}
+                          {new Intl.NumberFormat('vi-VN', {
+                            style: 'currency',
+                            currency: 'VND',
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          }).format(tutorDetail.hourlyRate * 25000)}
                         </div>
                         <div className="text-xs text-gray-600 mt-1">Per Hour</div>
                       </div>

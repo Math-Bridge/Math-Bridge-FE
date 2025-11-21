@@ -356,7 +356,14 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
                   </div>
                   <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
                     <span>Hourly Rate</span>
-                    <span className="font-medium text-gray-900">${(t.HourlyRate || t.hourlyRate || 0).toFixed ? (t.HourlyRate || t.hourlyRate || 0).toFixed(2) : Number(t.HourlyRate || t.hourlyRate || 0).toFixed(2)}</span>
+                    <span className="font-medium text-gray-900">
+                      {new Intl.NumberFormat('vi-VN', {
+                        style: 'currency',
+                        currency: 'VND',
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      }).format((t.HourlyRate || t.hourlyRate || 0) * 25000)}
+                    </span>
                   </div>
                   {t.Bio || t.bio ? (
                     <p className="mt-2 text-sm text-gray-600 line-clamp-2">{t.Bio || t.bio}</p>

@@ -9,12 +9,13 @@ import {
   GraduationCap,
   FileText
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult } from '.';
 import { useAuth } from '../../../hooks/useAuth';
 
 const TutorDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -25,7 +26,14 @@ const TutorDashboard: React.FC = () => {
 
   useEffect(() => {
     setLoading(false);
-  }, []);
+    
+    // Check if user was redirected here to update profile
+    const state = location.state as { needsLocation?: boolean; needsPhone?: boolean; needsVerification?: boolean } | null;
+    if (state?.needsLocation || state?.needsPhone || state?.needsVerification) {
+      // Auto-select profile tab if needs update
+      setSelectedAction('profile');
+    }
+  }, [location.state]);
 
   const navigationItems = [
     { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck, CheckCircle } from 'lucide-react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
+import { API_BASE_URL } from '../../services/api';
 
 const Signup: React.FC = () => {
   const { t } = useTranslation();
@@ -26,7 +27,7 @@ const Signup: React.FC = () => {
     
     setIsResending(true);
     try {
-      const response = await fetch('https://api.vibe88.tech/api/auth/resend-verification', {
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ Email: email })
