@@ -8,7 +8,23 @@ import { useToast } from '../../contexts/ToastContext';
 const Signup: React.FC = () => {
   const { t } = useTranslation();
   const { showSuccess, showError } = useToast();
+  const [resendTimer, setResendTimer] = useState(0);
+  const [isResending, setIsResending] = useState(false);
+
+  // Countdown timer effect
+  React.useEffect(() => {
+    if (resendTimer > 0) {
+      const interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [resendTimer]);
+
   const resendVerification = async (email: string) => {
+    if (resendTimer > 0 || isResending) return;
+    
+    setIsResending(true);
     try {
       const response = await fetch('https://api.vibe88.tech/api/auth/resend-verification', {
         method: 'POST',
@@ -17,11 +33,14 @@ const Signup: React.FC = () => {
       });
       if (response.ok) {
         showSuccess(t('verificationEmailSentAgain'));
+        setResendTimer(180); // 3 minutes = 180 seconds
       } else {
         showError(t('failedToResendVerification'));
       }
     } catch (error) {
       showError(t('errorResendingEmail'));
+    } finally {
+      setIsResending(false);
     }
   };
   const [formData, setFormData] = useState({
@@ -97,6 +116,7 @@ const Signup: React.FC = () => {
       // Show email verification screen - users will set up profile after verifying email
       setUserEmail(formData.Email);
       setShowVerification(true);
+      setResendTimer(180); // Start with 3 minutes cooldown for initial email
     } else {
       setErrors({ general: result.error || 'Signup failed' });
     }
@@ -132,9 +152,20 @@ const Signup: React.FC = () => {
             onClick={() => {
               resendVerification(userEmail);
             }}
-            className="w-full btn-secondary"
+            disabled={resendTimer > 0 || isResending}
+            className={`w-full btn-secondary ${
+              resendTimer > 0 || isResending
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            }`}
           >
-            Resend Verification Email
+            {isResending
+              ? 'Sending...'
+              : resendTimer > 0
+              ? `Resend in ${Math.floor(resendTimer / 60)}:${(resendTimer % 60)
+                  .toString()
+                  .padStart(2, '0')}`
+              : 'Resend Verification Email'}
           </button>
           
           <Link to="/login" className="block text-center link">
