@@ -13,7 +13,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getUnassignedTutors, suggestCentersForTutor, assignTutorToCenter, apiService } from '../../../services/api';
+import { getUnassignedTutors, assignTutorToCenter, apiService, getCentersNearAddress } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface Tutor {
@@ -119,17 +119,29 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
       return;
     }
 
-    // Fetch suggested centers
-    await fetchSuggestedCenters(tutor.userId);
+    // Fetch suggested centers based on tutor's location
+    await fetchSuggestedCenters(tutorWithLocation);
   };
 
-  const fetchSuggestedCenters = async (tutorId: string) => {
+  const fetchSuggestedCenters = async (tutor: Tutor) => {
     try {
       setLoadingCenters(true);
-      const result = await suggestCentersForTutor(tutorId, radiusKm);
+      
+      // Use the tutor's formatted address or construct from city/district
+      if (!tutor.formattedAddress && !tutor.city) {
+        showError('Tutor location not set. Please ask tutor to update their address first.');
+        return;
+      }
+
+      const address = tutor.formattedAddress || `${tutor.district || ''}, ${tutor.city || ''}`.trim();
+      
+      // Use getCentersNearAddress to find centers near tutor's location
+      const result = await getCentersNearAddress(address, radiusKm);
+      
       if (result.success && result.data) {
-        setSuggestedCenters(result.data.suggestedCenters || []);
-        if (result.data.totalCount === 0) {
+        const centers = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
+        setSuggestedCenters(centers);
+        if (centers.length === 0) {
           showError('No centers found near this tutor\'s address. Try increasing the search radius.');
         }
       } else {

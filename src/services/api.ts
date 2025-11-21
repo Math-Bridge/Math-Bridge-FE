@@ -572,16 +572,8 @@ export async function getUnassignedTutors() {
   }
 }
 
-// Suggest centers for a tutor based on their address
-export async function suggestCentersForTutor(tutorId: string, radiusKm: number = 10) {
-  return apiService.request<{
-    success: boolean;
-    tutorId: string;
-    radiusKm: number;
-    suggestedCenters: any[];
-    totalCount: number;
-  }>(`/centers/suggest-for-tutor/${tutorId}?radiusKm=${radiusKm}`);
-}
+// Note: suggestCentersForTutor endpoint removed - use assignTutorToCenter instead
+// If you need to suggest centers, use the search endpoint: /centers/search with location parameters
 
 // Assign tutor to center
 export async function assignTutorToCenter(centerId: string, tutorId: string) {
