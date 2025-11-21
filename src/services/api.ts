@@ -525,7 +525,7 @@ export async function getCenterStatistics() {
 // Get unassigned tutors (tutors without center)
 export async function getUnassignedTutors() {
   try {
-    const result = await apiService.request<any[]>(`/tutors/unassigned-to-center`, {
+    const result = await apiService.request<any[]>(`/Tutors/without-center`, {
       method: 'GET',
     });
     
