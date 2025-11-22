@@ -184,7 +184,35 @@ const UserManagement: React.FC = () => {
       });
 
       if (response.success) {
-        showSuccess('User created successfully');
+        // If user is created with tutor role, also create tutor verification with placeholder data
+        if (formData.roleId === 2 && response.data?.userId) {
+          try {
+            const verificationResponse = await apiService.request<any>('/tutor-verifications', {
+              method: 'POST',
+              body: JSON.stringify({
+                UserId: response.data.userId,
+                University: 'N/A',
+                Major: 'N/A',
+                HourlyRate: 0.01,
+                Bio: 'N/A',
+                VerificationStatus: 'pending'
+              })
+            });
+            
+            if (verificationResponse.success) {
+              showSuccess('User and tutor verification created successfully');
+            } else {
+              showSuccess('User created successfully, but failed to create tutor verification');
+              console.error('Failed to create tutor verification:', verificationResponse.error);
+            }
+          } catch (verificationError: any) {
+            showSuccess('User created successfully, but failed to create tutor verification');
+            console.error('Error creating tutor verification:', verificationError);
+          }
+        } else {
+          showSuccess('User created successfully');
+        }
+        
         setShowCreateModal(false);
         setFormData({
           fullName: '',

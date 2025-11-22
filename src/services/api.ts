@@ -3472,22 +3472,43 @@ export async function getDailyReportsByTutor() {
     });
     
     if (result.success && result.data) {
-      const mappedData: DailyReport[] = result.data.map((item: any) => ({
-        reportId: item.reportId || item.ReportId || '',
-        childId: item.childId || item.ChildId || '',
-        tutorId: item.tutorId || item.TutorId || '',
-        bookingId: item.bookingId || item.BookingId || '',
-        notes: item.notes || item.Notes,
-        onTrack: item.onTrack ?? item.OnTrack ?? false,
-        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-        createdDate: item.createdDate || item.CreatedDate || '',
-        unitId: item.unitId || item.UnitId || '',
-        testId: item.testId || item.TestId,
-        childName: item.childName || item.ChildName,
-        tutorName: item.tutorName || item.TutorName,
-        unitName: item.unitName || item.UnitName,
-        sessionDate: item.sessionDate || item.SessionDate,
-      }));
+      // Fetch all units to map unit IDs to names
+      let unitsMap: { [key: string]: string } = {};
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: item.childId || item.ChildId || '',
+          tutorId: item.tutorId || item.TutorId || '',
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: item.childName || item.ChildName,
+          tutorName: item.tutorName || item.TutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
       
       return {
         success: true,
@@ -3514,22 +3535,50 @@ export async function getDailyReportsByChild(childId: string) {
     });
     
     if (result.success && result.data) {
-      const mappedData: DailyReport[] = result.data.map((item: any) => ({
-        reportId: item.reportId || item.ReportId || '',
-        childId: item.childId || item.ChildId || '',
-        tutorId: item.tutorId || item.TutorId || '',
-        bookingId: item.bookingId || item.BookingId || '',
-        notes: item.notes || item.Notes,
-        onTrack: item.onTrack ?? item.OnTrack ?? false,
-        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-        createdDate: item.createdDate || item.CreatedDate || '',
-        unitId: item.unitId || item.UnitId || '',
-        testId: item.testId || item.TestId,
-        childName: item.childName || item.ChildName,
-        tutorName: item.tutorName || item.TutorName,
-        unitName: item.unitName || item.UnitName,
-        sessionDate: item.sessionDate || item.SessionDate,
-      }));
+      // Fetch all units to map unit IDs to names
+      let unitsMap: { [key: string]: string } = {};
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+          if (import.meta.env.DEV) {
+            console.log('[DailyReports] Units map created with', Object.keys(unitsMap).length, 'units');
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        
+        if (import.meta.env.DEV && !unitName && unitId) {
+          console.log('[DailyReports] Unit name not found for unitId:', unitId, 'Map has:', Object.keys(unitsMap).length, 'units');
+        }
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: item.childId || item.ChildId || '',
+          tutorId: item.tutorId || item.TutorId || '',
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: item.childName || item.ChildName,
+          tutorName: item.tutorName || item.TutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
       
       return {
         success: true,
@@ -3556,22 +3605,43 @@ export async function getDailyReportsByBooking(bookingId: string) {
     });
     
     if (result.success && result.data) {
-      const mappedData: DailyReport[] = result.data.map((item: any) => ({
-        reportId: item.reportId || item.ReportId || '',
-        childId: item.childId || item.ChildId || '',
-        tutorId: item.tutorId || item.TutorId || '',
-        bookingId: item.bookingId || item.BookingId || '',
-        notes: item.notes || item.Notes,
-        onTrack: item.onTrack ?? item.OnTrack ?? false,
-        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-        createdDate: item.createdDate || item.CreatedDate || '',
-        unitId: item.unitId || item.UnitId || '',
-        testId: item.testId || item.TestId,
-        childName: item.childName || item.ChildName,
-        tutorName: item.tutorName || item.TutorName,
-        unitName: item.unitName || item.UnitName,
-        sessionDate: item.sessionDate || item.SessionDate,
-      }));
+      // Fetch all units to map unit IDs to names
+      let unitsMap: { [key: string]: string } = {};
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: item.childId || item.ChildId || '',
+          tutorId: item.tutorId || item.TutorId || '',
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: item.childName || item.ChildName,
+          tutorName: item.tutorName || item.TutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
       
       return {
         success: true,
@@ -3645,10 +3715,10 @@ export async function getLearningCompletionForecast(childId: string) {
   }
 }
 
-// Get child unit progress
-export async function getChildUnitProgress(childId: string) {
+// Get child unit progress by contract
+export async function getChildUnitProgress(contractId: string) {
   try {
-    const result = await apiService.request<any>(`/daily-reports/child/${childId}/unit-progress`, {
+    const result = await apiService.request<any>(`/daily-reports/contract/${contractId}/unit-progress`, {
       method: 'GET',
     });
     
@@ -3665,7 +3735,7 @@ export async function getChildUnitProgress(childId: string) {
     if (result.success && result.data) {
       const item = result.data;
       const mappedData: ChildUnitProgress = {
-        childId: item.childId || item.ChildId || childId,
+        childId: item.childId || item.ChildId || '',
         childName: item.childName || item.ChildName || '',
         totalUnitsLearned: item.totalUnitsLearned || item.TotalUnitsLearned || 0,
         uniqueLessonsCompleted: item.uniqueLessonsCompleted || item.UniqueLessonsCompleted || 0,

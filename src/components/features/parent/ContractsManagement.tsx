@@ -192,7 +192,7 @@ const ContractsManagement: React.FC = () => {
         setLoadingProgress(prev => ({ ...prev, [contract.id]: true }));
 
         try {
-          const result = await getChildUnitProgress(contract.childId);
+          const result = await getChildUnitProgress(contract.id);
           if (result.success && result.data) {
             setUnitProgressMap(prev => ({ ...prev, [contract.id]: result.data }));
           } else {
