@@ -7,7 +7,8 @@ import {
   X,
   LogOut,
   GraduationCap,
-  FileText
+  FileText,
+  XCircle
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult } from '.';
@@ -20,20 +21,53 @@ const TutorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [profileComplete, setProfileComplete] = useState(false);
 
   type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
 
+  // Check profile completion status
+  useEffect(() => {
+    const isComplete = !!(user?.placeId && user?.phone && user?.phone !== 'N/A');
+    setProfileComplete(isComplete);
+    console.log('Profile completion check:', { placeId: user?.placeId, phone: user?.phone, isComplete });
+  }, [user?.placeId, user?.phone]);
+
+  // Listen for custom profile update event
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      console.log('Profile update event received, reloading user data...');
+      // Force a re-check by reading from localStorage
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          const userData = JSON.parse(savedUser);
+          console.log('Updated user data from localStorage:', userData);
+          // The useAuth will handle this, but we can force a re-check
+          window.location.reload(); // Simple solution: reload the page
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
+  }, []);
+
   useEffect(() => {
     setLoading(false);
     
+    // Check if user needs to update location or phone
+    const needsLocationUpdate = !user?.placeId || user?.phone === 'N/A';
+    
     // Check if user was redirected here to update profile
     const state = location.state as { needsLocation?: boolean; needsPhone?: boolean; needsVerification?: boolean } | null;
-    if (state?.needsLocation || state?.needsPhone || state?.needsVerification) {
-      // Auto-select profile tab if needs update
+    if (needsLocationUpdate || state?.needsLocation || state?.needsPhone || state?.needsVerification) {
+      // Force profile tab if needs update
       setSelectedAction('profile');
     }
-  }, [location.state]);
+  }, [location.state, user]);
 
   const navigationItems = [
     { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },
@@ -68,6 +102,37 @@ const TutorDashboard: React.FC = () => {
   };
 
   function renderContentView() {
+    // Check if user needs to complete profile first
+    const needsLocationUpdate = !user?.placeId || user?.phone === 'N/A';
+    
+    // If trying to access anything other than profile and location is not set, show warning
+    if (needsLocationUpdate && selectedAction !== 'profile') {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <XCircle className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+                Profile Setup Required
+              </h3>
+              <p className="text-yellow-700 mb-4">
+                You need to complete your profile setup before accessing this feature. 
+                Please update your location{user?.phone === 'N/A' ? ' and phone number' : ''} first.
+              </p>
+              <button
+                onClick={() => setSelectedAction('profile')}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                Go to Profile Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     switch (selectedAction) {
       case 'profile':
         return <TutorProfile />;
@@ -136,6 +201,9 @@ const TutorDashboard: React.FC = () => {
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = selectedAction === item.key;
+            const needsLocationUpdate = !user?.placeId || user?.phone === 'N/A';
+            const isDisabled = needsLocationUpdate && item.key !== 'profile';
+            
             return (
               <button
                 key={item.key}
@@ -143,14 +211,23 @@ const TutorDashboard: React.FC = () => {
                   setSelectedAction(item.key);
                   setMobileMenuOpen(false);
                 }}
+                disabled={isDisabled}
                 className={`w-full flex items-center px-4 py-3 justify-start rounded-lg transition-colors ${
                   isActive
                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
+                    : isDisabled
+                    ? 'text-gray-400 cursor-not-allowed bg-gray-100'
                     : 'text-gray-700 hover:bg-blue-50'
                 }`}
+                title={isDisabled ? 'Complete your profile first' : ''}
               >
                 <Icon className="w-5 h-5 mr-3" />
                 <span className="font-medium">{item.name}</span>
+                {isDisabled && (
+                  <span className="ml-auto text-xs bg-yellow-500 text-white px-2 py-1 rounded">
+                    Locked
+                  </span>
+                )}
               </button>
             );
           })}
@@ -185,6 +262,33 @@ const TutorDashboard: React.FC = () => {
         </div>
 
         <div className="p-6 lg:p-8">
+          {/* Profile Incomplete Warning Banner */}
+          {(!user?.placeId || user?.phone === 'N/A') && (
+            <div className="mb-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 rounded-lg p-4 shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <XCircle className="w-6 h-6 text-yellow-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-yellow-800">
+                    Action Required: Complete Your Profile
+                  </h3>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Please update your {!user?.placeId ? 'location' : ''}{!user?.placeId && user?.phone === 'N/A' ? ' and ' : ''}{user?.phone === 'N/A' ? 'phone number' : ''} to access all dashboard features.
+                  </p>
+                </div>
+                {selectedAction !== 'profile' && (
+                  <button
+                    onClick={() => setSelectedAction('profile')}
+                    className="flex-shrink-0 px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+                  >
+                    Update Now
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Dashboard Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
