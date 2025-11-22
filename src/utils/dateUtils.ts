@@ -92,6 +92,17 @@ const isValidDateString = (value: string): boolean => {
 
 export const todayString = (): string => formatDate(new Date());
 
+
+export function adjustEndDateForInclusive(endDate: string): string {
+  if (!endDate || !isValidDateString(endDate)) {
+    return endDate;
+  }
+  
+  const date = new Date(endDate);
+  date.setDate(date.getDate() + 1);
+  return formatDate(date);
+}
+
 /**
  * Sanitize and validate date range inputs to ensure they stay within bounds and maintain start <= end.
  */

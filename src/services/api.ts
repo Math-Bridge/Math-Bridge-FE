@@ -49,6 +49,11 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
+export interface ChangePasswordRequest {
+  CurrentPassword: string;
+  NewPassword: string;
+}
+
 export interface DashboardStats {
   totalUsers: number;
   totalTutors: number;
@@ -238,6 +243,13 @@ class ApiService {
 
   async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<{ message: string }>> {
     return this.request<{ message: string }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<{ message: string }>> {
+    return this.request<{ message: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -3249,8 +3261,12 @@ export async function getUserStatistics() {
 }
 
 export async function getUserRegistrationTrends(startDate: string, endDate: string) {
+  const adjustedEndDate = new Date(endDate);
+  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
+  
   return apiService.request<UserRegistrationTrendStatisticsDto>(
-    `/statistics/users/registrations?startDate=${startDate}&endDate=${endDate}`,
+    `/statistics/users/registrations?startDate=${startDate}&endDate=${adjustedEndDateString}`,
     {
       method: 'GET',
     }
@@ -3282,8 +3298,12 @@ export async function getSessionOnlineVsOffline() {
 }
 
 export async function getSessionTrends(startDate: string, endDate: string) {
+  const adjustedEndDate = new Date(endDate);
+  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
+  
   return apiService.request<SessionTrendStatisticsDto>(
-    `/statistics/sessions/trends?startDate=${startDate}&endDate=${endDate}`,
+    `/statistics/sessions/trends?startDate=${startDate}&endDate=${adjustedEndDateString}`,
     {
       method: 'GET',
     }
@@ -3321,8 +3341,15 @@ export async function getRevenueStatistics() {
 }
 
 export async function getRevenueTrends(startDate: string, endDate: string) {
+  // Adjust endDate to include the entire day (add 1 day)
+  // Backend parses "2025-11-08" as 2025-11-08 00:00:00, so transactions on that day won't match
+  // By sending "2025-11-09", backend gets 2025-11-09 00:00:00, which includes all of 2025-11-08
+  const adjustedEndDate = new Date(endDate);
+  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
+  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
+  
   return apiService.request<RevenueTrendStatisticsDto>(
-    `/statistics/financial/revenue-trends?startDate=${startDate}&endDate=${endDate}`,
+    `/statistics/financial/revenue-trends?startDate=${startDate}&endDate=${adjustedEndDateString}`,
     {
       method: 'GET',
     }

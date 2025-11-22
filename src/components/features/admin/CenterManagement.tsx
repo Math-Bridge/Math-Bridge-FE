@@ -114,8 +114,7 @@ const CenterManagement: React.FC = () => {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(c =>
         c.name?.toLowerCase().includes(term) ||
-        c.address?.toLowerCase().includes(term) ||
-        c.phone?.toLowerCase().includes(term)
+        c.address?.toLowerCase().includes(term)
       );
     }
     setFilteredCenters(filtered);
@@ -342,7 +341,7 @@ const CenterManagement: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, address, phone..."
+              placeholder="Search by name, address..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

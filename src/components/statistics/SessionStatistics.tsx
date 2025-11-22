@@ -161,13 +161,13 @@ const SessionStatistics: React.FC = () => {
 
       {/* Online vs Offline */}
       {onlineVsOffline && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Monitor className="w-5 h-5" />
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
+            <Monitor className="w-6 h-6 text-blue-600" />
             Online vs Offline Comparison
           </h2>
-          <div className="bg-white p-4 rounded-lg mb-4">
-            <ResponsiveContainer width="100%" height={300}>
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            <ResponsiveContainer width="100%" height={400}>
               <PieChart>
                 <Pie
                   data={[
@@ -177,16 +177,26 @@ const SessionStatistics: React.FC = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                  outerRadius={120}
                   fill="#8884d8"
                   dataKey="value"
+                  animationDuration={1000}
                 >
                   <Cell fill="#3b82f6" />
                   <Cell fill="#10b981" />
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -217,27 +227,28 @@ const SessionStatistics: React.FC = () => {
 
       {/* Trends */}
       {trends && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+              <TrendingUp className="w-6 h-6 text-blue-600" />
               Session Trends
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <input
                 type="date"
                 value={dateRange.startDate}
                 max={dateRange.endDate < todayIso ? dateRange.endDate : todayIso}
                 onChange={(e) => handleDateChange('startDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
               />
+              <span className="self-center text-gray-500">to</span>
               <input
                 type="date"
                 value={dateRange.endDate}
                 min={dateRange.startDate}
                 max={todayIso}
                 onChange={(e) => handleDateChange('endDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
               />
             </div>
           </div>
@@ -246,22 +257,59 @@ const SessionStatistics: React.FC = () => {
               {dateValidationMessage}
             </p>
           )}
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-            <div className="text-sm text-gray-600 mb-1">Total Sessions in Period</div>
-            <div className="text-2xl font-bold">{trends.totalSessionsInPeriod}</div>
+          <div className="bg-gradient-to-r from-green-50 to-emerald-100 border border-green-200 rounded-lg p-5 mb-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-green-700 mb-1 font-medium">Total Sessions in Period</div>
+                <div className="text-3xl font-bold text-green-900">{trends.totalSessionsInPeriod.toLocaleString()}</div>
+              </div>
+              <div className="p-4 bg-green-200 rounded-full">
+                <Calendar className="w-8 h-8 text-green-700" />
+              </div>
+            </div>
           </div>
-          <div className="bg-white p-4 rounded-lg mb-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trends.trends.map(t => ({
-                date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                sessions: t.sessionCount
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="sessions" stroke="#10b981" strokeWidth={2} name="Sessions" />
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart 
+                data={trends.trends.map(t => ({
+                  date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  sessions: t.sessionCount
+                }))}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="sessions" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', r: 5 }}
+                  activeDot={{ r: 8 }}
+                  name="Sessions"
+                  animationDuration={1000}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

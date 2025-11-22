@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Edit,
   MapPin,
+  MoreVertical,
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -47,6 +48,7 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -83,6 +85,31 @@ const UserManagement: React.FC = () => {
     filterUsers();
     setCurrentPage(1); // Reset to first page when filters change
   }, [users, searchTerm, roleFilter, statusFilter]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      // Check if click is outside dropdown menu and not on the action button
+      const isClickOnDropdown = target.closest('.dropdown-menu');
+      const isClickOnActionButton = target.closest('button[title="Actions"]');
+      
+      if (!isClickOnDropdown && !isClickOnActionButton) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    if (openDropdownId) {
+      // Use setTimeout to avoid immediate closure
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdownId]);
 
   const fetchUsers = async () => {
     try {
@@ -246,19 +273,46 @@ const UserManagement: React.FC = () => {
   const handleUpdateStatus = async (userId: string, newStatus: 'active' | 'inactive') => {
     try {
       setUpdatingStatus(userId);
+      
+      // Validate userId format
+      if (!userId || userId.trim() === '') {
+        showError('Invalid user ID');
+        setUpdatingStatus(null);
+        return;
+      }
+
       const response = await apiService.request<{ userId: string }>(`/admin/users/${userId}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ Status: newStatus })
+        body: JSON.stringify({ status: newStatus })
       });
 
       if (response.success) {
         showSuccess(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
         fetchUsers();
       } else {
-        showError(response.error || 'Failed to update user status');
+        // Parse error message for better user experience
+        const errorMessage = response.error || 'Failed to update user status';
+        let userFriendlyMessage = errorMessage;
+        
+        if (errorMessage.includes('saving the entity changes') || errorMessage.includes('inner exception')) {
+          userFriendlyMessage = 'Cannot update user status. This user may have active contracts, sessions, or other related data. Please contact the administrator.';
+        } else if (errorMessage.includes('constraint') || errorMessage.includes('foreign key')) {
+          userFriendlyMessage = 'Cannot update user status due to database constraints. This user may have related records that prevent status change.';
+        }
+        
+        showError(userFriendlyMessage);
+        console.error('Status update error:', errorMessage);
       }
     } catch (error: any) {
-      showError(error?.message || 'Failed to update user status');
+      const errorMessage = error?.message || 'Failed to update user status';
+      let userFriendlyMessage = errorMessage;
+      
+      if (errorMessage.includes('500') || errorMessage.includes('Internal Server Error')) {
+        userFriendlyMessage = 'Server error occurred. This user may have active contracts or sessions that prevent status change. Please try again later or contact support.';
+      }
+      
+      showError(userFriendlyMessage);
+      console.error('Status update exception:', error);
     } finally {
       setUpdatingStatus(null);
     }
@@ -443,23 +497,14 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'text-green-600';
-      case 'inactive':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
   const getStatusBadgeColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'active':
         return 'bg-green-100 text-green-800';
       case 'inactive':
         return 'bg-red-100 text-red-800';
+      case 'deleted':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -655,7 +700,6 @@ const UserManagement: React.FC = () => {
                     const startIndex = (currentPage - 1) * itemsPerPage;
                     const endIndex = startIndex + itemsPerPage;
                     const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
-                    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
 
                     return (
                       <>
@@ -692,40 +736,66 @@ const UserManagement: React.FC = () => {
                           : '0 ₫'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
+                        <div className="relative flex items-center justify-end">
                           <button
-                            onClick={() => handleEditUser(user)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Profile"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdownId(openDropdownId === user.userId ? null : user.userId);
+                            }}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Actions"
                           >
-                            <Edit className="w-5 h-5" />
+                            <MoreVertical className="w-5 h-5" />
                           </button>
-                          {user.status === 'active' ? (
-                            <button
-                              onClick={() => handleUpdateStatus(user.userId, 'inactive')}
-                              disabled={updatingStatus === user.userId}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Deactivate"
+                          {openDropdownId === user.userId && (
+                            <div 
+                              className="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {updatingStatus === user.userId ? (
-                                <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                              ) : (
-                                <UserX className="w-5 h-5" />
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleUpdateStatus(user.userId, 'active')}
-                              disabled={updatingStatus === user.userId}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Activate"
-                            >
-                              {updatingStatus === user.userId ? (
-                                <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
-                              ) : (
-                                <UserCheck className="w-5 h-5" />
-                              )}
-                            </button>
+                                <button
+                                  onClick={() => {
+                                    handleEditUser(user);
+                                    setOpenDropdownId(null);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  <span>Edit Profile</span>
+                                </button>
+                                {user.status === 'active' ? (
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateStatus(user.userId, 'inactive');
+                                      setOpenDropdownId(null);
+                                    }}
+                                    disabled={updatingStatus === user.userId}
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {updatingStatus === user.userId ? (
+                                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <UserX className="w-4 h-4" />
+                                    )}
+                                    <span>Deactivate</span>
+                                  </button>
+                                ) : user.status !== 'deleted' ? (
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateStatus(user.userId, 'active');
+                                      setOpenDropdownId(null);
+                                    }}
+                                    disabled={updatingStatus === user.userId}
+                                    className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {updatingStatus === user.userId ? (
+                                      <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                                    ) : (
+                                      <UserCheck className="w-4 h-4" />
+                                    )}
+                                    <span>Activate</span>
+                                  </button>
+                                ) : null}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1205,6 +1275,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

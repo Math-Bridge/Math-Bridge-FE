@@ -278,23 +278,63 @@ const ParentProfile: React.FC = () => {
   };
 
   const handlePasswordChange = async () => {
+    // Validate current password is provided
+    if (!passwordData.currentPassword || passwordData.currentPassword.trim() === '') {
+      showError('Current password is required');
+      return;
+    }
+
+    // Validate new password matches confirm password
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       showError('New passwords do not match');
       return;
     }
+
+    // Validate new password length
     if (passwordData.newPassword.length < 6) {
       showError('Password must be at least 6 characters');
       return;
     }
 
+    // Validate new password format (uppercase, lowercase, number, special character)
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/;
+    if (!passwordRegex.test(passwordData.newPassword)) {
+      showError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+      return;
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
-      showSuccess('Password changed successfully!');
-      setShowPasswordModal(false);
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    try {
+      const response = await apiService.changePassword({
+        CurrentPassword: passwordData.currentPassword,
+        NewPassword: passwordData.newPassword
+      });
+
+      if (response.success) {
+        showSuccess('Password changed successfully!');
+        setShowPasswordModal(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      } else {
+        // Handle specific error messages from backend
+        const errorMessage = response.error || 'Failed to change password';
+        if (errorMessage.includes('Current password is incorrect') || errorMessage.includes('incorrect')) {
+          showError('Current password is incorrect. Please try again.');
+        } else {
+          showError(errorMessage);
+        }
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to change password. Please try again.';
+      if (errorMessage.includes('Current password is incorrect') || errorMessage.includes('incorrect')) {
+        showError('Current password is incorrect. Please try again.');
+      } else {
+        showError(errorMessage);
+      }
+      console.error('Error changing password:', error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
