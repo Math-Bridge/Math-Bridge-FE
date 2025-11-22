@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, MessageCircle, Minimize2, Maximize2 } from 'lucide-react';
+import { X, Send, MessageCircle, Minimize2, Maximize2, Sparkles } from 'lucide-react';
 import { geminiService, ChatMessage } from '../../services/gemini';
+import { useAuth } from '../../hooks/useAuth';
 
 interface CustomerSupportChatProps {
   isOpen: boolean;
@@ -8,26 +9,37 @@ interface CustomerSupportChatProps {
 }
 
 const CustomerSupportChat: React.FC<CustomerSupportChatProps> = ({ isOpen, onClose }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize chat with welcome message
+  // Initialize chat with user context
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
+    if (isOpen && !isInitialized) {
+      // Set user context
+      if (user) {
+        geminiService.setUserContext(user);
+      }
+      
+      // Initialize with personalized welcome
       const welcomeMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: "Hello! I'm the Math Bridge support assistant. I'm here to help you with any questions about our tutoring platform. How can I assist you today?",
+        content: user 
+          ? `Hello ${user.name}! 👋 I'm your AI assistant for Math Bridge. I can help you with information about your account, sessions, contracts, and more. What would you like to know?`
+          : "Hello! I'm the Math Bridge support assistant. I'm here to help you with any questions about our tutoring platform. How can I assist you today?",
         timestamp: new Date(),
       };
       setMessages([welcomeMessage]);
+      setIsInitialized(true);
     }
-  }, [isOpen]);
+  }, [isOpen, user, isInitialized]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -86,14 +98,19 @@ const CustomerSupportChat: React.FC<CustomerSupportChatProps> = ({ isOpen, onClo
     geminiService.resetChat();
     setMessages([]);
     setError(null);
+    setIsInitialized(false);
+    
     // Re-initialize with welcome message
     const welcomeMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'assistant',
-      content: "Chat reset! How can I help you today?",
+      content: user
+        ? `Chat reset! Hi ${user.name}, I'm ready to help you again. What would you like to know?`
+        : "Chat reset! How can I help you today?",
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
+    setIsInitialized(true);
   };
 
   const toggleMinimize = () => {
@@ -114,8 +131,11 @@ const CustomerSupportChat: React.FC<CustomerSupportChatProps> = ({ isOpen, onClo
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-t-lg flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MessageCircle size={20} />
-          <h3 className="font-semibold">Customer Support</h3>
+          <Sparkles size={20} className="text-yellow-300" />
+          <div>
+            <h3 className="font-semibold">AI Support Assistant</h3>
+            {user && <p className="text-xs text-blue-100">Personalized for {user.role || 'you'}</p>}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -231,7 +251,9 @@ const CustomerSupportChat: React.FC<CustomerSupportChatProps> = ({ isOpen, onClo
               >
                 Reset conversation
               </button>
-              <p className="text-xs text-gray-400">Powered by Google Gemini</p>
+              <p className="text-xs text-gray-400">
+                {user ? '🎯 Context-aware AI' : 'Powered by Google Gemini'}
+              </p>
             </div>
           </div>
         </>
