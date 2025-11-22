@@ -28,9 +28,20 @@ const VerifyEmail = () => {
           },
         });
         
-        const data = await response.json();
-        
-        if (response.ok && data.success) {
+        // Check if response is ok first
+        if (response.ok) {
+          // Try to parse as JSON, but handle plain text response
+          const contentType = response.headers.get('content-type');
+          let data: any;
+          
+          if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+          } else {
+            // Handle plain text or HTML response
+            const text = await response.text();
+            data = { success: true, message: text };
+          }
+          
           setStatus('success');
           setMessage('Email verified successfully! You can now log in to your account.');
           
@@ -39,8 +50,20 @@ const VerifyEmail = () => {
             navigate('/login');
           }, 3000);
         } else {
+          // Handle error response
+          const contentType = response.headers.get('content-type');
+          let errorMessage = 'Email verification failed. The link may have expired.';
+          
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            errorMessage = data.error || data.message || errorMessage;
+          } else {
+            const text = await response.text();
+            errorMessage = text || errorMessage;
+          }
+          
           setStatus('error');
-          setMessage(data.error || data.message || 'Email verification failed. The link may have expired.');
+          setMessage(errorMessage);
         }
       } catch (error) {
         console.error('Email verification error:', error);
