@@ -19,10 +19,12 @@ import {
   CreditCard,
   Heart,
   Mail,
-  Phone
+  Phone,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, DailyReport } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
@@ -69,7 +71,7 @@ const ContractDetail: React.FC = () => {
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'tutor'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor'>('overview');
   
   // Payment states
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
@@ -95,6 +97,11 @@ const ContractDetail: React.FC = () => {
   // Unit progress states
   const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
   const [loadingUnitProgress, setLoadingUnitProgress] = useState(false);
+  
+  // Daily reports states
+  const [dailyReports, setDailyReports] = useState<any[]>([]);
+  const [loadingDailyReports, setLoadingDailyReports] = useState(false);
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -213,11 +220,10 @@ const ContractDetail: React.FC = () => {
         setContract(mappedContract);
 
         // Fetch unit progress for active/completed contracts
-        const childId = contractData.ChildId || contractData.childId;
-        if (childId && (contractStatus === 'active' || contractStatus === 'completed')) {
+        if (contractId && (contractStatus === 'active' || contractStatus === 'completed')) {
           try {
             setLoadingUnitProgress(true);
-            const progressResult = await getChildUnitProgress(childId);
+            const progressResult = await getChildUnitProgress(contractId);
             if (progressResult.success && progressResult.data) {
               setUnitProgress(progressResult.data);
             }
@@ -346,6 +352,44 @@ const ContractDetail: React.FC = () => {
 
     fetchContract();
   }, [contractId, user?.id]);
+
+  // Fetch daily reports when contract or child changes
+  useEffect(() => {
+    const fetchDailyReports = async () => {
+      if (!contract?.id) return;
+      
+      try {
+        setLoadingDailyReports(true);
+        // Get the child ID from the contract
+        const contractData = await getContractById(contract.id);
+        if (contractData.success && contractData.data) {
+          const childId = contractData.data.childId || contractData.data.ChildId;
+          if (childId) {
+            const reportsResult = await getDailyReportsByChild(childId);
+            if (reportsResult.success && reportsResult.data) {
+              // Sort by date descending
+              const sorted = [...reportsResult.data].sort((a, b) => {
+                const dateA = new Date(a.createdDate).getTime();
+                const dateB = new Date(b.createdDate).getTime();
+                return dateB - dateA;
+              });
+              setDailyReports(sorted);
+            }
+          }
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error fetching daily reports:', error);
+        }
+      } finally {
+        setLoadingDailyReports(false);
+      }
+    };
+
+    if (activeTab === 'dailyReports') {
+      fetchDailyReports();
+    }
+  }, [contract?.id, activeTab]);
 
   // Poll contract status when direct payment is active
   useEffect(() => {
@@ -698,7 +742,7 @@ const ContractDetail: React.FC = () => {
             <nav className="flex space-x-4">
               {[
                 { key: 'overview', label: 'Overview', icon: FileText },
-                { key: 'sessions', label: 'Sessions', icon: Calendar },
+                { key: 'dailyReports', label: 'Daily Reports', icon: Calendar },
                 { key: 'tutor', label: 'Tutor Info', icon: User }
               ].map((tab) => (
                 <button
@@ -1103,45 +1147,99 @@ const ContractDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'sessions' && (
+        {activeTab === 'dailyReports' && (
           <div className="space-y-6">
             <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
               <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Session History</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
+                <p className="text-sm text-gray-600 mt-1">Track your child's learning progress</p>
               </div>
-              <div className="divide-y divide-gray-200">
-                {contract.sessions.map((session) => (
-                  <div key={session.id} className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <BookOpen className="w-6 h-6 text-blue-600" />
+              {loadingDailyReports ? (
+                <div className="p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading daily reports...</p>
+                </div>
+              ) : dailyReports.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No Reports Yet</h4>
+                  <p className="text-gray-600">Daily reports will appear here once the tutor starts creating them</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {dailyReports.map((report) => (
+                    <div key={report.reportId || report.ReportId} className="p-6">
+                      <div 
+                        className="cursor-pointer"
+                        onClick={() => setExpandedReportId(
+                          expandedReportId === (report.reportId || report.ReportId) 
+                            ? null 
+                            : (report.reportId || report.ReportId)
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <Calendar className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">
+                                {new Date(report.createdDate || report.CreatedDate).toLocaleDateString()}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {report.unitName || 'No unit specified'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            {report.onTrack || report.OnTrack ? (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                On Track
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Off Track
+                              </span>
+                            )}
+                            {expandedReportId === (report.reportId || report.ReportId) ? (
+                              <ChevronUp className="w-5 h-5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-gray-900">{session.topic}</h4>
-                          <p className="text-sm text-gray-600">
-                            {new Date(session.date).toLocaleDateString()} at {session.time}
-                          </p>
-                          {session.notes && (
-                            <p className="text-sm text-gray-500 mt-1">{session.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getSessionStatusColor(session.status)}`}>
-                          <span className="capitalize">{session.status}</span>
-                        </span>
-                        {session.rating && (
-                          <div className="flex items-center space-x-1">
-                            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                            <span className="text-sm font-medium">{session.rating}</span>
+                        {expandedReportId === (report.reportId || report.ReportId) && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="space-y-3">
+                              {(report.tutorName || report.TutorName) && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-600">Tutor:</span>
+                                  <span className="font-medium text-gray-900">{report.tutorName || report.TutorName}</span>
+                                </div>
+                              )}
+                              {(report.haveHomework || report.HaveHomework) && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <BookOpen className="w-4 h-4 text-blue-600" />
+                                  <span className="font-medium text-blue-600">Has Homework</span>
+                                </div>
+                              )}
+                              {(report.notes || report.Notes) && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
+                                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes || report.Notes}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

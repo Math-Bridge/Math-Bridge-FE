@@ -19,9 +19,11 @@ import {
   Award,
   RefreshCw,
   XCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -37,7 +39,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'management' | 'tutors'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'management' | 'tutors' | 'dailyReports'>('overview');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   
   // Tutor assignment states
@@ -58,12 +60,48 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   // Feedback states
   const [parentFeedback, setParentFeedback] = useState<FinalFeedback | null>(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
+  
+  // Daily reports states
+  const [dailyReports, setDailyReports] = useState<any[]>([]);
+  const [loadingDailyReports, setLoadingDailyReports] = useState(false);
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
 
   useEffect(() => {
     if (contractId) {
       fetchContractDetails();
     }
   }, [contractId]);
+
+  // Fetch daily reports when switching to daily reports tab
+  useEffect(() => {
+    const fetchDailyReports = async () => {
+      if (!contract?.childId) return;
+      
+      try {
+        setLoadingDailyReports(true);
+        const reportsResult = await getDailyReportsByChild(contract.childId);
+        if (reportsResult.success && reportsResult.data) {
+          // Sort by date descending
+          const sorted = [...reportsResult.data].sort((a, b) => {
+            const dateA = new Date(a.createdDate).getTime();
+            const dateB = new Date(b.createdDate).getTime();
+            return dateB - dateA;
+          });
+          setDailyReports(sorted);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error fetching daily reports:', error);
+        }
+      } finally {
+        setLoadingDailyReports(false);
+      }
+    };
+
+    if (activeTab === 'dailyReports') {
+      fetchDailyReports();
+    }
+  }, [contract?.childId, activeTab]);
 
   const fetchContractDetails = async () => {
     if (!contractId) {
@@ -547,6 +585,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 { key: 'overview', label: 'Overview', icon: FileText },
                 { key: 'management', label: 'Management', icon: Edit },
                 { key: 'tutors', label: 'Tutors', icon: User },
+                { key: 'dailyReports', label: 'Daily Reports', icon: Calendar },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -915,6 +954,103 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'dailyReports' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
+                <p className="text-sm text-gray-600 mt-1">View learning progress reports for this contract</p>
+              </div>
+              {loadingDailyReports ? (
+                <div className="p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading daily reports...</p>
+                </div>
+              ) : dailyReports.length === 0 ? (
+                <div className="p-12 text-center">
+                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No Reports Yet</h4>
+                  <p className="text-gray-600">Daily reports will appear here once tutors start creating them</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {dailyReports.map((report) => (
+                    <div key={report.reportId || report.ReportId} className="p-6">
+                      <div 
+                        className="cursor-pointer"
+                        onClick={() => setExpandedReportId(
+                          expandedReportId === (report.reportId || report.ReportId) 
+                            ? null 
+                            : (report.reportId || report.ReportId)
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <Calendar className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900">
+                                {new Date(report.createdDate || report.CreatedDate).toLocaleDateString()}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {report.unitName || 'No unit specified'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            {report.onTrack || report.OnTrack ? (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                On Track
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Off Track
+                              </span>
+                            )}
+                            {expandedReportId === (report.reportId || report.ReportId) ? (
+                              <ChevronUp className="w-5 h-5 text-gray-400" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                        </div>
+                        {expandedReportId === (report.reportId || report.ReportId) && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <div className="space-y-3">
+                              {(report.tutorName || report.TutorName) && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-600">Tutor:</span>
+                                  <span className="font-medium text-gray-900">{report.tutorName || report.TutorName}</span>
+                                </div>
+                              )}
+                              {(report.haveHomework || report.HaveHomework) && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <BookOpen className="w-4 h-4 text-blue-600" />
+                                  <span className="font-medium text-blue-600">Has Homework</span>
+                                </div>
+                              )}
+                              {(report.notes || report.Notes) && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
+                                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes || report.Notes}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

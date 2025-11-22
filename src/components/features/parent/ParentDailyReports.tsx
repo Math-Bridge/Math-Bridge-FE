@@ -28,6 +28,7 @@ import {
   Child,
   getAllUnits,
   Unit,
+  getContractsByParent,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -130,12 +131,29 @@ const ParentDailyReports: React.FC = () => {
   };
 
   const fetchProgress = async () => {
-    if (!selectedChildId) return;
+    if (!selectedChildId || !user?.id) return;
 
     try {
-      const result = await getChildUnitProgress(selectedChildId);
-      if (result.success && result.data) {
-        setUnitProgress(result.data);
+      // First get contracts for this parent to find the child's active contract
+      const contractsResult = await getContractsByParent(user.id);
+      if (contractsResult.success && contractsResult.data) {
+        // Find an active or completed contract for this child
+        const childContract = contractsResult.data.find(
+          (c: any) => 
+            (c.ChildId || c.childId) === selectedChildId && 
+            (['active', 'completed'].includes((c.Status || c.status || '').toLowerCase()))
+        );
+        
+        if (childContract) {
+          const contractId = childContract.ContractId || childContract.contractId || childContract.id;
+          const result = await getChildUnitProgress(contractId);
+          if (result.success && result.data) {
+            setUnitProgress(result.data);
+          }
+        } else {
+          // No active/completed contract found
+          setUnitProgress(null);
+        }
       }
     } catch (error) {
       console.error('Error fetching progress:', error);
