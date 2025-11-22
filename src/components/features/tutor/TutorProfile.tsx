@@ -310,13 +310,17 @@ const TutorProfile: React.FC = () => {
       }
 
       if (verificationId) {
-        // Update existing verification (without hourlyRate - only admin can change it)
+        // Update existing verification
+        // IMPORTANT: We must include the existing HourlyRate to pass backend validation,
+        // but we send back the same value from verificationResult so tutors can't change their own rate
+        const existingHourlyRate = verificationResult.data.hourlyRate || 0.01; // Use 0.01 as minimum if not set
+        
         const updateResult = await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
           method: 'PUT',
           body: JSON.stringify({
             University: formData.university,
             Major: formData.major,
-            // HourlyRate is NOT included - only admin can update it
+            HourlyRate: existingHourlyRate, // Send existing rate back to satisfy backend validation
             Bio: formData.bio,
           }),
         });
@@ -371,14 +375,15 @@ const TutorProfile: React.FC = () => {
           showError(updateResult.error || 'Failed to update profile');
         }
       } else {
-        // Create new verification if doesn't exist (without hourlyRate)
+        // Create new verification if doesn't exist
+        // Set HourlyRate to 0.01 (minimum valid value) - admin will set the actual rate later
         const createResult = await apiService.request<any>(`/tutor-verifications`, {
           method: 'POST',
           body: JSON.stringify({
             UserId: user.id,
             University: formData.university,
             Major: formData.major,
-            // HourlyRate is NOT included - only admin can set it
+            HourlyRate: 0.01, // Minimum valid value to pass backend validation
             Bio: formData.bio,
           }),
         });
