@@ -278,8 +278,27 @@ const TutorProfile: React.FC = () => {
           setSaving(false);
           return;
         }
+        
+        // Update localStorage user object with new placeId
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser);
+            userData.placeId = selectedPlaceId;
+            localStorage.setItem('user', JSON.stringify(userData));
+            console.log('Updated user placeId in localStorage:', selectedPlaceId);
+            
+            // Dispatch custom event to notify dashboard
+            window.dispatchEvent(new Event('profileUpdated'));
+          } catch (error) {
+            console.error('Error updating user in localStorage:', error);
+          }
+        }
+        
         // Refresh user location after save
         await fetchUserLocation();
+        // Refresh user context to trigger re-render
+        refreshUser();
       }
       
       // Step 2: Update verification (university, major, bio only - NOT hourlyRate)
@@ -342,9 +361,12 @@ const TutorProfile: React.FC = () => {
             }
           }
           
-          showSuccess('Profile updated successfully!');
+          showSuccess('Profile updated successfully! Your dashboard will now update.');
           setIsEditing(false);
           await fetchProfile();
+          
+          // Dispatch event to notify dashboard
+          window.dispatchEvent(new Event('profileUpdated'));
         } else {
           showError(updateResult.error || 'Failed to update profile');
         }
