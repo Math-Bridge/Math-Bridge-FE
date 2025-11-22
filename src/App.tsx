@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { Layout, SSENotificationProvider } from './components/common';
-import { Login, Signup, ForgotPassword, ResetPassword } from './components/auth';
+import { Login, Signup, ForgotPassword, ResetPassword, VerifyEmail } from './components/auth';
 import VerifyResetRedirect from './components/auth/VerifyResetRedirect';
 // import { UserHome } from './components/user'; // Replaced with ParentDashboardPage
 import { Home } from './components/dashboard';
@@ -182,6 +182,7 @@ function App() {
               <Route path="forgot-password" element={<ForgotPassword />} />
               <Route path="reset-password" element={<ResetPassword />} />
               <Route path="verify-reset" element={<VerifyResetRedirect />} />
+              <Route path="verify-email" element={<VerifyEmail />} />
               <Route path="unauthorized" element={<UnauthorizedPage />} />
             {/* Original Routes */}
             <Route path="home" element={
