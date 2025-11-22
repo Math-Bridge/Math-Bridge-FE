@@ -22,7 +22,7 @@ const VerifyEmail = () => {
       try {
         // Call the API to verify email
         const response = await fetch(`${API_BASE_URL}/auth/verify-email?oobCode=${oobCode}`, {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
           },
