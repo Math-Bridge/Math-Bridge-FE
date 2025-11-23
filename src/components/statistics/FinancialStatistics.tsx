@@ -111,7 +111,7 @@ const FinancialStatistics: React.FC = () => {
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
               <p className="text-green-100 text-sm font-medium mb-1">Total Revenue</p>
-              <p className="text-3xl font-bold">{(overview.totalRevenue / 1000000).toFixed(1)}M VND</p>
+              <p className="text-3xl font-bold">{Math.round(overview.totalRevenue / 1000000)}M VND</p>
             </div>
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
@@ -121,7 +121,7 @@ const FinancialStatistics: React.FC = () => {
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
               <p className="text-blue-100 text-sm font-medium mb-1">Average Transaction</p>
-              <p className="text-2xl font-bold">{(overview.averageTransactionAmount / 1000).toFixed(0)}K VND</p>
+              <p className="text-2xl font-bold">{Math.round(overview.averageTransactionAmount / 1000)}K VND</p>
             </div>
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
@@ -192,7 +192,7 @@ const FinancialStatistics: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-green-700 mb-1 font-medium">Total Revenue in Period</div>
-                  <div className="text-3xl font-bold text-green-900">{(trends.totalRevenueInPeriod / 1000000).toFixed(1)}M VND</div>
+                  <div className="text-3xl font-bold text-green-900">{Math.round(trends.totalRevenueInPeriod / 1000000)}M VND</div>
                 </div>
                 <div className="p-4 bg-green-200 rounded-full">
                   <DollarSign className="w-8 h-8 text-green-700" />
@@ -250,7 +250,7 @@ const FinancialStatistics: React.FC = () => {
                   }}
                   formatter={(value: any, name: string) => {
                     if (name === 'Revenue (VND)') {
-                      return [`${(value / 1000).toFixed(0)}K VND`, name];
+                      return [`${Math.round(value / 1000)}K VND`, name];
                     }
                     return [value, name];
                   }}

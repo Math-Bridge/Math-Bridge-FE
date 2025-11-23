@@ -681,7 +681,7 @@ const PackageManagement: React.FC = () => {
                       min="1"
                       step="1000"
                       value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, price: Math.round(parseFloat(e.target.value) || 0) })}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />
@@ -912,7 +912,7 @@ const PackageManagement: React.FC = () => {
                       min="1"
                       step="1000"
                       value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, price: Math.round(parseFloat(e.target.value) || 0) })}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />

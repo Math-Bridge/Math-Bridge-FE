@@ -377,7 +377,7 @@ const UserStatistics: React.FC = () => {
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
               <p className="text-blue-100 text-sm font-medium mb-1">Total Balance</p>
-              <p className="text-2xl font-bold">{(walletStats.totalWalletBalance / 1000000).toFixed(1)}M VND</p>
+              <p className="text-2xl font-bold">{Math.round(walletStats.totalWalletBalance / 1000000)}M VND</p>
             </div>
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
@@ -387,7 +387,7 @@ const UserStatistics: React.FC = () => {
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
               <p className="text-green-100 text-sm font-medium mb-1">Average Balance</p>
-              <p className="text-2xl font-bold">{(walletStats.averageWalletBalance / 1000).toFixed(0)}K VND</p>
+              <p className="text-2xl font-bold">{Math.round(walletStats.averageWalletBalance / 1000)}K VND</p>
             </div>
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
@@ -397,7 +397,7 @@ const UserStatistics: React.FC = () => {
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
               <p className="text-purple-100 text-sm font-medium mb-1">Median Balance</p>
-              <p className="text-2xl font-bold">{(walletStats.medianWalletBalance / 1000).toFixed(0)}K VND</p>
+              <p className="text-2xl font-bold">{Math.round(walletStats.medianWalletBalance / 1000)}K VND</p>
             </div>
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
