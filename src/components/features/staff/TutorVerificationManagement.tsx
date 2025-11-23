@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   UserCheck,
   UserX,
@@ -59,10 +60,60 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
   const [selectedTutorId, setSelectedTutorId] = useState<string | null>(null);
   // Dropdown state
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     fetchTutors();
   }, []);
+
+  // Close dropdown when clicking outside or scrolling
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const isClickOnDropdown = target.closest('.dropdown-menu');
+      const isClickOnActionButton = target.closest('button[title="Actions"]') || target.closest('button[aria-label="Actions"]');
+      
+      if (!isClickOnDropdown && !isClickOnActionButton) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const handleScroll = () => {
+      if (openDropdownId) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const updateDropdownPosition = () => {
+      if (openDropdownId) {
+        const button = actionButtonRefs.current[openDropdownId];
+        if (button) {
+          const rect = button.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right
+          });
+        }
+      }
+    };
+
+    if (openDropdownId) {
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', updateDropdownPosition);
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', updateDropdownPosition);
+    };
+  }, [openDropdownId]);
 
   const fetchTutors = async () => {
     try {
@@ -444,83 +495,109 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(tutor.verificationStatus)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative inline-block text-left">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
+                        <div className="relative inline-block text-left" style={{ position: 'relative', zIndex: 1 }}>
                           <button
-                            onClick={() => setOpenDropdownId(openDropdownId === tutor.userId ? null : tutor.userId)}
+                            ref={(el) => {
+                              actionButtonRefs.current[tutor.userId] = el;
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openDropdownId === tutor.userId) {
+                                setOpenDropdownId(null);
+                                setDropdownPosition(null);
+                              } else {
+                                const button = actionButtonRefs.current[tutor.userId];
+                                if (button) {
+                                  const rect = button.getBoundingClientRect();
+                                  setDropdownPosition({
+                                    top: rect.bottom + 8,
+                                    right: window.innerWidth - rect.right
+                                  });
+                                }
+                                setOpenDropdownId(tutor.userId);
+                              }
+                            }}
                             className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openDropdownId === tutor.userId && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setOpenDropdownId(null)}
-                              ></div>
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => {
-                                      handleViewDetails(tutor.userId);
-                                      setOpenDropdownId(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    <span>View Details</span>
-                                  </button>
-                                  {!isApproved(tutor.verificationStatus) && !isRejected(tutor.verificationStatus) && (
-                                    <>
-                                      <button
-                                        onClick={() => {
-                                          handleVerify(tutor.userId);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
-                                      >
-                                        <UserCheck className="w-4 h-4" />
-                                        <span>Approve</span>
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          handleReject(tutor.userId);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
-                                      >
-                                        <UserX className="w-4 h-4" />
-                                        <span>Reject</span>
-                                      </button>
-                                    </>
-                                  )}
-                                  {isApproved(tutor.verificationStatus) && (
-                                    <button
-                                      onClick={() => {
-                                        handleReject(tutor.userId);
-                                        setOpenDropdownId(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                    >
-                                      <UserX className="w-4 h-4" />
-                                      <span>Revoke</span>
-                                    </button>
-                                  )}
-                                  {isRejected(tutor.verificationStatus) && (
+                          {openDropdownId === tutor.userId && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[9999]"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ 
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`
+                              }}
+                            >
+                              <div className="py-1">
+                                <button
+                                  onClick={() => {
+                                    handleViewDetails(tutor.userId);
+                                    setOpenDropdownId(null);
+                                    setDropdownPosition(null);
+                                  }}
+                                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  <span>View Details</span>
+                                </button>
+                                {!isApproved(tutor.verificationStatus) && !isRejected(tutor.verificationStatus) && (
+                                  <>
                                     <button
                                       onClick={() => {
                                         handleVerify(tutor.userId);
                                         setOpenDropdownId(null);
+                                        setDropdownPosition(null);
                                       }}
                                       className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
                                     >
                                       <UserCheck className="w-4 h-4" />
                                       <span>Approve</span>
                                     </button>
-                                  )}
-                                </div>
+                                    <button
+                                      onClick={() => {
+                                        handleReject(tutor.userId);
+                                        setOpenDropdownId(null);
+                                        setDropdownPosition(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center space-x-2"
+                                    >
+                                      <UserX className="w-4 h-4" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </>
+                                )}
+                                {isApproved(tutor.verificationStatus) && (
+                                  <button
+                                    onClick={() => {
+                                      handleReject(tutor.userId);
+                                      setOpenDropdownId(null);
+                                      setDropdownPosition(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                  >
+                                    <UserX className="w-4 h-4" />
+                                    <span>Revoke</span>
+                                  </button>
+                                )}
+                                {isRejected(tutor.verificationStatus) && (
+                                  <button
+                                    onClick={() => {
+                                      handleVerify(tutor.userId);
+                                      setOpenDropdownId(null);
+                                      setDropdownPosition(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center space-x-2"
+                                  >
+                                    <UserCheck className="w-4 h-4" />
+                                    <span>Approve</span>
+                                  </button>
+                                )}
                               </div>
-                            </>
+                            </div>,
+                            document.body
                           )}
                         </div>
                       </td>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building,
   Building2,
@@ -41,6 +42,8 @@ const CenterManagement: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [formData, setFormData] = useState<CreateCenterRequest>({
     name: '',
     address: '',
@@ -64,6 +67,54 @@ const CenterManagement: React.FC = () => {
     filterCenters();
     setCurrentPage(1); // Reset to first page when filters change
   }, [centers, searchTerm]);
+
+  // Close dropdown when clicking outside or scrolling
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const isClickOnDropdown = target.closest('.dropdown-menu');
+      const isClickOnActionButton = target.closest('button[title="Actions"]');
+      
+      if (!isClickOnDropdown && !isClickOnActionButton) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const handleScroll = () => {
+      if (openDropdownId) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const updateDropdownPosition = () => {
+      if (openDropdownId) {
+        const button = actionButtonRefs.current[openDropdownId];
+        if (button) {
+          const rect = button.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right
+          });
+        }
+      }
+    };
+
+    if (openDropdownId) {
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', updateDropdownPosition);
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', updateDropdownPosition);
+    };
+  }, [openDropdownId]);
 
   // Close location dropdown when clicking outside
   useEffect(() => {
@@ -409,44 +460,67 @@ const CenterManagement: React.FC = () => {
                           })()}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative flex items-center justify-end">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
+                        <div className="relative flex items-center justify-end" style={{ position: 'relative', zIndex: 1 }}>
                           <button
-                            onClick={() => setOpenDropdownId(openDropdownId === center.centerId ? null : center.centerId)}
+                            ref={(el) => {
+                              actionButtonRefs.current[center.centerId] = el;
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openDropdownId === center.centerId) {
+                                setOpenDropdownId(null);
+                                setDropdownPosition(null);
+                              } else {
+                                const button = actionButtonRefs.current[center.centerId];
+                                if (button) {
+                                  const rect = button.getBoundingClientRect();
+                                  setDropdownPosition({
+                                    top: rect.bottom + 8,
+                                    right: window.innerWidth - rect.right
+                                  });
+                                }
+                                setOpenDropdownId(center.centerId);
+                              }
+                            }}
                             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Actions"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openDropdownId === center.centerId && (
-                            <>
-                              <div 
-                                className="fixed inset-0 z-10" 
-                                onClick={() => setOpenDropdownId(null)}
-                              ></div>
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
-                                <button
-                                  onClick={() => {
-                                    openEditModal(center);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  <span>Edit</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    openDeleteModal(center);
-                                    setOpenDropdownId(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </>
+                          {openDropdownId === center.centerId && dropdownPosition && createPortal(
+                            <div 
+                              className="dropdown-menu fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999]"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ 
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`
+                              }}
+                            >
+                              <button
+                                onClick={() => {
+                                  openEditModal(center);
+                                  setOpenDropdownId(null);
+                                  setDropdownPosition(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                              >
+                                <Edit className="w-4 h-4" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  openDeleteModal(center);
+                                  setOpenDropdownId(null);
+                                  setDropdownPosition(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span>Delete</span>
+                              </button>
+                            </div>,
+                            document.body
                           )}
                         </div>
                       </td>

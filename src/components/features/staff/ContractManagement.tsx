@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   FileText,
   MapPin,
@@ -45,6 +46,8 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   // Selected tutors for assignment
   const [selectedMainTutor, setSelectedMainTutor] = useState<Tutor | null>(null);
   const [selectedSubstituteTutor1, setSelectedSubstituteTutor1] = useState<Tutor | null>(null);
@@ -66,6 +69,54 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
+
+  // Close dropdown when clicking outside or scrolling
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const isClickOnDropdown = target.closest('.dropdown-menu');
+      const isClickOnActionButton = target.closest('button[title="Actions"]') || target.closest('button[aria-label="Actions"]');
+      
+      if (!isClickOnDropdown && !isClickOnActionButton) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const handleScroll = () => {
+      if (openDropdownId) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const updateDropdownPosition = () => {
+      if (openDropdownId) {
+        const button = actionButtonRefs.current[openDropdownId];
+        if (button) {
+          const rect = button.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right
+          });
+        }
+      }
+    };
+
+    if (openDropdownId) {
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', updateDropdownPosition);
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', updateDropdownPosition);
+    };
+  }, [openDropdownId]);
 
   // Fetch tutor name by userId
   const fetchTutorName = async (tutorId: string): Promise<string | null> => {
@@ -600,47 +651,70 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-right text-sm font-medium">
-                          <div className="relative inline-block text-left">
+                      <td className="px-4 py-4 text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
+                          <div className="relative inline-block text-left" style={{ position: 'relative', zIndex: 1 }}>
                             <button
-                              onClick={() => setOpenDropdownId(openDropdownId === contract.contractId ? null : contract.contractId)}
+                              ref={(el) => {
+                                actionButtonRefs.current[contract.contractId] = el;
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (openDropdownId === contract.contractId) {
+                                  setOpenDropdownId(null);
+                                  setDropdownPosition(null);
+                                } else {
+                                  const button = actionButtonRefs.current[contract.contractId];
+                                  if (button) {
+                                    const rect = button.getBoundingClientRect();
+                                    setDropdownPosition({
+                                      top: rect.bottom + 8,
+                                      right: window.innerWidth - rect.right
+                                    });
+                                  }
+                                  setOpenDropdownId(contract.contractId);
+                                }
+                              }}
                               className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
                             >
                               <MoreVertical className="w-5 h-5" />
                             </button>
-                            {openDropdownId === contract.contractId && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-10"
-                                  onClick={() => setOpenDropdownId(null)}
-                                ></div>
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
-                                  <div className="py-1">
-                                    {!contract.mainTutorId && (
-                                      <button
-                                        onClick={() => {
-                                          handleAssignTutor(contract);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                      >
-                                        <UserPlus className="w-4 h-4" />
-                                        <span>Assign Tutor</span>
-                                      </button>
-                                    )}
+                            {openDropdownId === contract.contractId && dropdownPosition && createPortal(
+                              <div 
+                                className="dropdown-menu fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[9999]"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ 
+                                  top: `${dropdownPosition.top}px`,
+                                  right: `${dropdownPosition.right}px`
+                                }}
+                              >
+                                <div className="py-1">
+                                  {!contract.mainTutorId && (
                                     <button
                                       onClick={() => {
-                                        navigate(`/staff/contracts/${contract.contractId}`);
+                                        handleAssignTutor(contract);
                                         setOpenDropdownId(null);
+                                        setDropdownPosition(null);
                                       }}
                                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                                     >
-                                      <Eye className="w-4 h-4" />
-                                      <span>View Details</span>
+                                      <UserPlus className="w-4 h-4" />
+                                      <span>Assign Tutor</span>
                                     </button>
-                                  </div>
+                                  )}
+                                  <button
+                                    onClick={() => {
+                                      navigate(`/staff/contracts/${contract.contractId}`);
+                                      setOpenDropdownId(null);
+                                      setDropdownPosition(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    <span>View Details</span>
+                                  </button>
                                 </div>
-                              </>
+                              </div>,
+                              document.body
                             )}
                           </div>
                         </td>

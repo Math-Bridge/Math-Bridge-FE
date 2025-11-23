@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Users,
   UserPlus,
@@ -76,6 +77,8 @@ const UserManagement: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -86,7 +89,7 @@ const UserManagement: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filters change
   }, [users, searchTerm, roleFilter, statusFilter]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or scrolling
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
@@ -96,6 +99,27 @@ const UserManagement: React.FC = () => {
       
       if (!isClickOnDropdown && !isClickOnActionButton) {
         setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const handleScroll = () => {
+      if (openDropdownId) {
+        setOpenDropdownId(null);
+        setDropdownPosition(null);
+      }
+    };
+
+    const updateDropdownPosition = () => {
+      if (openDropdownId) {
+        const button = actionButtonRefs.current[openDropdownId];
+        if (button) {
+          const rect = button.getBoundingClientRect();
+          setDropdownPosition({
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right
+          });
+        }
       }
     };
 
@@ -103,11 +127,15 @@ const UserManagement: React.FC = () => {
       // Use setTimeout to avoid immediate closure
       setTimeout(() => {
         document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        window.addEventListener('resize', updateDropdownPosition);
       }, 0);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', updateDropdownPosition);
     };
   }, [openDropdownId]);
 
@@ -652,14 +680,14 @@ const UserManagement: React.FC = () => {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm" style={{ overflow: 'visible' }}>
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
               <Users className="w-5 h-5" />
               <span>Users List ({filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'})</span>
             </h3>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ overflowY: 'visible' }}>
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -680,7 +708,7 @@ const UserManagement: React.FC = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200" style={{ position: 'relative' }}>
                 {filteredUsers.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-16 text-center">
@@ -704,7 +732,7 @@ const UserManagement: React.FC = () => {
                     return (
                       <>
                         {paginatedUsers.map((user) => (
-                    <tr key={user.userId} className="hover:bg-gray-50 transition-colors">
+                    <tr key={user.userId} className="hover:bg-gray-50 transition-colors" style={{ position: 'relative', overflow: 'visible' }}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
@@ -735,27 +763,48 @@ const UserManagement: React.FC = () => {
                           ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.walletBalance)
                           : '0 ₫'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative flex items-center justify-end">
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
+                        <div className="relative flex items-center justify-end" style={{ position: 'relative', zIndex: 1 }}>
                           <button
+                            ref={(el) => {
+                              actionButtonRefs.current[user.userId] = el;
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenDropdownId(openDropdownId === user.userId ? null : user.userId);
+                              if (openDropdownId === user.userId) {
+                                setOpenDropdownId(null);
+                                setDropdownPosition(null);
+                              } else {
+                                const button = actionButtonRefs.current[user.userId];
+                                if (button) {
+                                  const rect = button.getBoundingClientRect();
+                                  setDropdownPosition({
+                                    top: rect.bottom + 8,
+                                    right: window.innerWidth - rect.right
+                                  });
+                                }
+                                setOpenDropdownId(user.userId);
+                              }
                             }}
                             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Actions"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
-                          {openDropdownId === user.userId && (
+                          {openDropdownId === user.userId && dropdownPosition && createPortal(
                             <div 
-                              className="dropdown-menu absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 py-1"
+                              className="dropdown-menu fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999]"
                               onClick={(e) => e.stopPropagation()}
+                              style={{ 
+                                top: `${dropdownPosition.top}px`,
+                                right: `${dropdownPosition.right}px`
+                              }}
                             >
                                 <button
                                   onClick={() => {
                                     handleEditUser(user);
                                     setOpenDropdownId(null);
+                                    setDropdownPosition(null);
                                   }}
                                   className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                                 >
@@ -767,6 +816,7 @@ const UserManagement: React.FC = () => {
                                     onClick={() => {
                                       handleUpdateStatus(user.userId, 'inactive');
                                       setOpenDropdownId(null);
+                                      setDropdownPosition(null);
                                     }}
                                     disabled={updatingStatus === user.userId}
                                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -783,6 +833,7 @@ const UserManagement: React.FC = () => {
                                     onClick={() => {
                                       handleUpdateStatus(user.userId, 'active');
                                       setOpenDropdownId(null);
+                                      setDropdownPosition(null);
                                     }}
                                     disabled={updatingStatus === user.userId}
                                     className="w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-green-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -795,7 +846,8 @@ const UserManagement: React.FC = () => {
                                     <span>Activate</span>
                                   </button>
                                 ) : null}
-                            </div>
+                            </div>,
+                            document.body
                           )}
                         </div>
                       </td>
