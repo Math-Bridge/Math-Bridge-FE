@@ -470,9 +470,9 @@ const CreateContract: React.FC = () => {
       const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
       const startDate = new Date(startDateStr);
       
-      // Calculate end date: 3 months from now (when creating contract)
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 3);
+      // Calculate end date based on package duration_days
+      const endDate = new Date(startDateStr);
+      endDate.setDate(endDate.getDate() + (selectedPackage.durationDays || 90));
 
       // Format dates as YYYY-MM-DD
       const formatDate = (date: Date) => {
@@ -962,9 +962,14 @@ const CreateContract: React.FC = () => {
                   value={schedule.startDate || new Date().toISOString().split('T')[0]}
                   onChange={(e) => setSchedule(prev => ({ ...prev, startDate: e.target.value }))}
                   min={new Date().toISOString().split('T')[0]}
+                  max={(() => {
+                    const maxDate = new Date();
+                    maxDate.setDate(maxDate.getDate() + 7);
+                    return maxDate.toISOString().split('T')[0];
+                  })()}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="mt-1 text-xs text-gray-500">Select when the contract should start</p>
+                <p className="mt-1 text-xs text-gray-500">Select when the contract should start (max 1 week from now)</p>
               </div>
 
               {/* Calculated End Date Display */}
@@ -976,8 +981,8 @@ const CreateContract: React.FC = () => {
                       <p className="text-sm font-medium">Estimated End Date:</p>
                       <p className="text-lg font-bold">
                         {(() => {
-                          const endDate = new Date();
-                          endDate.setMonth(endDate.getMonth() + 3);
+                          const endDate = new Date(schedule.startDate || new Date());
+                          endDate.setDate(endDate.getDate() + (selectedPackage.durationDays || 90));
                           return endDate.toLocaleDateString('en-US', { 
                             year: 'numeric', 
                             month: 'long', 
@@ -986,7 +991,7 @@ const CreateContract: React.FC = () => {
                         })()}
                       </p>
                       <p className="text-xs mt-1">
-                        3 months from contract creation date
+                        {selectedPackage.durationDays} days from selected start date
                       </p>
                     </div>
                   </div>

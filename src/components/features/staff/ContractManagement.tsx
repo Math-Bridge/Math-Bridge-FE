@@ -20,6 +20,7 @@ import {
   GraduationCap,
   CheckCircle,
   User,
+  UserCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
@@ -213,14 +214,25 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const handleAssignTutor = async (contract: Contract) => {
     setSelectedContract(contract);
     setShowTutorModal(true);
-    // Reset selected tutors when opening modal
+    
+    // Reset selected tutors initially
     setSelectedMainTutor(null);
     setSelectedSubstituteTutor1(null);
     setSelectedSubstituteTutor2(null);
-    await fetchAvailableTutors(contract);
+    
+    // Fetch available tutors and then pre-select current ones if re-assigning
+    const tutors = await fetchAvailableTutors(contract);
+    
+    // Pre-populate currently assigned tutors for re-assignment
+    if (tutors && contract.mainTutorId) {
+      const mainTutor = tutors.find(t => t.userId === contract.mainTutorId);
+      if (mainTutor) {
+        setSelectedMainTutor(mainTutor);
+      }
+    }
   };
 
-  const fetchAvailableTutors = async (contract: Contract) => {
+  const fetchAvailableTutors = async (contract: Contract): Promise<Tutor[] | null> => {
     try {
       setLoadingTutors(true);
       
@@ -232,12 +244,15 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
 
       if (result.success && result.data) {
         setAvailableTutors(result.data);
+        return result.data;
       } else {
         showError(result.error || 'Failed to load available tutors');
+        return null;
       }
     } catch (error) {
       console.error('Error fetching tutors:', error);
       showError('Failed to load available tutors');
+      return null;
     } finally {
       setLoadingTutors(false);
     }
@@ -628,6 +643,18 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                         <span>Assign Tutor</span>
                                       </button>
                                     )}
+                                    {contract.mainTutorId && (
+                                      <button
+                                        onClick={() => {
+                                          handleAssignTutor(contract);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                                      >
+                                        <UserCheck className="w-4 h-4" />
+                                        <span>Re-assign Tutor</span>
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => {
                                         navigate(`/staff/contracts/${contract.contractId}`);
@@ -744,7 +771,9 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
             <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Assign Tutors</h2>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {selectedContract.mainTutorId ? 'Re-assign Tutors' : 'Assign Tutors'}
+                  </h2>
                   <p className="text-gray-600 mt-1 text-sm">
                     Contract: {selectedContract.packageName} - {selectedContract.childName}
                   </p>
