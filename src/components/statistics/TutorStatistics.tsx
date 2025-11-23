@@ -84,27 +84,51 @@ const TutorStatistics: React.FC = () => {
     <div className="space-y-6">
       {/* Overview Cards */}
       {overview && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <GraduationCap className="w-5 h-5" />
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
+            <GraduationCap className="w-6 h-6 text-blue-600" />
             Tutor Overview
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Tutors</div>
-              <div className="text-2xl font-bold text-blue-600">{overview.totalTutors}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <Activity className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Total Tutors</p>
+              <p className="text-3xl font-bold">{overview.totalTutors.toLocaleString()}</p>
             </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Average Rating</div>
-              <div className="text-2xl font-bold text-yellow-600">{overview.averageRating.toFixed(2)}</div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Star className="w-6 h-6" />
+                </div>
+                <Star className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-yellow-100 text-sm font-medium mb-1">Average Rating</p>
+              <p className="text-3xl font-bold">{overview.averageRating.toFixed(2)}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">With Feedback</div>
-              <div className="text-2xl font-bold text-green-600">{overview.tutorsWithFeedback}</div>
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Star className="w-6 h-6" />
+                </div>
+                <Activity className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-green-100 text-sm font-medium mb-1">With Feedback</p>
+              <p className="text-3xl font-bold">{overview.tutorsWithFeedback.toLocaleString()}</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Without Feedback</div>
-              <div className="text-2xl font-bold text-gray-600">{overview.tutorsWithoutFeedback}</div>
+            <div className="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <GraduationCap className="w-6 h-6" />
+                </div>
+                <Activity className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-gray-100 text-sm font-medium mb-1">Without Feedback</p>
+              <p className="text-3xl font-bold">{overview.tutorsWithoutFeedback.toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -112,16 +136,16 @@ const TutorStatistics: React.FC = () => {
 
       {/* Top Rated Tutors */}
       {topRated && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Star className="w-5 h-5" />
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+              <Star className="w-6 h-6 text-yellow-600" />
               Top Rated Tutors
             </h2>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="border rounded px-3 py-1 text-sm"
+              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
             >
               <option value={5}>Top 5</option>
               <option value={10}>Top 10</option>
@@ -129,21 +153,66 @@ const TutorStatistics: React.FC = () => {
               <option value={50}>Top 50</option>
             </select>
           </div>
-          <div className="bg-white p-4 rounded-lg mb-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topRated.tutors.map(tutor => ({
-                name: tutor.tutorName.length > 15 ? tutor.tutorName.substring(0, 15) + '...' : tutor.tutorName,
-                rating: tutor.averageRating,
-                feedbacks: tutor.feedbackCount
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="rating" fill="#fbbf24" name="Average Rating" />
-                <Bar yAxisId="right" dataKey="feedbacks" fill="#3b82f6" name="Feedback Count" />
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart 
+                data={topRated.tutors.map(tutor => ({
+                  name: tutor.tutorName.length > 15 ? tutor.tutorName.substring(0, 15) + '...' : tutor.tutorName,
+                  rating: tutor.averageRating,
+                  feedbacks: tutor.feedbackCount
+                }))}
+                margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={100}
+                  stroke="#6b7280"
+                  style={{ fontSize: '11px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <YAxis 
+                  yAxisId="left" 
+                  stroke="#fbbf24"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#fbbf24' }}
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right" 
+                  stroke="#3b82f6"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#3b82f6' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Bar 
+                  yAxisId="left" 
+                  dataKey="rating" 
+                  fill="#fbbf24" 
+                  name="Average Rating"
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={1000}
+                />
+                <Bar 
+                  yAxisId="right" 
+                  dataKey="feedbacks" 
+                  fill="#3b82f6" 
+                  name="Feedback Count"
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={1000}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -181,16 +250,16 @@ const TutorStatistics: React.FC = () => {
 
       {/* Most Active Tutors */}
       {mostActive && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Activity className="w-5 h-5" />
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+              <Activity className="w-6 h-6 text-blue-600" />
               Most Active Tutors
             </h2>
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="border rounded px-3 py-1 text-sm"
+              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
             >
               <option value={5}>Top 5</option>
               <option value={10}>Top 10</option>
@@ -198,20 +267,56 @@ const TutorStatistics: React.FC = () => {
               <option value={50}>Top 50</option>
             </select>
           </div>
-          <div className="bg-white p-4 rounded-lg mb-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mostActive.tutors.map(tutor => ({
-                name: tutor.tutorName.length > 15 ? tutor.tutorName.substring(0, 15) + '...' : tutor.tutorName,
-                total: tutor.sessionCount,
-                completed: tutor.completedSessions
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="total" fill="#3b82f6" name="Total Sessions" />
-                <Bar dataKey="completed" fill="#10b981" name="Completed" />
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart 
+                data={mostActive.tutors.map(tutor => ({
+                  name: tutor.tutorName.length > 15 ? tutor.tutorName.substring(0, 15) + '...' : tutor.tutorName,
+                  total: tutor.sessionCount,
+                  completed: tutor.completedSessions
+                }))}
+                margin={{ top: 20, right: 30, left: 20, bottom: 100 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-45} 
+                  textAnchor="end" 
+                  height={100}
+                  stroke="#6b7280"
+                  style={{ fontSize: '11px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <YAxis 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Bar 
+                  dataKey="total" 
+                  fill="#3b82f6" 
+                  name="Total Sessions"
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={1000}
+                />
+                <Bar 
+                  dataKey="completed" 
+                  fill="#10b981" 
+                  name="Completed"
+                  radius={[8, 8, 0, 0]}
+                  animationDuration={1000}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

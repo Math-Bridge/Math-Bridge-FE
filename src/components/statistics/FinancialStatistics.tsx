@@ -97,45 +97,59 @@ const FinancialStatistics: React.FC = () => {
     <div className="space-y-6">
       {/* Overview Cards */}
       {overview && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
+            <DollarSign className="w-6 h-6 text-green-600" />
             Revenue Overview
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Revenue</div>
-              <div className="text-2xl font-bold text-green-600">
-                {overview.totalRevenue.toLocaleString('en-US')} VND
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
+              <p className="text-green-100 text-sm font-medium mb-1">Total Revenue</p>
+              <p className="text-3xl font-bold">{Math.round(overview.totalRevenue / 1000000)}M VND</p>
             </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Average Transaction</div>
-              <div className="text-2xl font-bold text-blue-600">
-                {overview.averageTransactionAmount.toLocaleString('en-US')} VND
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
+              <p className="text-blue-100 text-sm font-medium mb-1">Average Transaction</p>
+              <p className="text-2xl font-bold">{Math.round(overview.averageTransactionAmount / 1000)}K VND</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Success Rate</div>
-              <div className="text-2xl font-bold text-purple-600">{overview.successRate}%</div>
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <TrendingUp className="w-6 h-6" />
+                </div>
+                <CheckCircle className="w-8 h-8 opacity-80" />
+              </div>
+              <p className="text-purple-100 text-sm font-medium mb-1">Success Rate</p>
+              <p className="text-3xl font-bold">{overview.successRate}%</p>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Transactions</div>
-              <div className="text-xl font-semibold">{overview.totalTransactions}</div>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div className="text-sm text-gray-600 mb-2 font-medium">Total Transactions</div>
+              <div className="text-2xl font-bold text-gray-900">{overview.totalTransactions.toLocaleString()}</div>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                <CheckCircle className="w-4 h-4 text-green-600" />
+            <div className="bg-white border-l-4 border-green-500 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 font-medium">
+                <CheckCircle className="w-5 h-5 text-green-600" />
                 Successful Transactions
               </div>
-              <div className="text-xl font-semibold text-green-600">{overview.successfulTransactions}</div>
+              <div className="text-2xl font-bold text-green-600">{overview.successfulTransactions.toLocaleString()}</div>
             </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                <XCircle className="w-4 h-4 text-red-600" />
+            <div className="bg-white border-l-4 border-red-500 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 font-medium">
+                <XCircle className="w-5 h-5 text-red-600" />
                 Failed Transactions
               </div>
-              <div className="text-xl font-semibold text-red-600">{overview.failedTransactions}</div>
+              <div className="text-2xl font-bold text-red-600">{overview.failedTransactions.toLocaleString()}</div>
             </div>
           </div>
         </div>
@@ -143,27 +157,28 @@ const FinancialStatistics: React.FC = () => {
 
       {/* Revenue Trends */}
       {trends && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
+              <TrendingUp className="w-6 h-6 text-green-600" />
               Revenue Trends
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <input
                 type="date"
                 value={dateRange.startDate}
                 max={dateRange.endDate < todayIso ? dateRange.endDate : todayIso}
                 onChange={(e) => handleDateChange('startDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent shadow-sm"
               />
+              <span className="self-center text-gray-500">to</span>
               <input
                 type="date"
                 value={dateRange.endDate}
                 min={dateRange.startDate}
                 max={todayIso}
                 onChange={(e) => handleDateChange('endDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent shadow-sm"
               />
             </div>
           </div>
@@ -172,31 +187,99 @@ const FinancialStatistics: React.FC = () => {
               {dateValidationMessage}
             </p>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Revenue in Period</div>
-              <div className="text-2xl font-bold">{trends.totalRevenueInPeriod.toLocaleString('en-US')} VND</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-100 border border-green-200 rounded-lg p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-green-700 mb-1 font-medium">Total Revenue in Period</div>
+                  <div className="text-3xl font-bold text-green-900">{Math.round(trends.totalRevenueInPeriod / 1000000)}M VND</div>
+                </div>
+                <div className="p-4 bg-green-200 rounded-full">
+                  <DollarSign className="w-8 h-8 text-green-700" />
+                </div>
+              </div>
             </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="text-sm text-gray-600 mb-1">Total Transactions in Period</div>
-              <div className="text-2xl font-bold">{trends.totalTransactionsInPeriod}</div>
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-5 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-blue-700 mb-1 font-medium">Total Transactions in Period</div>
+                  <div className="text-3xl font-bold text-blue-900">{trends.totalTransactionsInPeriod.toLocaleString()}</div>
+                </div>
+                <div className="p-4 bg-blue-200 rounded-full">
+                  <TrendingUp className="w-8 h-8 text-blue-700" />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="bg-white p-4 rounded-lg mb-4">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trends.trends.map(t => ({
-                date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                revenue: t.revenue,
-                transactions: t.transactionCount
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} name="Revenue (VND)" />
-                <Line yAxisId="right" type="monotone" dataKey="transactions" stroke="#3b82f6" strokeWidth={2} name="Transactions" />
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart 
+                data={trends.trends.map(t => ({
+                  date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  revenue: t.revenue,
+                  transactions: t.transactionCount
+                }))}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#6b7280' }}
+                />
+                <YAxis 
+                  yAxisId="left" 
+                  stroke="#10b981"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#10b981' }}
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right" 
+                  stroke="#3b82f6"
+                  style={{ fontSize: '12px' }}
+                  tick={{ fill: '#3b82f6' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  formatter={(value: any, name: string) => {
+                    if (name === 'Revenue (VND)') {
+                      return [`${Math.round(value / 1000)}K VND`, name];
+                    }
+                    return [value, name];
+                  }}
+                />
+                <Legend 
+                  wrapperStyle={{ paddingTop: '20px' }}
+                />
+                <Line 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#10b981" 
+                  strokeWidth={3}
+                  dot={{ fill: '#10b981', r: 5 }}
+                  activeDot={{ r: 8 }}
+                  name="Revenue (VND)"
+                  animationDuration={1000}
+                />
+                <Line 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="transactions" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  dot={{ fill: '#3b82f6', r: 5 }}
+                  activeDot={{ r: 8 }}
+                  name="Transactions"
+                  animationDuration={1000}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
