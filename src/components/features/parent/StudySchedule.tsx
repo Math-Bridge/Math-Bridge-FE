@@ -509,13 +509,37 @@ const StudySchedule: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 animate-gradient" />
+        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-100/20 via-transparent to-amber-100/20 animate-gradient-reverse" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-purple-300/10 text-6xl font-black select-none animate-float"
+              style={{
+                left: `${10 + (i * 65) % 85}%`,
+                top: `${15 + (i * 50) % 80}%`,
+                animationDelay: `${i * 2}s`,
+              }}
+            >
+              {i % 5 === 0 ? 'π' : i % 4 === 0 ? '∑' : i % 3 === 0 ? '∞' : '∫'}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-screen py-8 px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden w-full">
         {/* Header */}
-        <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-white border-b border-gray-100">
+        <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-8 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-2xl font-bold text-gray-900">Study Schedule</h3>
-              <p className="text-sm text-gray-600 mt-2">View your children's study schedule</p>
+              <h1 className="text-4xl font-bold text-white mb-2">Study Schedule</h1>
+              <p className="text-lg text-white/95">Manage and track your child's learning sessions</p>
+
             </div>
             {/* Children Selector */}
             {children.length > 0 && (
@@ -868,6 +892,8 @@ const StudySchedule: React.FC = () => {
             </>
           )}
         </div>
+          </div>
+        </div>
       </div>
 
       {/* Reschedule Request Popup */}
@@ -895,6 +921,22 @@ const StudySchedule: React.FC = () => {
       )}
 
       <style>{`
+        @keyframes gradient {
+          0%, 100% { transform: translateX(-5%) translateY(-5%); }
+          50% { transform: translateX(5%) translateY(5%); }
+        }
+        @keyframes gradient-reverse {
+          0%, 100% { transform: translateX(5%) translateY(5%); }
+          50% { transform: translateX(-5%) translateY(-5%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        .animate-gradient { animation: gradient 30s ease infinite; }
+        .animate-gradient-reverse { animation: gradient-reverse 35s ease infinite; }
+        .animate-float { animation: float 25s linear infinite; }
+        
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
