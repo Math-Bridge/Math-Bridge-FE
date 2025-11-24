@@ -119,37 +119,39 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
         const contractData = result.data;
         setContract(contractData);
 
-        // Try to fetch additional info, but handle errors gracefully
-        // Staff may not have access to user endpoints, so we'll use contract data as fallback
-        
-        // Fetch child info - use contract data if API fails
-        if (contractData.childId) {
-          try {
-            const childResult = await apiService.getUserById(contractData.childId);
-            if (childResult.success && childResult.data) {
-              setChildInfo(childResult.data);
-            } else {
-              // Use contract data as fallback
-              if (contractData.childName) {
-                setChildInfo({ fullName: contractData.childName, FullName: contractData.childName });
-              }
-            }
-          } catch (err: any) {
-            // Silently handle unauthorized errors - use contract data instead
-            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
-              if (import.meta.env.DEV) {
-                console.warn('Error fetching child info:', err);
-              }
-            }
-            // Use contract data as fallback
-            if (contractData.childName) {
-              setChildInfo({ fullName: contractData.childName, FullName: contractData.childName });
-            }
+        // Debug: Log contract data to see available fields
+        if (import.meta.env.DEV) {
+          console.log('Contract Data:', contractData);
+          console.log('Available keys:', Object.keys(contractData));
+          // Check if there's a nested Child object with parent info
+          if ((contractData as any).Child) {
+            console.log('Child object:', (contractData as any).Child);
+            console.log('Child keys:', Object.keys((contractData as any).Child));
           }
         }
 
-        // Fetch parent info - use contract data if API fails
-        const parentId = contractData.parentId || contractData.ParentId;
+        // Try to fetch additional info, but handle errors gracefully
+        // Staff may not have access to user endpoints, so we'll use contract data as fallback
+        
+        // Fetch child info - use contract data directly (children are not in user table)
+        // Contract data already has child name, so we don't need to fetch from users API
+        if (contractData.childName) {
+          setChildInfo({ fullName: contractData.childName, FullName: contractData.childName });
+        }
+
+        // Fetch parent info - contract data includes parentId directly
+        const parentId = (contractData as any).parentId || 
+                        (contractData as any).ParentId || 
+                        (contractData as any).parent_id;
+        const parentName = (contractData as any).parentName || 
+                          (contractData as any).ParentName || 
+                          (contractData as any).parent_name;
+        
+        if (import.meta.env.DEV) {
+          console.log('Parent ID from contract:', parentId);
+          console.log('Parent Name from contract:', parentName);
+        }
+        
         if (parentId) {
           try {
             const parentResult = await apiService.getUserById(parentId);
@@ -157,21 +159,35 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
               setParentInfo(parentResult.data);
             } else {
               // Use contract data as fallback if available
-              if (contractData.parentName) {
-                setParentInfo({ fullName: contractData.parentName, FullName: contractData.parentName });
+              const parentName = (contractData as any).parentName || 
+                                (contractData as any).ParentName || 
+                                (contractData as any).parent_name;
+              if (parentName) {
+                setParentInfo({ fullName: parentName, FullName: parentName });
               }
             }
           } catch (err: any) {
-            // Silently handle unauthorized errors - use contract data instead
-            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+            // Silently handle unauthorized/404 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401 && err?.response?.status !== 404) {
               if (import.meta.env.DEV) {
                 console.warn('Error fetching parent info:', err);
               }
             }
             // Use contract data as fallback if available
-            if (contractData.parentName) {
-              setParentInfo({ fullName: contractData.parentName, FullName: contractData.parentName });
+            const parentName = (contractData as any).parentName || 
+                              (contractData as any).ParentName || 
+                              (contractData as any).parent_name;
+            if (parentName) {
+              setParentInfo({ fullName: parentName, FullName: parentName });
             }
+          }
+        } else {
+          // If no parent ID found, try to use parent name from contract data as fallback
+          const parentName = (contractData as any).parentName || 
+                            (contractData as any).ParentName || 
+                            (contractData as any).parent_name;
+          if (parentName) {
+            setParentInfo({ fullName: parentName, FullName: parentName });
           }
         }
 
@@ -193,8 +209,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
               }
             }
           } catch (err: any) {
-            // Silently handle unauthorized errors - use contract data instead
-            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+            // Silently handle unauthorized/404 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401 && err?.response?.status !== 404) {
               if (import.meta.env.DEV) {
                 console.warn('Error fetching tutor info:', err);
               }
@@ -230,8 +246,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
               });
             }
           } catch (err: any) {
-            // Silently handle unauthorized errors - use contract data instead
-            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+            // Silently handle unauthorized/404 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401 && err?.response?.status !== 404) {
               if (import.meta.env.DEV) {
                 console.warn('Error fetching substitute tutor 1 info:', err);
               }
@@ -265,8 +281,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
               });
             }
           } catch (err: any) {
-            // Silently handle unauthorized errors - use contract data instead
-            if (err?.response?.status !== 500 && err?.response?.status !== 401) {
+            // Silently handle unauthorized/404 errors - use contract data instead
+            if (err?.response?.status !== 500 && err?.response?.status !== 401 && err?.response?.status !== 404) {
               if (import.meta.env.DEV) {
                 console.warn('Error fetching substitute tutor 2 info:', err);
               }
@@ -670,7 +686,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         </div>
                       </div>
                     )}
-                    {parentInfo.phoneNumber || parentInfo.phone && (
+                    {(parentInfo.phoneNumber || parentInfo.phone) && (
                       <div className="flex items-center space-x-3">
                         <Phone className="w-5 h-5 text-gray-400" />
                         <div>
