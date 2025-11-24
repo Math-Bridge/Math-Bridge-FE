@@ -61,19 +61,17 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     return `${endHours}:${endMinutes}`;
   };
 
-  // Generate weekly schedule (7 days starting from today, excluding past dates)
+  // Generate weekly schedule (7 days starting from today, excluding past dates and past time slots)
   const generateWeeklySchedule = () => {
     // Use local date to avoid timezone issues
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const day = today.getDate();
-    
-    // Create date at midnight local time (not UTC)
-    const localToday = new Date(year, month, day);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
     
     // Start from today + (selectedWeek * 7) days
-    const startDate = new Date(year, month, day + (selectedWeek * 7));
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + (selectedWeek * 7));
     
     const weekDays = [];
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -84,24 +82,42 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       date.setDate(startDate.getDate() + i);
       
       // Only include dates that are today or in the future
-      if (date >= localToday) {
+      if (date >= today) {
         // Format date as YYYY-MM-DD in local timezone
         const dateYear = date.getFullYear();
         const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
         const dateDay = String(date.getDate()).padStart(2, '0');
         const dateStr = `${dateYear}-${dateMonth}-${dateDay}`;
         
-        weekDays.push({
-          date: dateStr,
-          dayName: dayNames[date.getDay()],
-          dayNumber: date.getDate(),
-          isPast: false,
-          slots: VALID_START_TIMES.map(time => ({
-            time,
-            endTime: calculateEndTime(time),
-            id: `${dateStr}-${time}`,
-          }))
-        });
+        // Check if this is today
+        const isToday = date.getTime() === today.getTime();
+        
+        // Filter slots: if today, only include future time slots
+        const availableSlots = VALID_START_TIMES.filter(time => {
+          if (!isToday) return true; // All slots available for future dates
+          
+          // For today, check if the time slot is in the future
+          const [hours, minutes] = time.split(':').map(Number);
+          const slotTime = hours * 60 + minutes; // Convert to minutes
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          return slotTime > currentTime; // Only include slots that haven't passed yet
+        }).map(time => ({
+          time,
+          endTime: calculateEndTime(time),
+          id: `${dateStr}-${time}`,
+        }));
+        
+        // Only add day if it has available slots
+        if (availableSlots.length > 0) {
+          weekDays.push({
+            date: dateStr,
+            dayName: dayNames[date.getDay()],
+            dayNumber: date.getDate(),
+            isPast: false,
+            slots: availableSlots
+          });
+        }
       }
     }
     
@@ -140,6 +156,28 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     } finally {
       setLoadingSessions(false);
     }
+  };
+
+  // Check if a slot is in the past
+  const isSlotInPast = (date: string, time: string): boolean => {
+    const [year, month, day] = date.split('-').map(Number);
+    const slotDate = new Date(year, month - 1, day);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // If date is in the past, slot is in past
+    if (slotDate < today) {
+      return true;
+    }
+    
+    // If date is today, check if time is in the past
+    if (slotDate.getTime() === today.getTime()) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      return slotDateTime <= now;
+    }
+    
+    return false;
   };
 
   // Check if a slot conflicts with existing sessions
@@ -186,17 +224,30 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     const [year, month, day] = date.split('-').map(Number);
     const selectedDate = new Date(year, month - 1, day);
     
-    // Get today in local timezone
+    // Get current date and time in local timezone
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // Don't allow selecting past dates
     if (selectedDate < today) {
+      showError('Cannot select past dates');
       return;
+    }
+    
+    // If selecting today, check if the time slot is in the future
+    if (selectedDate.getTime() === today.getTime()) {
+      const [hours, minutes] = time.split(':').map(Number);
+      const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      
+      if (slotTime <= now) {
+        showError('Cannot select time slots in the past');
+        return;
+      }
     }
     
     // Don't allow selecting booked slots (including current session time)
     if (isSlotBooked(date, time)) {
+      showError('This time slot is already booked');
       return;
     }
     
@@ -233,6 +284,28 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     if (!VALID_START_TIMES.includes(startTime)) {
       showError('Invalid time slot. Please select 16:00, 17:30, 19:00, or 20:30');
       return;
+    }
+
+    // Validate that selected date and time are not in the past
+    const [year, month, day] = requestedDate.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, day);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    if (selectedDate < today) {
+      showError('Cannot reschedule to a past date');
+      return;
+    }
+    
+    // If selecting today, check if the time slot is in the future
+    if (selectedDate.getTime() === today.getTime()) {
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+      
+      if (slotDateTime <= now) {
+        showError('Cannot reschedule to a time slot in the past');
+        return;
+      }
     }
 
     if (!reason || (reason === t('other') && !notes.trim())) {
@@ -391,20 +464,22 @@ const errorMessage = error instanceof Error ? error.message : 'Failed to submit 
                         {day.slots.map((slot) => {
                           const isSelected = requestedDate === day.date && startTime === slot.time;
                           const isBooked = isSlotBooked(day.date, slot.time);
+                          const isPast = isSlotInPast(day.date, slot.time);
+                          const isDisabled = isBooked || isPast;
                           
                           return (
                             <button
                               key={slot.id}
-                              onClick={() => !isBooked && handleDateTimeSelect(day.date, slot.time)}
-                              disabled={isBooked}
+                              onClick={() => !isDisabled && handleDateTimeSelect(day.date, slot.time)}
+                              disabled={isDisabled}
                               className={`w-full p-2 text-xs rounded-lg transition-all ${
                                 isSelected
                                   ? 'bg-blue-600 text-white shadow-md'
-                                  : isBooked
+                                  : isDisabled
                                   ? 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
                                   : 'bg-white border border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-gray-700'
                               }`}
-                              title={isBooked ? 'This time slot is already booked' : ''}
+                              title={isPast ? 'This time slot is in the past' : isBooked ? 'This time slot is already booked' : ''}
                             >
                               <div className="flex items-center justify-center space-x-1">
                                 <Clock className={`w-3 h-3 ${isBooked ? 'opacity-50' : ''}`} />

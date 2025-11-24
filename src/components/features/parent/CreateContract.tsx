@@ -470,6 +470,35 @@ const CreateContract: React.FC = () => {
       const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
       const startDate = new Date(startDateStr);
       
+      // Validate that start date is not in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(startDate);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        const errorMsg = 'Cannot create contract with a start date in the past';
+        setError(errorMsg);
+        showError(errorMsg);
+        setIsCreating(false);
+        return;
+      }
+      
+      // If selecting today, validate that the time slot is not in the past
+      if (selectedDate.getTime() === today.getTime()) {
+        const now = new Date();
+        const [hours, minutes] = schedule.startTime.split(':').map(Number);
+        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+        
+        if (slotDateTime <= now) {
+          const errorMsg = 'Cannot create contract with a time slot in the past for today';
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+      }
+      
       // Calculate end date based on package duration_days
       const endDate = new Date(startDateStr);
       endDate.setDate(endDate.getDate() + (selectedPackage.durationDays || 90));
@@ -960,7 +989,39 @@ const CreateContract: React.FC = () => {
                 <input
                   type="date"
                   value={schedule.startDate || new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setSchedule(prev => ({ ...prev, startDate: e.target.value }))}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dateToCheck = new Date(selectedDate);
+                    dateToCheck.setHours(0, 0, 0, 0);
+                    
+                    if (dateToCheck < today) {
+                      showError('Cannot select a date in the past');
+                      return;
+                    }
+                    
+                    // If selecting today, check if current time slot is in the past
+                    if (dateToCheck.getTime() === today.getTime() && schedule.startTime) {
+                      const now = new Date();
+                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
+                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                      
+                      if (slotDateTime <= now) {
+                        // Clear the time slot if it's in the past
+                        setSchedule(prev => ({ 
+                          ...prev, 
+                          startDate: selectedDate,
+                          startTime: '',
+                          endTime: ''
+                        }));
+                        showError('Selected time slot is in the past. Please select a new time slot.');
+                        return;
+                      }
+                    }
+                    
+                    setSchedule(prev => ({ ...prev, startDate: selectedDate }));
+                  }}
                   min={new Date().toISOString().split('T')[0]}
                   max={(() => {
                     const maxDate = new Date();
@@ -1101,11 +1162,34 @@ const CreateContract: React.FC = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {TIME_SLOTS.map((slot) => {
                     const isSelected = schedule.startTime === slot.from && schedule.endTime === slot.to;
+                    
+                    // Check if this slot is in the past (if start date is today)
+                    const isPast = (() => {
+                      if (!schedule.startDate) return false;
+                      const selectedDate = new Date(schedule.startDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      selectedDate.setHours(0, 0, 0, 0);
+                      
+                      // Only check if start date is today
+                      if (selectedDate.getTime() === today.getTime()) {
+                        const now = new Date();
+                        const [hours, minutes] = slot.from.split(':').map(Number);
+                        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                        return slotDateTime <= now;
+                      }
+                      return false;
+                    })();
+                    
                     return (
                       <button
                         key={slot.id}
                         type="button"
                         onClick={() => {
+                          if (isPast) {
+                            showError('Cannot select a time slot in the past');
+                            return;
+                          }
                           setSchedule(prev => ({
                             ...prev,
                             startTime: slot.from,
@@ -1113,11 +1197,15 @@ const CreateContract: React.FC = () => {
                           }));
                           setError(null);
                         }}
+                        disabled={isPast}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           isSelected
                             ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                            : isPast
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                             : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
                         }`}
+                        title={isPast ? 'This time slot is in the past' : ''}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{slot.label}</span>
@@ -1542,6 +1630,33 @@ const CreateContract: React.FC = () => {
                       setError(msg);
                       showError(msg);
                       return;
+                    }
+                    
+                    // Validate that start date is not in the past
+                    const selectedDate = new Date(schedule.startDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    selectedDate.setHours(0, 0, 0, 0);
+                    
+                    if (selectedDate < today) {
+                      const msg = 'Cannot select a start date in the past';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    // If selecting today, validate that the time slot is not in the past
+                    if (selectedDate.getTime() === today.getTime()) {
+                      const now = new Date();
+                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
+                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                      
+                      if (slotDateTime <= now) {
+                        const msg = 'Cannot select a time slot in the past for today';
+                        setError(msg);
+                        showError(msg);
+                        return;
+                      }
                     }
                     
                     // Validate days of week - exactly 3 days must be selected

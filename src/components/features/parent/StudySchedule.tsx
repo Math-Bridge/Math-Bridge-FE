@@ -711,7 +711,10 @@ const StudySchedule: React.FC = () => {
                   </div>
 
                   {/* Video Conference Link (Online Learning Link) */}
-                  {sessionDetail && sessionDetail.isOnline && (
+                  {sessionDetail && sessionDetail.isOnline && 
+                   sessionDetail.status !== 'completed' && 
+                   sessionDetail.status !== 'cancelled' && 
+                   sessionDetail.status !== 'rescheduled' && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
                       <div className="bg-white p-4 rounded-xl border border-gray-200">
                         <div className="flex items-start gap-3">
