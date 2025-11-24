@@ -5,9 +5,12 @@ import {
   QrCode,
   CheckCircle,
   Clock,
-  AlertCircle,
   Copy,
   RefreshCw,
+  Wallet,
+  Sparkles,
+  Shield,
+  Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,8 +28,8 @@ const TopUpComponent: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const { user } = useAuth();
-  
-  const [amount, setAmount] = useState('');
+
+  const [amount, setAmount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null);
@@ -34,35 +37,29 @@ const TopUpComponent: React.FC = () => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState<number>(0);
 
-  // Quick amount options
-  const quickAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000];
+  // Quick amount options (locked input - only these can be selected)
+  const quickAmounts = [500000, 1000000,1500000, 2000000, 3000000, 5000000];
 
-  // Check wallet balance every 5 seconds
+  // Fetch wallet balance every 5sss
   useEffect(() => {
     const fetchWalletBalance = async () => {
       if (!user?.id) return;
-      
       try {
         const res = await apiService.getUserWallet(user.id);
         if (res.success && res.data) {
-          const balance = res.data.walletBalance || 0;
-          setWalletBalance(balance);
+          setWalletBalance(res.data.walletBalance || 0);
         }
       } catch (error) {
         console.error('Error fetching wallet balance:', error);
       }
     };
 
-    // Fetch initial balance
     fetchWalletBalance();
-
-    // Check balance every 5 seconds
-    const balanceInterval = setInterval(fetchWalletBalance, 5000);
-
-    return () => clearInterval(balanceInterval);
+    const interval = setInterval(fetchWalletBalance, 5000);
+    return () => clearInterval(interval);
   }, [user?.id]);
 
-  // Poll payment status if payment is pending
+  // Poll payment status
   useEffect(() => {
     if (paymentResponse && isPolling) {
       const interval = setInterval(async () => {
@@ -72,107 +69,46 @@ const TopUpComponent: React.FC = () => {
             setPaymentStatus(response.data);
             if (response.data.status === 'Paid') {
               setIsPolling(false);
-              showSuccess('Payment successful! Amount has been updated to your wallet.');
-              // Refresh wallet balance immediately
-              if (user?.id) {
-                try {
-                  const res = await apiService.getUserWallet(user.id);
-                  if (res.success && res.data) {
-                    setWalletBalance(res.data.walletBalance || 0);
-                  }
-                } catch (error) {
-                  console.error('Error fetching wallet balance:', error);
-                }
-              }
-              // Redirect to wallet page after 2 seconds
-              setTimeout(() => {
-                navigate('/wallet');
-              }, 2000);
+              showSuccess('Payment successful! Your wallet has been updated.');
+              setTimeout(() => navigate('/wallet'), 2000);
             }
           }
         } catch (error) {
           console.error('Error checking payment status:', error);
         }
-      }, 5000); // Check every 5 seconds
-
+      }, 5000);
       return () => clearInterval(interval);
     }
-  }, [paymentResponse, isPolling, navigate, showSuccess, user?.id]);
+  }, [paymentResponse, isPolling, navigate, showSuccess]);
 
   const handleAmountSelect = (selectedAmount: number) => {
-    setAmount(selectedAmount.toString());
+    setAmount(selectedAmount);
   };
 
   const handleCreatePayment = async () => {
-    const amountNum = parseFloat(amount);
-    
-    if (!amount || amountNum <= 0) {
-      showError('Please enter a valid amount');
-      return;
-    }
-
-    if (amountNum < 10000) {
-      showError('Minimum amount is 10,000 VND');
-      return;
-    }
-
-    if (amountNum > 50000000) {
-      showError('Maximum amount is 50,000,000 VND');
+    if (!amount || amount < 10000) {
+      showError('Please select a valid amount');
       return;
     }
 
     try {
       setLoading(true);
       const request: SePayPaymentRequest = {
-        amount: amountNum,
-        description: 'Top up wallet',
+        amount,
+        description: 'Top up wallet via SePay',
       };
 
       const result = await createSePayPayment(request);
-      
       if (result.success && result.data) {
         setPaymentResponse(result.data);
         setIsPolling(true);
-        showSuccess('Payment request created successfully');
+        showSuccess('Payment QR generated successfully!');
       } else {
-        // Extract detailed error message
-        let errorMsg = result.error || 'Failed to create payment request';
-        
-        // If there are error details, include them
-        if ((result as any).errorDetails) {
-          const details = (result as any).errorDetails;
-          if (typeof details === 'string') {
-            errorMsg = details;
-          } else if (Array.isArray(details)) {
-            errorMsg = details.join(', ');
-          } else if (typeof details === 'object') {
-            // Try to extract message from object
-            errorMsg = details.message || details.error || JSON.stringify(details);
-          }
-        }
-        
-        console.error('Payment creation failed:', {
-          error: errorMsg,
-          fullResult: result,
-          errorDetails: (result as any).errorDetails
-        });
-        
-        // Provide user-friendly error message
-        let userMessage = errorMsg;
-        if (errorMsg.includes('An error occurred while creating payment request')) {
-          userMessage = 'Failed to create payment request. Please check:\n' +
-            '1. Valid amount (10,000 - 50,000,000 VND)\n' +
-            '2. Stable network connection\n' +
-            '3. Try again in a few minutes\n\n' +
-            'If the problem persists, please contact support with the following information:\n' +
-            `- Amount: ${formatCurrency(amountNum)}`;
-        }
-        
-        showError(userMessage);
+        const msg = result.error || 'Failed to create payment';
+        showError(`Payment failed: ${msg}`);
       }
     } catch (error: any) {
-      console.error('Error creating payment:', error);
-      showError(error?.message || 'An error occurred while creating payment request');
+      showError(error?.message || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -181,340 +117,308 @@ const TopUpComponent: React.FC = () => {
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
-    showSuccess('Copied!');
+    showSuccess('Copied to clipboard!');
     setTimeout(() => setCopiedField(null), 2000);
-  };
-
-  const handleCheckStatus = async () => {
-    if (!paymentResponse) return;
-    
-    try {
-      const response = await checkSePayPaymentStatus(paymentResponse.walletTransactionId);
-      if (response.success && response.data) {
-        setPaymentStatus(response.data);
-        if (response.data.status === 'Paid') {
-          showSuccess('Payment has been confirmed!');
-          setTimeout(() => {
-            navigate('/wallet');
-          }, 2000);
-        } else {
-          showError('Payment not confirmed yet. Please try again later.');
-        }
-      } else {
-        showError(response.error || 'Unable to check payment status');
-      }
-    } catch (error) {
-      showError('Unable to check payment status');
-    }
   };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND',
+      minimumFractionDigits: 0,
     }).format(value);
   };
 
+  // Payment Success Screen
   if (paymentResponse) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <div className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <button
             onClick={() => {
               setPaymentResponse(null);
               setPaymentStatus(null);
               setIsPolling(false);
+              setAmount(null);
             }}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6"
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 font-medium transition"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            Create New Payment
           </button>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Pay via SePay</h1>
-              <p className="text-gray-600">Scan QR code or transfer using the information below</p>
-            </div>
-
-            {/* Payment Status */}
-            {paymentStatus && (
-              <div className={`mb-6 p-4 rounded-lg ${
-                paymentStatus.status === 'Paid'
-                  ? 'bg-green-50 border border-green-200'
-                  : paymentStatus.status === 'Pending'
-                  ? 'bg-yellow-50 border border-yellow-200'
-                  : 'bg-gray-50 border border-gray-200'
-              }`}>
-                <div className="flex items-center space-x-2">
-                  {paymentStatus.status === 'Paid' ? (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <Clock className="w-5 h-5 text-yellow-600" />
-                  )}
-                  <span className={`font-semibold ${
-                    paymentStatus.status === 'Paid' ? 'text-green-800' : 'text-yellow-800'
-                  }`}>
-                    {paymentStatus.status === 'Paid' ? 'Paid' : 'Pending Payment'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Current Wallet Balance */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 p-8 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-600 font-medium">Current Wallet Balance</p>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">
-                    {formatCurrency(walletBalance)}
+                  <h1 className="text-3xl font-bold flex items-center gap-3">
+                    <QrCode className="w-10 h-10" />
+                    Pay with SePay
+                  </h1>
+                  <p className="mt-2 text-blue-100">Scan QR or transfer manually</p>
+                </div>
+                <Sparkles className="w-12 h-12 text-white/30" />
+              </div>
+            </div>
+
+            <div className="p-8 space-y-8">
+              {/* Status + Balance */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Payment Status */}
+                <div className={`p-6 rounded-2xl border-2 ${
+                  paymentStatus?.status === 'Paid'
+                    ? 'bg-emerald-50 border-emerald-300'
+                    : 'bg-amber-50 border-amber-300'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    {paymentStatus?.status === 'Paid' ? (
+                      <CheckCircle className="w-10 h-10 text-emerald-600" />
+                    ) : (
+                      <Clock className="w-10 h-10 text-amber-600 animate-pulse" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Payment Status</p>
+                      <p className={`text-2xl font-bold ${
+                        paymentStatus?.status === 'Paid' ? 'text-emerald-700' : 'text-amber-700'
+                      }`}>
+                        {paymentStatus?.status === 'Paid' ? 'Paid' : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Balance */}
+                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                        <Wallet className="w-5 h-5" />
+                        Current Balance
+                      </p>
+                      <p className="text-3xl font-bold text-blue-900 mt-2">
+                        {formatCurrency(walletBalance)}
+                      </p>
+                    </div>
+                    <RefreshCw className="w-6 h-6 text-blue-600 animate-spin" />
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">Auto-updated every 5s</p>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              <div className="text-center">
+                <div className="inline-block p-8 bg-white rounded-3xl shadow-xl border border-gray-100">
+                  <img
+                    src={paymentResponse.qrCodeUrl}
+                    alt="SePay QR Code"
+                    className="w-72 h-72"
+                  />
+                </div>
+                <p className="mt-6 text-lg font-medium text-gray-700">
+                  Scan with your banking app
+                </p>
+              </div>
+
+              {/* Payment Details */}
+              <div className="bg-gray-50/80 rounded-2xl p-6 space-y-5">
+                <h3 className="font-bold text-gray-900 text-lg">Payment Information</h3>
+                {[
+                  { label: 'Amount', value: formatCurrency(paymentResponse.amount), bold: true },
+                  { label: 'Transfer Content', value: paymentResponse.transferContent, copy: 'content' },
+                  { label: 'Bank Account', value: paymentResponse.bankInfo, copy: 'bank' },
+                  { label: 'Reference Code', value: paymentResponse.orderReference, copy: 'reference' },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center justify-between group">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600">{item.label}:</p>
+                      <p className={`font-mono text-sm mt-1 ${item.bold ? 'text-xl font-bold text-gray-900' : 'text-gray-800'}`}>
+                        {item.value}
+                      </p>
+                    </div>
+                    {item.copy && (
+                      <button
+                        onClick={() => handleCopy(item.value, item.copy!)}
+                        className="ml-4 p-3 rounded-xl bg-white border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all group-hover:shadow-md"
+                      >
+                        {copiedField === item.copy ? (
+                          <CheckCircle className="w-5 h-5 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+                <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                  <Shield className="w-6 h-6" />
+                  Payment Instructions
+                </h3>
+                <ol className="space-y-2 text-blue-800">
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600">1.</span>
+                    Open your banking app and scan the QR code above
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600">2.</span>
+                    Or transfer manually using exact Transfer Content
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600">3.</span>
+                    Amount must be exactly: <strong>{formatCurrency(paymentResponse.amount)}</strong>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Zap className="w-5 h-5 text-yellow-500 mt-0.5" />
+                    System auto-detects payment within 30 seconds
+                  </li>
+                </ol>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-4">
+                <button
+                  onClick={() => navigate('/wallet')}
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-2xl hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-3"
+                >
+                  <Wallet className="w-6 h-6" />
+                  Back to Wallet
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-4 border-2 border-gray-300 text-gray-700 font-bold rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  New Payment
+                </button>
+              </div>
+
+              {isPolling && (
+                <div className="text-center py-4">
+                  <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Checking payment status every 5 seconds...
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-blue-600">Auto-updating every 5s</p>
-                  <RefreshCw className="w-4 h-4 text-blue-600 mt-1 animate-spin" />
-                </div>
-              </div>
+              )}
             </div>
-
-            {/* QR Code */}
-            <div className="mb-6 text-center">
-              <div className="inline-block p-4 bg-gray-50 rounded-lg">
-                <img
-                  src={paymentResponse.qrCodeUrl}
-                  alt="QR Code"
-                  className="w-64 h-64 mx-auto"
-                />
-              </div>
-              <p className="text-sm text-gray-600 mt-4">
-                Scan QR code with your banking app
-              </p>
-            </div>
-
-            {/* Payment Details */}
-            <div className="space-y-4 mb-6">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-600">Amount:</span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {formatCurrency(paymentResponse.amount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <label className="text-sm font-medium text-gray-600 mb-2 block">
-                  Transfer Content:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={paymentResponse.transferContent}
-                    readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                  />
-                  <button
-                    onClick={() => handleCopy(paymentResponse.transferContent, 'content')}
-                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    {copiedField === 'content' ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <label className="text-sm font-medium text-gray-600 mb-2 block">
-                  Bank Account Information:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={paymentResponse.bankInfo}
-                    readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                  />
-                  <button
-                    onClick={() => handleCopy(paymentResponse.bankInfo, 'bank')}
-                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    {copiedField === 'bank' ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <label className="text-sm font-medium text-gray-600 mb-2 block">
-                  Reference Code:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={paymentResponse.orderReference}
-                    readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-white font-mono text-sm"
-                  />
-                  <button
-                    onClick={() => handleCopy(paymentResponse.orderReference, 'reference')}
-                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    {copiedField === 'reference' ? (
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="font-semibold text-blue-900 mb-2">Payment Instructions:</h3>
-              <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-                <li>Scan QR code with your banking app</li>
-                <li>Or transfer with exact content as shown above</li>
-                <li>Amount: {formatCurrency(paymentResponse.amount)}</li>
-                <li>System will automatically update after receiving payment</li>
-              </ol>
-            </div>
-
-            {/* Actions */}
-            <div className="flex space-x-3">
-              <button
-                onClick={handleCheckStatus}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-              >
-                <RefreshCw className="w-5 h-5" />
-                <span>Check Status</span>
-              </button>
-              <button
-                onClick={() => navigate('/wallet')}
-                className="px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Back to Wallet
-              </button>
-            </div>
-
-            {isPolling && (
-              <div className="mt-4 text-center">
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Auto-checking payment status...</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // Top Up Selection Screen
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate('/wallet')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-8 font-medium transition"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
+          Back to Wallet
         </button>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Top Up Wallet</h1>
-            <p className="text-gray-600">Select the amount you want to add to your wallet</p>
+        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 p-10 text-white text-center">
+            <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-4">
+              <Wallet className="w-12 h-12" />
+              Top Up Your Wallet
+            </h1>
+            <p className="text-xl text-blue-100">Choose an amount to add instantly</p>
           </div>
 
-          {/* Quick Amount Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Quick Amount Selection:
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {quickAmounts.map((quickAmount) => (
-                <button
-                  key={quickAmount}
-                  onClick={() => handleAmountSelect(quickAmount)}
-                  className={`px-4 py-3 rounded-lg border-2 transition-all ${
-                    amount === quickAmount.toString()
-                      ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-                  }`}
-                >
-                  {formatCurrency(quickAmount)}
-                </button>
-              ))}
+          <div className="p-10">
+            {/* Current Balance */}
+            <div className="mb-10 p-6 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-emerald-700 font-semibold flex items-center gap-2">
+                    <Wallet className="w-6 h-6" />
+                    Current Balance
+                  </p>
+                  <p className="text-4xl font-bold text-emerald-900 mt-2">
+                    {formatCurrency(walletBalance)}
+                  </p>
+                </div>
+                <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+              </div>
             </div>
-          </div>
 
-          {/* Custom Amount */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Or enter custom amount:
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount (VND)"
-                min="10000"
-                max="50000000"
-                step="1000"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500">
-                VND
-              </span>
+            {/* Amount Selection */}
+            <div className="mb-10">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                Select Amount
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                {quickAmounts.map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => handleAmountSelect(value)}
+                    className={`relative p-8 rounded-2xl border-4 font-bold text-xl transition-all transform hover:scale-105 ${
+                      amount === value
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-2xl'
+                        : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-xl'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <p className="text-3xl">{formatCurrency(value)}</p>
+                      {amount === value && (
+                        <CheckCircle className="w-8 h-8 text-blue-600 mx-auto mt-3" />
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Minimum: 10,000 VND - Maximum: 50,000,000 VND
-            </p>
-            {amount && parseFloat(amount) > 0 && (
-              <p className="text-sm font-semibold text-gray-900 mt-2">
-                = {formatCurrency(parseFloat(amount))}
-              </p>
+
+            {/* Selected Amount */}
+            {amount && (
+              <div className="mb-10 p-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border-2 border-blue-200 text-center">
+                <p className="text-lg text-blue-700 font-medium">You selected</p>
+                <p className="text-5xl font-bold text-blue-900 mt-3">
+                  {formatCurrency(amount)}
+                </p>
+              </div>
             )}
-          </div>
 
-          {/* Payment Method Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center space-x-2 mb-2">
-              <QrCode className="w-5 h-5 text-blue-600" />
-              <h3 className="font-semibold text-blue-900">Pay via SePay</h3>
+            {/* Payment Info */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 border border-indigo-200 mb-10">
+              <div className="flex items-center justify-center gap-4 text-indigo-800">
+                <QrCode className="w-10 h-10" />
+                <div>
+                  <h3 className="font-bold text-xl">Pay with SePay QR</h3>
+                  <p className="text-sm mt-1">Instant • Secure • No fees</p>
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-blue-800">
-              You will receive a QR code to scan and pay with your banking app
+
+            {/* Submit */}
+            <button
+              onClick={handleCreatePayment}
+              disabled={loading || !amount}
+              className="w-full py-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-xl rounded-2xl hover:shadow-2xl transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="w-7 h-7 animate-spin" />
+                  <span>Creating Payment...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-7 h-7" />
+                  <span>Continue to Payment</span>
+                </>
+              )}
+            </button>
+
+            <p className="text-center text-sm text-gray-500 mt-6">
+              Minimum: 10,000 VND • Maximum: 50,000,000 VND
             </p>
           </div>
-
-          {/* Submit Button */}
-          <button
-            onClick={handleCreatePayment}
-            disabled={loading || !amount || parseFloat(amount) < 10000}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-5 h-5" />
-                <span>Continue to Payment</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
     </div>
@@ -522,4 +426,3 @@ const TopUpComponent: React.FC = () => {
 };
 
 export default TopUpComponent;
-
