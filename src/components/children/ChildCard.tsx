@@ -123,7 +123,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestor
             </button>
           )}
 
-          {onDelete && child.status !== 'deleted' && (
+          {/* {onDelete && child.status !== 'deleted' && (
             <button
               onClick={() => onDelete(child.childId)}
               className="group/btn relative p-3 bg-red-50 text-red-600 rounded-xl shadow-md
@@ -132,7 +132,7 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestor
             >
               <Trash2 className="w-4 h-4" />
             </button>
-          )}
+          )} */}
 
           {child.status === 'deleted' && onRestore && (
             <button
