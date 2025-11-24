@@ -61,13 +61,27 @@ const PackageManagement: React.FC = () => {
     grade: 'grade 9',
     price: 0,
     sessionCount: 0,
-    sessionsPerWeek: 0,
+    sessionsPerWeek: 3,
     maxReschedule: 0,
     durationDays: 0,
     description: '',
     curriculumId: '',
     status: 'active'
   });
+
+  // Auto-calculate session count based on duration and sessions per week
+  useEffect(() => {
+    if (formData.durationDays > 0 && formData.sessionsPerWeek > 0) {
+      const weeks = formData.durationDays / 7;
+      const calculatedSessions = Math.floor(weeks * formData.sessionsPerWeek);
+      if (calculatedSessions !== formData.sessionCount) {
+        setFormData(prev => ({
+          ...prev,
+          sessionCount: calculatedSessions
+        }));
+      }
+    }
+  }, [formData.durationDays, formData.sessionsPerWeek]);
 
   useEffect(() => {
     fetchPackages();
@@ -223,7 +237,7 @@ const PackageManagement: React.FC = () => {
       grade: 'grade 9',
       price: 0,
       sessionCount: 0,
-      sessionsPerWeek: 0,
+      sessionsPerWeek: 3,
       maxReschedule: 0,
       durationDays: 0,
       description: '',
@@ -244,7 +258,7 @@ const PackageManagement: React.FC = () => {
       grade: pkg.grade || 'grade 9',
       price: pkg.price || 0,
       sessionCount: pkg.sessionCount || pkg.sessions || 0,
-      sessionsPerWeek: pkg.sessionsPerWeek || 0,
+      sessionsPerWeek: 3,
       maxReschedule: pkg.maxReschedule || 0,
       durationDays: pkg.durationDays || 0,
       description: pkg.description || '',
@@ -267,16 +281,16 @@ const PackageManagement: React.FC = () => {
       showError('Package name is required');
       return false;
     }
-    if (formData.price <= 0) {
-      showError('Price must be greater than 0');
+    if (formData.price < 0) {
+      showError('Price must be 0 or greater');
       return false;
     }
     if (formData.sessionCount <= 0) {
-      showError('Session count must be greater than 0');
+      showError('Session count must be greater than 0. Please set duration days and sessions per week.');
       return false;
     }
-    if (formData.sessionsPerWeek < 3) {
-      showError('Sessions per week must be at least 3');
+    if (formData.sessionsPerWeek !== 3) {
+      showError('Sessions per week must be 3');
       return false;
     }
     if (formData.durationDays <= 0) {
@@ -752,14 +766,20 @@ const PackageManagement: React.FC = () => {
                     <input
                       type="number"
                       required
-                      min="1"
-                      step="1000"
+                      min="0"
+                      step="1"
                       value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: Math.round(parseFloat(e.target.value) || 0) })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, price: value === '' ? 0 : parseInt(value) || 0 });
+                      }}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.price > 0 && new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.price)}
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -803,7 +823,7 @@ const PackageManagement: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Session Count *
+                    Session Count * (Auto-calculated)
                   </label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -812,11 +832,14 @@ const PackageManagement: React.FC = () => {
                       required
                       min="1"
                       value={formData.sessionCount || ''}
-                      onChange={(e) => setFormData({ ...formData, sessionCount: parseInt(e.target.value) || 0 })}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                      readOnly
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed outline-none"
                       placeholder="0"
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Calculated from duration days and sessions per week (rounded down)
+                  </p>
                 </div>
 
                 <div>
@@ -826,13 +849,12 @@ const PackageManagement: React.FC = () => {
                   <input
                     type="number"
                     required
-                    min="3"
-                    value={formData.sessionsPerWeek || ''}
-                    onChange={(e) => setFormData({ ...formData, sessionsPerWeek: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                    value={3}
+                    readOnly
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed outline-none"
                     placeholder="3"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 3 sessions per week</p>
+                  <p className="text-xs text-gray-500 mt-1">Fixed at 3 sessions per week</p>
                 </div>
 
                 <div>
@@ -983,14 +1005,20 @@ const PackageManagement: React.FC = () => {
                     <input
                       type="number"
                       required
-                      min="1"
-                      step="1000"
+                      min="0"
+                      step="1"
                       value={formData.price || ''}
-                      onChange={(e) => setFormData({ ...formData, price: Math.round(parseFloat(e.target.value) || 0) })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({ ...formData, price: value === '' ? 0 : parseInt(value) || 0 });
+                      }}
                       className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.price > 0 && new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.price)}
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -1034,7 +1062,7 @@ const PackageManagement: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Session Count *
+                    Session Count * (Auto-calculated)
                   </label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -1043,11 +1071,14 @@ const PackageManagement: React.FC = () => {
                       required
                       min="1"
                       value={formData.sessionCount || ''}
-                      onChange={(e) => setFormData({ ...formData, sessionCount: parseInt(e.target.value) || 0 })}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                      readOnly
+                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed outline-none"
                       placeholder="0"
                     />
                   </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Calculated from duration days and sessions per week (rounded down)
+                  </p>
                 </div>
 
                 <div>
@@ -1057,13 +1088,12 @@ const PackageManagement: React.FC = () => {
                   <input
                     type="number"
                     required
-                    min="3"
-                    value={formData.sessionsPerWeek || ''}
-                    onChange={(e) => setFormData({ ...formData, sessionsPerWeek: parseInt(e.target.value) || 0 })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                    value={3}
+                    readOnly
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-700 cursor-not-allowed outline-none"
                     placeholder="3"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Minimum 3 sessions per week</p>
+                  <p className="text-xs text-gray-500 mt-1">Fixed at 3 sessions per week</p>
                 </div>
 
                 <div>
