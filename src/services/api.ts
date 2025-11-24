@@ -71,6 +71,37 @@ export interface Activity {
   type: string;
 }
 
+// Notification types
+export interface Notification {
+  id: string;
+  message: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  contractId?: string;
+  bookingId?: string;
+}
+
+export interface NotificationApiResponse {
+  notificationId: string;
+  message: string;
+  notificationType: string;
+  status: string;
+  createdDate: string;
+  contractId?: string;
+  bookingId?: string;
+}
+
+export interface PaginatedNotificationsResponse {
+  data: Notification[];
+  totalPages: number;
+  currentPage: number;
+}
+
+export interface UnreadCountResponse {
+  count: number;
+}
+
 class ApiService {
   public async request<T>(
     endpoint: string,
@@ -475,6 +506,175 @@ class ApiService {
         data: [],
         error: error?.message || 'Failed to fetch users',
       };
+    }
+  }
+
+  // ==================== Notification Methods ====================
+
+  // Helper function to map API response to internal format
+  private mapNotificationFromApi(apiNotification: NotificationApiResponse): Notification {
+    return {
+      id: apiNotification.notificationId,
+      message: apiNotification.message,
+      type: apiNotification.notificationType,
+      status: apiNotification.status,
+      createdAt: apiNotification.createdDate,
+      contractId: apiNotification.contractId,
+      bookingId: apiNotification.bookingId,
+    };
+  }
+
+  async getUnreadCount(): Promise<number> {
+    try {
+      const response = await this.request<any>('/Notification/unread-count', {
+        method: 'GET',
+      });
+
+      // Handle different response formats
+      if (typeof response === 'number') {
+        return response;
+      }
+      if (response && typeof response === 'object') {
+        return response.count || response.unreadCount || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      return 0;
+    }
+  }
+
+  async getAllNotifications(pageNumber: number = 1, pageSize: number = 10): Promise<PaginatedNotificationsResponse> {
+    try {
+      const response = await this.request<any>(
+        `/Notification?pageNumber=${pageNumber}&pageSize=${pageSize}`,
+        { method: 'GET' }
+      );
+
+      // Handle array response
+      if (Array.isArray(response)) {
+        const mappedData = response.map((item: any) => 
+          this.mapNotificationFromApi(item)
+        );
+        return {
+          data: mappedData,
+          totalPages: 1,
+          currentPage: pageNumber,
+        };
+      }
+
+      // Handle paginated response
+      if (response && typeof response === 'object') {
+        const notifications = response.data || response.notifications || [];
+        const mappedData = Array.isArray(notifications)
+          ? notifications.map((item: any) => this.mapNotificationFromApi(item))
+          : [];
+        
+        return {
+          data: mappedData,
+          totalPages: response.totalPages || 1,
+          currentPage: response.currentPage || pageNumber,
+        };
+      }
+
+      return {
+        data: [],
+        totalPages: 1,
+        currentPage: pageNumber,
+      };
+    } catch (error) {
+      console.error('Error fetching all notifications:', error);
+      return {
+        data: [],
+        totalPages: 1,
+        currentPage: pageNumber,
+      };
+    }
+  }
+
+  async getUnreadNotifications(): Promise<Notification[]> {
+    try {
+      const response = await this.request<any>('/Notification/unread', {
+        method: 'GET',
+      });
+
+      // Handle array response
+      if (Array.isArray(response)) {
+        return response.map((item: any) => this.mapNotificationFromApi(item));
+      }
+
+      // Handle object response
+      if (response && typeof response === 'object') {
+        const notifications = response.data || response.notifications || [];
+        return Array.isArray(notifications)
+          ? notifications.map((item: any) => this.mapNotificationFromApi(item))
+          : [];
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+      return [];
+    }
+  }
+
+  async getNotificationById(id: string): Promise<Notification | null> {
+    try {
+      const response = await this.request<NotificationApiResponse>(`/Notification/${id}`, {
+        method: 'GET',
+      });
+
+      if (response) {
+        return this.mapNotificationFromApi(response);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching notification by ID:', error);
+      return null;
+    }
+  }
+
+  async markNotificationAsRead(id: string): Promise<void> {
+    try {
+      await this.request(`/Notification/${id}/read`, {
+        method: 'PUT',
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw error;
+    }
+  }
+
+  async markAllNotificationsAsRead(): Promise<void> {
+    try {
+      await this.request('/Notification/mark-all-read', {
+        method: 'PUT',
+      });
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      throw error;
+    }
+  }
+
+  async deleteNotification(id: string): Promise<void> {
+    try {
+      await this.request(`/Notification/${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      throw error;
+    }
+  }
+
+  async deleteAllNotifications(): Promise<void> {
+    try {
+      await this.request('/Notification', {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      throw error;
     }
   }
 }

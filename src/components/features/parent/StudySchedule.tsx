@@ -509,67 +509,104 @@ const StudySchedule: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden w-full">
-        {/* Header */}
-        <div className="p-6 bg-gradient-to-br from-blue-50 via-white to-white border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900">Study Schedule</h3>
-              <p className="text-sm text-gray-600 mt-2">View your children's study schedule</p>
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 animate-gradient" />
+        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-100/20 via-transparent to-amber-100/20 animate-gradient-reverse" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-purple-300/10 text-6xl font-black select-none animate-float"
+              style={{
+                left: `${10 + (i * 65) % 85}%`,
+                top: `${15 + (i * 50) % 80}%`,
+                animationDelay: `${i * 2}s`,
+              }}
+            >
+              {i % 5 === 0 ? 'π' : i % 4 === 0 ? '∑' : i % 3 === 0 ? '∞' : '∫'}
             </div>
-            {/* Children Selector */}
-            {children.length > 0 && (
-              <div className="relative">
-                <select
-                  value={selectedChildId || ''}
-                  onChange={(e) => setSelectedChildId(e.target.value || null)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2.5 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
-                >
-                  <option value="">Select a child...</option>
-                  {children.map((child) => (
-                    <option key={child.childId} value={child.childId}>
-                      {child.fullName}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            )}
-          </div>
+          ))}
         </div>
+      </div>
 
-        <div className="p-6">
-          {!selectedChildId ? (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6">
-                <User className="w-10 h-10 text-blue-600" />
+      <div className="min-h-screen py-8 px-4 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden w-full">
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-8 text-white overflow-hidden">
+              {/* Decorative elements */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
+              
+              <div className="flex items-center justify-between relative z-10">
+                <div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                      <Calendar className="w-8 h-8 text-white" />
+                    </div>
+                    <h1 className="text-4xl font-bold text-white drop-shadow-lg">Study Schedule</h1>
+                  </div>
+                  <p className="text-lg text-white/95 ml-14">Manage and track your child's learning sessions</p>
+
+                </div>
+                {/* Children Selector */}
+                <>
+                  {children.length > 0 && (
+                    <div className="relative">
+                      <div className="bg-white/20 backdrop-blur-md rounded-xl p-1 border border-white/30">
+                        <select
+                          value={selectedChildId || ''}
+                          onChange={(e) => setSelectedChildId(e.target.value || null)}
+                          className="appearance-none bg-white/95 backdrop-blur-sm border-0 rounded-lg px-4 py-3 pr-10 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer hover:bg-white transition-all shadow-sm"
+                        >
+                          <option value="">Select a child...</option>
+                          {children.map((child) => (
+                            <option key={child.childId} value={child.childId}>
+                              {child.fullName}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+                  )}
+                </>
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">Please select a child</h4>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Choose a child from the dropdown above to view their study schedule.
-              </p>
             </div>
-          ) : sessions.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
-                <Calendar className="w-10 h-10 text-gray-400" />
-              </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">No sessions</h4>
-              <p className="text-gray-600 max-w-md mx-auto">
-                {children.find(c => c.childId === selectedChildId)?.fullName || 'This child'} doesn't have any study sessions scheduled yet.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Calendar Navigation */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={goToPreviousWeek}
-                    className="p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:shadow-sm"
+
+            <div className="p-6">
+              {!selectedChildId ? (
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6">
+                    <User className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Please select a child</h4>
+                  <p className="text-gray-600 max-w-md mx-auto">
+                    Choose a child from the dropdown above to view their study schedule.
+                  </p>
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
+                    <Calendar className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No sessions</h4>
+                  <p className="text-gray-600 max-w-md mx-auto">
+                    {children.find(c => c.childId === selectedChildId)?.fullName || 'This child'} doesn't have any study sessions scheduled yet.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Calendar Navigation */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={goToPreviousWeek}
+                    className="p-3 bg-white hover:bg-gradient-to-br hover:from-blue-500 hover:to-cyan-500 text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border border-gray-200 hover:border-transparent"
                     title="Previous week"
                   >
-                    <ChevronLeft className="w-5 h-5 text-gray-700" />
+                    <ChevronLeft className="w-5 h-5" />
                   </button>
                   <input
                     type="date"
@@ -579,14 +616,14 @@ const StudySchedule: React.FC = () => {
                   />
                   <button
                     onClick={goToNextWeek}
-                    className="p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:shadow-sm"
+                    className="p-3 bg-white hover:bg-gradient-to-br hover:from-blue-500 hover:to-cyan-500 text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border border-gray-200 hover:border-transparent"
                     title="Next week"
                   >
-                    <ChevronRight className="w-5 h-5 text-gray-700" />
+                    <ChevronRight className="w-5 h-5" />
                   </button>
                   <button
                     onClick={goToToday}
-                    className="px-4 py-2.5 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-all duration-200 text-sm font-semibold"
+                    className="px-4 py-2.5 bg-gradient-to-br from-blue-600 to-cyan-600 text-white font-bold rounded-xl hover:bg-blue-700 hover:scale-105 hover:shadow-lg transition-all duration-300 shadow-md border border-white/10"
                   >
                     Today
                   </button>
@@ -870,6 +907,8 @@ const StudySchedule: React.FC = () => {
               </div>
             </>
           )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -898,6 +937,22 @@ const StudySchedule: React.FC = () => {
       )}
 
       <style>{`
+        @keyframes gradient {
+          0%, 100% { transform: translateX(-5%) translateY(-5%); }
+          50% { transform: translateX(5%) translateY(5%); }
+        }
+        @keyframes gradient-reverse {
+          0%, 100% { transform: translateX(5%) translateY(5%); }
+          50% { transform: translateX(-5%) translateY(-5%); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        .animate-gradient { animation: gradient 30s ease infinite; }
+        .animate-gradient-reverse { animation: gradient-reverse 35s ease infinite; }
+        .animate-float { animation: float 25s linear infinite; }
+        
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
