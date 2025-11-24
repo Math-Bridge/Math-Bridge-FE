@@ -36,15 +36,16 @@ const TutorDashboard: React.FC = () => {
   // Listen for custom profile update event
   useEffect(() => {
     const handleProfileUpdate = () => {
-      console.log('Profile update event received, reloading user data...');
+      console.log('Profile update event received, updating user state...');
       // Force a re-check by reading from localStorage
       const savedUser = localStorage.getItem('user');
       if (savedUser) {
         try {
           const userData = JSON.parse(savedUser);
           console.log('Updated user data from localStorage:', userData);
-          // The useAuth will handle this, but we can force a re-check
-          window.location.reload(); // Simple solution: reload the page
+          // Update profile completion status
+          const isComplete = !!(userData.placeId && userData.phone && userData.phone !== 'N/A');
+          setProfileComplete(isComplete);
         } catch (error) {
           console.error('Error parsing user data:', error);
         }

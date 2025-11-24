@@ -66,6 +66,7 @@ const UserManagement: React.FC = () => {
     gender: '',
     formattedAddress: '',
     hourlyRate: 0,
+    hourlyRateVND: 0, // For display purposes
   });
 
   const [locationInput, setLocationInput] = useState('');
@@ -378,9 +379,12 @@ const UserManagement: React.FC = () => {
           });
           if (verificationResponse.success && verificationResponse.data) {
             const verification = verificationResponse.data;
+            const hourlyRateUSD = verification.hourlyRate || verification.HourlyRate || 0;
+            const hourlyRateVND = Math.round(hourlyRateUSD * 25000); // Convert USD to VND for display
             setEditFormData(prev => ({
               ...prev,
-              hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
+              hourlyRate: hourlyRateUSD,
+              hourlyRateVND: hourlyRateVND,
             }));
           }
         } catch (error) {
@@ -447,7 +451,7 @@ const UserManagement: React.FC = () => {
     if (!editFormData.gender) {
       errors.gender = 'Gender is required';
     }
-    if (editingUser.roleId === 2 && editFormData.hourlyRate <= 0) {
+    if (editingUser.roleId === 2 && editFormData.hourlyRateVND <= 0) {
       errors.hourlyRate = 'Hourly rate must be greater than 0';
     }
 
@@ -481,7 +485,7 @@ const UserManagement: React.FC = () => {
       }
 
       // Step 3: Update tutor hourly rate if tutor
-      if (editingUser.roleId === 2 && editFormData.hourlyRate > 0) {
+      if (editingUser.roleId === 2 && editFormData.hourlyRateVND > 0) {
         try {
           const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${editingUser.userId}`, {
             method: 'GET',
@@ -490,10 +494,12 @@ const UserManagement: React.FC = () => {
           if (verificationResponse.success && verificationResponse.data) {
             const verificationId = verificationResponse.data.verificationId || verificationResponse.data.verification_id;
             if (verificationId) {
+              // Convert VND back to USD before saving
+              const hourlyRateUSD = editFormData.hourlyRateVND / 25000;
               await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
                 method: 'PUT',
                 body: JSON.stringify({
-                  HourlyRate: editFormData.hourlyRate,
+                  HourlyRate: hourlyRateUSD,
                 }),
               });
             }
@@ -1267,12 +1273,19 @@ const UserManagement: React.FC = () => {
                     </label>
                     <input
                       type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={editFormData.hourlyRate}
-                      onChange={(e) => setEditFormData({ ...editFormData, hourlyRate: parseFloat(e.target.value) || 0 })}
+                      min="1"
+                      step="1000"
+                      value={editFormData.hourlyRateVND}
+                      onChange={(e) => {
+                        const vndValue = parseFloat(e.target.value) || 0;
+                        setEditFormData({ 
+                          ...editFormData, 
+                          hourlyRateVND: vndValue,
+                          hourlyRate: vndValue / 25000 // Keep USD value in sync
+                        });
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter hourly rate"
+                      placeholder="Enter hourly rate in VND"
                     />
                     {editFormErrors.hourlyRate && (
                       <p className="text-red-500 text-xs mt-1">{editFormErrors.hourlyRate}</p>
@@ -1283,7 +1296,10 @@ const UserManagement: React.FC = () => {
                         currency: 'VND',
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 0,
-                      }).format(editFormData.hourlyRate * 25000)}/hour
+                      }).format(editFormData.hourlyRateVND)}/hour
+                      <span className="text-gray-400 ml-2">
+                        (≈ ${(editFormData.hourlyRateVND / 25000).toFixed(2)} USD)
+                      </span>
                     </p>
                   </div>
                 )}

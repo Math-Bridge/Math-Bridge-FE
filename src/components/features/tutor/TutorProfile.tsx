@@ -270,6 +270,8 @@ const TutorProfile: React.FC = () => {
         return;
       }
       
+      let locationUpdateSuccess = false;
+      
       // Step 1: Update location if changed
       if (selectedPlaceId && locationInput !== userLocation.formattedAddress) {
         const locationResponse = await apiService.saveAddress(selectedPlaceId);
@@ -279,6 +281,8 @@ const TutorProfile: React.FC = () => {
           return;
         }
         
+        locationUpdateSuccess = true;
+        
         // Update localStorage user object with new placeId
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
@@ -287,9 +291,6 @@ const TutorProfile: React.FC = () => {
             userData.placeId = selectedPlaceId;
             localStorage.setItem('user', JSON.stringify(userData));
             console.log('Updated user placeId in localStorage:', selectedPlaceId);
-            
-            // Dispatch custom event to notify dashboard
-            window.dispatchEvent(new Event('profileUpdated'));
           } catch (error) {
             console.error('Error updating user in localStorage:', error);
           }
@@ -297,8 +298,6 @@ const TutorProfile: React.FC = () => {
         
         // Refresh user location after save
         await fetchUserLocation();
-        // Refresh user context to trigger re-render
-        refreshUser();
       }
       
       // Step 2: Update verification (university, major, bio only - NOT hourlyRate)
@@ -330,9 +329,6 @@ const TutorProfile: React.FC = () => {
           const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
           const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
           
-          // Refresh user context from localStorage to update the auth state
-          refreshUser();
-          
           // For tutor, validate all required fields: location, university, major, bio
           if (wasForcedUpdate) {
             const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
@@ -343,12 +339,16 @@ const TutorProfile: React.FC = () => {
             );
             
             if (locationComplete && verificationComplete) {
-              showSuccess('Profile updated successfully! Redirecting...');
+              // Refresh user context from localStorage to update the auth state
+              await refreshUser();
               
-              // Redirect to tutor dashboard
-              setTimeout(() => {
-                window.location.href = '/tutor/dashboard';
-              }, 500);
+              showSuccess('Profile updated successfully!');
+              
+              // Dispatch event to notify dashboard
+              window.dispatchEvent(new Event('profileUpdated'));
+              
+              setIsEditing(false);
+              await fetchProfile();
               return; // Exit early
             } else {
               // Show error if not all required fields are filled
@@ -365,7 +365,11 @@ const TutorProfile: React.FC = () => {
             }
           }
           
-          showSuccess('Profile updated successfully! Your dashboard will now update.');
+          // Normal profile update (not forced)
+          // Refresh user context from localStorage to update the auth state
+          await refreshUser();
+          
+          showSuccess('Profile updated successfully!');
           setIsEditing(false);
           await fetchProfile();
           
@@ -393,9 +397,6 @@ const TutorProfile: React.FC = () => {
           const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
           const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
           
-          // Refresh user context
-          refreshUser();
-          
           if (wasForcedUpdate) {
             const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
             const verificationComplete = !state?.needsVerification || (
@@ -405,10 +406,16 @@ const TutorProfile: React.FC = () => {
             );
             
             if (locationComplete && verificationComplete) {
-              showSuccess('Profile created successfully! Redirecting...');
-              setTimeout(() => {
-                window.location.href = '/tutor/dashboard';
-              }, 500);
+              // Refresh user context
+              await refreshUser();
+              
+              showSuccess('Profile created successfully!');
+              
+              // Dispatch event to notify dashboard
+              window.dispatchEvent(new Event('profileUpdated'));
+              
+              setIsEditing(false);
+              await fetchProfile();
               return;
             } else {
               const missingFields = [];
@@ -424,9 +431,16 @@ const TutorProfile: React.FC = () => {
             }
           }
           
+          // Normal profile creation (not forced)
+          // Refresh user context
+          await refreshUser();
+          
           showSuccess('Profile created successfully!');
           setIsEditing(false);
           await fetchProfile();
+          
+          // Dispatch event to notify dashboard
+          window.dispatchEvent(new Event('profileUpdated'));
         } else {
           showError(createResult.error || 'Failed to create profile');
         }

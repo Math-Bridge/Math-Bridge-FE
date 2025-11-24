@@ -24,7 +24,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, DailyReport } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, DailyReport, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
@@ -59,8 +59,6 @@ interface ContractDetail {
   createdAt: string;
   sessions: Session[];
   tutorRating: number;
-  tutorExperience: string;
-  tutorQualifications: string[];
 }
 
 const ContractDetail: React.FC = () => {
@@ -87,6 +85,12 @@ const ContractDetail: React.FC = () => {
   // Substitute tutors info
   const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
   const [substituteTutor2Info, setSubstituteTutor2Info] = useState<any>(null);
+  
+  // Tutor verification states
+  const [mainTutorVerification, setMainTutorVerification] = useState<any>(null);
+  const [substituteTutor1Verification, setSubstituteTutor1Verification] = useState<any>(null);
+  const [substituteTutor2Verification, setSubstituteTutor2Verification] = useState<any>(null);
+  const [loadingVerifications, setLoadingVerifications] = useState(false);
   const [finalFeedback, setFinalFeedback] = useState<FinalFeedback | null>(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   
@@ -212,9 +216,7 @@ const ContractDetail: React.FC = () => {
           centerAddress: contractData.CenterAddress || contractData.centerAddress || '',
           createdAt: contractData.CreatedDate || contractData.createdDate || contractData.CreatedAt || contractData.createdAt || '',
           sessions: [], // TODO: Fetch sessions from API
-          tutorRating: contractData.TutorRating || contractData.tutorRating || 0,
-          tutorExperience: contractData.TutorExperience || contractData.tutorExperience || '',
-          tutorQualifications: contractData.TutorQualifications || contractData.tutorQualifications || []
+          tutorRating: contractData.TutorRating || contractData.tutorRating || 0
         };
 
         setContract(mappedContract);
@@ -339,6 +341,41 @@ const ContractDetail: React.FC = () => {
               phone: contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone,
             });
           }
+        }
+
+        // Fetch tutor verifications
+        try {
+          setLoadingVerifications(true);
+          // Main tutor verification
+          const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+          if (mainTutorId) {
+            const mainVerificationResult = await getTutorVerificationByUserId(mainTutorId);
+            if (mainVerificationResult.success && mainVerificationResult.data) {
+              setMainTutorVerification(mainVerificationResult.data);
+            }
+          }
+          
+          // Substitute tutor 1 verification
+          if (substituteTutor1Id) {
+            const sub1VerificationResult = await getTutorVerificationByUserId(substituteTutor1Id);
+            if (sub1VerificationResult.success && sub1VerificationResult.data) {
+              setSubstituteTutor1Verification(sub1VerificationResult.data);
+            }
+          }
+          
+          // Substitute tutor 2 verification
+          if (substituteTutor2Id) {
+            const sub2VerificationResult = await getTutorVerificationByUserId(substituteTutor2Id);
+            if (sub2VerificationResult.success && sub2VerificationResult.data) {
+              setSubstituteTutor2Verification(sub2VerificationResult.data);
+            }
+          }
+        } catch (verificationErr) {
+          if (import.meta.env.DEV) {
+            console.warn('Error fetching tutor verifications:', verificationErr);
+          }
+        } finally {
+          setLoadingVerifications(false);
         }
       } catch (err) {
         if (import.meta.env.DEV) {
@@ -604,6 +641,51 @@ const ContractDetail: React.FC = () => {
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getVerificationBadge = (verification: any) => {
+    if (!verification) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Not Verified
+        </span>
+      );
+    }
+    
+    const status = (verification.verificationStatus || '').toLowerCase();
+    
+    switch (status) {
+      case 'approved':
+      case 'verified':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Verified
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </span>
+        );
+      case 'rejected':
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+            <XCircle className="w-3 h-3 mr-1" />
+            Not Verified
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Unknown
+          </span>
+        );
     }
   };
 
@@ -1258,8 +1340,22 @@ const ContractDetail: React.FC = () => {
               </div>
               <div className="space-y-5">
                 <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Tutor Name</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Tutor Name</p>
+                    {loadingVerifications ? (
+                      <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      getVerificationBadge(mainTutorVerification)
+                    )}
+                  </div>
                   <p className="text-xl font-bold text-gray-900">{contract.tutorName}</p>
+                  {mainTutorVerification && mainTutorVerification.university && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      <Award className="w-4 h-4 inline mr-1" />
+                      {mainTutorVerification.university}
+                      {mainTutorVerification.major && ` - ${mainTutorVerification.major}`}
+                    </p>
+                  )}
                 </div>
                 {contract.tutorEmail && (
                   <div className="flex items-start space-x-3">
@@ -1308,23 +1404,6 @@ const ContractDetail: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Qualifications</h3>
-              <div className="space-y-3">
-                {contract.tutorQualifications.map((qualification, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <Award className="w-5 h-5 text-blue-500" />
-                    <span className="text-gray-900">{qualification}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Experience:</strong> {contract.tutorExperience}
-                </p>
               </div>
             </div>
 
