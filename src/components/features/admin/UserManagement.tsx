@@ -299,7 +299,7 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateStatus = async (userId: string, newStatus: 'active' | 'inactive') => {
+  const handleUpdateStatus = async (userId: string, newStatus: 'active' | 'banned') => {
     try {
       setUpdatingStatus(userId);
       
@@ -535,6 +535,8 @@ const UserManagement: React.FC = () => {
     switch (status.toLowerCase()) {
       case 'active':
         return 'bg-green-100 text-green-800';
+      case 'banned':
+        return 'bg-red-100 text-red-800';
       case 'inactive':
         return 'bg-red-100 text-red-800';
       case 'deleted':
@@ -547,7 +549,7 @@ const UserManagement: React.FC = () => {
   // Calculate statistics
   const totalUsers = users.length;
   const activeUsers = users.filter(u => u.status.toLowerCase() === 'active').length;
-  const inactiveUsers = users.filter(u => u.status.toLowerCase() === 'inactive').length;
+  const inactiveUsers = users.filter(u => u.status.toLowerCase() === 'banned' || u.status.toLowerCase() === 'inactive').length;
   const roleCounts = {
     admin: users.filter(u => u.roleId === 1).length,
     tutor: users.filter(u => u.roleId === 2).length,
@@ -615,7 +617,7 @@ const UserManagement: React.FC = () => {
               </div>
               <Users className="w-8 h-8 opacity-80" />
             </div>
-            <p className="text-red-100 text-sm font-medium mb-1">Inactive Users</p>
+            <p className="text-red-100 text-sm font-medium mb-1">Banned Users</p>
             <p className="text-3xl font-bold">{inactiveUsers}</p>
             <p className="text-red-100 text-xs mt-1">{totalUsers > 0 ? Math.round((inactiveUsers / totalUsers) * 100) : 0}% of total</p>
           </div>
@@ -679,7 +681,7 @@ const UserManagement: React.FC = () => {
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="banned">Banned</option>
               </select>
             </div>
           </div>
@@ -820,7 +822,7 @@ const UserManagement: React.FC = () => {
                                 {user.status === 'active' ? (
                                   <button
                                     onClick={() => {
-                                      handleUpdateStatus(user.userId, 'inactive');
+                                      handleUpdateStatus(user.userId, 'banned');
                                       setOpenDropdownId(null);
                                       setDropdownPosition(null);
                                     }}
