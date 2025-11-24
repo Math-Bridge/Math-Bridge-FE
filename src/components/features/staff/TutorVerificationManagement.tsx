@@ -50,7 +50,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'approved', 'rejected'
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // 'all', 'approved', 'rejected', 'not_verified'
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
   // Verification detail modal
@@ -299,13 +299,26 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
     return status.toLowerCase() === 'rejected';
   };
 
+  // Helper function to check if status is not verified (not approved and not rejected)
+  const isNotVerified = (status?: string): boolean => {
+    return !isApproved(status) && !isRejected(status);
+  };
+
   // Filter tutors
   const filteredTutors = tutors.filter((tutor) => {
     const matchesSearch = tutor.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tutor.email?.toLowerCase().includes(searchTerm.toLowerCase());
     const normalizedStatus = normalizeStatus(tutor.verificationStatus);
-    const matchesStatus = statusFilter === 'all' || 
-                         normalizedStatus === statusFilter;
+    let matchesStatus = false;
+    
+    if (statusFilter === 'all') {
+      matchesStatus = true;
+    } else if (statusFilter === 'not_verified') {
+      matchesStatus = isNotVerified(tutor.verificationStatus);
+    } else {
+      matchesStatus = normalizedStatus === statusFilter;
+    }
+    
     return matchesSearch && matchesStatus;
   });
 
@@ -395,6 +408,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
               <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
                 {[
                   { key: 'all', label: 'All', count: tutors.length },
+                  { key: 'not_verified', label: 'Not Verified', count: tutors.filter(t => isNotVerified(t.verificationStatus)).length },
                   { key: 'approved', label: 'Approved', count: tutors.filter(t => isApproved(t.verificationStatus)).length },
                   { key: 'rejected', label: 'Rejected', count: tutors.filter(t => isRejected(t.verificationStatus)).length },
                 ].map((tab) => (
