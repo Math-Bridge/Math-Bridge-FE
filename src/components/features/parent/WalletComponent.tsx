@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Wallet, 
   Plus, 
@@ -6,14 +6,19 @@ import {
   ArrowDownRight,
   DollarSign,
   Clock,
-  RefreshCw
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+  Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../../services/api';
 
 interface Transaction {
   id: string;
-  type: 'deposit' | 'withdrawal' | 'payment' | 'refund';
+  type: 'deposit' | 'payment' | 'refund' | 'withdrawal';
   amount: number;
   description: string;
   date: string;
@@ -34,7 +39,14 @@ const WalletComponent: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const pageSize = 6;
+  const pageSize = 8;
+
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'deposit' | 'payment' | 'refund'>('all');
+  const [flowFilter, setFlowFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     const fetchWalletData = async () => {
@@ -57,10 +69,9 @@ const WalletComponent: React.FC = () => {
               let type = (tx.type || tx.transactionType || '').toLowerCase();
               const desc = (tx.description || tx.note || '').toLowerCase();
 
-              // Smart mapping logic
               if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
                 type = 'payment';
-              } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup') || desc.includes('top-up')) {
+              } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
                 type = 'deposit';
               } else if (type.includes('refund')) {
                 type = 'refund';
@@ -99,21 +110,49 @@ const WalletComponent: React.FC = () => {
       style: 'currency',
       currency: 'VND',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
     }).format(amount);
   };
 
-  const getTransactionIcon = (type: string) => {
-    return type === 'deposit' || type === 'refund'
-      ? <ArrowDownRight className="w-5 h-5" />
-      : <ArrowUpRight className="w-5 h-5" />;
+  // Lọc giao dịch
+  const filteredTransactions = useMemo(() => {
+    return walletData.recentTransactions.filter(tx => {
+      const txDate = new Date(tx.date);
+
+      // Tìm kiếm theo mô tả
+      if (searchTerm && !tx.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+
+      // Lọc loại giao dịch
+      if (typeFilter !== 'all' && tx.type !== typeFilter) {
+        return false;
+      }
+
+      // Lọc theo chiều tiền
+      if (flowFilter === 'income' && !['deposit', 'refund'].includes(tx.type)) return false;
+      if (flowFilter === 'expense' && !['payment', 'withdrawal'].includes(tx.type)) return false;
+
+      // Lọc theo ngày
+      if (dateFrom && txDate < new Date(dateFrom)) return false;
+      if (dateTo && txDate > new Date(new Date(dateTo).setHours(23, 59, 59))) return false;
+
+      return true;
+    });
+  }, [walletData.recentTransactions, searchTerm, typeFilter, flowFilter, dateFrom, dateTo]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTxs = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setFlowFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
   };
 
-  const getTransactionColor = (type: string) => {
-    return type === 'deposit' || type === 'refund'
-      ? 'text-emerald-600 bg-emerald-50'
-      : 'text-rose-600 bg-rose-50';
-  };
+  const hasActiveFilter = searchTerm || typeFilter !== 'all' || flowFilter !== 'all' || dateFrom || dateTo;
 
   if (loading) {
     return (
@@ -126,12 +165,10 @@ const WalletComponent: React.FC = () => {
     );
   }
 
-  const totalPages = Math.ceil(walletData.recentTransactions.length / pageSize);
-  const paginatedTxs = walletData.recentTransactions.slice((page - 1) * pageSize, page * pageSize);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+
         {/* Header */}
         <div className="mb-10 text-center sm:text-left">
           <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 justify-center sm:justify-start">
@@ -147,18 +184,15 @@ const WalletComponent: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
               <div>
                 <p className="text-gray-600 font-medium flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" />
-                  Available Balance
+                  <DollarSign className="w-5 h-5" /> Available Balance
                 </p>
                 <p className="text-5xl font-bold text-gray-900 mt-3">
                   {formatCurrency(walletData.balance)}
                 </p>
                 <p className="text-green-600 font-medium mt-3 flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4" />
-                  Updated in real-time
+                  <RefreshCw className="w-4 h-4" /> Updated in real-time
                 </p>
               </div>
-
               <button
                 onClick={() => navigate('/wallet/topup')}
                 className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-5 text-white font-bold text-lg shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl"
@@ -172,103 +206,175 @@ const WalletComponent: React.FC = () => {
           </div>
         </div>
 
-        {/* Transaction History */}
+        {/* Transaction History + Filters */}
         <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-white/20 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-              <Clock className="w-7 h-7" />
-              Transaction History
+              <Clock className="w-7 h-7" /> Transaction History
             </h2>
+            {hasActiveFilter && (
+              <button onClick={resetFilters} className="text-white hover:bg-white/20 px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition">
+                <X className="w-4 h-4" /> Clear Filters
+              </button>
+            )}
           </div>
 
-          <div className="p-6">
-            {walletData.recentTransactions.length === 0 ? (
+          {/* Filter Bar */}
+          <div className="p-6 bg-gray-50/70 border-b border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search description..."
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                />
+              </div>
+
+              {/* Type Filter */}
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="all">All Types</option>
+                <option value="deposit">Top Up</option>
+                <option value="payment">Payment</option>
+                <option value="refund">Refund</option>
+              </select>
+
+              {/* Flow Filter */}
+              <select
+                value={flowFilter}
+                onChange={(e) => { setFlowFilter(e.target.value as any); setPage(1); }}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+              >
+                <option value="all">All Flows</option>
+                <option value="income">Income (+)</option>
+                <option value="expense">Expense (-)</option>
+              </select>
+
+              {/* Date From */}
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              {/* Date To */}
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            {filteredTransactions.length === 0 ? (
               <div className="text-center py-20">
-                <div className="bg-gray-100 w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Wallet className="w-14 h-14 text-gray-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-3">No Transactions Yet</h3>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  Once you top up or make payments, your transactions will appear here.
-                </p>
-                <button
-                  onClick={() => navigate('/wallet/topup')}
-                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold rounded-2xl hover:shadow-lg transform hover:scale-105 transition-all"
-                >
-                  Top Up Now
-                </button>
+                <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-700">No transactions found</h3>
+                <p className="text-gray-500 mt-2">Try adjusting your filters or clear them</p>
               </div>
             ) : (
               <>
-                <div className="space-y-4">
+                <table className="w-full hidden md:table">
+                  <thead className="bg-gray-100 border-b-2 border-gray-200">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Method</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {paginatedTxs.map((tx) => (
+                      <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              ['deposit', 'refund'].includes(tx.type) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                            }`}>
+                              {['deposit', 'refund'].includes(tx.type) ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                            </div>
+                            <span className="font-medium">
+                              {tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : 'Refund'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 text-gray-900">{tx.description}</td>
+                        <td className="px-6 py-5 text-sm text-gray-600">
+                          {new Date(tx.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-6 py-5 text-sm text-gray-600">{tx.method || '-'}</td>
+                        <td className={`px-6 py-5 text-right font-bold text-lg ${
+                          ['deposit', 'refund'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {['deposit', 'refund'].includes(tx.type) ? '+' : '-'}
+                          {formatCurrency(tx.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Mobile View */}
+                <div className="md:hidden p-6 space-y-4">
                   {paginatedTxs.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="group bg-gray-50/70 hover:bg-gray-100 rounded-2xl p-5 transition-all hover:shadow-md border border-gray-200/50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform group-hover:scale-110 ${getTransactionColor(tx.type)}`}>
-                            {getTransactionIcon(tx.type)}
+                    <div key={tx.id} className="bg-white rounded-2xl p-5 shadow-sm border">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex gap-3">
+                          <div className={`w-11 h-11 rounded-full flex items-center justify-center ${
+                            ['deposit', 'refund'].includes(tx.type) ? 'bg-emerald-100' : 'bg-rose-100'
+                          }`}>
+                            {['deposit', 'refund'].includes(tx.type) ? <ArrowDownRight className="w-6 h-6 text-emerald-600" /> : <ArrowUpRight className="w-6 h-6 text-rose-600" />}
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900 text-lg">
-                              {tx.description}
-                            </p>
-                            <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-4 h-4" />
-                                {new Date(tx.date).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                              {tx.method && (
-                                <>
-                                  <span>•</span>
-                                  <span className="font-medium text-blue-600">{tx.method}</span>
-                                </>
-                              )}
-                            </div>
+                            <p className="font-semibold text-gray-900">{tx.description}</p>
+                            <p className="text-sm text-gray-500">{tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : 'Refund'}</p>
                           </div>
                         </div>
-
-                        <div className="text-right">
-                          <p className={`text-2xl font-bold ${tx.type === 'deposit' || tx.type === 'refund' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {tx.type === 'deposit' || tx.type === 'refund' ? '+' : '-'}
-                            {formatCurrency(tx.amount)}
-                          </p>
-                          <p className="text-sm text-gray-500 mt-1 capitalize">
-                            {tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : tx.type === 'refund' ? 'Refund' : 'Transaction'}
-                          </p>
-                        </div>
+                        <p className={`text-xl font-bold ${['deposit', 'refund'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {['deposit', 'refund'].includes(tx.type) ? '+' : '-'}
+                          {formatCurrency(tx.amount)}
+                        </p>
+                      </div>
+                      <div className="text-sm text-gray-500 space-y-1">
+                        <p className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(tx.date).toLocaleString()}</p>
+                        {tx.method && <p>Method: {tx.method}</p>}
                       </div>
                     </div>
                   ))}
                 </div>
 
+                {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+                  <div className="flex items-center justify-between px-6 py-5 border-t bg-gray-50">
                     <p className="text-sm text-gray-600">
-                      Showing {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, walletData.recentTransactions.length)} of {walletData.recentTransactions.length} transactions
+                      Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredTransactions.length)} of {filteredTransactions.length} results
                     </p>
                     <div className="flex gap-3">
-                      <button
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                        disabled={page === 1}
-                        className="px-5 py-3 rounded-xl border border-gray-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
-                      >
-                        Previous
+                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                        className="px-5 py-2.5 rounded-lg border border-gray-300 disabled:opacity-50 hover:bg-gray-100 flex items-center gap-2 font-medium">
+                        <ChevronLeft className="w-4 h-4" /> Previous
                       </button>
-                      <button
-                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
-                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                      >
-                        Next
+                      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                        className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:shadow-lg disabled:opacity-50 flex items-center gap-2">
+                        Next <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -278,10 +384,8 @@ const WalletComponent: React.FC = () => {
           </div>
         </div>
 
-        <div className="text-center mt-12 text-gray-600">
-          <p className="text-sm">
-            Need help? Contact <span className="text-blue-600 font-medium">support@yourapp.com</span>
-          </p>
+        <div className="text-center mt-12 text-gray-500 text-sm">
+          Need help? Contact <span className="text-blue-600 font-medium">support@yourapp.com</span>
         </div>
       </div>
     </div>
