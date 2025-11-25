@@ -13,7 +13,6 @@ import { ErrorBoundary } from './components/common';
 import CenterList from './components/centers/CenterList';
 import ScrollToTop from './components/common/ScrollToTop';
 import TutorList from './components/tutors/TutorList';
-import TutorDetail from './components/tutors/TutorDetail';
 import TutorRegister from './components/tutors/TutorRegister';
 import TutorDashboard from './components/features/tutor/TutorDashboard';
 import TutorsByCenter from './components/tutors/TutorsByCenter';
@@ -55,6 +54,8 @@ import {
   TutorDailyReportPage,
 } from './pages/features';
 import UnauthorizedPage from './pages/UnauthorizedPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 // Protected Route Component (supports role-based guard)
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[]; skipLocationCheck?: boolean }> = ({ children, requiredRole, skipLocationCheck = false }) => {
@@ -184,6 +185,8 @@ function App() {
               <Route path="verify-reset" element={<VerifyResetRedirect />} />
               <Route path="verify-email" element={<VerifyEmail />} />
               <Route path="unauthorized" element={<UnauthorizedPage />} />
+              <Route path="terms-of-service" element={<TermsOfServicePage />} />
+              <Route path="privacy-policy" element={<PrivacyPolicyPage />} />
             {/* Original Routes */}
             <Route path="home" element={
               <ProtectedRoute requiredRole="parent">
@@ -235,11 +238,6 @@ function App() {
             <Route path="tutors" element={
               <ProtectedRoute>
                 <TutorList />
-              </ProtectedRoute>
-            } />
-            <Route path="tutors/:id" element={
-              <ProtectedRoute>
-                <TutorDetail id={window.location.pathname.split('/').pop() || ''} />
               </ProtectedRoute>
             } />
             <Route path="tutor/register" element={

@@ -18,7 +18,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import {
-  getDailyReportsByChild,
+  getDailyReportsByContract,
   getChildUnitProgress,
   getLearningCompletionForecast,
   DailyReport,
@@ -38,6 +38,7 @@ const ParentDailyReports: React.FC = () => {
   const { showError } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
   const [forecast, setForecast] = useState<LearningCompletionForecast | null>(null);
@@ -56,11 +57,17 @@ const ParentDailyReports: React.FC = () => {
 
   useEffect(() => {
     if (selectedChildId) {
-      fetchReports();
+      fetchContractId();
       fetchProgress();
       fetchForecast();
     }
   }, [selectedChildId]);
+
+  useEffect(() => {
+    if (selectedContractId) {
+      fetchReports();
+    }
+  }, [selectedContractId]);
 
   const fetchChildren = async () => {
     if (!user?.id) {
@@ -105,12 +112,51 @@ const ParentDailyReports: React.FC = () => {
     }
   };
 
+  const fetchContractId = async () => {
+    if (!selectedChildId || !user?.id) {
+      setSelectedContractId(null);
+      return;
+    }
+
+    try {
+      // Get contracts for this parent to find the child's active contract
+      const contractsResult = await getContractsByParent(user.id);
+      if (contractsResult.success && contractsResult.data) {
+        // Find an active or completed contract for this child
+        const childContract = contractsResult.data.find(
+          (c: any) => 
+            (c.ChildId || c.childId) === selectedChildId && 
+            (['active', 'completed'].includes((c.Status || c.status || '').toLowerCase()))
+        );
+        
+        if (childContract) {
+          const contractId = childContract.ContractId || childContract.contractId || childContract.id;
+          setSelectedContractId(contractId);
+        } else {
+          // No active/completed contract found
+          setSelectedContractId(null);
+          setReports([]);
+        }
+      } else {
+        setSelectedContractId(null);
+        setReports([]);
+      }
+    } catch (error) {
+      console.error('Error fetching contract:', error);
+      setSelectedContractId(null);
+      setReports([]);
+    }
+  };
+
   const fetchReports = async () => {
-    if (!selectedChildId) return;
+    if (!selectedContractId) {
+      setReports([]);
+      return;
+    }
 
     try {
       setLoadingReports(true);
-      const result = await getDailyReportsByChild(selectedChildId);
+      const result = await getDailyReportsByContract(selectedContractId);
       if (result.success && result.data) {
         // Sort by date descending (newest first)
         const sorted = [...result.data].sort((a, b) => {
@@ -125,13 +171,17 @@ const ParentDailyReports: React.FC = () => {
     } catch (error) {
       console.error('Error fetching reports:', error);
       showError('Failed to load daily reports');
+      setReports([]);
     } finally {
       setLoadingReports(false);
     }
   };
 
   const fetchProgress = async () => {
-    if (!selectedChildId || !user?.id) return;
+    if (!selectedChildId || !user?.id) {
+      setUnitProgress(null);
+      return;
+    }
 
     try {
       // First get contracts for this parent to find the child's active contract
@@ -149,14 +199,19 @@ const ParentDailyReports: React.FC = () => {
           const result = await getChildUnitProgress(contractId);
           if (result.success && result.data) {
             setUnitProgress(result.data);
+          } else {
+            setUnitProgress(null);
           }
         } else {
           // No active/completed contract found
           setUnitProgress(null);
         }
+      } else {
+        setUnitProgress(null);
       }
     } catch (error) {
       console.error('Error fetching progress:', error);
+      setUnitProgress(null);
     }
   };
 

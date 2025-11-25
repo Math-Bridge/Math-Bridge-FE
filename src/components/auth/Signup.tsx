@@ -2,15 +2,19 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Mail, Lock, User, Eye, EyeOff, Phone, UserCheck, CheckCircle } from 'lucide-react';
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { auth } from "../../firebaseConfig";
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
 import { API_BASE_URL } from '../../services/api';
 
 const Signup: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const [resendTimer, setResendTimer] = useState(0);
   const [isResending, setIsResending] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Countdown timer effect
   React.useEffect(() => {
@@ -58,8 +62,7 @@ const Signup: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showVerification, setShowVerification] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  const { signup, isLoading } = useAuth();
-  const navigate = useNavigate();
+  const { signup, isLoading, googleLogin } = useAuth();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -120,6 +123,78 @@ const Signup: React.FC = () => {
       setResendTimer(180); // Start with 3 minutes cooldown for initial email
     } else {
       setErrors({ general: result.error || 'Signup failed' });
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setErrors({});
+
+    try {
+      console.log('Starting Google login flow...');
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const idToken = await result.user.getIdToken();
+      console.log('Google OAuth successful, token obtained');
+
+      // Use useAuth.googleLogin instead of direct API call
+      const loginResult = await googleLogin(idToken);
+      console.log('Google login result:', loginResult);
+      
+      if (loginResult.success) {
+        console.log('Google login successful, preparing navigation...');
+        
+        // Add a small delay to ensure state updates have propagated
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Check if user needs to set up location
+        if (loginResult.needsLocationSetup) {
+          console.log('Redirecting to profile for location setup');
+          navigate('/user-profile', { replace: true, state: { needsLocation: true } });
+          return;
+        }
+
+        // Get user role from localStorage to determine redirect
+        const savedUser = localStorage.getItem('user');
+        console.log('Checking saved user for role-based redirect:', savedUser);
+        
+        if (savedUser) {
+          try {
+            const user = JSON.parse(savedUser);
+            console.log('User role:', user.role);
+            
+            if (user.role === 'admin') {
+              console.log('Redirecting to admin dashboard');
+              navigate("/admin", { replace: true });
+            } else if (user.role === 'tutor') {
+              console.log('Redirecting to tutor dashboard');
+              navigate("/tutor/dashboard", { replace: true });
+            } else if (user.role === 'staff') {
+              console.log('Redirecting to staff dashboard');
+              navigate("/staff", { replace: true });
+            } else {
+              console.log('Redirecting to parent home');
+              navigate("/home", { replace: true });
+            }
+          } catch (parseError) {
+            console.error('Error parsing saved user:', parseError);
+            navigate("/home", { replace: true });
+          }
+        } else {
+          console.log('No saved user found, redirecting to home');
+          navigate("/home", { replace: true });
+        }
+      } else {
+        console.error('Google login failed:', loginResult.error);
+        setErrors({ general: loginResult.error || "Google login failed" });
+        showError(loginResult.error || "Google login failed");
+      }
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      setErrors({ general: error.message || "Google login failed" });
+      showError(error.message || "Google login failed");
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -314,9 +389,9 @@ const Signup: React.FC = () => {
           />
           <span className="ml-2 text-sm text-gray-600">
             I agree to the{' '}
-            <a href="#" className="link">Terms of Service</a>
+            <Link to="/terms-of-service" className="link text-blue-600 hover:text-blue-800 underline">Terms of Service</Link>
             {' '}and{' '}
-            <a href="#" className="link">Privacy Policy</a>
+            <Link to="/privacy-policy" className="link text-blue-600 hover:text-blue-800 underline">Privacy Policy</Link>
           </span>
         </div>
 
@@ -341,15 +416,25 @@ const Signup: React.FC = () => {
         
         <button
           type="button"
-          className="mt-4 w-full flex items-center justify-center px-4 py-3 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          disabled={isGoogleLoading}
+          onClick={handleGoogleLogin}
+          className={`mt-4 w-full flex items-center justify-center px-4 py-3 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            isGoogleLoading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         >
-          <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Sign up with Gmail
+          {isGoogleLoading ? (
+            <span className="text-gray-500">Connecting...</span>
+          ) : (
+            <>
+              <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Sign in with Gmail
+            </>
+          )}
         </button>
       </div>
 

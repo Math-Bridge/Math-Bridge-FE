@@ -32,6 +32,7 @@ interface User {
   status: string;
   formattedAddress?: string;
   walletBalance?: number;
+  hourlyRate?: number; // For tutor (USD)
 }
 
 const UserManagement: React.FC = () => {
@@ -58,6 +59,7 @@ const UserManagement: React.FC = () => {
     phoneNumber: '',
     gender: 'male',
     roleId: 3, // Default to parent
+    salaryVND: 0, // For tutor and staff
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -146,7 +148,30 @@ const UserManagement: React.FC = () => {
       const response = await apiService.getAllUsers();
       if (response.success && response.data) {
         const usersData = Array.isArray(response.data) ? response.data : [];
-        setUsers(usersData);
+        
+        // Enrich tutor users with hourlyRate from tutor verification
+        const enrichedUsers = await Promise.all(
+          usersData.map(async (user: User) => {
+            // If user is a tutor and doesn't have hourlyRate, fetch it
+            if (user.roleId === 2 && !user.hourlyRate) {
+              try {
+                const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${user.userId}`, {
+                  method: 'GET',
+                });
+                if (verificationResponse.success && verificationResponse.data) {
+                  const verification = verificationResponse.data;
+                  const hourlyRate = verification.hourlyRate || verification.HourlyRate || undefined;
+                  return { ...user, hourlyRate };
+                }
+              } catch (error) {
+                console.warn(`Failed to fetch hourlyRate for tutor ${user.userId}:`, error);
+              }
+            }
+            return user;
+          })
+        );
+        
+        setUsers(enrichedUsers);
       } else {
         // Fallback: show empty list if API not available
         setUsers([]);
@@ -212,6 +237,11 @@ const UserManagement: React.FC = () => {
       errors.gender = 'Gender is required';
     }
 
+    // Validate salary for tutor only
+    if (formData.roleId === 2 && formData.salaryVND <= 0) {
+      errors.salaryVND = 'Salary must be greater than 0';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -240,16 +270,17 @@ const UserManagement: React.FC = () => {
       });
 
       if (response.success) {
-        // If user is created with tutor role, also create tutor verification with placeholder data
+        // If user is created with tutor role, also create tutor verification with salary
         if (formData.roleId === 2 && response.data?.userId) {
           try {
+            const salaryUSD = formData.salaryVND / 25000; // Convert VND to USD
             const verificationResponse = await apiService.request<any>('/tutor-verifications', {
               method: 'POST',
               body: JSON.stringify({
                 UserId: response.data.userId,
                 University: 'N/A',
                 Major: 'N/A',
-                HourlyRate: 0.01,
+                HourlyRate: salaryUSD > 0 ? salaryUSD : 0.01,
                 Bio: 'N/A',
                 VerificationStatus: 'pending'
               })
@@ -277,6 +308,7 @@ const UserManagement: React.FC = () => {
           phoneNumber: '',
           gender: 'male',
           roleId: 3,
+          salaryVND: 0,
         });
         setFormErrors({});
         fetchUsers();
@@ -366,6 +398,7 @@ const UserManagement: React.FC = () => {
         gender: userData.gender || userData.Gender || 'male',
         formattedAddress: userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '',
         hourlyRate: 0,
+        hourlyRateVND: 0,
       });
       
       setLocationInput(userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '');
@@ -452,7 +485,7 @@ const UserManagement: React.FC = () => {
       errors.gender = 'Gender is required';
     }
     if (editingUser.roleId === 2 && editFormData.hourlyRateVND <= 0) {
-      errors.hourlyRate = 'Hourly rate must be greater than 0';
+      errors.hourlyRate = 'Salary must be greater than 0';
     }
 
     setEditFormErrors(errors);
@@ -484,7 +517,7 @@ const UserManagement: React.FC = () => {
         // TODO: Add admin endpoint to update user location
       }
 
-      // Step 3: Update tutor hourly rate if tutor
+      // Step 3: Update tutor salary if tutor
       if (editingUser.roleId === 2 && editFormData.hourlyRateVND > 0) {
         try {
           const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${editingUser.userId}`, {
@@ -505,8 +538,8 @@ const UserManagement: React.FC = () => {
             }
           }
         } catch (error) {
-          console.error('Error updating hourly rate:', error);
-          // Don't fail the whole update if hourly rate update fails
+          console.error('Error updating salary:', error);
+          // Don't fail the whole update if salary update fails
         }
       }
 
@@ -617,7 +650,7 @@ const UserManagement: React.FC = () => {
               </div>
               <Users className="w-8 h-8 opacity-80" />
             </div>
-            <p className="text-red-100 text-sm font-medium mb-1">Banned Users</p>
+            <p className="text-red-100 text-sm font-medium mb-1">Inactive Users</p>
             <p className="text-3xl font-bold">{inactiveUsers}</p>
             <p className="text-red-100 text-xs mt-1">{totalUsers > 0 ? Math.round((inactiveUsers / totalUsers) * 100) : 0}% of total</p>
           </div>
@@ -681,7 +714,7 @@ const UserManagement: React.FC = () => {
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
-                <option value="banned">Banned</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
           </div>
@@ -711,6 +744,9 @@ const UserManagement: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Wallet Balance
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Salary
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
@@ -719,7 +755,7 @@ const UserManagement: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200" style={{ position: 'relative' }}>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center">
+                    <td colSpan={6} className="px-6 py-16 text-center">
                       <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
                         <Users className="w-10 h-10 text-gray-400" />
                       </div>
@@ -770,6 +806,16 @@ const UserManagement: React.FC = () => {
                         {user.walletBalance !== undefined
                           ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.walletBalance)
                           : '0 ₫'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.roleId === 2 && user.hourlyRate !== undefined && user.hourlyRate > 0
+                          ? new Intl.NumberFormat('vi-VN', { 
+                              style: 'currency', 
+                              currency: 'VND',
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0
+                            }).format(user.hourlyRate * 25000)
+                          : user.roleId === 2 ? 'N/A' : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
                         <div className="relative flex items-center justify-end" style={{ position: 'relative', zIndex: 1 }}>
@@ -954,6 +1000,7 @@ const UserManagement: React.FC = () => {
                       phoneNumber: '',
                       gender: 'male',
                       roleId: 3,
+                      salaryVND: 0,
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1112,6 +1159,57 @@ const UserManagement: React.FC = () => {
                     <option value="4">Staff</option>
                   </select>
                 </div>
+
+                {formData.roleId === 2 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Salary <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      required={formData.roleId === 2}
+                      value={formData.salaryVND}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Allow empty input while typing
+                        if (inputValue === '') {
+                          setFormData({ 
+                            ...formData, 
+                            salaryVND: 0
+                          });
+                          if (formErrors.salaryVND) setFormErrors({ ...formErrors, salaryVND: '' });
+                          return;
+                        }
+                        const vndValue = Math.round(parseFloat(inputValue) || 0);
+                        setFormData({ 
+                          ...formData, 
+                          salaryVND: vndValue
+                        });
+                        if (formErrors.salaryVND) setFormErrors({ ...formErrors, salaryVND: '' });
+                      }}
+                      onBlur={(e) => {
+                        // Round to nearest 1000 when user leaves the field
+                        const value = parseFloat(e.target.value) || 0;
+                        if (value > 0) {
+                          const rounded = Math.round(value / 1000) * 1000;
+                          setFormData({ 
+                            ...formData, 
+                            salaryVND: rounded
+                          });
+                        }
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        formErrors.salaryVND ? 'border-red-300' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter salary in VND"
+                    />
+                    {formErrors.salaryVND && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.salaryVND}</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="mt-6 flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button
@@ -1126,6 +1224,7 @@ const UserManagement: React.FC = () => {
                       phoneNumber: '',
                       gender: 'male',
                       roleId: 3,
+                      salaryVND: 0,
                     });
                   }}
                   disabled={submitting}
@@ -1271,38 +1370,49 @@ const UserManagement: React.FC = () => {
                 {editingUser.roleId === 2 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Hourly Rate (VND) <span className="text-red-500">*</span>
+                      Salary <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
                       min="1"
-                      step="1000"
+                      step="1"
                       value={editFormData.hourlyRateVND}
                       onChange={(e) => {
-                        const vndValue = parseFloat(e.target.value) || 0;
+                        const inputValue = e.target.value;
+                        // Allow empty input while typing
+                        if (inputValue === '') {
+                          setEditFormData({ 
+                            ...editFormData, 
+                            hourlyRateVND: 0,
+                            hourlyRate: 0
+                          });
+                          return;
+                        }
+                        const vndValue = Math.round(parseFloat(inputValue) || 0);
                         setEditFormData({ 
                           ...editFormData, 
                           hourlyRateVND: vndValue,
                           hourlyRate: vndValue / 25000 // Keep USD value in sync
                         });
                       }}
+                      onBlur={(e) => {
+                        // Round to nearest 1000 when user leaves the field
+                        const value = parseFloat(e.target.value) || 0;
+                        if (value > 0) {
+                          const rounded = Math.round(value / 1000) * 1000;
+                          setEditFormData({ 
+                            ...editFormData, 
+                            hourlyRateVND: rounded,
+                            hourlyRate: rounded / 25000
+                          });
+                        }
+                      }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter hourly rate in VND"
+                      placeholder="Enter salary in VND"
                     />
                     {editFormErrors.hourlyRate && (
                       <p className="text-red-500 text-xs mt-1">{editFormErrors.hourlyRate}</p>
                     )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      Displayed as: {new Intl.NumberFormat('vi-VN', {
-                        style: 'currency',
-                        currency: 'VND',
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
-                      }).format(editFormData.hourlyRateVND)}/hour
-                      <span className="text-gray-400 ml-2">
-                        (≈ ${(editFormData.hourlyRateVND / 25000).toFixed(2)} USD)
-                      </span>
-                    </p>
                   </div>
                 )}
 

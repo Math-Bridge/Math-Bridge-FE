@@ -476,17 +476,27 @@ class ApiService {
       if (result.success && result.data) {
         // Backend returns { data: [...], totalCount: ... }
         const usersData = result.data.data || result.data;
-        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => ({
-          userId: item.userId || item.UserId || '',
-          fullName: item.fullName || item.FullName || '',
-          email: item.email || item.Email || '',
-          phoneNumber: item.phoneNumber || item.PhoneNumber,
-          roleId: item.roleId ?? item.RoleId ?? 0,
-          roleName: item.roleName || item.RoleName,
-          status: item.status || item.Status || 'active',
-          formattedAddress: item.formattedAddress || item.FormattedAddress,
-          walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
-        }));
+        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => {
+          // Extract hourlyRate from TutorVerification if user is a tutor
+          const verification = item.TutorVerification || item.tutorVerification || null;
+          const hourlyRate = verification?.HourlyRate !== undefined ? verification.HourlyRate : 
+                            (verification?.hourlyRate !== undefined ? verification.hourlyRate : 
+                            (item.hourlyRate !== undefined ? item.hourlyRate : 
+                            (item.HourlyRate !== undefined ? item.HourlyRate : undefined)));
+          
+          return {
+            userId: item.userId || item.UserId || '',
+            fullName: item.fullName || item.FullName || '',
+            email: item.email || item.Email || '',
+            phoneNumber: item.phoneNumber || item.PhoneNumber,
+            roleId: item.roleId ?? item.RoleId ?? 0,
+            roleName: item.roleName || item.RoleName,
+            status: item.status || item.Status || 'active',
+            formattedAddress: item.formattedAddress || item.FormattedAddress,
+            walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
+            hourlyRate: hourlyRate,
+          };
+        });
         
       return {
         success: true,
@@ -958,6 +968,24 @@ export async function getCentersNearAddress(address: string, radiusKm: number = 
   params.append('radiusKm', radiusKm.toString());
   
   return apiService.request<Center[]>(`/location/nearby-centers?${params.toString()}`);
+}
+
+// Get coordinates (latitude/longitude) from placeId
+export async function getCoordinatesFromPlaceId(placeId: string) {
+  const params = new URLSearchParams();
+  params.append('placeId', placeId);
+  
+  return apiService.request<{
+    success: boolean;
+    placeId: string;
+    latitude: number;
+    longitude: number;
+    formattedAddress?: string;
+    placeName?: string;
+    city?: string;
+    district?: string;
+    countryCode?: string;
+  }>(`/location/coordinates?${params.toString()}`);
 }
 
 
@@ -2500,6 +2528,78 @@ export async function getAllTutors() {
   }
 }
 
+// Get tutor by ID
+// Backend endpoint: GET /api/Tutors/{id}
+export async function getTutorById(tutorId: string) {
+  try {
+    console.log(`[getTutorById] Fetching tutor with ID: ${tutorId}`);
+    const result = await apiService.request<any>(`/Tutors/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    console.log(`[getTutorById] API Response:`, result);
+    
+    if (result.success && result.data) {
+      const tutor = result.data;
+      const verification = tutor.TutorVerification || tutor.tutorVerification || null;
+      
+      console.log(`[getTutorById] Tutor data:`, tutor);
+      console.log(`[getTutorById] Verification:`, verification);
+      
+      const mappedData = {
+        userId: tutor.userId || tutor.UserId || tutor.user_id || '',
+        fullName: tutor.fullName || tutor.FullName || tutor.full_name || '',
+        email: tutor.email || tutor.Email || '',
+        phone: tutor.phoneNumber || tutor.PhoneNumber || tutor.phone || '',
+        gender: tutor.gender || tutor.Gender || '',
+        formattedAddress: tutor.formattedAddress || tutor.FormattedAddress || '',
+        city: tutor.city || tutor.City || '',
+        district: tutor.district || tutor.District || '',
+        status: tutor.status || tutor.Status || '',
+        createdDate: tutor.createdDate || tutor.CreatedDate || null,
+        // Verification info
+        verification: verification ? {
+          verificationId: verification.verificationId || verification.VerificationId || '',
+          university: verification.university || verification.University || '',
+          major: verification.major || verification.Major || '',
+          hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
+          bio: verification.bio || verification.Bio || '',
+          verificationStatus: verification.verificationStatus || verification.VerificationStatus || '',
+          verificationDate: verification.verificationDate || verification.VerificationDate || null,
+        } : null,
+        // Centers
+        tutorCenters: tutor.tutorCenters || tutor.TutorCenters || [],
+        // Schedules
+        tutorSchedules: tutor.tutorSchedules || tutor.TutorSchedules || [],
+        // Final Feedbacks
+        finalFeedbacks: tutor.finalFeedbacks || tutor.FinalFeedbacks || [],
+      };
+      
+      console.log(`[getTutorById] Mapped data:`, mappedData);
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    console.warn(`[getTutorById] API call succeeded but no data returned. Result:`, result);
+    return {
+      success: false,
+      data: null,
+      error: result.error || result.message || 'Tutor not found',
+    };
+  } catch (error) {
+    console.error('[getTutorById] Error fetching tutor by ID:', error);
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch tutor',
+    };
+  }
+}
+
 // Get top rated tutors from tutor list
 // Backend endpoint: GET /api/tutors (sorted by rating, limited)
 export async function getTopRatedTutorsFromList(limit: number = 3) {
@@ -3775,6 +3875,76 @@ export async function getDailyReportsByTutor() {
 export async function getDailyReportsByChild(childId: string) {
   try {
     const result = await apiService.request<any[]>(`/daily-reports/child/${childId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Fetch all units to map unit IDs to names
+      let unitsMap: { [key: string]: string } = {};
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+          if (import.meta.env.DEV) {
+            console.log('[DailyReports] Units map created with', Object.keys(unitsMap).length, 'units');
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        
+        if (import.meta.env.DEV && !unitName && unitId) {
+          console.log('[DailyReports] Unit name not found for unitId:', unitId, 'Map has:', Object.keys(unitsMap).length, 'units');
+        }
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: item.childId || item.ChildId || '',
+          tutorId: item.tutorId || item.TutorId || '',
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: item.childName || item.ChildName,
+          tutorName: item.tutorName || item.TutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch daily reports',
+    };
+  }
+}
+
+// Get all daily reports for a contract
+export async function getDailyReportsByContract(contractId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports/contract/${contractId}`, {
       method: 'GET',
     });
     

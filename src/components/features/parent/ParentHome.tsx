@@ -78,9 +78,13 @@ const ParentHome: React.FC = () => {
       }
 
       const tutorsResponse = await getTopRatedTutors(3);
-      if (tutorsResponse.success && tutorsResponse.data?.tutors) {
-        setTopRatedTutors(tutorsResponse.data.tutors);
+      console.log('Top Rated Tutors Response:', tutorsResponse);
+      if (tutorsResponse.success && tutorsResponse.data) {
+        // Handle both camelCase and PascalCase from backend
+        const tutors = tutorsResponse.data.tutors || tutorsResponse.data.Tutors || [];
+        setTopRatedTutors(tutors);
       } else {
+        console.error('Failed to fetch top rated tutors:', tutorsResponse.error);
         setTopRatedTutors([]);
       }
 
@@ -353,25 +357,31 @@ const ParentHome: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {topRatedTutors.length > 0 ? (
-                  topRatedTutors.map((tutor) => {
-                    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.tutorName)}&background=random`;
+                  topRatedTutors.map((tutor: any) => {
+                    // Handle both camelCase and PascalCase from backend
+                    const tutorId = tutor.tutorId || tutor.TutorId || '';
+                    const tutorName = tutor.tutorName || tutor.TutorName || 'Unknown';
+                    const averageRating = tutor.averageRating || tutor.AverageRating || 0;
+                    const feedbackCount = tutor.feedbackCount || tutor.FeedbackCount || 0;
+                    
+                    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutorName)}&background=random`;
                     return (
-                      <div key={tutor.tutorId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
+                      <div key={tutorId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
                         <div className="flex items-center gap-4 mb-4">
-                          <img src={avatarUrl} alt={tutor.tutorName} className="w-14 h-14 rounded-full object-cover" />
+                          <img src={avatarUrl} alt={tutorName} className="w-14 h-14 rounded-full object-cover" />
                           <div>
-                            <h3 className="font-bold">{tutor.tutorName}</h3>
+                            <h3 className="font-bold">{tutorName}</h3>
                             <p className="text-sm text-gray-600">Tutor</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4 mb-4">
                           <div className="flex items-center gap-1">
                             <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                            <span className="font-bold">{tutor.averageRating.toFixed(1)}</span>
+                            <span className="font-bold">{Number(averageRating).toFixed(1)}</span>
                           </div>
-                          <span className="text-sm text-gray-500">{tutor.feedbackCount} feedback{tutor.feedbackCount !== 1 ? 's' : ''}</span>
+                          <span className="text-sm text-gray-500">{feedbackCount} feedback{feedbackCount !== 1 ? 's' : ''}</span>
                         </div>
-                        <button onClick={() => navigate(`/tutors/${tutor.tutorId}`)} className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
+                        <button onClick={() => navigate(`/tutors/${tutorId}`)} className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition">
                           View Profile
                         </button>
                       </div>

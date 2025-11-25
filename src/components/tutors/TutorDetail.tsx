@@ -174,15 +174,6 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <MessageSquare className="h-5 w-5 text-blue-600" />
-                    <span className="font-semibold text-blue-900">Tutor Assignment</span>
-                  </div>
-                  <p className="text-blue-700 text-sm">
-                    Tutor assignments are managed by our staff. Please contact our team to discuss your learning needs and we'll match you with the most suitable tutor.
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -326,15 +317,6 @@ const TutorDetail: React.FC<{ id: string }> = ({ id }) => {
                 </div>
               </div>
               
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-2 mb-2">
-                  <MessageSquare className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-900">Staff Assignment</span>
-                </div>
-                <p className="text-blue-700 text-sm">
-                  Tutor assignments are managed by our staff team. Contact us to discuss your learning needs.
-                </p>
-              </div>
             </div>
 
             {/* Schedule Info */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center } from '../../../services/api';
+import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -143,12 +143,66 @@ const CreateContract: React.FC = () => {
   }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const lastSearchedAddressRef = useRef<string>('');
 
   useEffect(() => {
     fetchData();
     fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Auto-search centers when address and coordinates are available
+  // This ensures centers are found when coordinates are set from any source
+  useEffect(() => {
+    const searchCentersIfReady = async () => {
+      // Only search if offline mode, address exists, coordinates are available, and we haven't searched for this address yet
+      if (!schedule.isOnline && 
+          schedule.offlineAddress && 
+          schedule.offlineAddress.trim().length >= 5 &&
+          schedule.offlineLatitude !== undefined && 
+          schedule.offlineLongitude !== undefined &&
+          !loadingCenters &&
+          lastSearchedAddressRef.current !== schedule.offlineAddress) {
+        
+        lastSearchedAddressRef.current = schedule.offlineAddress;
+        setLoadingCenters(true);
+        try {
+          const result = await getCentersNearAddress(schedule.offlineAddress, 10);
+          if (result.success && result.data) {
+            let centersData: Center[] = [];
+            const data = result.data as any;
+            
+            if (Array.isArray(data)) {
+              centersData = data;
+            } else if (data.data && Array.isArray(data.data)) {
+              centersData = data.data;
+            } else if (data.centers && Array.isArray(data.centers)) {
+              centersData = data.centers;
+            } else if (data.items && Array.isArray(data.items)) {
+              centersData = data.items;
+            }
+            
+            setNearbyCenters(centersData);
+          } else {
+            setNearbyCenters([]);
+          }
+        } catch (error) {
+          console.error('Error fetching nearby centers:', error);
+          setNearbyCenters([]);
+        } finally {
+          setLoadingCenters(false);
+        }
+      }
+    };
+
+    // Debounce the search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      searchCentersIfReady();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedule.offlineAddress, schedule.offlineLatitude, schedule.offlineLongitude, schedule.isOnline]);
 
   // Fetch user profile to get address
   const fetchUserProfile = async () => {
@@ -167,6 +221,37 @@ const CreateContract: React.FC = () => {
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
+  };
+
+  // Helper function to geocode an address (get coordinates from address string)
+  const geocodeAddress = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+    if (!address || address.trim().length < 3) {
+      return null;
+    }
+
+    try {
+      // First, try to get autocomplete suggestions to find a placeId
+      const autocompleteResult = await apiService.getAddressAutocomplete(address, 'VN');
+      if (autocompleteResult.success && autocompleteResult.data?.predictions && autocompleteResult.data.predictions.length > 0) {
+        // Use the first suggestion's placeId to get coordinates
+        const firstPrediction = autocompleteResult.data.predictions[0];
+        const placeId = firstPrediction.place_id || firstPrediction.placeId;
+        
+        if (placeId) {
+          const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
+          if (coordinatesResult.success && coordinatesResult.data) {
+            return {
+              latitude: coordinatesResult.data.latitude,
+              longitude: coordinatesResult.data.longitude
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    }
+    
+    return null;
   };
 
   // Poll contract status when direct payment is active
@@ -470,6 +555,35 @@ const CreateContract: React.FC = () => {
       const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
       const startDate = new Date(startDateStr);
       
+      // Validate that start date is not in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(startDate);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        const errorMsg = 'Cannot create contract with a start date in the past';
+        setError(errorMsg);
+        showError(errorMsg);
+        setIsCreating(false);
+        return;
+      }
+      
+      // If selecting today, validate that the time slot is not in the past
+      if (selectedDate.getTime() === today.getTime()) {
+        const now = new Date();
+        const [hours, minutes] = schedule.startTime.split(':').map(Number);
+        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+        
+        if (slotDateTime <= now) {
+          const errorMsg = 'Cannot create contract with a time slot in the past for today';
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+      }
+      
       // Calculate end date based on package duration_days
       const endDate = new Date(startDateStr);
       endDate.setDate(endDate.getDate() + (selectedPackage.durationDays || 90));
@@ -518,7 +632,34 @@ const CreateContract: React.FC = () => {
         
         if (schedule.offlineAddress) {
           contractData.offlineAddress = schedule.offlineAddress;
+          
+          // If address exists but coordinates are missing, try to geocode it
+          if ((schedule.offlineLatitude === undefined || schedule.offlineLongitude === undefined) && 
+              schedule.offlineAddress.trim().length >= 3) {
+            try {
+              const coordinates = await geocodeAddress(schedule.offlineAddress);
+              if (coordinates) {
+                contractData.offlineLatitude = coordinates.latitude;
+                contractData.offlineLongitude = coordinates.longitude;
+                // Also update state for consistency
+                setSchedule(prev => ({
+                  ...prev,
+                  offlineLatitude: coordinates.latitude,
+                  offlineLongitude: coordinates.longitude
+                }));
+                if (import.meta.env.DEV) {
+                  console.log('Geocoded address before submit:', { address: schedule.offlineAddress, coordinates });
+                }
+              } else {
+                console.warn('Could not geocode address before submit:', schedule.offlineAddress);
+              }
+            } catch (error) {
+              console.error('Error geocoding address before submit:', error);
+              // Continue with submission even if geocoding fails
+            }
+          }
         }
+        
         if (schedule.offlineLatitude !== undefined) {
           contractData.offlineLatitude = schedule.offlineLatitude;
         }
@@ -960,7 +1101,39 @@ const CreateContract: React.FC = () => {
                 <input
                   type="date"
                   value={schedule.startDate || new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setSchedule(prev => ({ ...prev, startDate: e.target.value }))}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dateToCheck = new Date(selectedDate);
+                    dateToCheck.setHours(0, 0, 0, 0);
+                    
+                    if (dateToCheck < today) {
+                      showError('Cannot select a date in the past');
+                      return;
+                    }
+                    
+                    // If selecting today, check if current time slot is in the past
+                    if (dateToCheck.getTime() === today.getTime() && schedule.startTime) {
+                      const now = new Date();
+                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
+                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                      
+                      if (slotDateTime <= now) {
+                        // Clear the time slot if it's in the past
+                        setSchedule(prev => ({ 
+                          ...prev, 
+                          startDate: selectedDate,
+                          startTime: '',
+                          endTime: ''
+                        }));
+                        showError('Selected time slot is in the past. Please select a new time slot.');
+                        return;
+                      }
+                    }
+                    
+                    setSchedule(prev => ({ ...prev, startDate: selectedDate }));
+                  }}
                   min={new Date().toISOString().split('T')[0]}
                   max={(() => {
                     const maxDate = new Date();
@@ -1101,11 +1274,34 @@ const CreateContract: React.FC = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {TIME_SLOTS.map((slot) => {
                     const isSelected = schedule.startTime === slot.from && schedule.endTime === slot.to;
+                    
+                    // Check if this slot is in the past (if start date is today)
+                    const isPast = (() => {
+                      if (!schedule.startDate) return false;
+                      const selectedDate = new Date(schedule.startDate);
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      selectedDate.setHours(0, 0, 0, 0);
+                      
+                      // Only check if start date is today
+                      if (selectedDate.getTime() === today.getTime()) {
+                        const now = new Date();
+                        const [hours, minutes] = slot.from.split(':').map(Number);
+                        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                        return slotDateTime <= now;
+                      }
+                      return false;
+                    })();
+                    
                     return (
                       <button
                         key={slot.id}
                         type="button"
                         onClick={() => {
+                          if (isPast) {
+                            showError('Cannot select a time slot in the past');
+                            return;
+                          }
                           setSchedule(prev => ({
                             ...prev,
                             startTime: slot.from,
@@ -1113,11 +1309,15 @@ const CreateContract: React.FC = () => {
                           }));
                           setError(null);
                         }}
+                        disabled={isPast}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           isSelected
                             ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                            : isPast
+                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                             : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
                         }`}
+                        title={isPast ? 'This time slot is in the past' : ''}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{slot.label}</span>
@@ -1171,6 +1371,24 @@ const CreateContract: React.FC = () => {
                       // Load user profile address if available and no address is set
                       if (!schedule.offlineAddress && userProfileAddress) {
                         setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                        // Geocode the profile address
+                        if (userProfileAddress.trim().length >= 3) {
+                          try {
+                            const coordinates = await geocodeAddress(userProfileAddress);
+                            if (coordinates) {
+                              setSchedule(prev => ({
+                                ...prev,
+                                offlineLatitude: coordinates.latitude,
+                                offlineLongitude: coordinates.longitude
+                              }));
+                              if (import.meta.env.DEV) {
+                                console.log('Geocoded profile address:', { address: userProfileAddress, coordinates });
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error geocoding profile address:', error);
+                          }
+                        }
                         // Search for centers with profile address
                         if (userProfileAddress.trim().length >= 5) {
                           setLoadingCenters(true);
@@ -1286,6 +1504,11 @@ const CreateContract: React.FC = () => {
                         setSelectedCenterId(null);
                         setShowSuggestions(true);
                         
+                        // Reset last searched address when address changes
+                        if (lastSearchedAddressRef.current !== address) {
+                          lastSearchedAddressRef.current = '';
+                        }
+                        
                         // Get autocomplete suggestions
                         if (address.trim().length >= 3) {
                           setLoadingSuggestions(true);
@@ -1312,9 +1535,69 @@ const CreateContract: React.FC = () => {
                           setShowSuggestions(true);
                         }
                       }}
-                      onBlur={() => {
+                      onBlur={async () => {
                         // Delay to allow click on suggestion
                         setTimeout(() => setShowSuggestions(false), 200);
+                        
+                        // If address exists but no coordinates, try to geocode it
+                        if (schedule.offlineAddress && 
+                            schedule.offlineAddress.trim().length >= 3) {
+                          let shouldSearchCenters = false;
+                          
+                          // Geocode if coordinates are missing
+                          if (schedule.offlineLatitude === undefined || schedule.offlineLongitude === undefined) {
+                            try {
+                              const coordinates = await geocodeAddress(schedule.offlineAddress);
+                              if (coordinates) {
+                                setSchedule(prev => ({
+                                  ...prev,
+                                  offlineLatitude: coordinates.latitude,
+                                  offlineLongitude: coordinates.longitude
+                                }));
+                                if (import.meta.env.DEV) {
+                                  console.log('Geocoded address:', { address: schedule.offlineAddress, coordinates });
+                                }
+                                shouldSearchCenters = true;
+                              }
+                            } catch (error) {
+                              console.error('Error geocoding address on blur:', error);
+                            }
+                          } else {
+                            // Coordinates already exist, just search for centers
+                            shouldSearchCenters = true;
+                          }
+                          
+                          // Search for centers if address is long enough
+                          if (shouldSearchCenters && schedule.offlineAddress.trim().length >= 5) {
+                            setLoadingCenters(true);
+                            try {
+                              const result = await getCentersNearAddress(schedule.offlineAddress, 10);
+                              if (result.success && result.data) {
+                                let centersData: Center[] = [];
+                                const data = result.data as any;
+                                
+                                if (Array.isArray(data)) {
+                                  centersData = data;
+                                } else if (data.data && Array.isArray(data.data)) {
+                                  centersData = data.data;
+                                } else if (data.centers && Array.isArray(data.centers)) {
+                                  centersData = data.centers;
+                                } else if (data.items && Array.isArray(data.items)) {
+                                  centersData = data.items;
+                                }
+                                
+                                setNearbyCenters(centersData);
+                              } else {
+                                setNearbyCenters([]);
+                              }
+                            } catch (error) {
+                              console.error('Error fetching nearby centers:', error);
+                              setNearbyCenters([]);
+                            } finally {
+                              setLoadingCenters(false);
+                            }
+                          }
+                        }
                       }}
                       placeholder="Enter address or select from suggestions"
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1334,9 +1617,32 @@ const CreateContract: React.FC = () => {
                               key={suggestion.place_id || `suggestion-${index}`}
                               type="button"
                               onClick={async () => {
+                                const placeId = suggestion.place_id || suggestion.placeId || '';
                                 setSchedule(prev => ({ ...prev, offlineAddress: suggestion.description }));
                                 setShowSuggestions(false);
                                 setAddressSuggestions([]);
+                                
+                                // Fetch coordinates from placeId
+                                if (placeId) {
+                                  try {
+                                    const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
+                                    if (coordinatesResult.success && coordinatesResult.data) {
+                                      const { latitude, longitude } = coordinatesResult.data;
+                                      setSchedule(prev => ({
+                                        ...prev,
+                                        offlineLatitude: latitude,
+                                        offlineLongitude: longitude
+                                      }));
+                                      if (import.meta.env.DEV) {
+                                        console.log('Fetched coordinates:', { latitude, longitude, placeId });
+                                      }
+                                    } else {
+                                      console.warn('Failed to fetch coordinates for placeId:', placeId);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error fetching coordinates:', error);
+                                  }
+                                }
                                 
                                 // Search for centers with selected address
                                 setLoadingCenters(true);
@@ -1399,6 +1705,24 @@ const CreateContract: React.FC = () => {
                         type="button"
                         onClick={async () => {
                           setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                          // Geocode the profile address
+                          if (userProfileAddress.trim().length >= 3) {
+                            try {
+                              const coordinates = await geocodeAddress(userProfileAddress);
+                              if (coordinates) {
+                                setSchedule(prev => ({
+                                  ...prev,
+                                  offlineLatitude: coordinates.latitude,
+                                  offlineLongitude: coordinates.longitude
+                                }));
+                                if (import.meta.env.DEV) {
+                                  console.log('Geocoded profile address:', { address: userProfileAddress, coordinates });
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Error geocoding profile address:', error);
+                            }
+                          }
                           // Search for centers with profile address
                           setLoadingCenters(true);
                           try {
@@ -1542,6 +1866,33 @@ const CreateContract: React.FC = () => {
                       setError(msg);
                       showError(msg);
                       return;
+                    }
+                    
+                    // Validate that start date is not in the past
+                    const selectedDate = new Date(schedule.startDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    selectedDate.setHours(0, 0, 0, 0);
+                    
+                    if (selectedDate < today) {
+                      const msg = 'Cannot select a start date in the past';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
+                    // If selecting today, validate that the time slot is not in the past
+                    if (selectedDate.getTime() === today.getTime()) {
+                      const now = new Date();
+                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
+                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                      
+                      if (slotDateTime <= now) {
+                        const msg = 'Cannot select a time slot in the past for today';
+                        setError(msg);
+                        showError(msg);
+                        return;
+                      }
                     }
                     
                     // Validate days of week - exactly 3 days must be selected
