@@ -970,6 +970,24 @@ export async function getCentersNearAddress(address: string, radiusKm: number = 
   return apiService.request<Center[]>(`/location/nearby-centers?${params.toString()}`);
 }
 
+// Get coordinates (latitude/longitude) from placeId
+export async function getCoordinatesFromPlaceId(placeId: string) {
+  const params = new URLSearchParams();
+  params.append('placeId', placeId);
+  
+  return apiService.request<{
+    success: boolean;
+    placeId: string;
+    latitude: number;
+    longitude: number;
+    formattedAddress?: string;
+    placeName?: string;
+    city?: string;
+    district?: string;
+    countryCode?: string;
+  }>(`/location/coordinates?${params.toString()}`);
+}
+
 
 // Children API
 export interface Child {

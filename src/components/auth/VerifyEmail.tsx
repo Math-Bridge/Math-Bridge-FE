@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
-import { API_BASE_URL } from '../../services/api';
+import { apiService } from '../../services/api';
 
 const VerifyEmail = () => {
   const navigate = useNavigate();
@@ -20,28 +20,12 @@ const VerifyEmail = () => {
       }
       
       try {
-        // Call the API to verify email
-        const response = await fetch(`${API_BASE_URL}/auth/verify-email?oobCode=${oobCode}`, {
+        // Call the API to verify email using apiService
+        const result = await apiService.request(`/auth/verify-email?oobCode=${oobCode}`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
         });
         
-        // Check if response is ok first
-        if (response.ok) {
-          // Try to parse as JSON, but handle plain text response
-          const contentType = response.headers.get('content-type');
-          let data: any;
-          
-          if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-          } else {
-            // Handle plain text or HTML response
-            const text = await response.text();
-            data = { success: true, message: text };
-          }
-          
+        if (result.success) {
           setStatus('success');
           setMessage('Email verified successfully! You can now log in to your account.');
           
@@ -50,20 +34,8 @@ const VerifyEmail = () => {
             navigate('/login');
           }, 3000);
         } else {
-          // Handle error response
-          const contentType = response.headers.get('content-type');
-          let errorMessage = 'Email verification failed. The link may have expired.';
-          
-          if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            errorMessage = data.error || data.message || errorMessage;
-          } else {
-            const text = await response.text();
-            errorMessage = text || errorMessage;
-          }
-          
           setStatus('error');
-          setMessage(errorMessage);
+          setMessage(result.error || result.message || 'Email verification failed. The link may have expired.');
         }
       } catch (error) {
         console.error('Email verification error:', error);

@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center } from '../../../services/api';
+import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -1422,9 +1422,32 @@ const CreateContract: React.FC = () => {
                               key={suggestion.place_id || `suggestion-${index}`}
                               type="button"
                               onClick={async () => {
+                                const placeId = suggestion.place_id || suggestion.placeId || '';
                                 setSchedule(prev => ({ ...prev, offlineAddress: suggestion.description }));
                                 setShowSuggestions(false);
                                 setAddressSuggestions([]);
+                                
+                                // Fetch coordinates from placeId
+                                if (placeId) {
+                                  try {
+                                    const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
+                                    if (coordinatesResult.success && coordinatesResult.data) {
+                                      const { latitude, longitude } = coordinatesResult.data;
+                                      setSchedule(prev => ({
+                                        ...prev,
+                                        offlineLatitude: latitude,
+                                        offlineLongitude: longitude
+                                      }));
+                                      if (import.meta.env.DEV) {
+                                        console.log('Fetched coordinates:', { latitude, longitude, placeId });
+                                      }
+                                    } else {
+                                      console.warn('Failed to fetch coordinates for placeId:', placeId);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error fetching coordinates:', error);
+                                  }
+                                }
                                 
                                 // Search for centers with selected address
                                 setLoadingCenters(true);
