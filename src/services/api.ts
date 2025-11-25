@@ -4775,18 +4775,17 @@ export async function createUnit(request: {
 export async function updateUnit(unitId: string, request: { 
   UnitName?: string; 
   UnitOrder?: number; 
-  CurriculumId?: string;
   UnitDescription?: string;
   Credit?: number;
   LearningObjectives?: string;
   IsActive?: boolean;
 }) {
+  // Note: CurriculumId is not included as it cannot be changed when updating a unit
   return apiService.request<any>(`/units/${unitId}`, {
     method: 'PUT',
     body: JSON.stringify({ 
       UnitName: request.UnitName, 
       UnitOrder: request.UnitOrder, 
-      CurriculumId: request.CurriculumId,
       UnitDescription: request.UnitDescription,
       Credit: request.Credit,
       LearningObjectives: request.LearningObjectives,

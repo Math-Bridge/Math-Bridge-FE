@@ -933,12 +933,12 @@ const UnitManagement: React.FC = () => {
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Curriculum
+                    Curriculum (Read-only)
                   </label>
                   <select
                     value={formData.curriculumId}
-                    onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all outline-none"
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-100 cursor-not-allowed"
                   >
             <option value="">-- Select curriculum (optional) --</option>
             {curriculums.map((c: any) => (
@@ -947,6 +947,7 @@ const UnitManagement: React.FC = () => {
                       </option>
             ))}
           </select>
+                  <p className="text-xs text-gray-500 mt-1">Curriculum cannot be changed after unit creation</p>
                 </div>
 
                 <div className="md:col-span-2">
