@@ -42,8 +42,8 @@ const Footer: React.FC = () => {
       { name: t('community'), href: '/community' },
     ],
     legal: [
-      { name: t('privacyPolicy'), href: '/privacy-policy' },
-      { name: t('termsOfService'), href: '/terms-of-service' },
+      { name: t('privacyPolicy'), href: '/privacy' },
+      { name: t('termsOfService'), href: '/terms' },
       { name: t('cookiePolicy'), href: '/cookies' },
       { name: t('gdpr'), href: '/gdpr' },
     ],
@@ -197,28 +197,11 @@ const Footer: React.FC = () => {
       <div className="border-t border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            {/* Copyright and Legal Links */}
-            <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-6">
-              <div className="flex items-center space-x-2 text-sm text-gray-400">
-                <span>© {currentYear} MathBridge. {t('madeWith')}</span>
-                <Heart className="h-4 w-4 text-red-500 animate-pulse" />
-                <span>for mathematics education.</span>
-              </div>
-              <div className="flex items-center space-x-4 text-sm">
-                <Link
-                  to="/privacy-policy"
-                  className="text-gray-400 hover:text-blue-400 transition-colors duration-200"
-                >
-                  Privacy Policy
-                </Link>
-                <span className="text-gray-600">•</span>
-                <Link
-                  to="/terms-of-service"
-                  className="text-gray-400 hover:text-blue-400 transition-colors duration-200"
-                >
-                  Terms of Service
-                </Link>
-              </div>
+            {/* Copyright */}
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <span>© {currentYear} MathBridge. {t('madeWith')}</span>
+              <Heart className="h-4 w-4 text-red-500 animate-pulse" />
+              <span>for mathematics education.</span>
             </div>
 
             {/* Social Links */}

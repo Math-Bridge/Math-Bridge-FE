@@ -77,7 +77,7 @@ const ParentHome: React.FC = () => {
         setWalletBalance(walletResponse.data.walletBalance);
       }
 
-      const tutorsResponse = await getTopRatedTutors(5);
+      const tutorsResponse = await getTopRatedTutors(3);
       console.log('Top Rated Tutors Response:', tutorsResponse);
       if (tutorsResponse.success && tutorsResponse.data) {
         // Handle both camelCase and PascalCase from backend

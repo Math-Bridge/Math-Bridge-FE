@@ -46,12 +46,9 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
           }));
         setChildren(mappedChildren);
 
-        // Auto-select first child if available
-        if (mappedChildren.length > 0) {
-          // If no child is selected, or selected child is not in the list, select first child
-          if (!selectedChildId || !mappedChildren.find(c => c.childId === selectedChildId)) {
-            setSelectedChildId(mappedChildren[0].childId);
-          }
+        // Auto-select first child if only one child
+        if (mappedChildren.length === 1) {
+          setSelectedChildId(mappedChildren[0].childId);
         }
       }
     } catch (error) {
@@ -239,6 +236,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
                   onChange={(e) => setSelectedChildId(e.target.value || null)}
                   className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-1.5 pr-8 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
                 >
+                  <option value="">Select child...</option>
                   {children.map((child) => (
                     <option key={child.childId} value={child.childId}>
                       {child.fullName}
@@ -431,6 +429,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
                 onChange={(e) => setSelectedChildId(e.target.value || null)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
               >
+                <option value="">Select a child...</option>
                 {children.map((child) => (
                   <option key={child.childId} value={child.childId}>
                     {child.fullName}

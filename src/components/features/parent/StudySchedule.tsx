@@ -71,12 +71,9 @@ const StudySchedule: React.FC = () => {
           }));
         setChildren(mappedChildren);
 
-        // Auto-select first child if available
-        if (mappedChildren.length > 0) {
-          // If no child is selected, or selected child is not in the list, select first child
-          if (!selectedChildId || !mappedChildren.find(c => c.childId === selectedChildId)) {
-            setSelectedChildId(mappedChildren[0].childId);
-          }
+        // Auto-select first child if only one child
+        if (mappedChildren.length === 1) {
+          setSelectedChildId(mappedChildren[0].childId);
         }
       } else {
         const errorMsg = childrenRes.error || 'Failed to load children';
@@ -567,6 +564,7 @@ const StudySchedule: React.FC = () => {
                           className="appearance-none bg-white/95 backdrop-blur-sm border-0 rounded-lg px-4 py-3 pr-10 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer hover:bg-white transition-all shadow-sm w-full"
                           style={{ zIndex: 10 }}
                         >
+                          <option value="">Select a child...</option>
                           {children.map((child) => (
                             <option key={child.childId} value={child.childId}>
                               {child.fullName}
