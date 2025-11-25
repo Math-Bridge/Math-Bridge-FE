@@ -33,7 +33,10 @@ const StudySchedule: React.FC = () => {
   const [loadingSessions, setLoadingSessions] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [sessionDetail, setSessionDetail] = useState<Session | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -859,8 +862,18 @@ const StudySchedule: React.FC = () => {
                       {/* Reschedule Button - Only show for scheduled sessions that haven't passed */}
                       {selectedSession && 
                        selectedSession.status === 'scheduled' && 
-                       selectedSession.sessionDate && 
-                       new Date(selectedSession.sessionDate) >= new Date(new Date().toISOString().split('T')[0]) && (
+                       selectedSession.sessionDate && (() => {
+                         const today = new Date();
+                         const todayStr = formatDate(today);
+                         let sessionDateStr = selectedSession.sessionDate;
+                         if (sessionDateStr.includes('T')) {
+                           sessionDateStr = sessionDateStr.split('T')[0];
+                         }
+                         if (sessionDateStr.includes(' ')) {
+                           sessionDateStr = sessionDateStr.split(' ')[0];
+                         }
+                         return sessionDateStr >= todayStr;
+                       })() && (
                         <button
                           onClick={() => setShowReschedulePopup(true)}
                           className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-all duration-200 font-semibold"

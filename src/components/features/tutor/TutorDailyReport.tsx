@@ -66,8 +66,15 @@ const TutorDailyReport: React.FC = () => {
   const [childId, setChildId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchSessions();
-    if (viewMode === 'view') {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    
+    if (viewMode === 'create') {
+      fetchSessions();
+    } else {
+      setLoading(false); // View mode doesn't need loading state
       fetchAllReports();
     }
   }, [user?.id, viewMode]);
@@ -100,9 +107,9 @@ const TutorDailyReport: React.FC = () => {
       setLoading(true);
       const result = await getTutorSessions();
       if (result.success && result.data) {
-        // Filter to only show sessions for today
+        // Filter to only show sessions for today (using local date, not UTC)
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         
         const filtered = result.data.filter((s) => {
           // Check if session date matches today
@@ -110,6 +117,9 @@ const TutorDailyReport: React.FC = () => {
           let sessionDateStr = s.sessionDate;
           if (sessionDateStr.includes('T')) {
             sessionDateStr = sessionDateStr.split('T')[0];
+          }
+          if (sessionDateStr.includes(' ')) {
+            sessionDateStr = sessionDateStr.split(' ')[0];
           }
           
           // Only show scheduled or completed sessions for today
@@ -282,10 +292,13 @@ const TutorDailyReport: React.FC = () => {
     if (!dateStr) return false;
     try {
       const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       let dateStrOnly = dateStr;
       if (dateStrOnly.includes('T')) {
         dateStrOnly = dateStrOnly.split('T')[0];
+      }
+      if (dateStrOnly.includes(' ')) {
+        dateStrOnly = dateStrOnly.split(' ')[0];
       }
       return dateStrOnly === todayStr;
     } catch {
@@ -493,9 +506,17 @@ const TutorDailyReport: React.FC = () => {
           <div className="flex gap-2">
             <button
               onClick={() => {
-                setViewMode('view');
-                setSelectedSession(null);
-                fetchAllReports();
+                if (viewMode === 'create') {
+                  setViewMode('view');
+                  setSelectedSession(null);
+                  setLoading(false);
+                  fetchAllReports();
+                } else {
+                  setViewMode('create');
+                  setSelectedReport(null);
+                  resetForm();
+                  fetchSessions();
+                }
               }}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 viewMode === 'view'
@@ -503,7 +524,7 @@ const TutorDailyReport: React.FC = () => {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              View Past Reports
+              {viewMode === 'create' ? 'View Past Reports' : 'Create New Report'}
             </button>
           </div>
         </div>

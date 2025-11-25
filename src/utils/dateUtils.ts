@@ -84,6 +84,17 @@ export interface SanitizeDateRangeResult {
 
 const formatDate = (date: Date): string => date.toISOString().split('T')[0];
 
+/**
+ * Format a date to YYYY-MM-DD using local timezone (not UTC)
+ * This is important for date comparisons to avoid timezone issues
+ */
+export const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const isValidDateString = (value: string): boolean => {
   if (!value) return false;
   const date = new Date(value);
@@ -91,6 +102,12 @@ const isValidDateString = (value: string): boolean => {
 };
 
 export const todayString = (): string => formatDate(new Date());
+
+/**
+ * Get today's date string in local timezone (YYYY-MM-DD)
+ * Use this instead of toISOString() when comparing with dates from API
+ */
+export const todayLocalString = (): string => formatLocalDate(new Date());
 
 
 export function adjustEndDateForInclusive(endDate: string): string {

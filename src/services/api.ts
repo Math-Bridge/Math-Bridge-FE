@@ -2820,20 +2820,9 @@ export async function rejectTutorVerification(tutorId: string) {
  * This endpoint checks for overlapping contracts and returns tutors sorted by rating
  * @param contractId - The contract ID to get available tutors for
  */
-export async function getAvailableTutorsForContract(
-  contractId: string,
-  sortByRating: boolean = false,
-  sortByDistance: boolean = false
-) {
+export async function getAvailableTutorsForContract(contractId: string) {
   try {
-    const queryParams = new URLSearchParams();
-    if (sortByRating) queryParams.append('sortByRating', 'true');
-    if (sortByDistance) queryParams.append('sortByDistance', 'true');
-    
-    const queryString = queryParams.toString();
-    const endpoint = `/contracts/${contractId}/available-tutors${queryString ? `?${queryString}` : ''}`;
-    
-    const result = await apiService.request<any[]>(endpoint);
+    const result = await apiService.request<any[]>(`/contracts/${contractId}/available-tutors`);
     
     if (result.success && result.data) {
       // Backend returns AvailableTutorResponse with UserId, FullName, Email, PhoneNumber, AverageRating, ReviewCount
@@ -2875,17 +2864,11 @@ export async function getAvailableTutors(params?: {
   startTime?: string;
   endTime?: string;
   isOnline?: boolean;
-  contractId?: string;
-  sortByRating?: boolean;
-  sortByDistance?: boolean;
+  contractId?: string; // Add contractId parameter
 }) {
   // If contractId is provided, use the contract-specific endpoint
   if (params?.contractId) {
-    return getAvailableTutorsForContract(
-      params.contractId,
-      params.sortByRating ?? false,
-      params.sortByDistance ?? false
-    );
+    return getAvailableTutorsForContract(params.contractId);
   }
 
   // Otherwise, use existing searchTutorsByAvailability function
@@ -3875,76 +3858,6 @@ export async function getDailyReportsByTutor() {
 export async function getDailyReportsByChild(childId: string) {
   try {
     const result = await apiService.request<any[]>(`/daily-reports/child/${childId}`, {
-      method: 'GET',
-    });
-    
-    if (result.success && result.data) {
-      // Fetch all units to map unit IDs to names
-      let unitsMap: { [key: string]: string } = {};
-      try {
-        const unitsResult = await getAllUnits();
-        if (unitsResult.success && unitsResult.data) {
-          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
-            if (unit.unitId && unit.unitName) {
-              acc[unit.unitId] = unit.unitName;
-            }
-            return acc;
-          }, {});
-          if (import.meta.env.DEV) {
-            console.log('[DailyReports] Units map created with', Object.keys(unitsMap).length, 'units');
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to fetch units for enrichment:', error);
-      }
-
-      const mappedData: DailyReport[] = result.data.map((item: any) => {
-        const unitId = item.unitId || item.UnitId || '';
-        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
-        
-        if (import.meta.env.DEV && !unitName && unitId) {
-          console.log('[DailyReports] Unit name not found for unitId:', unitId, 'Map has:', Object.keys(unitsMap).length, 'units');
-        }
-        
-        return {
-          reportId: item.reportId || item.ReportId || '',
-          childId: item.childId || item.ChildId || '',
-          tutorId: item.tutorId || item.TutorId || '',
-          bookingId: item.bookingId || item.BookingId || '',
-          notes: item.notes || item.Notes,
-          onTrack: item.onTrack ?? item.OnTrack ?? false,
-          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-          createdDate: item.createdDate || item.CreatedDate || '',
-          unitId: unitId,
-          testId: item.testId || item.TestId,
-          childName: item.childName || item.ChildName,
-          tutorName: item.tutorName || item.TutorName,
-          unitName: unitName,
-          sessionDate: item.sessionDate || item.SessionDate,
-        };
-      });
-      
-      return {
-        success: true,
-        data: mappedData,
-        error: null,
-      };
-    }
-    
-    return result;
-  } catch (error: any) {
-    return {
-      success: false,
-      data: [],
-      error: error?.message || 'Failed to fetch daily reports',
-    };
-  }
-}
-
-// Get all daily reports for a contract
-export async function getDailyReportsByContract(contractId: string) {
-  try {
-    const result = await apiService.request<any[]>(`/daily-reports/contract/${contractId}`, {
       method: 'GET',
     });
     
