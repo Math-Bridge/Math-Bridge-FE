@@ -2820,9 +2820,20 @@ export async function rejectTutorVerification(tutorId: string) {
  * This endpoint checks for overlapping contracts and returns tutors sorted by rating
  * @param contractId - The contract ID to get available tutors for
  */
-export async function getAvailableTutorsForContract(contractId: string) {
+export async function getAvailableTutorsForContract(
+  contractId: string,
+  sortByRating: boolean = false,
+  sortByDistance: boolean = false
+) {
   try {
-    const result = await apiService.request<any[]>(`/contracts/${contractId}/available-tutors`);
+    const queryParams = new URLSearchParams();
+    if (sortByRating) queryParams.append('sortByRating', 'true');
+    if (sortByDistance) queryParams.append('sortByDistance', 'true');
+    
+    const queryString = queryParams.toString();
+    const endpoint = `/contracts/${contractId}/available-tutors${queryString ? `?${queryString}` : ''}`;
+    
+    const result = await apiService.request<any[]>(endpoint);
     
     if (result.success && result.data) {
       // Backend returns AvailableTutorResponse with UserId, FullName, Email, PhoneNumber, AverageRating, ReviewCount
@@ -2864,11 +2875,17 @@ export async function getAvailableTutors(params?: {
   startTime?: string;
   endTime?: string;
   isOnline?: boolean;
-  contractId?: string; // Add contractId parameter
+  contractId?: string;
+  sortByRating?: boolean;
+  sortByDistance?: boolean;
 }) {
   // If contractId is provided, use the contract-specific endpoint
   if (params?.contractId) {
-    return getAvailableTutorsForContract(params.contractId);
+    return getAvailableTutorsForContract(
+      params.contractId,
+      params.sortByRating ?? false,
+      params.sortByDistance ?? false
+    );
   }
 
   // Otherwise, use existing searchTutorsByAvailability function
