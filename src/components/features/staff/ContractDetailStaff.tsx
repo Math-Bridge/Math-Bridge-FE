@@ -65,6 +65,10 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [dailyReports, setDailyReports] = useState<any[]>([]);
   const [loadingDailyReports, setLoadingDailyReports] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  
+  // Tutor sorting options
+  const [sortByRating, setSortByRating] = useState(false);
+  const [sortByDistance, setSortByDistance] = useState(false);
 
   useEffect(() => {
     if (contractId) {
@@ -364,12 +368,14 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
     await fetchAvailableTutors();
   };
 
-  const fetchAvailableTutors = async () => {
+  const fetchAvailableTutors = async (sortRating?: boolean, sortDist?: boolean) => {
     if (!contract) return;
     try {
       setLoadingTutors(true);
       const result = await getAvailableTutors({
         contractId: contract.contractId,
+        sortByRating: sortRating ?? sortByRating,
+        sortByDistance: sortDist ?? sortByDistance,
       });
       if (result.success && result.data) {
         setAvailableTutors(result.data);
@@ -1229,6 +1235,39 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
+              </div>
+            </div>
+
+            {/* Sorting Controls */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-700">Sort by:</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sortByRating}
+                    onChange={async (e) => {
+                      const newValue = e.target.checked;
+                      setSortByRating(newValue);
+                      await fetchAvailableTutors(newValue, sortByDistance);
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Rating</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sortByDistance}
+                    onChange={async (e) => {
+                      const newValue = e.target.checked;
+                      setSortByDistance(newValue);
+                      await fetchAvailableTutors(sortByRating, newValue);
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">Distance</span>
+                </label>
               </div>
             </div>
 
