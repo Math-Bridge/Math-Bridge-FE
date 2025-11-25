@@ -476,17 +476,27 @@ class ApiService {
       if (result.success && result.data) {
         // Backend returns { data: [...], totalCount: ... }
         const usersData = result.data.data || result.data;
-        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => ({
-          userId: item.userId || item.UserId || '',
-          fullName: item.fullName || item.FullName || '',
-          email: item.email || item.Email || '',
-          phoneNumber: item.phoneNumber || item.PhoneNumber,
-          roleId: item.roleId ?? item.RoleId ?? 0,
-          roleName: item.roleName || item.RoleName,
-          status: item.status || item.Status || 'active',
-          formattedAddress: item.formattedAddress || item.FormattedAddress,
-          walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
-        }));
+        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => {
+          // Extract hourlyRate from TutorVerification if user is a tutor
+          const verification = item.TutorVerification || item.tutorVerification || null;
+          const hourlyRate = verification?.HourlyRate !== undefined ? verification.HourlyRate : 
+                            (verification?.hourlyRate !== undefined ? verification.hourlyRate : 
+                            (item.hourlyRate !== undefined ? item.hourlyRate : 
+                            (item.HourlyRate !== undefined ? item.HourlyRate : undefined)));
+          
+          return {
+            userId: item.userId || item.UserId || '',
+            fullName: item.fullName || item.FullName || '',
+            email: item.email || item.Email || '',
+            phoneNumber: item.phoneNumber || item.PhoneNumber,
+            roleId: item.roleId ?? item.RoleId ?? 0,
+            roleName: item.roleName || item.RoleName,
+            status: item.status || item.Status || 'active',
+            formattedAddress: item.formattedAddress || item.FormattedAddress,
+            walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
+            hourlyRate: hourlyRate,
+          };
+        });
         
       return {
         success: true,
@@ -2496,6 +2506,78 @@ export async function getAllTutors() {
       success: false,
       data: null,
       error: error instanceof Error ? error.message : 'Failed to fetch tutors',
+    };
+  }
+}
+
+// Get tutor by ID
+// Backend endpoint: GET /api/Tutors/{id}
+export async function getTutorById(tutorId: string) {
+  try {
+    console.log(`[getTutorById] Fetching tutor with ID: ${tutorId}`);
+    const result = await apiService.request<any>(`/Tutors/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    console.log(`[getTutorById] API Response:`, result);
+    
+    if (result.success && result.data) {
+      const tutor = result.data;
+      const verification = tutor.TutorVerification || tutor.tutorVerification || null;
+      
+      console.log(`[getTutorById] Tutor data:`, tutor);
+      console.log(`[getTutorById] Verification:`, verification);
+      
+      const mappedData = {
+        userId: tutor.userId || tutor.UserId || tutor.user_id || '',
+        fullName: tutor.fullName || tutor.FullName || tutor.full_name || '',
+        email: tutor.email || tutor.Email || '',
+        phone: tutor.phoneNumber || tutor.PhoneNumber || tutor.phone || '',
+        gender: tutor.gender || tutor.Gender || '',
+        formattedAddress: tutor.formattedAddress || tutor.FormattedAddress || '',
+        city: tutor.city || tutor.City || '',
+        district: tutor.district || tutor.District || '',
+        status: tutor.status || tutor.Status || '',
+        createdDate: tutor.createdDate || tutor.CreatedDate || null,
+        // Verification info
+        verification: verification ? {
+          verificationId: verification.verificationId || verification.VerificationId || '',
+          university: verification.university || verification.University || '',
+          major: verification.major || verification.Major || '',
+          hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
+          bio: verification.bio || verification.Bio || '',
+          verificationStatus: verification.verificationStatus || verification.VerificationStatus || '',
+          verificationDate: verification.verificationDate || verification.VerificationDate || null,
+        } : null,
+        // Centers
+        tutorCenters: tutor.tutorCenters || tutor.TutorCenters || [],
+        // Schedules
+        tutorSchedules: tutor.tutorSchedules || tutor.TutorSchedules || [],
+        // Final Feedbacks
+        finalFeedbacks: tutor.finalFeedbacks || tutor.FinalFeedbacks || [],
+      };
+      
+      console.log(`[getTutorById] Mapped data:`, mappedData);
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    console.warn(`[getTutorById] API call succeeded but no data returned. Result:`, result);
+    return {
+      success: false,
+      data: null,
+      error: result.error || result.message || 'Tutor not found',
+    };
+  } catch (error) {
+    console.error('[getTutorById] Error fetching tutor by ID:', error);
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Failed to fetch tutor',
     };
   }
 }

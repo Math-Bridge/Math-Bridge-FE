@@ -552,13 +552,17 @@ const StudySchedule: React.FC = () => {
                 </div>
                 {/* Children Selector */}
                 <>
-                  {children.length > 0 && (
-                    <div className="relative">
+                  {children.length > 0 ? (
+                    <div className="relative z-10">
                       <div className="bg-white/20 backdrop-blur-md rounded-xl p-1 border border-white/30">
                         <select
                           value={selectedChildId || ''}
-                          onChange={(e) => setSelectedChildId(e.target.value || null)}
-                          className="appearance-none bg-white/95 backdrop-blur-sm border-0 rounded-lg px-4 py-3 pr-10 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer hover:bg-white transition-all shadow-sm"
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSelectedChildId(value || null);
+                          }}
+                          className="appearance-none bg-white/95 backdrop-blur-sm border-0 rounded-lg px-4 py-3 pr-10 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer hover:bg-white transition-all shadow-sm w-full"
+                          style={{ zIndex: 10 }}
                         >
                           <option value="">Select a child...</option>
                           {children.map((child) => (
@@ -567,8 +571,12 @@ const StudySchedule: React.FC = () => {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" style={{ zIndex: 1 }} />
                       </div>
+                    </div>
+                  ) : (
+                    <div className="text-white/80 text-sm">
+                      No children found. Please add a child first.
                     </div>
                   )}
                 </>

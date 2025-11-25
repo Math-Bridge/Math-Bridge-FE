@@ -34,10 +34,7 @@ const TutorList: React.FC = () => {
   const [tutors, setTutors] = useState<TutorDisplay[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
   const [sortBy, setSortBy] = useState('rating');
-
-  const subjects = [t('allSubjects'), t('algebra'), t('geometry'), t('calculus'), t('statistics'), t('trigonometry'), t('preCalculus')];
 
   useEffect(() => {
     const fetchTutors = async () => {
@@ -107,9 +104,7 @@ const TutorList: React.FC = () => {
   const filteredTutors = tutors.filter(tutor => {
     const matchesSearch = tutor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          tutor.subjects.some(subject => subject.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesSubject = selectedSubject === '' || selectedSubject === 'All Subjects' || 
-                          tutor.subjects.includes(selectedSubject);
-    return matchesSearch && matchesSubject;
+    return matchesSearch;
   });
 
   const sortedTutors = [...filteredTutors].sort((a, b) => {
@@ -151,7 +146,7 @@ const TutorList: React.FC = () => {
 
         {/* Search and Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -162,19 +157,6 @@ const TutorList: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-            </div>
-
-            {/* Subject Filter */}
-            <div>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {subjects.map(subject => (
-                  <option key={subject} value={subject}>{subject}</option>
-                ))}
-              </select>
             </div>
 
             {/* Sort */}
@@ -270,16 +252,6 @@ const TutorList: React.FC = () => {
                 </div>
 
 
-                {/* Staff Assignment Info */}
-                <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                  <div className="flex items-center space-x-2 mb-1">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-semibold text-blue-900">Staff Assignment</span>
-                  </div>
-                  <p className="text-xs text-blue-700">
-                    Tutor assignments are managed by our staff team. Contact us to discuss your learning needs.
-                  </p>
-                </div>
 
                 {/* Action Button */}
                 <button

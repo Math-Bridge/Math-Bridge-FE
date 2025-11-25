@@ -26,6 +26,7 @@ import {
   getAllUnits,
   getContractById,
   getDailyReportsByTutor,
+  getChildById,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
@@ -49,7 +50,7 @@ const TutorDailyReport: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // View mode: 'create' for creating/editing today's reports, 'view' for viewing past reports
-  const [viewMode, setViewMode] = useState<'create' | 'view'>('create');
+  const [viewMode, setViewMode] = useState<'create' | 'view'>('view');
   const [allReports, setAllReports] = useState<DailyReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
   const [selectedReport, setSelectedReport] = useState<DailyReport | null>(null);
@@ -239,8 +240,27 @@ const TutorDailyReport: React.FC = () => {
       setLoadingReports(true);
       const result = await getDailyReportsByTutor();
       if (result.success && result.data) {
+        // Enrich reports with child names if missing
+        const enrichedReports = await Promise.all(
+          result.data.map(async (report: DailyReport) => {
+            // If childName is missing, try to fetch it from childId
+            if (!report.childName && report.childId) {
+              try {
+                const childResult = await getChildById(report.childId);
+                if (childResult.success && childResult.data) {
+                  const childName = childResult.data.fullName || childResult.data.FullName || '';
+                  return { ...report, childName };
+                }
+              } catch (error) {
+                console.warn(`Failed to fetch child name for childId ${report.childId}:`, error);
+              }
+            }
+            return report;
+          })
+        );
+        
         // Sort by date descending (newest first)
-        const sorted = [...result.data].sort((a, b) => {
+        const sorted = enrichedReports.sort((a, b) => {
           const dateA = new Date(a.sessionDate || a.createdDate).getTime();
           const dateB = new Date(b.sessionDate || b.createdDate).getTime();
           return dateB - dateA;
@@ -471,21 +491,6 @@ const TutorDailyReport: React.FC = () => {
             )}
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setViewMode('create');
-                setSelectedReport(null);
-                setSelectedSession(null);
-                resetForm();
-              }}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                viewMode === 'create'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Create/Edit Today
-            </button>
             <button
               onClick={() => {
                 setViewMode('view');
