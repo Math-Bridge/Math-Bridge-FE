@@ -72,7 +72,7 @@ const TutorDailyReport: React.FC = () => {
     }
     
     if (viewMode === 'create') {
-      fetchSessions();
+    fetchSessions();
     } else {
       setLoading(false); // View mode doesn't need loading state
       fetchAllReports();
@@ -122,9 +122,8 @@ const TutorDailyReport: React.FC = () => {
             sessionDateStr = sessionDateStr.split(' ')[0];
           }
           
-          // Only show scheduled or completed sessions for today
-          return sessionDateStr === todayStr && 
-                 (s.status === 'completed' || s.status === 'scheduled' || s.status === 'processing');
+          // Only show completed sessions for today (can only create report for completed sessions)
+          return sessionDateStr === todayStr && s.status === 'completed';
         });
         
         // Sort by start time
@@ -344,6 +343,12 @@ const TutorDailyReport: React.FC = () => {
       return;
     }
 
+    // Validate that session is completed before creating report
+    if (selectedSession.status !== 'completed') {
+      showError('Daily report can only be created for completed sessions. Please wait until the session is completed.');
+      return;
+    }
+
     if (!unitId || unitId.trim() === '') {
       showError('Please select a unit');
       return;
@@ -507,10 +512,10 @@ const TutorDailyReport: React.FC = () => {
             <button
               onClick={() => {
                 if (viewMode === 'create') {
-                  setViewMode('view');
-                  setSelectedSession(null);
+                setViewMode('view');
+                setSelectedSession(null);
                   setLoading(false);
-                  fetchAllReports();
+                fetchAllReports();
                 } else {
                   setViewMode('create');
                   setSelectedReport(null);
@@ -553,7 +558,8 @@ const TutorDailyReport: React.FC = () => {
                 {filteredSessions.length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>No sessions scheduled for today</p>
+                    <p>No completed sessions for today</p>
+                    <p className="text-xs text-gray-400 mt-1">Daily reports can only be created for completed sessions</p>
                   </div>
                 ) : (
                   filteredSessions.map((session) => (
