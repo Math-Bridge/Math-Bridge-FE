@@ -148,23 +148,31 @@ const PackageManagement: React.FC = () => {
       if (result.success && result.data) {
         const packagesData = Array.isArray(result.data) ? result.data : [];
         // Map backend data to frontend format
-        const mappedPackages: PackageData[] = packagesData.map((pkg: any) => ({
-          packageId: pkg.PackageId || pkg.packageId || pkg.id || '',
-          packageName: pkg.PackageName || pkg.packageName || pkg.name || '',
-          name: pkg.PackageName || pkg.packageName || pkg.name || '',
-          description: pkg.Description || pkg.description || '',
-          price: pkg.Price || pkg.price || 0,
-          duration: pkg.DurationDays ? Math.ceil(pkg.DurationDays / 30) : pkg.duration || 0,
-          durationDays: pkg.DurationDays || pkg.durationDays || 0,
-          sessions: pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0,
-          sessionCount: pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0,
-          sessionsPerWeek: pkg.SessionsPerWeek || pkg.sessionsPerWeek || 0,
-          maxReschedule: pkg.MaxReschedule || pkg.maxReschedule || 0,
-          grade: pkg.Grade || pkg.grade || '',
-          status: pkg.IsActive !== undefined ? (pkg.IsActive ? 'active' : 'inactive') : (pkg.Status || pkg.status || 'active'),
-          curriculumId: pkg.CurriculumId || pkg.curriculumId || '',
-          curriculumName: pkg.CurriculumName || pkg.curriculumName || '',
-        }));
+        const mappedPackages: PackageData[] = packagesData.map((pkg: any) => {
+          // Debug: Log the raw package data to see what fields are available
+          if (!pkg.CurriculumId && !pkg.curriculumId) {
+            console.log('Package without CurriculumId:', pkg);
+          }
+          
+          return {
+            packageId: pkg.PackageId || pkg.packageId || pkg.id || '',
+            packageName: pkg.PackageName || pkg.packageName || pkg.name || '',
+            name: pkg.PackageName || pkg.packageName || pkg.name || '',
+            description: pkg.Description || pkg.description || '',
+            price: pkg.Price || pkg.price || 0,
+            duration: pkg.DurationDays ? Math.ceil(pkg.DurationDays / 30) : pkg.duration || 0,
+            durationDays: pkg.DurationDays || pkg.durationDays || 0,
+            sessions: pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0,
+            sessionCount: pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0,
+            sessionsPerWeek: pkg.SessionsPerWeek || pkg.sessionsPerWeek || 0,
+            maxReschedule: pkg.MaxReschedule || pkg.maxReschedule || 0,
+            grade: pkg.Grade || pkg.grade || '',
+            status: pkg.IsActive !== undefined ? (pkg.IsActive ? 'active' : 'inactive') : (pkg.Status || pkg.status || 'active'),
+            // Try to get CurriculumId from various possible locations
+            curriculumId: pkg.CurriculumId || pkg.curriculumId || pkg.Curriculum?.CurriculumId || pkg.curriculum?.curriculumId || '',
+            curriculumName: pkg.CurriculumName || pkg.curriculumName || pkg.Curriculum?.CurriculumName || pkg.curriculum?.curriculumName || '',
+          };
+        });
         setPackages(mappedPackages);
       } else {
         setPackages([]);
@@ -251,8 +259,37 @@ const PackageManagement: React.FC = () => {
     setShowCreateModal(true);
   };
 
-  const openEditModal = (pkg: PackageData) => {
+  const openEditModal = async (pkg: PackageData) => {
     setSelectedPackage(pkg);
+    setShowEditModal(true);
+    
+    // Try to fetch full package details to get CurriculumId
+    // Since backend DTO doesn't include CurriculumId in GetAllPackages, try to fetch from packages endpoint
+    let curriculumId = pkg.curriculumId ? String(pkg.curriculumId) : '';
+    
+    // If curriculumId is not in the package data, try to fetch from packages endpoint
+    if (!curriculumId && pkg.packageId) {
+      try {
+        const result = await apiService.request(`/packages/${pkg.packageId}`, {
+          method: 'GET'
+        });
+        if (result.success && result.data) {
+          const fullPackage = result.data as any;
+          // Try multiple possible field names
+          curriculumId = String(
+            fullPackage.CurriculumId || 
+            fullPackage.curriculumId || 
+            fullPackage.Curriculum?.CurriculumId || 
+            fullPackage.curriculum?.curriculumId || 
+            ''
+          );
+        }
+      } catch (error) {
+        console.warn('Could not fetch full package details from /packages endpoint:', error);
+        // Continue with existing data
+      }
+    }
+    
     setFormData({
       packageName: pkg.packageName || pkg.name || '',
       grade: pkg.grade || 'grade 9',
@@ -262,10 +299,9 @@ const PackageManagement: React.FC = () => {
       maxReschedule: pkg.maxReschedule || 0,
       durationDays: pkg.durationDays || 0,
       description: pkg.description || '',
-      curriculumId: pkg.curriculumId || '',
+      curriculumId: curriculumId,
       status: pkg.status || 'active'
     });
-    setShowEditModal(true);
   };
 
   const closeModals = () => {
@@ -799,7 +835,7 @@ const PackageManagement: React.FC = () => {
                     <>
                       <select
                         required
-                        value={formData.curriculumId}
+                        value={formData.curriculumId || ''}
                         onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
                         className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
                           !formData.curriculumId 
@@ -808,11 +844,15 @@ const PackageManagement: React.FC = () => {
                         }`}
                       >
                         <option value="" disabled>Select a curriculum *</option>
-                        {curricula.map((curriculum: any) => (
-                          <option key={curriculum.CurriculumId || curriculum.curriculumId} value={curriculum.CurriculumId || curriculum.curriculumId}>
-                            {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
-                          </option>
-                        ))}
+                        {curricula.map((curriculum: any) => {
+                          // Ensure both value and key are strings for proper matching
+                          const curriculumId = String(curriculum.CurriculumId || curriculum.curriculumId || '');
+                          return (
+                            <option key={curriculumId} value={curriculumId}>
+                              {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                       {!formData.curriculumId && (
                         <p className="text-xs text-red-600 mt-1">Curriculum is required</p>
@@ -1038,7 +1078,7 @@ const PackageManagement: React.FC = () => {
                     <>
                       <select
                         required
-                        value={formData.curriculumId}
+                        value={formData.curriculumId || ''}
                         onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
                         className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
                           !formData.curriculumId 
@@ -1047,11 +1087,15 @@ const PackageManagement: React.FC = () => {
                         }`}
                       >
                         <option value="" disabled>Select a curriculum *</option>
-                        {curricula.map((curriculum: any) => (
-                          <option key={curriculum.CurriculumId || curriculum.curriculumId} value={curriculum.CurriculumId || curriculum.curriculumId}>
-                            {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
-                          </option>
-                        ))}
+                        {curricula.map((curriculum: any) => {
+                          // Ensure both value and key are strings for proper matching
+                          const curriculumId = String(curriculum.CurriculumId || curriculum.curriculumId || '');
+                          return (
+                            <option key={curriculumId} value={curriculumId}>
+                              {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
+                            </option>
+                          );
+                        })}
                       </select>
                       {!formData.curriculumId && (
                         <p className="text-xs text-red-600 mt-1">Curriculum is required</p>

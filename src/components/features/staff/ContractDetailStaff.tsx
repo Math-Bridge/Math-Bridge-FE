@@ -23,7 +23,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -79,11 +79,12 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   // Fetch daily reports when switching to daily reports tab
   useEffect(() => {
     const fetchDailyReports = async () => {
-      if (!contract?.childId) return;
+      if (!contractId) return;
       
       try {
         setLoadingDailyReports(true);
-        const reportsResult = await getDailyReportsByChild(contract.childId);
+        // Use contract-specific endpoint to get only reports for this contract
+        const reportsResult = await getDailyReportsByContractId(contractId);
         if (reportsResult.success && reportsResult.data) {
           // Sort by date descending
           const sorted = [...reportsResult.data].sort((a, b) => {
@@ -92,11 +93,15 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             return dateB - dateA;
           });
           setDailyReports(sorted);
+        } else {
+          // If no reports found for this contract, set empty array
+          setDailyReports([]);
         }
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Error fetching daily reports:', error);
         }
+        setDailyReports([]);
       } finally {
         setLoadingDailyReports(false);
       }
@@ -105,7 +110,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
     if (activeTab === 'dailyReports') {
       fetchDailyReports();
     }
-  }, [contract?.childId, activeTab]);
+  }, [contractId, activeTab]);
 
   const fetchContractDetails = async () => {
     if (!contractId) {

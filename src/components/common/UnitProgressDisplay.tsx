@@ -186,13 +186,6 @@ const UnitProgressDisplay: React.FC<UnitProgressDisplayProps> = ({
         )}
       </div>
 
-      {/* Message Display */}
-      {progress.message && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800">{progress.message}</p>
-        </div>
-      )}
-
       {/* Detailed Unit Progress List */}
       {showDetailedUnits && progress.unitsProgress && progress.unitsProgress.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6">

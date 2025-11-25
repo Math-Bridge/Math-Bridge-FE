@@ -24,7 +24,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, DailyReport, getTutorVerificationByUserId } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
@@ -390,34 +390,32 @@ const ContractDetail: React.FC = () => {
     fetchContract();
   }, [contractId, user?.id]);
 
-  // Fetch daily reports when contract or child changes
+  // Fetch daily reports when contract changes
   useEffect(() => {
     const fetchDailyReports = async () => {
       if (!contract?.id) return;
       
       try {
         setLoadingDailyReports(true);
-        // Get the child ID from the contract
-        const contractData = await getContractById(contract.id);
-        if (contractData.success && contractData.data) {
-          const childId = contractData.data.childId || contractData.data.ChildId;
-          if (childId) {
-            const reportsResult = await getDailyReportsByChild(childId);
-            if (reportsResult.success && reportsResult.data) {
-              // Sort by date descending
-              const sorted = [...reportsResult.data].sort((a, b) => {
-                const dateA = new Date(a.createdDate).getTime();
-                const dateB = new Date(b.createdDate).getTime();
-                return dateB - dateA;
-              });
-              setDailyReports(sorted);
-            }
-          }
+        // Use contract-specific endpoint to get only reports for this contract
+        const reportsResult = await getDailyReportsByContractId(contract.id);
+        if (reportsResult.success && reportsResult.data) {
+          // Sort by date descending
+          const sorted = [...reportsResult.data].sort((a, b) => {
+            const dateA = new Date(a.createdDate).getTime();
+            const dateB = new Date(b.createdDate).getTime();
+            return dateB - dateA;
+          });
+          setDailyReports(sorted);
+        } else {
+          // If no reports found for this contract, set empty array
+          setDailyReports([]);
         }
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error('Error fetching daily reports:', error);
         }
+        setDailyReports([]);
       } finally {
         setLoadingDailyReports(false);
       }
