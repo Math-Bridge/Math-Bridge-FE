@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -143,12 +143,66 @@ const CreateContract: React.FC = () => {
   }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const lastSearchedAddressRef = useRef<string>('');
 
   useEffect(() => {
     fetchData();
     fetchUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Auto-search centers when address and coordinates are available
+  // This ensures centers are found when coordinates are set from any source
+  useEffect(() => {
+    const searchCentersIfReady = async () => {
+      // Only search if offline mode, address exists, coordinates are available, and we haven't searched for this address yet
+      if (!schedule.isOnline && 
+          schedule.offlineAddress && 
+          schedule.offlineAddress.trim().length >= 5 &&
+          schedule.offlineLatitude !== undefined && 
+          schedule.offlineLongitude !== undefined &&
+          !loadingCenters &&
+          lastSearchedAddressRef.current !== schedule.offlineAddress) {
+        
+        lastSearchedAddressRef.current = schedule.offlineAddress;
+        setLoadingCenters(true);
+        try {
+          const result = await getCentersNearAddress(schedule.offlineAddress, 10);
+          if (result.success && result.data) {
+            let centersData: Center[] = [];
+            const data = result.data as any;
+            
+            if (Array.isArray(data)) {
+              centersData = data;
+            } else if (data.data && Array.isArray(data.data)) {
+              centersData = data.data;
+            } else if (data.centers && Array.isArray(data.centers)) {
+              centersData = data.centers;
+            } else if (data.items && Array.isArray(data.items)) {
+              centersData = data.items;
+            }
+            
+            setNearbyCenters(centersData);
+          } else {
+            setNearbyCenters([]);
+          }
+        } catch (error) {
+          console.error('Error fetching nearby centers:', error);
+          setNearbyCenters([]);
+        } finally {
+          setLoadingCenters(false);
+        }
+      }
+    };
+
+    // Debounce the search to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      searchCentersIfReady();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schedule.offlineAddress, schedule.offlineLatitude, schedule.offlineLongitude, schedule.isOnline]);
 
   // Fetch user profile to get address
   const fetchUserProfile = async () => {
@@ -167,6 +221,37 @@ const CreateContract: React.FC = () => {
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
+  };
+
+  // Helper function to geocode an address (get coordinates from address string)
+  const geocodeAddress = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+    if (!address || address.trim().length < 3) {
+      return null;
+    }
+
+    try {
+      // First, try to get autocomplete suggestions to find a placeId
+      const autocompleteResult = await apiService.getAddressAutocomplete(address, 'VN');
+      if (autocompleteResult.success && autocompleteResult.data?.predictions && autocompleteResult.data.predictions.length > 0) {
+        // Use the first suggestion's placeId to get coordinates
+        const firstPrediction = autocompleteResult.data.predictions[0];
+        const placeId = firstPrediction.place_id || firstPrediction.placeId;
+        
+        if (placeId) {
+          const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
+          if (coordinatesResult.success && coordinatesResult.data) {
+            return {
+              latitude: coordinatesResult.data.latitude,
+              longitude: coordinatesResult.data.longitude
+            };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    }
+    
+    return null;
   };
 
   // Poll contract status when direct payment is active
@@ -547,7 +632,34 @@ const CreateContract: React.FC = () => {
         
         if (schedule.offlineAddress) {
           contractData.offlineAddress = schedule.offlineAddress;
+          
+          // If address exists but coordinates are missing, try to geocode it
+          if ((schedule.offlineLatitude === undefined || schedule.offlineLongitude === undefined) && 
+              schedule.offlineAddress.trim().length >= 3) {
+            try {
+              const coordinates = await geocodeAddress(schedule.offlineAddress);
+              if (coordinates) {
+                contractData.offlineLatitude = coordinates.latitude;
+                contractData.offlineLongitude = coordinates.longitude;
+                // Also update state for consistency
+                setSchedule(prev => ({
+                  ...prev,
+                  offlineLatitude: coordinates.latitude,
+                  offlineLongitude: coordinates.longitude
+                }));
+                if (import.meta.env.DEV) {
+                  console.log('Geocoded address before submit:', { address: schedule.offlineAddress, coordinates });
+                }
+              } else {
+                console.warn('Could not geocode address before submit:', schedule.offlineAddress);
+              }
+            } catch (error) {
+              console.error('Error geocoding address before submit:', error);
+              // Continue with submission even if geocoding fails
+            }
+          }
         }
+        
         if (schedule.offlineLatitude !== undefined) {
           contractData.offlineLatitude = schedule.offlineLatitude;
         }
@@ -1259,6 +1371,24 @@ const CreateContract: React.FC = () => {
                       // Load user profile address if available and no address is set
                       if (!schedule.offlineAddress && userProfileAddress) {
                         setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                        // Geocode the profile address
+                        if (userProfileAddress.trim().length >= 3) {
+                          try {
+                            const coordinates = await geocodeAddress(userProfileAddress);
+                            if (coordinates) {
+                              setSchedule(prev => ({
+                                ...prev,
+                                offlineLatitude: coordinates.latitude,
+                                offlineLongitude: coordinates.longitude
+                              }));
+                              if (import.meta.env.DEV) {
+                                console.log('Geocoded profile address:', { address: userProfileAddress, coordinates });
+                              }
+                            }
+                          } catch (error) {
+                            console.error('Error geocoding profile address:', error);
+                          }
+                        }
                         // Search for centers with profile address
                         if (userProfileAddress.trim().length >= 5) {
                           setLoadingCenters(true);
@@ -1374,6 +1504,11 @@ const CreateContract: React.FC = () => {
                         setSelectedCenterId(null);
                         setShowSuggestions(true);
                         
+                        // Reset last searched address when address changes
+                        if (lastSearchedAddressRef.current !== address) {
+                          lastSearchedAddressRef.current = '';
+                        }
+                        
                         // Get autocomplete suggestions
                         if (address.trim().length >= 3) {
                           setLoadingSuggestions(true);
@@ -1400,9 +1535,69 @@ const CreateContract: React.FC = () => {
                           setShowSuggestions(true);
                         }
                       }}
-                      onBlur={() => {
+                      onBlur={async () => {
                         // Delay to allow click on suggestion
                         setTimeout(() => setShowSuggestions(false), 200);
+                        
+                        // If address exists but no coordinates, try to geocode it
+                        if (schedule.offlineAddress && 
+                            schedule.offlineAddress.trim().length >= 3) {
+                          let shouldSearchCenters = false;
+                          
+                          // Geocode if coordinates are missing
+                          if (schedule.offlineLatitude === undefined || schedule.offlineLongitude === undefined) {
+                            try {
+                              const coordinates = await geocodeAddress(schedule.offlineAddress);
+                              if (coordinates) {
+                                setSchedule(prev => ({
+                                  ...prev,
+                                  offlineLatitude: coordinates.latitude,
+                                  offlineLongitude: coordinates.longitude
+                                }));
+                                if (import.meta.env.DEV) {
+                                  console.log('Geocoded address:', { address: schedule.offlineAddress, coordinates });
+                                }
+                                shouldSearchCenters = true;
+                              }
+                            } catch (error) {
+                              console.error('Error geocoding address on blur:', error);
+                            }
+                          } else {
+                            // Coordinates already exist, just search for centers
+                            shouldSearchCenters = true;
+                          }
+                          
+                          // Search for centers if address is long enough
+                          if (shouldSearchCenters && schedule.offlineAddress.trim().length >= 5) {
+                            setLoadingCenters(true);
+                            try {
+                              const result = await getCentersNearAddress(schedule.offlineAddress, 10);
+                              if (result.success && result.data) {
+                                let centersData: Center[] = [];
+                                const data = result.data as any;
+                                
+                                if (Array.isArray(data)) {
+                                  centersData = data;
+                                } else if (data.data && Array.isArray(data.data)) {
+                                  centersData = data.data;
+                                } else if (data.centers && Array.isArray(data.centers)) {
+                                  centersData = data.centers;
+                                } else if (data.items && Array.isArray(data.items)) {
+                                  centersData = data.items;
+                                }
+                                
+                                setNearbyCenters(centersData);
+                              } else {
+                                setNearbyCenters([]);
+                              }
+                            } catch (error) {
+                              console.error('Error fetching nearby centers:', error);
+                              setNearbyCenters([]);
+                            } finally {
+                              setLoadingCenters(false);
+                            }
+                          }
+                        }
                       }}
                       placeholder="Enter address or select from suggestions"
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1510,6 +1705,24 @@ const CreateContract: React.FC = () => {
                         type="button"
                         onClick={async () => {
                           setSchedule(prev => ({ ...prev, offlineAddress: userProfileAddress }));
+                          // Geocode the profile address
+                          if (userProfileAddress.trim().length >= 3) {
+                            try {
+                              const coordinates = await geocodeAddress(userProfileAddress);
+                              if (coordinates) {
+                                setSchedule(prev => ({
+                                  ...prev,
+                                  offlineLatitude: coordinates.latitude,
+                                  offlineLongitude: coordinates.longitude
+                                }));
+                                if (import.meta.env.DEV) {
+                                  console.log('Geocoded profile address:', { address: userProfileAddress, coordinates });
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Error geocoding profile address:', error);
+                            }
+                          }
                           // Search for centers with profile address
                           setLoadingCenters(true);
                           try {

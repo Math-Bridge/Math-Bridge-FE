@@ -3924,6 +3924,76 @@ export async function getDailyReportsByChild(childId: string) {
   }
 }
 
+// Get all daily reports for a contract
+export async function getDailyReportsByContract(contractId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports/contract/${contractId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Fetch all units to map unit IDs to names
+      let unitsMap: { [key: string]: string } = {};
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+          if (import.meta.env.DEV) {
+            console.log('[DailyReports] Units map created with', Object.keys(unitsMap).length, 'units');
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        
+        if (import.meta.env.DEV && !unitName && unitId) {
+          console.log('[DailyReports] Unit name not found for unitId:', unitId, 'Map has:', Object.keys(unitsMap).length, 'units');
+        }
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: item.childId || item.ChildId || '',
+          tutorId: item.tutorId || item.TutorId || '',
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: item.childName || item.ChildName,
+          tutorName: item.tutorName || item.TutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch daily reports',
+    };
+  }
+}
+
 // Get all daily reports for a booking/session
 export async function getDailyReportsByBooking(bookingId: string) {
   try {
