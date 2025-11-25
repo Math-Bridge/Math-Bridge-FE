@@ -13,7 +13,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllTutors, assignTutorToCenter, apiService, getCentersNearAddress } from '../../../services/api';
+import { getUnassignedTutors, assignTutorToCenter, apiService, getCentersNearAddress } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface Tutor {
@@ -32,14 +32,6 @@ interface Tutor {
     university?: string;
     major?: string;
   };
-  tutorCenters?: Array<{
-    tutorCenterId?: string;
-    centerId?: string;
-    center?: {
-      centerId: string;
-      name: string;
-    };
-  }>;
 }
 
 interface Center {
@@ -71,73 +63,21 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
   const [radiusKm, setRadiusKm] = useState(10);
 
   useEffect(() => {
-    fetchAllTutors();
+    fetchUnassignedTutors();
   }, []);
 
-  const fetchAllTutors = async () => {
+  const fetchUnassignedTutors = async () => {
     try {
       setLoading(true);
-      // Fetch directly from /Tutors endpoint to get full TutorDto with tutorCenters
-      const result = await apiService.request<any[]>(`/Tutors`, {
-        method: 'GET',
-      });
-      
+      const result = await getUnassignedTutors();
       if (result.success && result.data) {
-        // Map TutorDto response to our Tutor interface
-        const allTutors = (Array.isArray(result.data) ? result.data : []).map((tutor: any) => {
-          // Handle TutorVerification (can be nested)
-          const verification = tutor.TutorVerification || tutor.tutorVerification || {};
-          
-          return {
-            userId: tutor.userId || tutor.UserId || '',
-            fullName: tutor.fullName || tutor.FullName || '',
-            email: tutor.email || tutor.Email || '',
-            phoneNumber: tutor.phoneNumber || tutor.PhoneNumber || '',
-            formattedAddress: tutor.formattedAddress || tutor.FormattedAddress || undefined,
-            city: tutor.city || tutor.City || undefined,
-            district: tutor.district || tutor.District || undefined,
-            latitude: tutor.latitude ?? tutor.Latitude ?? undefined,
-            longitude: tutor.longitude ?? tutor.Longitude ?? undefined,
-            tutorVerification: {
-              verificationStatus: verification.VerificationStatus || verification.verificationStatus || 'pending',
-              hourlyRate: verification.HourlyRate ?? verification.hourlyRate ?? 0,
-              university: verification.University || verification.university || undefined,
-              major: verification.Major || verification.major || undefined,
-            },
-            // TutorDto has tutorCenters array - map it
-            tutorCenters: tutor.tutorCenters || tutor.TutorCenters || [],
-          };
-        });
-
-        // Filter tutors that don't have any center assigned AND are not rejected
-        // A tutor is unassigned if tutorCenters is empty, null, or all centers have null CenterId
-        // Also filter out tutors with verificationStatus = "Rejected"
-        const unassignedTutors = allTutors.filter((tutor: Tutor) => {
-          // Hide rejected tutors
-          const verificationStatus = tutor.tutorVerification?.verificationStatus?.toLowerCase();
-          if (verificationStatus === 'rejected') {
-            return false;
-          }
-
-          // Check if tutor has center assigned
-          if (!tutor.tutorCenters || tutor.tutorCenters.length === 0) {
-            return true; // No centers assigned
-          }
-          // Check if all centers have null CenterId (data issue)
-          const hasValidCenter = tutor.tutorCenters.some((tc: any) => {
-            const centerId = tc.centerId || tc.CenterId;
-            return centerId != null && centerId !== undefined;
-          });
-          return !hasValidCenter; // No valid center assigned
-        });
-
-        setTutors(unassignedTutors);
+        setTutors(result.data);
       } else {
-        showError(result.error || 'Failed to load tutors');
+        showError(result.error || 'Failed to load unassigned tutors');
       }
     } catch (error) {
-      console.error('Error fetching tutors:', error);
-      showError('Failed to load tutors');
+      console.error('Error fetching unassigned tutors:', error);
+      showError('Failed to load unassigned tutors');
     } finally {
       setLoading(false);
     }
@@ -148,81 +88,35 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
     setSelectedCenter(null);
     setSuggestedCenters([]);
 
-    // Debug: Log tutor data to see what we have
-    if (import.meta.env.DEV) {
-      console.log('Selected tutor data:', {
-        userId: tutor.userId,
-        fullName: tutor.fullName,
-        latitude: tutor.latitude,
-        longitude: tutor.longitude,
-        formattedAddress: tutor.formattedAddress,
-        city: tutor.city,
-        district: tutor.district,
-      });
-    }
-
-    // Check if tutor has coordinates (most important for finding nearby centers)
-    // If missing coordinates, fetch from /Tutors/{id} to get full location data
+    // Fetch tutor details to get location if not available
     let tutorWithLocation = tutor;
-    const hasCoordinates = tutor.latitude != null && tutor.longitude != null && 
-                          tutor.latitude !== undefined && tutor.longitude !== undefined;
-    
-    // Always fetch from /Tutors/{id} if coordinates are missing
-    // This ensures we have complete location data even if unassigned-to-center response is incomplete
-    if (!hasCoordinates) {
+    if (!tutor.latitude || !tutor.longitude) {
+      // Try to fetch full tutor details to get location
       try {
-        const tutorDetailsResult = await apiService.request<any>(`/Tutors/${tutor.userId}`, {
+        const tutorDetailsResult = await apiService.request<any>(`/users/${tutor.userId}`, {
           method: 'GET',
         });
         if (tutorDetailsResult.success && tutorDetailsResult.data) {
           const details = tutorDetailsResult.data;
           tutorWithLocation = {
             ...tutor,
-            // Map coordinates (handle both camelCase and PascalCase)
             latitude: details.latitude ?? details.Latitude ?? tutor.latitude,
             longitude: details.longitude ?? details.Longitude ?? tutor.longitude,
-            // Map address fields
             formattedAddress: details.formattedAddress || details.FormattedAddress || tutor.formattedAddress,
             city: details.city || details.City || tutor.city,
             district: details.district || details.District || tutor.district,
           };
           setSelectedTutor(tutorWithLocation);
-          
-          if (import.meta.env.DEV) {
-            console.log('Fetched tutor details from /Tutors/{id}:', {
-              latitude: tutorWithLocation.latitude,
-              longitude: tutorWithLocation.longitude,
-              formattedAddress: tutorWithLocation.formattedAddress,
-              city: tutorWithLocation.city,
-            });
-          }
         }
       } catch (error) {
-        console.error('Error fetching tutor details from /Tutors/{id}:', error);
+        console.error('Error fetching tutor details:', error);
       }
     }
 
-    // Final check after trying to fetch
-    // Check for coordinates (null/undefined check, not falsy - 0 is valid coordinate)
-    const finalHasCoordinates = tutorWithLocation.latitude != null && tutorWithLocation.longitude != null &&
-                                tutorWithLocation.latitude !== undefined && tutorWithLocation.longitude !== undefined;
-    const finalHasAddressText = tutorWithLocation.formattedAddress || tutorWithLocation.city || tutorWithLocation.district;
-    
-    if (!finalHasCoordinates && !finalHasAddressText) {
+    // Check if tutor has address after fetching
+    if (!tutorWithLocation.latitude || !tutorWithLocation.longitude) {
       showError('This tutor has not set their address yet. Please ask them to update their address first.');
       return;
-    }
-    
-    // Log final state for debugging
-    if (import.meta.env.DEV) {
-      console.log('Final tutor location data:', {
-        hasCoordinates: finalHasCoordinates,
-        hasAddressText: finalHasAddressText,
-        latitude: tutorWithLocation.latitude,
-        longitude: tutorWithLocation.longitude,
-        formattedAddress: tutorWithLocation.formattedAddress,
-        city: tutorWithLocation.city,
-      });
     }
 
     // Fetch suggested centers based on tutor's location
@@ -233,50 +127,33 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
     try {
       setLoadingCenters(true);
       
-      // Construct address string for the API
-      // Priority: formattedAddress > city+district > city > district
-      let address = '';
-      
-      if (tutor.formattedAddress) {
-        address = tutor.formattedAddress;
-      } else if (tutor.city && tutor.district) {
-        address = `${tutor.district}, ${tutor.city}`;
-      } else if (tutor.city) {
-        address = tutor.city;
-      } else if (tutor.district) {
-        address = tutor.district;
-      }
-      
-      // If we have coordinates but no address text, we can still try to use coordinates
-      // But the API requires address string, so we need at least city or district
-      if (!address && (!tutor.city && !tutor.district)) {
-        showError('This tutor has not set their address yet. Please ask them to update their address first.');
-        setLoadingCenters(false);
+      // Use the tutor's formatted address or construct from city/district
+      if (!tutor.formattedAddress && !tutor.city) {
+        showError('Tutor location not set. Please ask tutor to update their address first.');
         return;
       }
+
+      const address = tutor.formattedAddress || `${tutor.district || ''}, ${tutor.city || ''}`.trim();
       
-      // Use getCentersNearAddress API to find centers near tutor's location
+      // Use getCentersNearAddress to find centers near tutor's location
       const result = await getCentersNearAddress(address, radiusKm);
       
       if (result.success && result.data) {
-        // Handle response structure from /location/nearby-centers: 
-        // { data: [...], searchLocation: {...}, pagination: {...} }
-        // apiService wraps it, so result.data is the response object
-        const responseData = result.data as any;
-        const centers = Array.isArray(responseData) 
-          ? responseData 
-          : (responseData?.data || []);
-        
+        const centers = Array.isArray(result.data) ? result.data : (result.data as any).data || [];
         setSuggestedCenters(centers);
         if (centers.length === 0) {
-          showError(`No centers found within ${radiusKm}km of this tutor's address. Try increasing the search radius.`);
+          showError('No centers found near this tutor\'s address. Try increasing the search radius.');
         }
       } else {
         showError(result.error || 'Failed to load suggested centers');
       }
     } catch (error: any) {
       console.error('Error fetching suggested centers:', error);
-      showError(error?.message || 'Failed to load suggested centers');
+      if (error.message?.includes('location not set')) {
+        showError('Tutor location not set. Please ask tutor to update their address first.');
+      } else {
+        showError('Failed to load suggested centers');
+      }
     } finally {
       setLoadingCenters(false);
     }
@@ -356,7 +233,7 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
               <p className="text-gray-600 mt-2">Assign tutors to centers based on their location</p>
             </div>
             <button
-              onClick={fetchAllTutors}
+              onClick={fetchUnassignedTutors}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 shadow-md hover:shadow-lg"
             >
               <RefreshCw className="w-5 h-5" />
@@ -386,7 +263,7 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
               <Navigation className="w-8 h-8 opacity-80" />
             </div>
             <p className="text-green-100 text-sm font-medium mb-1">Search Radius</p>
-            <p className="text-3xl font-bold">10 km</p>
+            <p className="text-3xl font-bold">{radiusKm} km</p>
           </div>
 
           <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
@@ -440,9 +317,9 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
               </div>
             ) : (
               <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {filteredTutors.map((tutor, _idx) => (
+                {filteredTutors.map((tutor) => (
                   <div
-                    key={tutor.userId || tutor.email || `tutor-${_idx}`}
+                    key={tutor.userId}
                     onClick={() => handleSelectTutor(tutor)}
                     className={`p-4 border-2 rounded-xl cursor-pointer transition-all transform hover:scale-[1.02] ${
                       selectedTutor?.userId === tutor.userId
@@ -478,13 +355,7 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
                         )}
                         {tutor.tutorVerification?.hourlyRate && (
                           <p className="text-sm text-gray-500 mt-1">
-                            {new Intl.NumberFormat('vi-VN', {
-                              style: 'currency',
-                              currency: 'VND',
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            }).format(tutor.tutorVerification.hourlyRate * 25000)}
-                            /hour
+                            ${tutor.tutorVerification.hourlyRate}/hour
                           </p>
                         )}
                       </div>
@@ -514,7 +385,41 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
                   <div className="flex items-center space-x-2 mb-4">
                     <Building className="w-5 h-5 text-gray-600" />
                     <h2 className="text-xl font-bold text-gray-900">Suggested Centers</h2>
-                    <span className="text-sm text-gray-500">(within 10km)</span>
+                  </div>
+                  
+                  {/* Search Radius Control */}
+                  <div className="bg-gray-50 rounded-xl border border-gray-200/50 p-4 mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Search Radius (km)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="50"
+                          value={radiusKm}
+                          onChange={(e) => {
+                            const newRadius = parseInt(e.target.value) || 10;
+                            setRadiusKm(newRadius);
+                            if (selectedTutor) {
+                              fetchSuggestedCenters(selectedTutor.userId);
+                            }
+                          }}
+                          className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button
+                          onClick={() => fetchSuggestedCenters(selectedTutor.userId)}
+                          disabled={loadingCenters}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 shadow-md hover:shadow-lg"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${loadingCenters ? 'animate-spin' : ''}`} />
+                          <span>Refresh</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Selected Tutor Info */}
@@ -548,14 +453,14 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
                       No centers found within {radiusKm}km of this tutor's address.
                     </p>
                     <p className="text-sm text-gray-500">
-                      This tutor has not set their address yet. Please ask them to update their address first.
+                      Try increasing the search radius or ask the tutor to update their address.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                    {suggestedCenters.map((center, _cidx) => (
+                    {suggestedCenters.map((center) => (
                       <div
-                        key={center.centerId || center.name || `center-${_cidx}`}
+                        key={center.centerId}
                         onClick={() => setSelectedCenter(center)}
                         className={`p-4 border-2 rounded-xl cursor-pointer transition-all transform hover:scale-[1.02] ${
                           selectedCenter?.centerId === center.centerId

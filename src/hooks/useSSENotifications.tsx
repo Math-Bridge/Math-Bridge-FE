@@ -1,9 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { API_BASE_URL } from '../services/api';
 
-const SSE_URL = `${API_BASE_URL}/Notification/sse/connect`;
+const SSE_URL = 'https://api.vibe88.tech/api/Notification/sse/connect';
 
 // Backend notification format from API
 export interface BackendNotification {

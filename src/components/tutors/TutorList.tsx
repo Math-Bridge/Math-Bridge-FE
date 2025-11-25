@@ -9,7 +9,8 @@ import {
   Users, 
   ChevronRight,
   Award,
-  MessageSquare
+  MessageSquare,
+  ChevronLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -35,6 +36,8 @@ const TutorList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('rating');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(9); // 3 columns x 3 rows
 
   useEffect(() => {
     const fetchTutors = async () => {
@@ -120,6 +123,22 @@ const TutorList: React.FC = () => {
     }
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedTutors.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTutors = sortedTutors.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleViewDetails = (tutorId: string) => {
     navigate(`/tutors/${tutorId}`);
   };
@@ -145,44 +164,37 @@ const TutorList: React.FC = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-8">
+          <div className="max-w-md">
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
               <input
                 type="text"
-                placeholder={t('searchTutors')}
+                placeholder="Search tutors..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg 
+                         bg-white text-gray-900 placeholder-gray-400
+                         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                         hover:border-gray-400 transition-colors duration-200
+                         shadow-sm"
               />
-            </div>
-
-            {/* Sort */}
-            <div>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="rating">{t('sortBy')} {t('rating')}</option>
-                <option value="experience">{t('experience')}</option>
-              </select>
             </div>
           </div>
         </div>
 
         {/* Results Count */}
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between">
           <p className="text-gray-600">
-            Showing {sortedTutors.length} of {tutors.length} tutors
+            Showing {startIndex + 1}-{Math.min(endIndex, sortedTutors.length)} of {sortedTutors.length} tutors
+            {tutors.length !== sortedTutors.length && ` (filtered from ${tutors.length} total)`}
           </p>
         </div>
 
         {/* Tutors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedTutors.map((tutor) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {paginatedTutors.map((tutor) => (
             <div key={tutor.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
               {/* Tutor Image */}
               <div className="relative h-48 bg-gradient-to-br from-blue-500 to-purple-600">
@@ -273,6 +285,73 @@ const TutorList: React.FC = () => {
             <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noTutorsFound')}</h3>
             <p className="text-gray-600">Try adjusting your search criteria or contact our staff for assistance.</p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {sortedTutors.length > 0 && totalPages > 1 && (
+          <div className="flex items-center justify-center space-x-2 mt-8">
+            {/* Previous Button */}
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 rounded-lg border ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+              } transition-colors flex items-center space-x-1`}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span>Previous</span>
+            </button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center space-x-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first page, last page, current page, and pages around current
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                        currentPage === page
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  // Show ellipsis
+                  return (
+                    <span key={page} className="px-2 text-gray-500">
+                      ...
+                    </span>
+                  );
+                }
+                return null;
+              })}
+            </div>
+
+            {/* Next Button */}
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 rounded-lg border ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+              } transition-colors flex items-center space-x-1`}
+            >
+              <span>Next</span>
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>

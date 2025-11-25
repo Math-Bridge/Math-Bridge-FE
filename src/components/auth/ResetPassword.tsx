@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { apiService, API_BASE_URL } from '../../services/api';
+import { apiService } from '../../services/api';
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle, Shield } from 'lucide-react';
 
 const ResetPassword: React.FC = () => {
@@ -48,6 +48,7 @@ const ResetPassword: React.FC = () => {
   };
 
   const tryMultipleResetFormats = async (oobCode: string, password: string) => {
+    const API_BASE_URL = 'https://api.vibe88.tech/api';
     
     const formats = [
       {

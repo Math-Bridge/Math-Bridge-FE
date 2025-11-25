@@ -1,9 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vibe88.tech/api';
-
-// Log which API base is being used in development to aid debugging
-if (import.meta.env.DEV) {
-  console.info('[api] Using API base URL:', API_BASE_URL);
-}
+const API_BASE_URL = 'https://api.vibe88.tech/api';
 
 // API Response types
 export interface ApiResponse<T> {
@@ -49,11 +44,6 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
-export interface ChangePasswordRequest {
-  CurrentPassword: string;
-  NewPassword: string;
-}
-
 export interface DashboardStats {
   totalUsers: number;
   totalTutors: number;
@@ -69,37 +59,6 @@ export interface Activity {
   description: string;
   time: string;
   type: string;
-}
-
-// Notification types
-export interface Notification {
-  id: string;
-  message: string;
-  type: string;
-  status: string;
-  createdAt: string;
-  contractId?: string;
-  bookingId?: string;
-}
-
-export interface NotificationApiResponse {
-  notificationId: string;
-  message: string;
-  notificationType: string;
-  status: string;
-  createdDate: string;
-  contractId?: string;
-  bookingId?: string;
-}
-
-export interface PaginatedNotificationsResponse {
-  data: Notification[];
-  totalPages: number;
-  currentPage: number;
-}
-
-export interface UnreadCountResponse {
-  count: number;
 }
 
 class ApiService {
@@ -274,13 +233,6 @@ class ApiService {
 
   async resetPassword(data: ResetPasswordRequest): Promise<ApiResponse<{ message: string }>> {
     return this.request<{ message: string }>('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<{ message: string }>> {
-    return this.request<{ message: string }>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -476,27 +428,17 @@ class ApiService {
       if (result.success && result.data) {
         // Backend returns { data: [...], totalCount: ... }
         const usersData = result.data.data || result.data;
-        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => {
-          // Extract hourlyRate from TutorVerification if user is a tutor
-          const verification = item.TutorVerification || item.tutorVerification || null;
-          const hourlyRate = verification?.HourlyRate !== undefined ? verification.HourlyRate : 
-                            (verification?.hourlyRate !== undefined ? verification.hourlyRate : 
-                            (item.hourlyRate !== undefined ? item.hourlyRate : 
-                            (item.HourlyRate !== undefined ? item.HourlyRate : undefined)));
-          
-          return {
-            userId: item.userId || item.UserId || '',
-            fullName: item.fullName || item.FullName || '',
-            email: item.email || item.Email || '',
-            phoneNumber: item.phoneNumber || item.PhoneNumber,
-            roleId: item.roleId ?? item.RoleId ?? 0,
-            roleName: item.roleName || item.RoleName,
-            status: item.status || item.Status || 'active',
-            formattedAddress: item.formattedAddress || item.FormattedAddress,
-            walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
-            hourlyRate: hourlyRate,
-          };
-        });
+        const mappedUsers = (Array.isArray(usersData) ? usersData : []).map((item: any) => ({
+          userId: item.userId || item.UserId || '',
+          fullName: item.fullName || item.FullName || '',
+          email: item.email || item.Email || '',
+          phoneNumber: item.phoneNumber || item.PhoneNumber,
+          roleId: item.roleId ?? item.RoleId ?? 0,
+          roleName: item.roleName || item.RoleName,
+          status: item.status || item.Status || 'active',
+          formattedAddress: item.formattedAddress || item.FormattedAddress,
+          walletBalance: item.walletBalance ?? item.WalletBalance ?? 0,
+        }));
         
       return {
         success: true,
@@ -516,175 +458,6 @@ class ApiService {
         data: [],
         error: error?.message || 'Failed to fetch users',
       };
-    }
-  }
-
-  // ==================== Notification Methods ====================
-
-  // Helper function to map API response to internal format
-  private mapNotificationFromApi(apiNotification: NotificationApiResponse): Notification {
-    return {
-      id: apiNotification.notificationId,
-      message: apiNotification.message,
-      type: apiNotification.notificationType,
-      status: apiNotification.status,
-      createdAt: apiNotification.createdDate,
-      contractId: apiNotification.contractId,
-      bookingId: apiNotification.bookingId,
-    };
-  }
-
-  async getUnreadCount(): Promise<number> {
-    try {
-      const response = await this.request<any>('/Notification/unread-count', {
-        method: 'GET',
-      });
-
-      // Handle different response formats
-      if (typeof response === 'number') {
-        return response;
-      }
-      if (response && typeof response === 'object') {
-        return response.count || response.unreadCount || 0;
-      }
-      return 0;
-    } catch (error) {
-      console.error('Error fetching unread count:', error);
-      return 0;
-    }
-  }
-
-  async getAllNotifications(pageNumber: number = 1, pageSize: number = 10): Promise<PaginatedNotificationsResponse> {
-    try {
-      const response = await this.request<any>(
-        `/Notification?pageNumber=${pageNumber}&pageSize=${pageSize}`,
-        { method: 'GET' }
-      );
-
-      // Handle array response
-      if (Array.isArray(response)) {
-        const mappedData = response.map((item: any) => 
-          this.mapNotificationFromApi(item)
-        );
-        return {
-          data: mappedData,
-          totalPages: 1,
-          currentPage: pageNumber,
-        };
-      }
-
-      // Handle paginated response
-      if (response && typeof response === 'object') {
-        const notifications = response.data || response.notifications || [];
-        const mappedData = Array.isArray(notifications)
-          ? notifications.map((item: any) => this.mapNotificationFromApi(item))
-          : [];
-        
-        return {
-          data: mappedData,
-          totalPages: response.totalPages || 1,
-          currentPage: response.currentPage || pageNumber,
-        };
-      }
-
-      return {
-        data: [],
-        totalPages: 1,
-        currentPage: pageNumber,
-      };
-    } catch (error) {
-      console.error('Error fetching all notifications:', error);
-      return {
-        data: [],
-        totalPages: 1,
-        currentPage: pageNumber,
-      };
-    }
-  }
-
-  async getUnreadNotifications(): Promise<Notification[]> {
-    try {
-      const response = await this.request<any>('/Notification/unread', {
-        method: 'GET',
-      });
-
-      // Handle array response
-      if (Array.isArray(response)) {
-        return response.map((item: any) => this.mapNotificationFromApi(item));
-      }
-
-      // Handle object response
-      if (response && typeof response === 'object') {
-        const notifications = response.data || response.notifications || [];
-        return Array.isArray(notifications)
-          ? notifications.map((item: any) => this.mapNotificationFromApi(item))
-          : [];
-      }
-
-      return [];
-    } catch (error) {
-      console.error('Error fetching unread notifications:', error);
-      return [];
-    }
-  }
-
-  async getNotificationById(id: string): Promise<Notification | null> {
-    try {
-      const response = await this.request<NotificationApiResponse>(`/Notification/${id}`, {
-        method: 'GET',
-      });
-
-      if (response) {
-        return this.mapNotificationFromApi(response);
-      }
-      return null;
-    } catch (error) {
-      console.error('Error fetching notification by ID:', error);
-      return null;
-    }
-  }
-
-  async markNotificationAsRead(id: string): Promise<void> {
-    try {
-      await this.request(`/Notification/${id}/read`, {
-        method: 'PUT',
-      });
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-      throw error;
-    }
-  }
-
-  async markAllNotificationsAsRead(): Promise<void> {
-    try {
-      await this.request('/Notification/mark-all-read', {
-        method: 'PUT',
-      });
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-      throw error;
-    }
-  }
-
-  async deleteNotification(id: string): Promise<void> {
-    try {
-      await this.request(`/Notification/${id}`, {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      throw error;
-    }
-  }
-
-  async deleteAllNotifications(): Promise<void> {
-    try {
-      await this.request('/Notification', {
-        method: 'DELETE',
-      });
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
-      throw error;
     }
   }
 }
@@ -758,38 +531,25 @@ export async function getUnassignedTutors() {
     
     if (result.success && result.data) {
       // Map PascalCase to camelCase
-      // TutorInCenterDto now includes location fields (FormattedAddress, City, District, Latitude, Longitude)
-      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => {
-        const mapped = {
-          userId: item.userId || item.TutorId || '',
-          fullName: item.fullName || item.FullName || '',
-          email: item.email || item.Email || '',
-          phoneNumber: item.phoneNumber || item.PhoneNumber || '',
-          formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
-          city: item.city || item.City || undefined,
-          district: item.district || item.District || undefined,
-          latitude: item.latitude ?? item.Latitude ?? (typeof item.latitude === 'number' ? item.latitude : undefined),
-          longitude: item.longitude ?? item.Longitude ?? (typeof item.longitude === 'number' ? item.longitude : undefined),
-          tutorVerification: {
-            verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
-            hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
-            university: item.tutorVerification?.university || item.University || undefined,
-            major: item.tutorVerification?.major || item.Major || undefined,
-            bio: item.tutorVerification?.bio || item.Bio || undefined,
-          },
-        };
-        
-        // Debug log for troubleshooting
-        if (import.meta.env.DEV && (!mapped.formattedAddress && !mapped.city && !mapped.latitude)) {
-          console.warn('Tutor without address info:', {
-            userId: mapped.userId,
-            fullName: mapped.fullName,
-            rawItem: item
-          });
-        }
-        
-        return mapped;
-      });
+      // Note: TutorInCenterDto doesn't include location info, so we'll need to fetch it separately if needed
+      const mappedTutors = (Array.isArray(result.data) ? result.data : []).map((item: any) => ({
+        userId: item.userId || item.TutorId || '',
+        fullName: item.fullName || item.FullName || '',
+        email: item.email || item.Email || '',
+        phoneNumber: item.phoneNumber || item.PhoneNumber || '',
+        formattedAddress: item.formattedAddress || item.FormattedAddress || undefined,
+        city: item.city || item.City || undefined,
+        district: item.district || item.District || undefined,
+        latitude: item.latitude ?? item.Latitude ?? undefined,
+        longitude: item.longitude ?? item.Longitude ?? undefined,
+        tutorVerification: {
+          verificationStatus: item.tutorVerification?.verificationStatus || item.VerificationStatus || 'pending',
+          hourlyRate: item.tutorVerification?.hourlyRate ?? item.HourlyRate ?? 0,
+          university: item.tutorVerification?.university || item.University || undefined,
+          major: item.tutorVerification?.major || item.Major || undefined,
+          bio: item.tutorVerification?.bio || item.Bio || undefined,
+        },
+      }));
       
       return {
         success: true,
@@ -2510,78 +2270,6 @@ export async function getAllTutors() {
   }
 }
 
-// Get tutor by ID
-// Backend endpoint: GET /api/Tutors/{id}
-export async function getTutorById(tutorId: string) {
-  try {
-    console.log(`[getTutorById] Fetching tutor with ID: ${tutorId}`);
-    const result = await apiService.request<any>(`/Tutors/${tutorId}`, {
-      method: 'GET',
-    });
-    
-    console.log(`[getTutorById] API Response:`, result);
-    
-    if (result.success && result.data) {
-      const tutor = result.data;
-      const verification = tutor.TutorVerification || tutor.tutorVerification || null;
-      
-      console.log(`[getTutorById] Tutor data:`, tutor);
-      console.log(`[getTutorById] Verification:`, verification);
-      
-      const mappedData = {
-        userId: tutor.userId || tutor.UserId || tutor.user_id || '',
-        fullName: tutor.fullName || tutor.FullName || tutor.full_name || '',
-        email: tutor.email || tutor.Email || '',
-        phone: tutor.phoneNumber || tutor.PhoneNumber || tutor.phone || '',
-        gender: tutor.gender || tutor.Gender || '',
-        formattedAddress: tutor.formattedAddress || tutor.FormattedAddress || '',
-        city: tutor.city || tutor.City || '',
-        district: tutor.district || tutor.District || '',
-        status: tutor.status || tutor.Status || '',
-        createdDate: tutor.createdDate || tutor.CreatedDate || null,
-        // Verification info
-        verification: verification ? {
-          verificationId: verification.verificationId || verification.VerificationId || '',
-          university: verification.university || verification.University || '',
-          major: verification.major || verification.Major || '',
-          hourlyRate: verification.hourlyRate || verification.HourlyRate || 0,
-          bio: verification.bio || verification.Bio || '',
-          verificationStatus: verification.verificationStatus || verification.VerificationStatus || '',
-          verificationDate: verification.verificationDate || verification.VerificationDate || null,
-        } : null,
-        // Centers
-        tutorCenters: tutor.tutorCenters || tutor.TutorCenters || [],
-        // Schedules
-        tutorSchedules: tutor.tutorSchedules || tutor.TutorSchedules || [],
-        // Final Feedbacks
-        finalFeedbacks: tutor.finalFeedbacks || tutor.FinalFeedbacks || [],
-      };
-      
-      console.log(`[getTutorById] Mapped data:`, mappedData);
-      
-      return {
-        success: true,
-        data: mappedData,
-        error: null,
-      };
-    }
-    
-    console.warn(`[getTutorById] API call succeeded but no data returned. Result:`, result);
-    return {
-      success: false,
-      data: null,
-      error: result.error || result.message || 'Tutor not found',
-    };
-  } catch (error) {
-    console.error('[getTutorById] Error fetching tutor by ID:', error);
-    return {
-      success: false,
-      data: null,
-      error: error instanceof Error ? error.message : 'Failed to fetch tutor',
-    };
-  }
-}
-
 // Get top rated tutors from tutor list
 // Backend endpoint: GET /api/tutors (sorted by rating, limited)
 export async function getTopRatedTutorsFromList(limit: number = 3) {
@@ -2635,17 +2323,6 @@ export async function verifyTutor(tutorId: string) {
           method: 'PATCH',
         });
       }
-    }
-    // If the GET returned a not-found response, return a clear error rather than trying legacy endpoints
-    if (!verificationResult.success && verificationResult.error && (
-      verificationResult.error.toString().toLowerCase().includes('404') ||
-      verificationResult.error.toString().toLowerCase().includes('not found') ||
-      verificationResult.error.toString().toLowerCase().includes('verification not found')
-    )) {
-      return {
-        success: false,
-        error: 'Verification not found for user.',
-      } as any;
     }
     
     // If no verification found, try direct approve with userId (if backend supports it)
@@ -2747,17 +2424,7 @@ export async function rejectTutorVerification(tutorId: string) {
         });
       }
     }
-    // If the GET returned a not-found response, return a clear error rather than trying legacy endpoints
-    if (!verificationResult.success && verificationResult.error && (
-      verificationResult.error.toString().toLowerCase().includes('404') ||
-      verificationResult.error.toString().toLowerCase().includes('not found') ||
-      verificationResult.error.toString().toLowerCase().includes('verification not found')
-    )) {
-      return {
-        success: false,
-        error: 'Verification not found for user.',
-      } as any;
-    }
+    
     // If no verification found, try direct reject with userId (if backend supports it)
     // Fallback to old endpoints
     try {
@@ -3543,12 +3210,8 @@ export async function getUserStatistics() {
 }
 
 export async function getUserRegistrationTrends(startDate: string, endDate: string) {
-  const adjustedEndDate = new Date(endDate);
-  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
-  
   return apiService.request<UserRegistrationTrendStatisticsDto>(
-    `/statistics/users/registrations?startDate=${startDate}&endDate=${adjustedEndDateString}`,
+    `/statistics/users/registrations?startDate=${startDate}&endDate=${endDate}`,
     {
       method: 'GET',
     }
@@ -3580,12 +3243,8 @@ export async function getSessionOnlineVsOffline() {
 }
 
 export async function getSessionTrends(startDate: string, endDate: string) {
-  const adjustedEndDate = new Date(endDate);
-  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
-  
   return apiService.request<SessionTrendStatisticsDto>(
-    `/statistics/sessions/trends?startDate=${startDate}&endDate=${adjustedEndDateString}`,
+    `/statistics/sessions/trends?startDate=${startDate}&endDate=${endDate}`,
     {
       method: 'GET',
     }
@@ -3623,15 +3282,8 @@ export async function getRevenueStatistics() {
 }
 
 export async function getRevenueTrends(startDate: string, endDate: string) {
-  // Adjust endDate to include the entire day (add 1 day)
-  // Backend parses "2025-11-08" as 2025-11-08 00:00:00, so transactions on that day won't match
-  // By sending "2025-11-09", backend gets 2025-11-09 00:00:00, which includes all of 2025-11-08
-  const adjustedEndDate = new Date(endDate);
-  adjustedEndDate.setDate(adjustedEndDate.getDate() + 1);
-  const adjustedEndDateString = adjustedEndDate.toISOString().split('T')[0];
-  
   return apiService.request<RevenueTrendStatisticsDto>(
-    `/statistics/financial/revenue-trends?startDate=${startDate}&endDate=${adjustedEndDateString}`,
+    `/statistics/financial/revenue-trends?startDate=${startDate}&endDate=${endDate}`,
     {
       method: 'GET',
     }
@@ -3781,43 +3433,22 @@ export async function getDailyReportsByTutor() {
     });
     
     if (result.success && result.data) {
-      // Fetch all units to map unit IDs to names
-      let unitsMap: { [key: string]: string } = {};
-      try {
-        const unitsResult = await getAllUnits();
-        if (unitsResult.success && unitsResult.data) {
-          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
-            if (unit.unitId && unit.unitName) {
-              acc[unit.unitId] = unit.unitName;
-            }
-            return acc;
-          }, {});
-        }
-      } catch (error) {
-        console.warn('Failed to fetch units for enrichment:', error);
-      }
-
-      const mappedData: DailyReport[] = result.data.map((item: any) => {
-        const unitId = item.unitId || item.UnitId || '';
-        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
-        
-        return {
-          reportId: item.reportId || item.ReportId || '',
-          childId: item.childId || item.ChildId || '',
-          tutorId: item.tutorId || item.TutorId || '',
-          bookingId: item.bookingId || item.BookingId || '',
-          notes: item.notes || item.Notes,
-          onTrack: item.onTrack ?? item.OnTrack ?? false,
-          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-          createdDate: item.createdDate || item.CreatedDate || '',
-          unitId: unitId,
-          testId: item.testId || item.TestId,
-          childName: item.childName || item.ChildName,
-          tutorName: item.tutorName || item.TutorName,
-          unitName: unitName,
-          sessionDate: item.sessionDate || item.SessionDate,
-        };
-      });
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
       
       return {
         success: true,
@@ -3844,50 +3475,22 @@ export async function getDailyReportsByChild(childId: string) {
     });
     
     if (result.success && result.data) {
-      // Fetch all units to map unit IDs to names
-      let unitsMap: { [key: string]: string } = {};
-      try {
-        const unitsResult = await getAllUnits();
-        if (unitsResult.success && unitsResult.data) {
-          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
-            if (unit.unitId && unit.unitName) {
-              acc[unit.unitId] = unit.unitName;
-            }
-            return acc;
-          }, {});
-          if (import.meta.env.DEV) {
-            console.log('[DailyReports] Units map created with', Object.keys(unitsMap).length, 'units');
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to fetch units for enrichment:', error);
-      }
-
-      const mappedData: DailyReport[] = result.data.map((item: any) => {
-        const unitId = item.unitId || item.UnitId || '';
-        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
-        
-        if (import.meta.env.DEV && !unitName && unitId) {
-          console.log('[DailyReports] Unit name not found for unitId:', unitId, 'Map has:', Object.keys(unitsMap).length, 'units');
-        }
-        
-        return {
-          reportId: item.reportId || item.ReportId || '',
-          childId: item.childId || item.ChildId || '',
-          tutorId: item.tutorId || item.TutorId || '',
-          bookingId: item.bookingId || item.BookingId || '',
-          notes: item.notes || item.Notes,
-          onTrack: item.onTrack ?? item.OnTrack ?? false,
-          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-          createdDate: item.createdDate || item.CreatedDate || '',
-          unitId: unitId,
-          testId: item.testId || item.TestId,
-          childName: item.childName || item.ChildName,
-          tutorName: item.tutorName || item.TutorName,
-          unitName: unitName,
-          sessionDate: item.sessionDate || item.SessionDate,
-        };
-      });
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
       
       return {
         success: true,
@@ -3914,43 +3517,22 @@ export async function getDailyReportsByBooking(bookingId: string) {
     });
     
     if (result.success && result.data) {
-      // Fetch all units to map unit IDs to names
-      let unitsMap: { [key: string]: string } = {};
-      try {
-        const unitsResult = await getAllUnits();
-        if (unitsResult.success && unitsResult.data) {
-          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
-            if (unit.unitId && unit.unitName) {
-              acc[unit.unitId] = unit.unitName;
-            }
-            return acc;
-          }, {});
-        }
-      } catch (error) {
-        console.warn('Failed to fetch units for enrichment:', error);
-      }
-
-      const mappedData: DailyReport[] = result.data.map((item: any) => {
-        const unitId = item.unitId || item.UnitId || '';
-        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
-        
-        return {
-          reportId: item.reportId || item.ReportId || '',
-          childId: item.childId || item.ChildId || '',
-          tutorId: item.tutorId || item.TutorId || '',
-          bookingId: item.bookingId || item.BookingId || '',
-          notes: item.notes || item.Notes,
-          onTrack: item.onTrack ?? item.OnTrack ?? false,
-          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
-          createdDate: item.createdDate || item.CreatedDate || '',
-          unitId: unitId,
-          testId: item.testId || item.TestId,
-          childName: item.childName || item.ChildName,
-          tutorName: item.tutorName || item.TutorName,
-          unitName: unitName,
-          sessionDate: item.sessionDate || item.SessionDate,
-        };
-      });
+      const mappedData: DailyReport[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        childId: item.childId || item.ChildId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        notes: item.notes || item.Notes,
+        onTrack: item.onTrack ?? item.OnTrack ?? false,
+        haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+        createdDate: item.createdDate || item.CreatedDate || '',
+        unitId: item.unitId || item.UnitId || '',
+        testId: item.testId || item.TestId,
+        childName: item.childName || item.ChildName,
+        tutorName: item.tutorName || item.TutorName,
+        unitName: item.unitName || item.UnitName,
+        sessionDate: item.sessionDate || item.SessionDate,
+      }));
       
       return {
         success: true,
@@ -4024,10 +3606,10 @@ export async function getLearningCompletionForecast(childId: string) {
   }
 }
 
-// Get child unit progress by contract
-export async function getChildUnitProgress(contractId: string) {
+// Get child unit progress
+export async function getChildUnitProgress(childId: string) {
   try {
-    const result = await apiService.request<any>(`/daily-reports/contract/${contractId}/unit-progress`, {
+    const result = await apiService.request<any>(`/daily-reports/child/${childId}/unit-progress`, {
       method: 'GET',
     });
     
@@ -4044,7 +3626,7 @@ export async function getChildUnitProgress(contractId: string) {
     if (result.success && result.data) {
       const item = result.data;
       const mappedData: ChildUnitProgress = {
-        childId: item.childId || item.ChildId || '',
+        childId: item.childId || item.ChildId || childId,
         childName: item.childName || item.ChildName || '',
         totalUnitsLearned: item.totalUnitsLearned || item.TotalUnitsLearned || 0,
         uniqueLessonsCompleted: item.uniqueLessonsCompleted || item.UniqueLessonsCompleted || 0,

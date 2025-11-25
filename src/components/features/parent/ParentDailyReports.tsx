@@ -83,8 +83,12 @@ const ParentDailyReports: React.FC = () => {
             status: child.Status || child.status || 'active',
           }));
         setChildren(mappedChildren);
-        if (mappedChildren.length === 1) {
-          setSelectedChildId(mappedChildren[0].childId);
+        // Auto-select first child if available
+        if (mappedChildren.length > 0) {
+          // If no child is selected, or selected child is not in the list, select first child
+          if (!selectedChildId || !mappedChildren.find(c => c.childId === selectedChildId)) {
+            setSelectedChildId(mappedChildren[0].childId);
+          }
         }
       }
     } catch (error) {
@@ -248,7 +252,6 @@ const ParentDailyReports: React.FC = () => {
               onChange={(e) => setSelectedChildId(e.target.value || null)}
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-gray-900 font-medium"
             >
-              <option value="">-- Select a child --</option>
               {children.map((child) => (
                 <option key={child.childId} value={child.childId}>
                   {child.fullName} {child.grade ? `(Grade ${child.grade})` : ''}
