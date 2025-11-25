@@ -1943,6 +1943,14 @@ const CreateContract: React.FC = () => {
                       return;
                     }
                     
+                    // Validate that there are centers available for the offline location
+                    if (!schedule.isOnline && schedule.offlineAddress && nearbyCenters.length === 0 && !loadingCenters) {
+                      const msg = 'No centers found within 10km radius from this address. Please enter a different location or choose online mode.';
+                      setError(msg);
+                      showError(msg);
+                      return;
+                    }
+                    
                     // Validate video call platform if online is selected
                     if (schedule.isOnline && !schedule.videoCallPlatform) {
                       const msg = 'Please select a video call platform (Google Meet or Zoom)';
