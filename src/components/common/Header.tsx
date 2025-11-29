@@ -22,6 +22,7 @@ import SettingsModal from './SettingsModal';
 import { useTranslation } from '../../hooks/useTranslation';
 import NotificationBell from './NotificationBell';
 
+import { Sparkles } from 'lucide-react';
 const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ const Header: React.FC = () => {
         { name: 'Packages', href: '/packages', icon: BookOpen },
         { name: 'Schedule', href: '/parent/schedule', icon: Calendar },
         { name: 'Test Results', href: '/test-results', icon: Award },
+        { name: 'Homework Helper', href: '/parent/homework-helper', icon: Sparkles },
       ];
     } else if (user?.role === 'admin') {
       // Navigation for Admin role
