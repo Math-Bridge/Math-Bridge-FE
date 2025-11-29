@@ -219,11 +219,12 @@ const handleSessionClick = (session: Session) => {
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 overflow-x-auto">
             {/* Day headers */}
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-              <div key={day} className="text-center font-semibold text-gray-600 py-2">
-                {day}
+              <div key={day} className="text-center font-semibold text-gray-600 py-1 sm:py-2 text-xs sm:text-sm">
+                <span className="hidden sm:inline">{day}</span>
+                <span className="sm:hidden">{day.substring(0, 1)}</span>
               </div>
             ))}
 
@@ -236,40 +237,40 @@ const handleSessionClick = (session: Session) => {
                 <div
                   key={index}
                   className={`
-                    min-h-[120px] p-2 border rounded-lg flex flex-col
+                    min-h-[80px] sm:min-h-[100px] md:min-h-[120px] p-1 sm:p-2 border rounded-lg flex flex-col
                     ${isCurrentMonthDay ? 'bg-white' : 'bg-gray-50'}
                     ${isToday(day) ? 'border-blue-500 border-2' : 'border-gray-200'}
                   `}
                 >
-                  <div className={`text-sm font-semibold mb-1 ${isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <div className={`text-xs sm:text-sm font-semibold mb-1 ${isCurrentMonthDay ? 'text-gray-900' : 'text-gray-400'}`}>
                     {day.getDate()}
                   </div>
-                  <div className="space-y-1 flex-1 overflow-y-auto max-h-[100px]">
+                  <div className="space-y-0.5 sm:space-y-1 flex-1 overflow-y-auto max-h-[60px] sm:max-h-[80px] md:max-h-[100px]">
                     {daySessions.length === 0 ? (
-                      <div className="text-[9px] text-gray-400 text-center py-1">No sessions</div>
+                      <div className="text-[8px] sm:text-[9px] text-gray-400 text-center py-0.5 sm:py-1">No sessions</div>
                     ) : (
                       daySessions.map((session) => (
                         <div
                           key={session.bookingId}
                           onClick={() => handleSessionClick(session)}
-                          className={`text-[10px] px-1.5 py-1 rounded mb-0.5 border ${getStatusColor(session.status)} ${session.status === 'scheduled' ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : 'cursor-default'}`}
+                          className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 sm:py-1 rounded mb-0.5 border ${getStatusColor(session.status)} ${session.status === 'scheduled' ? 'cursor-pointer hover:shadow-md hover:scale-105 transition-all' : 'cursor-default'}`}
                           title={`${formatTime(session.startTime)} - ${formatTime(session.endTime)}${session.studentName || session.childName ? ` | ${session.studentName || session.childName}` : ''}${session.status === 'scheduled' ? ' - Click to reschedule' : ''}`}
                         >
                           <div className="font-semibold truncate">
                             {formatTime(session.startTime)}
                           </div>
                           {(session.studentName || session.childName) && (
-                            <div className="truncate text-[9px] opacity-90">
+                            <div className="truncate text-[8px] sm:text-[9px] opacity-90">
                               {session.studentName || session.childName}
                             </div>
                           )}
-                          <div className="flex items-center gap-1 mt-0.5">
+                          <div className="flex items-center gap-0.5 sm:gap-1 mt-0.5">
                             {session.isOnline ? (
-                              <Video className="w-2.5 h-2.5" />
+                              <Video className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                             ) : (
-                              <MapPin className="w-2.5 h-2.5" />
+                              <MapPin className="w-2 h-2 sm:w-2.5 sm:h-2.5" />
                             )}
-                            <span className="text-[8px] truncate">
+                            <span className="text-[7px] sm:text-[8px] truncate">
                               {session.isOnline ? 'Online' : 'Offline'}
                             </span>
                           </div>

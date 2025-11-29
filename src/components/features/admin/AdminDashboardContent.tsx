@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
   Users,
-  DollarSign,
   Calendar,
-  GraduationCap
+  GraduationCap,
+  TrendingUp
 } from 'lucide-react';
 import UserStatistics from '../../statistics/UserStatistics';
 import SessionStatistics from '../../statistics/SessionStatistics';
@@ -17,7 +17,7 @@ const AdminDashboardContent: React.FC = () => {
     { id: 'users' as const, label: 'Users', icon: Users },
     { id: 'sessions' as const, label: 'Sessions', icon: Calendar },
     { id: 'tutors' as const, label: 'Tutors', icon: GraduationCap },
-    { id: 'financial' as const, label: 'Financial', icon: DollarSign },
+    { id: 'financial' as const, label: 'Financial', icon: TrendingUp },
   ];
 
   return (

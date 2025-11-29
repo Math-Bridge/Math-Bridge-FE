@@ -9,7 +9,6 @@ import {
   XCircle,
   Clock,
   GraduationCap,
-  DollarSign,
   FileText,
   ArrowLeft,
   ChevronLeft,
@@ -789,7 +788,6 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                         </div>
                         <div>
                           <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
-                            <DollarSign className="w-4 h-4" />
                             <span>Hourly Rate</span>
                           </label>
                           <p className="text-gray-900 mt-1">

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
-import { getAllTutors, Tutor } from '../../services/api';
+import { getAllTutors, Tutor, apiService } from '../../services/api';
 
 interface TutorDisplay extends Tutor {
   id: string;
@@ -46,47 +46,68 @@ const TutorList: React.FC = () => {
         const result = await getAllTutors();
         if (result.success && result.data) {
           // Map Tutor data to TutorDisplay format
-          const mappedTutors: TutorDisplay[] = result.data.map((tutor: Tutor) => {
-            // Get subjects from specialties or major
-            const tutorSubjects = tutor.specialties && tutor.specialties.length > 0 
-              ? tutor.specialties 
-              : tutor.major 
-                ? [tutor.major] 
-                : ['Math'];
-            
-            // Format experience
-            const experience = tutor.yearsOfExperience 
-              ? `${tutor.yearsOfExperience} years`
-              : 'Not specified';
-            
-            // Default avatar
-            const avatarUrl = tutor.profilePictureUrl || 
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName)}&background=random`;
-            
-            // Location from center or default
-            const location = tutor.centerName || 'Location not specified';
-            
-            // Languages (default to English if not specified)
-            const languages = ['English']; // Can be extended if backend provides this
-            
-            // Is verified
-            const isVerified = tutor.verificationStatus === 'approved' || tutor.verificationStatus === 'Approved';
-            
-            return {
-              ...tutor,
-              id: tutor.userId,
-              name: tutor.fullName,
-              subjects: tutorSubjects,
-              experience: experience,
-              rating: tutor.rating || 0,
-              totalReviews: tutor.studentCount || 0,
-              location: location,
-              avatarUrl: avatarUrl,
-              isVerified: isVerified,
-              specialties: tutor.specialties || [],
-              languages: languages,
-            };
-          });
+          const mappedTutors: TutorDisplay[] = await Promise.all(
+            result.data.map(async (tutor: Tutor) => {
+              // Get subjects from specialties or major
+              const tutorSubjects = tutor.specialties && tutor.specialties.length > 0 
+                ? tutor.specialties 
+                : tutor.major 
+                  ? [tutor.major] 
+                  : ['Math'];
+              
+              // Format experience
+              const experience = tutor.yearsOfExperience 
+                ? `${tutor.yearsOfExperience} years`
+                : 'Not specified';
+              
+              // Try to get avatarUrl from tutor data first
+              let avatarUrl = tutor.avatarUrl || tutor.profilePictureUrl;
+              
+              // If no avatarUrl, fetch from User API
+              if (!avatarUrl && tutor.userId) {
+                try {
+                  const userResponse = await apiService.getUserById(tutor.userId);
+                  if (userResponse.success && userResponse.data) {
+                    avatarUrl = userResponse.data.avatarUrl || userResponse.data.AvatarUrl || undefined;
+                  }
+                } catch (err) {
+                  // Silently fail, will use fallback
+                  if (import.meta.env.DEV) {
+                    console.warn(`Failed to fetch avatar for tutor ${tutor.userId}:`, err);
+                  }
+                }
+              }
+              
+              // Fallback to generated avatar if still no avatarUrl
+              if (!avatarUrl) {
+                avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName)}&background=random`;
+              }
+              
+              // Location from center or default
+              const location = tutor.centerName || 'Location not specified';
+              
+              // Languages (default to English if not specified)
+              const languages = ['English']; // Can be extended if backend provides this
+              
+              // Is verified
+              const isVerified = tutor.verificationStatus === 'approved' || tutor.verificationStatus === 'Approved';
+              
+              return {
+                ...tutor,
+                id: tutor.userId,
+                name: tutor.fullName,
+                subjects: tutorSubjects,
+                experience: experience,
+                rating: tutor.rating || 0,
+                totalReviews: tutor.studentCount || 0,
+                location: location,
+                avatarUrl: avatarUrl,
+                isVerified: isVerified,
+                specialties: tutor.specialties || [],
+                languages: languages,
+              };
+            })
+          );
           
           setTutors(mappedTutors);
         } else {

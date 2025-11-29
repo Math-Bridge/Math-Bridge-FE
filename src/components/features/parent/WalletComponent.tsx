@@ -4,7 +4,6 @@ import {
   Plus, 
   ArrowUpRight,
   ArrowDownRight,
-  DollarSign,
   Clock,
   RefreshCw,
   ChevronLeft,
@@ -184,7 +183,7 @@ const WalletComponent: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
               <div>
                 <p className="text-gray-600 font-medium flex items-center gap-2">
-                  <DollarSign className="w-5 h-5" /> Available Balance
+                  Available Balance
                 </p>
                 <p className="text-5xl font-bold text-gray-900 mt-3">
                   {formatCurrency(walletData.balance)}

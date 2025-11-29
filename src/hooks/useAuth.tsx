@@ -149,7 +149,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   placeId: userPlaceId,
                   formattedAddress: backendUser.formattedAddress || backendUser.FormattedAddress,
                   createdAt: backendUser.createdDate || backendUser.CreatedDate || new Date().toISOString(),
-                  role: userRole
+                  role: userRole,
+                  avatarUrl: backendUser.avatarUrl || backendUser.AvatarUrl
                 };
                 
                 console.log('Login successful, user data fetched:', user);
@@ -293,7 +294,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               placeId: userPlaceId,
               formattedAddress: backendUser.formattedAddress || backendUser.FormattedAddress,
               createdAt: backendUser.createdDate || backendUser.CreatedDate || new Date().toISOString(),
-              role: userRole
+              role: userRole,
+              avatarUrl: backendUser.avatarUrl || backendUser.AvatarUrl
             };
             
             console.log('Google login successful, user data fetched:', user);
