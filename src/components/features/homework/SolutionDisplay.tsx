@@ -13,6 +13,8 @@ const cleanHintText = (text: string) => {
   if (!text) return '';
   return text
     .replace(/\\n/g, ' ') // Replace literal '\n' with a space
+    .replace(/\\infty/g, '∞') // Replace LaTeX \infty with unicode symbol to avoid rendering issues
+    .replace(/\\text\{([^}]+)\}/g, '$1') // Strip \text{...} to just ... (avoids nested brace parsing issues)
     .replace(/\b(x){2,}\b/g, '$1') // Replace 'xx' with 'x'
     .replace(/(\b.{3,})\1\b/g, '$1'); // Remove immediate repetition of 3+ chars (e.g., 'x=3x=3')
 };
@@ -27,11 +29,30 @@ const processHintText = (text: string) => {
     // If this part is already wrapped in $, return it as is
     if (part.startsWith('$')) return part;
     
-    // Otherwise, look for un-delimited LaTeX commands in this text segment
-    // We strictly look for commands that start with \ followed by a known math keyword
-    return part.replace(/(\\(?:frac|lim|infty|to|cdot|sqrt|sum|int|left|right)(?:\{[^}]*\})*(?:\{[^}]*\})?)/g, '$$$1$$');
+    let processed = part;
+    
+    // 1. Wrap latex commands
+    processed = processed.replace(/([+\-]?\\(?:frac|lim|infty|to|cdot|sqrt|sum|int|left|right|text)(?:\s*\{[^}]*\})*)/g, '$$$1$$');
+    
+    // 2. Wrap exponents (e.g., x^2, 3^2)
+    processed = processed.replace(/(\b[a-zA-Z0-9]+\^[a-zA-Z0-9]+\b)/g, '$$$1$$');
+
+    // 3. Wrap simple relations (e.g., x=3, x>3) - case insensitive
+    processed = processed.replace(/(\b[a-z]\s*[=<>]=?\s*-?\d+)/gi, '$$$1$$');
+
+    // 4. Wrap simple arithmetic (e.g., x-3, 3+9)
+    processed = processed.replace(/(\b(?:[a-z]|\d+)\s*[+\-]\s*(?:[a-z]|\d+)\b)/gi, '$$$1$$');
+
+    return processed;
   }).join('');
 };
+
+const latexDelimiters = [
+  { left: '$$', right: '$$', display: true },
+  { left: '$', right: '$', display: false },
+  { left: '\\(', right: '\\)', display: false },
+  { left: '\\[', right: '\\]', display: true },
+];
 
 const SolutionDisplay: React.FC<SolutionDisplayProps> = ({ solution, hint, error }) => {
   if (error) {
@@ -59,7 +80,7 @@ const SolutionDisplay: React.FC<SolutionDisplayProps> = ({ solution, hint, error
           <div className="prose prose-indigo max-w-none text-lg space-y-4">
             {solution.split(/(?:\\quad|\\\\)/).map((part, index) => (
               <div key={index}>
-                <Latex>{`$$${part.trim()}$$`}</Latex>
+                <Latex delimiters={latexDelimiters}>{`$$${part.trim()}$$`}</Latex>
               </div>
             ))}
           </div>
@@ -78,7 +99,7 @@ const SolutionDisplay: React.FC<SolutionDisplayProps> = ({ solution, hint, error
                     {hint.map((item, idx) => (
                       <li key={idx} className="leading-relaxed">
                          <span className="inline-block align-top">
-                            <Latex>{processHintText(item)}</Latex>
+                            <Latex delimiters={latexDelimiters}>{processHintText(item)}</Latex>
                          </span>
                       </li>
                     ))}
@@ -101,14 +122,14 @@ const SolutionDisplay: React.FC<SolutionDisplayProps> = ({ solution, hint, error
                           return hint.split(splitRegex).map((step, idx) => (
                               step.trim() && (
                                 <li key={idx} className="flex gap-2">
-                                  <Latex>{processHintText(step.trim())}</Latex>
+                                  <Latex delimiters={latexDelimiters}>{processHintText(step.trim())}</Latex>
                                 </li>
                               )
                           ));
                         })()}
                       </ul>
                     ) : (
-                      <Latex>{processHintText(hint)}</Latex>
+                      <Latex delimiters={latexDelimiters}>{processHintText(hint)}</Latex>
                     )}
                   </div>
                 )}
