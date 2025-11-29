@@ -12,6 +12,7 @@ interface SolutionDisplayProps {
 const cleanHintText = (text: string) => {
   if (!text) return '';
   return text
+    .replace(/\\n/g, ' ') // Replace literal '\n' with a space
     .replace(/\b(x){2,}\b/g, '$1') // Replace 'xx' with 'x'
     .replace(/(\b.{3,})\1\b/g, '$1'); // Remove immediate repetition of 3+ chars (e.g., 'x=3x=3')
 };
@@ -77,22 +78,34 @@ const SolutionDisplay: React.FC<SolutionDisplayProps> = ({ solution, hint, error
                     {hint.map((item, idx) => (
                       <li key={idx} className="leading-relaxed">
                          <span className="inline-block align-top">
-                            <Latex>{item}</Latex>
+                            <Latex>{processHintText(item)}</Latex>
                          </span>
                       </li>
                     ))}
                   </ul>
                 ) : (
                   <div className="prose prose-sm max-w-none">
-                    {typeof hint === 'string' && hint.match(/\d+\./) ? (
+                    {typeof hint === 'string' && (hint.match(/\d+\./) || hint.match(/Step\s+\d+:/) || hint.includes('\n')) ? (
                       <ul className="list-none space-y-2">
-                        {hint.split(/(?=\d+\.)/).map((step, idx) => (
-                          step.trim() && (
-                            <li key={idx} className="flex gap-2">
-                              <Latex>{processHintText(step.trim())}</Latex>
-                            </li>
-                          )
-                        ))}
+                        {(() => {
+                          // Determine split strategy based on content
+                          let splitRegex;
+                          if (hint.match(/Step\s+\d+:/)) {
+                             splitRegex = /(?=Step\s+\d+:)/;
+                          } else if (hint.match(/^\s*\d+\./m)) {
+                             splitRegex = /(?=\d+\.)/;
+                          } else {
+                             splitRegex = /\n/;
+                          }
+                          
+                          return hint.split(splitRegex).map((step, idx) => (
+                              step.trim() && (
+                                <li key={idx} className="flex gap-2">
+                                  <Latex>{processHintText(step.trim())}</Latex>
+                                </li>
+                              )
+                          ));
+                        })()}
                       </ul>
                     ) : (
                       <Latex>{processHintText(hint)}</Latex>
