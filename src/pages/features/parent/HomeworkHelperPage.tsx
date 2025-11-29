@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 const HomeworkHelperPage: React.FC = () => {
   const [solution, setSolution] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -35,8 +35,21 @@ const HomeworkHelperPage: React.FC = () => {
 
     try {
       const response = await analyzeHomeworkImage(selectedFile);
-      // The API returns 'latex' and optionally 'hint'
-      setSolution(response.latex || 'No solution found.');
+      
+      if (response.latex) {
+          setSolution(response.latex);
+      } else {
+          // Fallback if no latex field found, but maybe in a 'result' string if the parser didn't catch it deep enough
+          // or simply error out if structure is completely unexpected
+          if (typeof response === 'string') {
+               setSolution(response);
+          } else {
+               setSolution(null);
+               setError("Could not identify the problem in the image.");
+               return;
+          }
+      }
+
       if (response.hint) {
           setHint(response.hint);
       }
