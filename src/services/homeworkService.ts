@@ -2,13 +2,14 @@ import api from '../utils/api';
 import { AxiosError } from 'axios';
 
 export interface AnalyzeHomeworkResponse {
-  result: string;
+  latex: string;
+  hint?: string;
 }
 
 /**
  * Uploads an image to be analyzed by the AI Homework Helper.
  * @param file - The image file to upload.
- * @returns A promise that resolves to the analysis result (LaTeX string).
+ * @returns A promise that resolves to the analysis result (LaTeX string and hint).
  */
 export const analyzeHomeworkImage = async (file: File): Promise<AnalyzeHomeworkResponse> => {
   const formData = new FormData();

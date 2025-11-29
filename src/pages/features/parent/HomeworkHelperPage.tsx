@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 
 const HomeworkHelperPage: React.FC = () => {
   const [solution, setSolution] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -13,12 +14,14 @@ const HomeworkHelperPage: React.FC = () => {
   const handleImageSelected = (file: File) => {
     setSelectedFile(file);
     setSolution(null);
+    setHint(null);
     setError(null);
   };
 
   const handleImageCleared = () => {
     setSelectedFile(null);
     setSolution(null);
+    setHint(null);
     setError(null);
   };
 
@@ -28,12 +31,15 @@ const HomeworkHelperPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setSolution(null);
+    setHint(null);
 
     try {
       const response = await analyzeHomeworkImage(selectedFile);
-      // Assuming the response has a 'result' field which contains the LaTeX string
-      // Adjust this based on the actual API response structure if needed
-      setSolution(response.result || 'No solution found.');
+      // The API returns 'latex' and optionally 'hint'
+      setSolution(response.latex || 'No solution found.');
+      if (response.hint) {
+          setHint(response.hint);
+      }
     } catch (err: any) {
       console.error("Homework analysis error:", err);
       setError(err.message || 'An unexpected error occurred while analyzing the image.');
@@ -84,7 +90,7 @@ const HomeworkHelperPage: React.FC = () => {
             </div>
           )}
 
-          <SolutionDisplay solution={solution} error={error} />
+          <SolutionDisplay solution={solution} hint={hint} error={error} />
         </div>
       </div>
     </div>
