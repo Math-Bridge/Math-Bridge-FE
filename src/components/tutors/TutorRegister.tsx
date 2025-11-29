@@ -5,7 +5,6 @@ import {
   Mail, 
   Award, 
   FileText, 
-  DollarSign,
   Clock,
   MapPin,
   Phone,
@@ -173,7 +172,7 @@ const TutorRegister: React.FC = () => {
       if (formData.professionalInfo.subjects.length === 0) newErrors.subjects = 'At least one subject is required';
       if (!formData.professionalInfo.experience.trim()) newErrors.experience = 'Experience is required';
       if (formData.professionalInfo.education.filter(e => e.trim()).length === 0) newErrors.education = 'At least one education entry is required';
-      if (formData.professionalInfo.hourlyRate < 10) newErrors.hourlyRate = 'Hourly rate must be at least $10';
+      if (formData.professionalInfo.hourlyRate < 10) newErrors.hourlyRate = 'Hourly rate must be at least 10';
       if (formData.professionalInfo.availability.length === 0) newErrors.availability = 'At least one availability slot is required';
     }
 
@@ -506,9 +505,8 @@ const TutorRegister: React.FC = () => {
 
               {/* Hourly Rate */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate (USD) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate *</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <input
                     type="number"
                     min="10"

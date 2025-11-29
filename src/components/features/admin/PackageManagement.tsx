@@ -6,7 +6,6 @@ import {
   Edit,
   Trash2,
   Plus,
-  DollarSign,
   Clock,
   GraduationCap,
   Calendar,
@@ -580,7 +579,6 @@ const PackageManagement: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2 text-sm text-gray-900">
-                            <DollarSign className="w-4 h-4 text-gray-500" />
                             <span className="font-medium">
                               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(pkg.price)}
                             </span>
@@ -798,7 +796,6 @@ const PackageManagement: React.FC = () => {
                     Price (VND) *
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="number"
                       required
@@ -809,7 +806,7 @@ const PackageManagement: React.FC = () => {
                         const value = e.target.value;
                         setFormData({ ...formData, price: value === '' ? 0 : parseInt(value) || 0 });
                       }}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                      className="w-full pl-4 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />
                   </div>
@@ -1041,7 +1038,6 @@ const PackageManagement: React.FC = () => {
                     Price (VND) *
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="number"
                       required
@@ -1052,7 +1048,7 @@ const PackageManagement: React.FC = () => {
                         const value = e.target.value;
                         setFormData({ ...formData, price: value === '' ? 0 : parseInt(value) || 0 });
                       }}
-                      className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                      className="w-full pl-4 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
                       placeholder="0"
                     />
                   </div>

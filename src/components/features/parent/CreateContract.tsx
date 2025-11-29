@@ -824,81 +824,81 @@ const CreateContract: React.FC = () => {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between overflow-x-auto pb-2">
             {/* Step 1: Select Child */}
-            <div className="flex items-center space-x-2">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
                 currentStep === 'select-child' ? 'bg-blue-600 text-white' : 
                 ['select-package', 'schedule', 'payment'].includes(currentStep) ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
                 {['select-package', 'schedule', 'payment'].includes(currentStep) ? (
-                  <CheckCircle className="w-6 h-6" />
+                  <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                 ) : (
-                  <span className="font-semibold">1</span>
+                  <span className="font-semibold text-xs sm:text-base">1</span>
                 )}
               </div>
-              <span className={`font-medium ${currentStep === 'select-child' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-child' ? 'text-blue-600' : 'text-gray-600'}`}>
                 Select Child
               </span>
             </div>
             
-            <div className={`flex-1 h-1 mx-2 ${
+            <div className={`flex-1 h-1 mx-1 sm:mx-2 min-w-[20px] ${
               ['select-package', 'schedule', 'payment'].includes(currentStep) ? 'bg-green-500' : 'bg-gray-200'
             }`}></div>
 
             {/* Step 2: Select Package */}
-            <div className="flex items-center space-x-2">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
                 currentStep === 'select-package' ? 'bg-blue-600 text-white' : 
                 ['schedule', 'payment'].includes(currentStep) ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
                 {['schedule', 'payment'].includes(currentStep) ? (
-                  <CheckCircle className="w-6 h-6" />
+                  <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                 ) : (
-                  <span className="font-semibold">2</span>
+                  <span className="font-semibold text-xs sm:text-base">2</span>
                 )}
               </div>
-              <span className={`font-medium ${currentStep === 'select-package' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-package' ? 'text-blue-600' : 'text-gray-600'}`}>
                 Select Package
               </span>
             </div>
 
-            <div className={`flex-1 h-1 mx-2 ${
+            <div className={`flex-1 h-1 mx-1 sm:mx-2 min-w-[20px] ${
               ['schedule', 'payment'].includes(currentStep) ? 'bg-green-500' : 'bg-gray-200'
             }`}></div>
 
             {/* Step 3: Schedule */}
-            <div className="flex items-center space-x-2">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
                 currentStep === 'schedule' ? 'bg-blue-600 text-white' : 
                 currentStep === 'payment' ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
                 {currentStep === 'payment' ? (
-                  <CheckCircle className="w-6 h-6" />
+                  <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                 ) : (
-                  <span className="font-semibold">3</span>
+                  <span className="font-semibold text-xs sm:text-base">3</span>
                 )}
               </div>
-              <span className={`font-medium ${currentStep === 'schedule' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'schedule' ? 'text-blue-600' : 'text-gray-600'}`}>
                 Schedule
               </span>
             </div>
 
-            <div className={`flex-1 h-1 mx-2 ${
+            <div className={`flex-1 h-1 mx-1 sm:mx-2 min-w-[20px] ${
               currentStep === 'payment' ? 'bg-green-500' : 'bg-gray-200'
             }`}></div>
 
             {/* Step 4: Payment */}
-            <div className="flex items-center space-x-2">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+              <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
                 currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
               }`}>
-                <span className="font-semibold">4</span>
+                <span className="font-semibold text-xs sm:text-base">4</span>
               </div>
-              <span className={`font-medium ${currentStep === 'payment' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'payment' ? 'text-blue-600' : 'text-gray-600'}`}>
                 Payment
               </span>
             </div>

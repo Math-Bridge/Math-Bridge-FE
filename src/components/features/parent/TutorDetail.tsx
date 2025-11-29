@@ -11,14 +11,13 @@ import {
   CheckCircle,
   ArrowLeft,
   Calendar,
-  DollarSign,
   GraduationCap,
   Languages,
   Phone,
   Mail
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTutorById, getFinalFeedbacksByUserId } from '../../../services/api';
+import { getTutorById, getFinalFeedbacksByUserId, apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface TutorProfile {
@@ -45,6 +44,7 @@ interface TutorProfile {
   centerName: string;
   centerAddress: string;
   profileImage?: string;
+  avatarUrl?: string;
   verified: boolean;
 }
 
@@ -129,6 +129,24 @@ const TutorDetail: React.FC = () => {
         const centers = tutorData.tutorCenters || [];
         const firstCenter = centers[0]?.center || centers[0]?.Center || null;
 
+        // Try to get avatarUrl from tutor data first
+        let avatarUrl = tutorData.avatarUrl || tutorData.AvatarUrl;
+        
+        // If no avatarUrl, fetch from User API
+        if (!avatarUrl && tutorData.userId) {
+          try {
+            const userResponse = await apiService.getUserById(tutorData.userId);
+            if (userResponse.success && userResponse.data) {
+              avatarUrl = userResponse.data.avatarUrl || userResponse.data.AvatarUrl || undefined;
+            }
+          } catch (err) {
+            // Silently fail, will use undefined
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching tutor avatar:', err);
+            }
+          }
+        }
+
         // Map to TutorProfile format
         setTutor({
           id: tutorData.userId,
@@ -158,6 +176,8 @@ const TutorDetail: React.FC = () => {
           hourlyRate: verification?.hourlyRate || 0,
           centerName: firstCenter?.centerName || firstCenter?.CenterName || 'Not assigned',
           centerAddress: firstCenter?.address || firstCenter?.Address || tutorData.formattedAddress || 'N/A',
+          profileImage: avatarUrl,
+          avatarUrl: avatarUrl || null,
           verified: verification?.verificationStatus === 'verified' || verification?.verificationStatus === 'Verified'
         });
 
@@ -267,33 +287,51 @@ const TutorDetail: React.FC = () => {
             <ArrowLeft className="w-5 h-5" />
             <span className="font-semibold">Back to Tutors</span>
           </button>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{tutor.name}</h1>
-              <p className="text-gray-600 mt-2">
-                {tutor.subjects.join(' • ')} • {tutor.experience} experience
-              </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
+                {tutor.avatarUrl ? (
+                  <img 
+                    src={tutor.avatarUrl} 
+                    alt={tutor.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
+                ) : null}
+                {!tutor.avatarUrl && (
+                  <User className="h-8 w-8 sm:h-10 sm:w-10 text-white" aria-hidden="true" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">{tutor.name}</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-2 break-words">
+                  {tutor.subjects.join(' • ')} • {tutor.experience} experience
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {tutor.verified && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                  <CheckCircle className="w-4 h-4 mr-1" />
+                <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                   Verified
                 </span>
               )}
               <div className="flex items-center space-x-1">
-                <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                <span className="font-semibold">{tutor.rating}</span>
-                <span className="text-gray-500">({tutor.totalReviews} reviews)</span>
+                <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-current" />
+                <span className="font-semibold text-sm sm:text-base">{tutor.rating}</span>
+                <span className="text-gray-500 text-xs sm:text-sm">({tutor.totalReviews} reviews)</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+        <div className="mb-6 sm:mb-8">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8">
               {[
                 { key: 'overview', label: 'Overview', icon: User },
                 { key: 'reviews', label: 'Reviews', icon: Star }
@@ -301,13 +339,13 @@ const TutorDetail: React.FC = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-1 sm:space-x-2 py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <tab.icon className="w-4 h-4" />
+                  <tab.icon className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>{tab.label}</span>
                 </button>
               ))}

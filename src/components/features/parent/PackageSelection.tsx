@@ -8,7 +8,6 @@ import {
   ArrowLeft,
   Search,
   Filter,
-  DollarSign,
   BookOpen,
   Award
 } from 'lucide-react';
@@ -133,16 +132,16 @@ const PackageSelection: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <button
             onClick={() => navigate('/contracts/create')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
+            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-4 sm:mb-6 text-sm sm:text-base"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="font-semibold">Back to Contract Creation</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">{t('selectPackage')}</h1>
-          <p className="text-gray-600 mt-2">{t('selectLearningPackage')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{t('selectPackage')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-2">{t('selectLearningPackage')}</p>
         </div>
 
         {/* Filters */}

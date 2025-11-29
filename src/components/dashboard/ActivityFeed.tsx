@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity } from '../../types';
-import { Users, DollarSign, Settings, TrendingUp, Clock } from 'lucide-react';
+import { Users, Settings, TrendingUp, Clock, Wallet } from 'lucide-react';
 import { formatRelativeTime } from '../../utils';
 
 interface ActivityFeedProps {
@@ -13,7 +13,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
       case 'user':
         return Users;
       case 'payment':
-        return DollarSign;
+        return Wallet;
       case 'system':
         return Settings;
       case 'session':

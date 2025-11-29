@@ -5,7 +5,6 @@ import {
   Clock,
   User,
   MapPin,
-  DollarSign,
   Star,
   CheckCircle,
   AlertCircle,

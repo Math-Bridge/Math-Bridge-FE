@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Calendar,
   User,
-  DollarSign,
   ArrowLeft,
   RefreshCw,
   MessageSquare,
@@ -257,7 +256,7 @@ const ContractsManagement: React.FC = () => {
       pending: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: Clock, label: 'Pending' },
       completed: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: CheckCircle, label: 'Completed' },
       cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle, label: 'Cancelled' },
-      unpaid: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: DollarSign, label: 'Unpaid' },
+      unpaid: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: AlertCircle, label: 'Unpaid' },
     };
     return config[status as keyof typeof config] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: AlertCircle, label: 'Unknown' };
   };
@@ -448,10 +447,10 @@ const ContractsManagement: React.FC = () => {
 
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
                     <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-blue-600" />
-                      <div>
+                      <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Schedule</p>
-                        <p className="text-sm font-bold text-gray-900 truncate">{contract.schedule}</p>
+                        <p className="text-sm font-bold text-gray-900 truncate" title={contract.schedule}>{contract.schedule}</p>
                       </div>
                     </div>
                   </div>
@@ -470,7 +469,6 @@ const ContractsManagement: React.FC = () => {
 
                   <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-4 border border-orange-100">
                     <div className="flex items-center gap-3">
-                      <DollarSign className="w-5 h-5 text-orange-600" />
                       <div>
                         <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Price</p>
                         <p className="text-lg font-bold text-gray-900">

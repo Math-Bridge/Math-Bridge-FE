@@ -53,6 +53,8 @@ const ParentProfile: React.FC = () => {
   });
 
   const [originalData, setOriginalData] = useState(formData);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
 
   const [passwordData, setPasswordData] = useState({
@@ -337,7 +339,7 @@ const ParentProfile: React.FC = () => {
     }
   };
 
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -346,12 +348,58 @@ const ParentProfile: React.FC = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      showError('Image size must be less than 5MB');
+    // Backend accepts max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Image size must be less than 2MB');
       return;
     }
 
-    showSuccess('Profile picture uploaded successfully!');
+    // Check file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      showError('Invalid file type. Only JPG, PNG and WebP are allowed.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await apiService.uploadAvatar(file);
+
+      if (response.success && response.data) {
+        const newAvatarUrl = response.data.avatarUrl;
+        setAvatarUrl(newAvatarUrl);
+        
+        // Update user in localStorage
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              avatarUrl: newAvatarUrl
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
+
+        // Refresh user data to get updated avatar
+        await fetchUserData();
+        showSuccess('Profile picture uploaded successfully!');
+      } else {
+        showError(response.error || 'Failed to upload profile picture');
+      }
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      showError(error?.message || 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      event.target.value = '';
+    }
   };
 
   // Location autocomplete handler
@@ -481,11 +529,20 @@ const ParentProfile: React.FC = () => {
 
         console.log('Final mapped form data:', mappedData);
 
+        // Set avatar URL if available (with cache busting if version exists)
+        let userAvatarUrl = userData.avatarUrl || userData.AvatarUrl || null;
+        if (userAvatarUrl && userData.avatarVersion) {
+          // Add version query parameter for cache busting
+          const separator = userAvatarUrl.includes('?') ? '&' : '?';
+          userAvatarUrl = `${userAvatarUrl}${separator}v=${userData.avatarVersion}`;
+        }
+        setAvatarUrl(userAvatarUrl);
+
         setFormData(mappedData);
         setOriginalData(mappedData);
         setLocationInput(userAddress);
 
-        // Update user in localStorage with placeId
+        // Update user in localStorage with placeId and avatarUrl
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           try {
@@ -493,7 +550,8 @@ const ParentProfile: React.FC = () => {
             const updatedUser = {
               ...parsedUser,
               placeId: userData.placeId || userData.PlaceId,
-              formattedAddress: userAddress
+              formattedAddress: userAddress,
+              avatarUrl: userAvatarUrl
             };
             localStorage.setItem('user', JSON.stringify(updatedUser));
             console.log('Updated user in localStorage with placeId:', updatedUser.placeId);
@@ -575,9 +633,9 @@ const ParentProfile: React.FC = () => {
         )}
 
         {/* Header Section */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Account Settings</h1>
-          <p className="text-slate-600">Manage your profile and account preferences</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-2">Account Settings</h1>
+          <p className="text-sm sm:text-base text-slate-600">Manage your profile and account preferences</p>
         </div>
 
         {/* Loading State */}
@@ -634,16 +692,45 @@ const ParentProfile: React.FC = () => {
                   {/* Avatar Section */}
                   <div className="flex items-center space-x-6 mb-8 pb-8 border-b border-slate-200">
                     <div className="relative">
-                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt="Profile"
+                          className="w-24 h-24 rounded-full object-cover border-2 border-slate-200"
+                          onError={(e) => {
+                            // Fallback to initial if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement;
+                            if (fallback) {
+                              fallback.style.display = 'flex';
+                              setAvatarUrl(null); // Clear invalid URL
+                            }
+                          }}
+                          onLoad={() => {
+                            // Hide fallback when image loads successfully
+                            const fallback = document.querySelector('.avatar-fallback') as HTMLElement;
+                            if (fallback) fallback.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className={`avatar-fallback w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold ${avatarUrl ? 'hidden' : ''}`}
+                      >
                         {formData.name?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                       {isEditing && (
-                        <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
-                          <Camera className="w-4 h-4" />
+                        <label className={`absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                          {isUploadingAvatar ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          ) : (
+                            <Camera className="w-4 h-4" />
+                          )}
                           <input
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
                             onChange={handleAvatarUpload}
+                            disabled={isUploadingAvatar}
                             className="hidden"
                           />
                         </label>

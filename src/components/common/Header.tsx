@@ -34,6 +34,7 @@ const Header: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState(true);
+  const [avatarError, setAvatarError] = useState(false);
 
   // Refs for click outside detection
   const userDropdownRef = useRef<HTMLDivElement>(null);
@@ -74,6 +75,11 @@ const Header: React.FC = () => {
   };
 
   const navigationItems = getNavigationItems();
+
+  // Reset avatar error when user changes
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatarUrl]);
 
   // Fetch wallet data and check balance every 5 seconds
   useEffect(() => {
@@ -282,8 +288,17 @@ const Header: React.FC = () => {
                     aria-haspopup="true"
                     aria-label="User menu"
                   >
-                    <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
-                      <User className="h-5 w-5 text-white" aria-hidden="true" />
+                    <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden">
+                      {user?.avatarUrl && !avatarError ? (
+                        <img 
+                          src={user.avatarUrl} 
+                          alt={user?.name || 'User'} 
+                          className="w-full h-full object-cover"
+                          onError={() => setAvatarError(true)}
+                        />
+                      ) : (
+                        <User className="h-5 w-5 text-white" aria-hidden="true" />
+                      )}
                     </div>
                     <div className="hidden sm:block text-left">
                       <div className="text-sm font-semibold text-gray-900">{user?.name?.split(' ')[0] || 'User'}</div>
@@ -302,8 +317,17 @@ const Header: React.FC = () => {
                     >
                       <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
                         <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
-                            <User className="h-6 w-6 text-white" aria-hidden="true" />
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
+                            {user?.avatarUrl && !avatarError ? (
+                              <img 
+                                src={user.avatarUrl} 
+                                alt={user?.name || 'User'} 
+                                className="w-full h-full object-cover"
+                                onError={() => setAvatarError(true)}
+                              />
+                            ) : (
+                              <User className="h-6 w-6 text-white" aria-hidden="true" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-gray-900 truncate">{user?.name || 'User'}</div>

@@ -209,20 +209,20 @@ const ParentHome: React.FC = () => {
 
           {/* Hero + Wallet */}
           <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 mb-10 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-8 text-white">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-                <div>
-                  <h1 className="text-4xl font-bold mb-2">{getGreeting()}, {user?.name?.split(' ')[0] || 'Parent'}!</h1>
-                  <p className="text-lg opacity-95">Ready to support your child's learning journey?</p>
-                  <div className="flex items-center gap-6 mt-4 text-white/80">
-                    <div className="flex items-center gap-2"><Clock className="h-5 w-5" /> {currentTime.toLocaleTimeString()}</div>
-                    <div className="flex items-center gap-2"><Calendar className="h-5 w-5" /> {currentTime.toLocaleDateString()}</div>
+            <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-4 sm:p-6 lg:p-8 text-white">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 sm:gap-6">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 truncate">{getGreeting()}, {user?.name?.split(' ')[0] || 'Parent'}!</h1>
+                  <p className="text-sm sm:text-base lg:text-lg opacity-95">Ready to support your child's learning journey?</p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 mt-4 text-white/80">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm"><Clock className="h-4 w-4 sm:h-5 sm:w-5" /> {currentTime.toLocaleTimeString()}</div>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm"><Calendar className="h-4 w-4 sm:h-5 sm:w-5" /> {currentTime.toLocaleDateString()}</div>
                   </div>
                 </div>
 
                 {/* Wallet Balance */}
-                <div className="relative group">
-                  <div className="bg-white/25 backdrop-blur-2xl rounded-2xl p-6 border border-white/40 shadow-2xl 
+                <div className="relative group w-full lg:w-auto">
+                  <div className="bg-white/25 backdrop-blur-2xl rounded-2xl p-4 sm:p-6 border border-white/40 shadow-2xl 
                     transform-gpu transition-all duration-500 hover:scale-105 hover:rotate-1 hover:shadow-3xl
                     cursor-pointer overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent 
@@ -231,19 +231,19 @@ const ParentHome: React.FC = () => {
                       opacity-0 group-hover:opacity-70 blur-xl transition-opacity duration-700" />
                     
                     <div className="relative z-10">
-                      <div className="flex items-center gap-4 mb-4">
+                      <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
                         <div className="relative">
-                          <Wallet className="h-10 w-10 text-cyan-300" />
+                          <Wallet className="h-8 w-8 sm:h-10 sm:w-10 text-cyan-300" />
                           <div className="absolute -inset-2 bg-cyan-400/30 rounded-full blur-xl animate-pulse" />
-                          <Zap className="absolute top-0 right-0 h-4 w-4 text-cyan-300 animate-ping" />
+                          <Zap className="absolute top-0 right-0 h-3 w-3 sm:h-4 sm:w-4 text-cyan-300 animate-ping" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-white/80">Wallet Balance</p>
-                          <p className="text-xs text-white/60">Ready for booking</p>
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-medium text-white/80 truncate">Wallet Balance</p>
+                          <p className="text-[10px] sm:text-xs text-white/60 truncate">Ready for booking</p>
                         </div>
                       </div>
                       
-                      <div className="text-4xl font-black text-white tracking-tight">
+                      <div className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight break-words">
                         {walletBalance !== null 
                           ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(walletBalance)
                           : 'Loading...'
@@ -251,9 +251,9 @@ const ParentHome: React.FC = () => {
                       </div>
                       
                       {walletBalance !== null && walletBalance > 10000000 && (
-                        <div className="flex items-center gap-2 mt-3 text-cyan-300">
-                          <Sparkles className="h-5 w-5 animate-pulse" />
-                          <span className="text-sm font-bold">VIP Balance!</span>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-3 text-cyan-300">
+                          <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 animate-pulse" />
+                          <span className="text-xs sm:text-sm font-bold">VIP Balance!</span>
                         </div>
                       )}
                     </div>
@@ -363,12 +363,27 @@ const ParentHome: React.FC = () => {
                     const tutorName = tutor.tutorName || tutor.TutorName || 'Unknown';
                     const averageRating = tutor.averageRating || tutor.AverageRating || 0;
                     const feedbackCount = tutor.feedbackCount || tutor.FeedbackCount || 0;
+                    const tutorAvatarUrl = tutor.avatarUrl || tutor.AvatarUrl || null;
+                    const fallbackAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutorName)}&background=random`;
                     
-                    const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutorName)}&background=random`;
                     return (
                       <div key={tutorId} className="p-5 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200 hover:shadow-lg transition-all">
                         <div className="flex items-center gap-4 mb-4">
-                          <img src={avatarUrl} alt={tutorName} className="w-14 h-14 rounded-full object-cover" />
+                          <div className="w-14 h-14 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
+                            {tutorAvatarUrl ? (
+                              <img 
+                                src={tutorAvatarUrl} 
+                                alt={tutorName} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = fallbackAvatarUrl;
+                                }}
+                              />
+                            ) : (
+                              <img src={fallbackAvatarUrl} alt={tutorName} className="w-full h-full object-cover" />
+                            )}
+                          </div>
                           <div>
                             <h3 className="font-bold">{tutorName}</h3>
                             <p className="text-sm text-gray-600">Tutor</p>

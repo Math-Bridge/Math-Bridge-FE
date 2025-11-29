@@ -6,7 +6,6 @@ import {
   Users, 
   TrendingUp, 
   GraduationCap,
-  DollarSign,
   PieChart,
   UserPlus
 } from 'lucide-react';

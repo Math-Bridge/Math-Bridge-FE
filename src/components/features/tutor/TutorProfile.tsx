@@ -5,7 +5,6 @@ import {
   Mail,
   Phone,
   GraduationCap,
-  DollarSign,
   FileText,
   CheckCircle,
   XCircle,
@@ -16,6 +15,7 @@ import {
   Calendar,
   MapPin,
   Building,
+  Camera,
 } from 'lucide-react';
 import { apiService, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -72,6 +72,8 @@ const TutorProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [tutorCenters, setTutorCenters] = useState<TutorCenter[]>([]);
   const [loadingCenters, setLoadingCenters] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
   // Location autocomplete state
   const [locationInput, setLocationInput] = useState('');
@@ -102,6 +104,7 @@ const TutorProfile: React.FC = () => {
       fetchProfile();
       fetchTutorCenters();
       fetchUserLocation();
+      fetchUserData();
     }
   }, [user]);
 
@@ -185,6 +188,105 @@ const TutorProfile: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching user location:', error);
+    }
+  };
+
+  const fetchUserData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const response = await apiService.getUserById(user.id);
+      if (response.success && response.data) {
+        const userData = response.data;
+        // Set avatar URL if available (with cache busting if version exists)
+        let userAvatarUrl = userData.avatarUrl || userData.AvatarUrl || null;
+        if (userAvatarUrl && userData.avatarVersion) {
+          // Add version query parameter for cache busting
+          const separator = userAvatarUrl.includes('?') ? '&' : '?';
+          userAvatarUrl = `${userAvatarUrl}${separator}v=${userData.avatarVersion}`;
+        }
+        setAvatarUrl(userAvatarUrl);
+        
+        // Update user in localStorage with avatarUrl
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              avatarUrl: userAvatarUrl
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file');
+      return;
+    }
+
+    // Backend accepts max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Image size must be less than 2MB');
+      return;
+    }
+
+    // Check file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      showError('Invalid file type. Only JPG, PNG and WebP are allowed.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await apiService.uploadAvatar(file);
+
+      if (response.success && response.data) {
+        const newAvatarUrl = response.data.avatarUrl;
+        setAvatarUrl(newAvatarUrl);
+        
+        // Update user in localStorage
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          try {
+            const parsedUser = JSON.parse(savedUser);
+            const updatedUser = {
+              ...parsedUser,
+              avatarUrl: newAvatarUrl
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+          } catch (err) {
+            console.error('Error updating localStorage:', err);
+          }
+        }
+
+        // Refresh user data to get updated avatar
+        await fetchUserData();
+        showSuccess('Profile picture uploaded successfully!');
+      } else {
+        showError(response.error || 'Failed to upload profile picture');
+      }
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      showError(error?.message || 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      event.target.value = '';
     }
   };
 
@@ -560,6 +662,63 @@ const TutorProfile: React.FC = () => {
           <User className="w-5 h-5" />
           <span>Personal Information</span>
         </h3>
+        <div className="flex items-start space-x-6 mb-6 pb-6 border-b border-gray-200">
+          <div className="relative">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                onError={(e) => {
+                  // Fallback to initial if image fails to load
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const fallback = target.nextElementSibling as HTMLElement;
+                  if (fallback) {
+                    fallback.style.display = 'flex';
+                    setAvatarUrl(null); // Clear invalid URL
+                  }
+                }}
+                onLoad={() => {
+                  // Hide fallback when image loads successfully
+                  const fallback = document.querySelector('.tutor-avatar-fallback') as HTMLElement;
+                  if (fallback) fallback.style.display = 'none';
+                }}
+              />
+            ) : null}
+            <div 
+              className={`tutor-avatar-fallback w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold ${avatarUrl ? 'hidden' : ''}`}
+            >
+              {(user?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
+            </div>
+            {isEditing && (
+              <label className={`absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isUploadingAvatar ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleAvatarUpload}
+                  disabled={isUploadingAvatar}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          <div className="flex-1">
+            <h4 className="text-xl font-bold text-gray-900 mb-1">{user?.fullName || user?.name || 'N/A'}</h4>
+            <p className="text-gray-600">{user?.email || 'N/A'}</p>
+            {user?.phoneNumber && (
+              <p className="text-gray-600 mt-1 flex items-center space-x-1">
+                <Phone className="w-4 h-4" />
+                <span>{user.phoneNumber}</span>
+              </p>
+            )}
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-gray-500">Full Name</label>
@@ -631,7 +790,6 @@ const TutorProfile: React.FC = () => {
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
-                <DollarSign className="w-4 h-4" />
                 <span>Hourly Rate</span>
                 <span className="text-xs text-gray-400 ml-1">(Set by Admin)</span>
               </label>

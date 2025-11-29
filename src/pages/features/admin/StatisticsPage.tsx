@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Calendar, GraduationCap, DollarSign } from 'lucide-react';
+import { Users, Calendar, GraduationCap, TrendingUp } from 'lucide-react';
 import UserStatistics from '../../../components/statistics/UserStatistics';
 import SessionStatistics from '../../../components/statistics/SessionStatistics';
 import TutorStatistics from '../../../components/statistics/TutorStatistics';
@@ -12,7 +12,7 @@ const StatisticsPage: React.FC = () => {
     { id: 'users' as const, label: 'Người dùng', icon: Users },
     { id: 'sessions' as const, label: 'Phiên học', icon: Calendar },
     { id: 'tutors' as const, label: 'Gia sư', icon: GraduationCap },
-    { id: 'financial' as const, label: 'Tài chính', icon: DollarSign },
+    { id: 'financial' as const, label: 'Tài chính', icon: TrendingUp },
   ];
 
   return (

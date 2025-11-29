@@ -24,6 +24,7 @@ export interface User {
   placeId?: string;
   createdAt: string;
   role?: string;
+  avatarUrl?: string;
 }
 
 export interface LoginRequest {
@@ -389,6 +390,116 @@ class ApiService {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  async uploadAvatar(file: File): Promise<ApiResponse<{ avatarUrl: string; message: string }>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Đảm bảo URL đúng format - loại bỏ trailing slash nếu có
+      const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      
+      // Workaround: Thử nhiều cách gọi để tránh route conflict
+      // Cách 1: Thử với query parameter để tránh match với {id} route
+      let url = `${baseUrl}/users/avatar?action=upload`;
+      
+      const token = localStorage.getItem('authToken');
+      
+      const headers: HeadersInit = {};
+      if (token) {
+        const cleanToken = token.trim();
+        if (cleanToken) {
+          headers['Authorization'] = `Bearer ${cleanToken}`;
+        }
+      }
+      // Don't set Content-Type - browser will set it with boundary for multipart/form-data
+
+      let response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+
+      // Nếu vẫn lỗi 405, thử cách khác: dùng endpoint với trailing slash
+      if (response.status === 405) {
+        console.warn('First attempt failed with 405, trying alternative endpoint...');
+        url = `${baseUrl}/users/avatar/`;
+        response = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: formData,
+        });
+      }
+
+      // Nếu vẫn lỗi, thử không có query parameter
+      if (response.status === 405) {
+        console.warn('Second attempt failed with 405, trying without query parameter...');
+        url = `${baseUrl}/users/avatar`;
+        response = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: formData,
+        });
+      }
+
+      const text = await response.text();
+      let data: any = undefined;
+      try {
+        data = text ? JSON.parse(text) : undefined;
+      } catch (jsonError) {
+        // If response is not valid JSON, keep data as undefined
+      }
+
+      if (!response.ok) {
+        // Handle 405 Method Not Allowed specifically
+        if (response.status === 405) {
+          console.error('405 Method Not Allowed after all attempts - URL:', url, 'Method: POST');
+          console.error('This is likely a backend routing issue. The route [HttpPost("avatar")] should be placed before [HttpGet("{id}")] in UsersController.');
+          return {
+            success: false,
+            error: 'Method not allowed. This appears to be a backend routing conflict. Please contact the administrator.',
+            errorDetails: { url, method: 'POST', status: 405, attempts: 3 },
+          };
+        }
+        
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          if (!window.location.pathname.includes('/login')) {
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 1000);
+          }
+        }
+        
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        if (data) {
+          if (data.error) {
+            errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+          } else if (data.message) {
+            errorMessage = data.message;
+          }
+        }
+        
+        return {
+          success: false,
+          error: errorMessage,
+          errorDetails: data,
+        };
+      }
+
+      return {
+        success: true,
+        data: data,
+      };
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      return {
+        success: false,
+        error: error?.message || 'Failed to upload avatar',
+      };
+    }
   }
 
   // Location endpoints
@@ -2451,6 +2562,7 @@ export interface Tutor {
   studentCount?: number; // Number of students
   yearsOfExperience?: number; // Years of experience
   profilePictureUrl?: string; // Profile picture URL
+  avatarUrl?: string; // Avatar URL (from User table)
   achievements?: TutorAchievement[]; // Achievements list
   averageRating?: number; // Average rating from reviews (used by contract-specific endpoint)
   reviewCount?: number; // Number of reviews (used by contract-specific endpoint)
@@ -2504,6 +2616,7 @@ export async function getAllTutors() {
           studentCount: tutor.studentCount || tutor.StudentCount || tutor.student_count || undefined,
           yearsOfExperience: tutor.yearsOfExperience || tutor.YearsOfExperience || tutor.years_of_experience || undefined,
           profilePictureUrl: tutor.profilePictureUrl || tutor.ProfilePictureUrl || tutor.profile_picture_url || undefined,
+          avatarUrl: tutor.avatarUrl || tutor.AvatarUrl || tutor.avatar_url || undefined,
           achievements: tutor.achievements || tutor.Achievements || undefined,
           canTeachOnline: tutor.canTeachOnline ?? tutor.CanTeachOnline ?? tutor.can_teach_online ?? undefined,
           canTeachOffline: tutor.canTeachOffline ?? tutor.CanTeachOffline ?? tutor.can_teach_offline ?? undefined,
@@ -2557,6 +2670,7 @@ export async function getTutorById(tutorId: string) {
         district: tutor.district || tutor.District || '',
         status: tutor.status || tutor.Status || '',
         createdDate: tutor.createdDate || tutor.CreatedDate || null,
+        avatarUrl: tutor.avatarUrl || tutor.AvatarUrl || null,
         // Verification info
         verification: verification ? {
           verificationId: verification.verificationId || verification.VerificationId || '',

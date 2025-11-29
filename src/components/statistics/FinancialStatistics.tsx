@@ -6,7 +6,7 @@ import {
   RevenueTrendStatisticsDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
-import { DollarSign, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, CheckCircle, XCircle } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -99,14 +99,13 @@ const FinancialStatistics: React.FC = () => {
       {overview && (
         <div className="mb-8">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
-            <DollarSign className="w-6 h-6 text-green-600" />
             Revenue Overview
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <DollarSign className="w-6 h-6" />
+                  <TrendingUp className="w-6 h-6" />
                 </div>
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
@@ -116,7 +115,7 @@ const FinancialStatistics: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
               <div className="flex items-center justify-between mb-3">
                 <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <DollarSign className="w-6 h-6" />
+                  <TrendingUp className="w-6 h-6" />
                 </div>
                 <TrendingUp className="w-8 h-8 opacity-80" />
               </div>
@@ -195,7 +194,7 @@ const FinancialStatistics: React.FC = () => {
                   <div className="text-3xl font-bold text-green-900">{Math.round(trends.totalRevenueInPeriod / 1000000)}M VND</div>
                 </div>
                 <div className="p-4 bg-green-200 rounded-full">
-                  <DollarSign className="w-8 h-8 text-green-700" />
+                  <TrendingUp className="w-8 h-8 text-green-700" />
                 </div>
               </div>
             </div>

@@ -5,7 +5,6 @@ import {
   Clock, 
   User, 
   MapPin,
-  DollarSign,
   Star,
   CheckCircle,
   AlertCircle,
@@ -45,6 +44,7 @@ interface ContractDetail {
   tutorName: string;
   tutorEmail: string;
   tutorPhone: string;
+  tutorAvatarUrl?: string;
   subject: string;
   packageName: string;
   totalSessions: number;
@@ -196,6 +196,23 @@ const ContractDetail: React.FC = () => {
           ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
           : 'pending'; // Default to pending if status is invalid
 
+        // Fetch tutor avatar if tutor is assigned
+        let tutorAvatarUrl: string | undefined = undefined;
+        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+        if (mainTutorId) {
+          try {
+            const tutorResponse = await apiService.getUserById(mainTutorId);
+            if (tutorResponse.success && tutorResponse.data) {
+              tutorAvatarUrl = tutorResponse.data.avatarUrl || tutorResponse.data.AvatarUrl || undefined;
+            }
+          } catch (err) {
+            // Silently fail - avatar is optional
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching tutor avatar:', err);
+            }
+          }
+        }
+
         // Map to frontend format
         const mappedContract: ContractDetail = {
           id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
@@ -203,6 +220,7 @@ const ContractDetail: React.FC = () => {
           tutorName: contractData.MainTutorName || contractData.mainTutorName || 'Tutor not assigned',
           tutorEmail: contractData.MainTutorEmail || contractData.mainTutorEmail || '',
           tutorPhone: contractData.MainTutorPhone || contractData.mainTutorPhone || '',
+          tutorAvatarUrl: tutorAvatarUrl,
           subject: 'Mathematics', // Default subject
           packageName: contractData.PackageName || contractData.packageName || 'N/A',
           totalSessions: totalSessions,
@@ -256,7 +274,7 @@ const ContractDetail: React.FC = () => {
         }
 
         // Fetch tutor ratings/feedbacks
-        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+        // mainTutorId already declared above, reuse it
         if (mainTutorId) {
           try {
             setLoadingTutorRatings(true);
@@ -347,7 +365,7 @@ const ContractDetail: React.FC = () => {
         try {
           setLoadingVerifications(true);
           // Main tutor verification
-          const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+          // mainTutorId already declared above, reuse it
           if (mainTutorId) {
             const mainVerificationResult = await getTutorVerificationByUserId(mainTutorId);
             if (mainVerificationResult.success && mainVerificationResult.data) {
@@ -779,12 +797,25 @@ const ContractDetail: React.FC = () => {
                 : 'bg-white/90 backdrop-blur-xl'
             }`}>
               <div className="flex items-center space-x-4">
-                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg ${
+                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden ${
                   contract.tutorName === 'Tutor not assigned' 
                     ? 'bg-gray-400' 
                     : 'bg-gradient-to-br from-purple-400 to-indigo-500'
                 }`}>
-                  <User className="w-8 h-8 text-white" />
+                  {contract.tutorName !== 'Tutor not assigned' && contract.tutorAvatarUrl ? (
+                    <img 
+                      src={contract.tutorAvatarUrl} 
+                      alt={contract.tutorName} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const icon = target.nextElementSibling as HTMLElement;
+                        if (icon) icon.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <User className={`w-8 h-8 text-white ${contract.tutorName !== 'Tutor not assigned' && contract.tutorAvatarUrl ? 'hidden' : ''}`} />
                 </div>
                 <div className="flex-1">
                   <p className={`text-sm font-semibold uppercase tracking-wide mb-1 ${
@@ -872,7 +903,6 @@ const ContractDetail: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <DollarSign className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-600">Total Price</p>
                       <p className="font-medium">
