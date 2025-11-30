@@ -59,6 +59,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 // Protected Route Component (supports role-based guard)
+import HomeworkHelperPage from './pages/features/parent/HomeworkHelperPage';
 const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: string | string[]; skipLocationCheck?: boolean }> = ({ children, requiredRole, skipLocationCheck = false }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
   
@@ -212,6 +213,11 @@ function App() {
             <Route path="parent-profile" element={
               <ProtectedRoute skipLocationCheck={true}>
                 <ParentProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="parent/homework-helper" element={
+              <ProtectedRoute requiredRole="parent">
+                <HomeworkHelperPage />
               </ProtectedRoute>
             } />
             <Route path="parent/schedule" element={
