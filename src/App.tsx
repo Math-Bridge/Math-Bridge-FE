@@ -37,6 +37,7 @@ import {
   TutorDetailPage,
   ParentDailyReportsPage,
   ParentTestResultsPage,
+  ParentTutorReportsPage,
   AdminDashboardPage,
   UserManagementPage,
   CurriculumManagementPage,
@@ -334,6 +335,11 @@ function App() {
             <Route path="test-results" element={
               <ProtectedRoute requiredRole="parent">
                 <ParentTestResultsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="tutor-reports" element={
+              <ProtectedRoute requiredRole="parent">
+                <ParentTutorReportsPage />
               </ProtectedRoute>
             } />
             

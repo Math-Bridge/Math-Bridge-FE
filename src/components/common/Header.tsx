@@ -348,6 +348,19 @@ const Header: React.FC = () => {
                               <User className="h-4 w-4 mr-3 text-gray-500 group-hover:text-blue-600" aria-hidden="true" />
                               <span className="font-medium">{t('profile')}</span>
                             </button>
+                            {user?.role === 'parent' && (
+                              <button
+                                className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors group"
+                                onClick={() => { 
+                                  closeAllDropdowns(); 
+                                  navigate('/tutor-reports'); 
+                                }}
+                                role="menuitem"
+                              >
+                                <FileText className="h-4 w-4 mr-3 text-gray-500 group-hover:text-blue-600" aria-hidden="true" />
+                                <span className="font-medium">Tutor Reports</span>
+                              </button>
+                            )}
                         <button
                           className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors group"
                           onClick={() => { 

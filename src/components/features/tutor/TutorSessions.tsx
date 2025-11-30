@@ -548,6 +548,17 @@ const TutorSessions: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Address (for offline sessions) */}
+                {!sessionDetail.isOnline && sessionDetail.offlineAddress && (
+                  <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Address</div>
+                    <div className="flex items-start space-x-2 text-gray-900">
+                      <MapPin className="w-5 h-5 text-emerald-500 mt-0.5" />
+                      <div className="text-sm font-medium break-words">{sessionDetail.offlineAddress}</div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Status */}
                 <div className="bg-white p-4 rounded-xl border border-gray-200">
                   <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Status</div>

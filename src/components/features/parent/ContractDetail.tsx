@@ -20,10 +20,11 @@ import {
   Mail,
   Phone,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  MessageSquare
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId, getSessionsByContractId, Session as ApiSession } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
@@ -67,6 +68,7 @@ const ContractDetail: React.FC = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   const [contract, setContract] = useState<ContractDetail | null>(null);
+  const [contractRawData, setContractRawData] = useState<any>(null); // Store raw contract data from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor'>('overview');
@@ -81,6 +83,9 @@ const ContractDetail: React.FC = () => {
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false); // Track when payment is confirmed (status changed to pending)
   const MAX_POLLING_ATTEMPTS = 120; // 10 minutes (120 * 5 seconds)
+  
+  // Main tutor info
+  const [mainTutorInfo, setMainTutorInfo] = useState<any>(null);
   
   // Substitute tutors info
   const [substituteTutor1Info, setSubstituteTutor1Info] = useState<any>(null);
@@ -106,6 +111,12 @@ const ContractDetail: React.FC = () => {
   const [dailyReports, setDailyReports] = useState<any[]>([]);
   const [loadingDailyReports, setLoadingDailyReports] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  
+  // Sessions and actual teaching tutors
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [tutorFeedbacksMap, setTutorFeedbacksMap] = useState<Map<string, FinalFeedback[]>>(new Map());
+  const [loadingTutorFeedbacksMap, setLoadingTutorFeedbacksMap] = useState<Map<string, boolean>>(new Map());
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -196,7 +207,7 @@ const ContractDetail: React.FC = () => {
           ? (normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid')
           : 'pending'; // Default to pending if status is invalid
 
-        // Fetch tutor avatar if tutor is assigned
+        // Fetch tutor avatar and info if tutor is assigned
         let tutorAvatarUrl: string | undefined = undefined;
         const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
         if (mainTutorId) {
@@ -204,11 +215,12 @@ const ContractDetail: React.FC = () => {
             const tutorResponse = await apiService.getUserById(mainTutorId);
             if (tutorResponse.success && tutorResponse.data) {
               tutorAvatarUrl = tutorResponse.data.avatarUrl || tutorResponse.data.AvatarUrl || undefined;
+              setMainTutorInfo(tutorResponse.data);
             }
           } catch (err) {
             // Silently fail - avatar is optional
             if (import.meta.env.DEV) {
-              console.warn('Error fetching tutor avatar:', err);
+              console.warn('Error fetching tutor info:', err);
             }
           }
         }
@@ -238,6 +250,7 @@ const ContractDetail: React.FC = () => {
         };
 
         setContract(mappedContract);
+        setContractRawData(contractData); // Store raw data for tutor info
 
         // Fetch unit progress for active/completed contracts
         if (contractId && (contractStatus === 'active' || contractStatus === 'completed')) {
@@ -443,6 +456,131 @@ const ContractDetail: React.FC = () => {
       fetchDailyReports();
     }
   }, [contract?.id, activeTab]);
+
+  // Fetch sessions when tutor tab is active (only for counting sessions taught)
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!contract?.id || activeTab !== 'tutor') return;
+
+      try {
+        setLoadingSessions(true);
+        const sessionsResult = await getSessionsByContractId(contract.id);
+        
+        if (sessionsResult.success && sessionsResult.data) {
+          setSessions(sessionsResult.data);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error fetching sessions:', error);
+        }
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+
+    fetchSessions();
+  }, [contract?.id, activeTab]);
+  
+  // Fetch feedbacks for all tutors when tutor tab is active
+  useEffect(() => {
+    const fetchTutorFeedbacks = async () => {
+      if (!contract || activeTab !== 'tutor') return;
+      
+      const contractData = contractRawData || contract as any;
+      const mainTutorId = contractData?.MainTutorId || contractData?.mainTutorId || contractData?.main_tutor_id;
+      const substituteTutor1Id = contractData?.substitute_tutor1_id || contractData?.substituteTutor1Id || contractData?.SubstituteTutor1Id;
+      const substituteTutor2Id = contractData?.substitute_tutor2_id || contractData?.substituteTutor2Id || contractData?.SubstituteTutor2Id;
+      
+      // Fetch feedbacks for main tutor
+      if (mainTutorId && !tutorFeedbacksMap.has(mainTutorId)) {
+        try {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(mainTutorId, true);
+            return newMap;
+          });
+          const feedbacksResult = await getFinalFeedbacksByUserId(mainTutorId);
+          if (feedbacksResult.success && feedbacksResult.data) {
+            setTutorFeedbacksMap(prev => {
+              const newMap = new Map(prev);
+              newMap.set(mainTutorId, feedbacksResult.data || []);
+              return newMap;
+            });
+          }
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn('Error fetching main tutor feedbacks:', err);
+          }
+        } finally {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(mainTutorId, false);
+            return newMap;
+          });
+        }
+      }
+      
+      // Fetch feedbacks for substitute tutor 1
+      if (substituteTutor1Id && !tutorFeedbacksMap.has(substituteTutor1Id)) {
+        try {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(substituteTutor1Id, true);
+            return newMap;
+          });
+          const feedbacksResult = await getFinalFeedbacksByUserId(substituteTutor1Id);
+          if (feedbacksResult.success && feedbacksResult.data) {
+            setTutorFeedbacksMap(prev => {
+              const newMap = new Map(prev);
+              newMap.set(substituteTutor1Id, feedbacksResult.data || []);
+              return newMap;
+            });
+          }
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn('Error fetching substitute tutor 1 feedbacks:', err);
+          }
+        } finally {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(substituteTutor1Id, false);
+            return newMap;
+          });
+        }
+      }
+      
+      // Fetch feedbacks for substitute tutor 2
+      if (substituteTutor2Id && !tutorFeedbacksMap.has(substituteTutor2Id)) {
+        try {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(substituteTutor2Id, true);
+            return newMap;
+          });
+          const feedbacksResult = await getFinalFeedbacksByUserId(substituteTutor2Id);
+          if (feedbacksResult.success && feedbacksResult.data) {
+            setTutorFeedbacksMap(prev => {
+              const newMap = new Map(prev);
+              newMap.set(substituteTutor2Id, feedbacksResult.data || []);
+              return newMap;
+            });
+          }
+        } catch (err) {
+          if (import.meta.env.DEV) {
+            console.warn('Error fetching substitute tutor 2 feedbacks:', err);
+          }
+        } finally {
+          setLoadingTutorFeedbacksMap(prev => {
+            const newMap = new Map(prev);
+            newMap.set(substituteTutor2Id, false);
+            return newMap;
+          });
+        }
+      }
+    };
+
+    fetchTutorFeedbacks();
+  }, [contract, activeTab, tutorFeedbacksMap]);
 
   // Poll contract status when direct payment is active
   useEffect(() => {
@@ -766,16 +904,10 @@ const ContractDetail: React.FC = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent animate-fade-in">{contract.packageName}</h1>
               <p className="text-gray-600 mt-2 text-lg animate-fade-in stagger-1">{contract.subject}</p>
             </div>
-            <div className="flex items-center space-x-3">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(contract.status)}`}>
-                <CheckCircle className="w-4 h-4 mr-1" />
-                <span className="capitalize">{contract.status}</span>
-              </span>
-            </div>
           </div>
 
           {/* Children and Tutor Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {/* Children Card */}
             <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
               <div className="flex items-center space-x-4">
@@ -790,7 +922,7 @@ const ContractDetail: React.FC = () => {
               </div>
             </div>
 
-            {/* Tutor Card */}
+            {/* Main Tutor Card */}
             <div className={`rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300 ${
               contract.tutorName === 'Tutor not assigned' 
                 ? 'bg-white/70 backdrop-blur-xl' 
@@ -823,7 +955,7 @@ const ContractDetail: React.FC = () => {
                       ? 'text-gray-600' 
                       : 'text-purple-700'
                   }`}>
-                    Tutor
+                    Main Tutor
                   </p>
                   <h2 className={`text-2xl font-bold ${
                     contract.tutorName === 'Tutor not assigned' 
@@ -844,6 +976,94 @@ const ContractDetail: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Substitute Tutor 1 Card */}
+            {(() => {
+              const contractData = contract as any;
+              const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+              const substituteTutor1Name = contractData.substitute_tutor1_name || contractData.substituteTutor1Name || contractData.SubstituteTutor1Name;
+              const substituteTutor1AvatarUrl = substituteTutor1Info?.avatarUrl || substituteTutor1Info?.AvatarUrl;
+              
+              if (!substituteTutor1Id && !substituteTutor1Name) return null;
+              
+              return (
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-green-400 to-emerald-500">
+                      {substituteTutor1AvatarUrl ? (
+                        <img 
+                          src={substituteTutor1AvatarUrl} 
+                          alt={substituteTutor1Name || 'Substitute Tutor 1'} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const icon = target.nextElementSibling as HTMLElement;
+                            if (icon) icon.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <User className={`w-8 h-8 text-white ${substituteTutor1AvatarUrl ? 'hidden' : ''}`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-700 uppercase tracking-wide mb-1">
+                        Substitute Tutor 1
+                      </p>
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        {substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name || substituteTutor1Name || 'Not assigned'}
+                      </h2>
+                      {substituteTutor1Info && (
+                        <p className="text-sm text-gray-600 mt-1">Backup Tutor</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Substitute Tutor 2 Card */}
+            {(() => {
+              const contractData = contract as any;
+              const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+              const substituteTutor2Name = contractData.substitute_tutor2_name || contractData.substituteTutor2Name || contractData.SubstituteTutor2Name;
+              const substituteTutor2AvatarUrl = substituteTutor2Info?.avatarUrl || substituteTutor2Info?.AvatarUrl;
+              
+              if (!substituteTutor2Id && !substituteTutor2Name) return null;
+              
+              return (
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-blue-400 to-cyan-500">
+                      {substituteTutor2AvatarUrl ? (
+                        <img 
+                          src={substituteTutor2AvatarUrl} 
+                          alt={substituteTutor2Name || 'Substitute Tutor 2'} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const icon = target.nextElementSibling as HTMLElement;
+                            if (icon) icon.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <User className={`w-8 h-8 text-white ${substituteTutor2AvatarUrl ? 'hidden' : ''}`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-1">
+                        Substitute Tutor 2
+                      </p>
+                      <h2 className="text-2xl font-bold text-gray-900">
+                        {substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name || substituteTutor2Name || 'Not assigned'}
+                      </h2>
+                      {substituteTutor2Info && (
+                        <p className="text-sm text-gray-600 mt-1">Backup Tutor</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -1355,187 +1575,364 @@ const ContractDetail: React.FC = () => {
         )}
 
         {activeTab === 'tutor' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-              <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
-                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Tutor Information</h3>
-                  <p className="text-sm text-gray-500">Contact & Profile Details</p>
-                </div>
+          <div className="space-y-8">
+            {loadingSessions ? (
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading tutor information...</p>
               </div>
-              <div className="space-y-5">
-                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Tutor Name</p>
-                    {loadingVerifications ? (
-                      <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      getVerificationBadge(mainTutorVerification)
-                    )}
-                  </div>
-                  <p className="text-xl font-bold text-gray-900">{contract.tutorName}</p>
-                  {mainTutorVerification && mainTutorVerification.university && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      <Award className="w-4 h-4 inline mr-1" />
-                      {mainTutorVerification.university}
-                      {mainTutorVerification.major && ` - ${mainTutorVerification.major}`}
-                    </p>
-                  )}
-                </div>
-                {contract.tutorEmail && (
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
-                      <p className="text-base text-gray-900 break-all">{contract.tutorEmail}</p>
-                    </div>
-                  </div>
-                )}
-                {contract.tutorPhone && (
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Clock className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
-                      <p className="text-base text-gray-900">{contract.tutorPhone}</p>
-                    </div>
-                  </div>
-                )}
-                {contract.tutorRating > 0 && (
-                  <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Star className="w-5 h-5 text-yellow-600 fill-current" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">Rating</p>
-                      <div className="flex items-center space-x-3">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-5 h-5 ${
-                                i < Math.floor(contract.tutorRating)
-                                  ? 'text-yellow-400 fill-current'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
+            ) : (
+              <div className="space-y-8">
+                {(() => {
+                  // Helper function to render tutor card
+                  const renderTutorCard = (tutorData: any, index: number) => {
+                    const tutorInfo = tutorData.info || {};
+                    const tutorVerification = tutorData.verification || {};
+                    const isMainTutor = tutorData.type === 'main';
+                    const isSubstitute = tutorData.type === 'substitute1' || tutorData.type === 'substitute2';
+                    
+                    // Get tutor info from various sources
+                    const tutorName = tutorData.name || tutorInfo.fullName || tutorInfo.FullName || contract.tutorName || 'Unknown Tutor';
+                    const tutorEmail = tutorInfo.email || tutorInfo.Email || (isMainTutor ? contract.tutorEmail : '');
+                    const tutorPhone = tutorInfo.phoneNumber || tutorInfo.phone || tutorInfo.PhoneNumber || tutorInfo.Phone || (isMainTutor ? contract.tutorPhone : '');
+                    const tutorAddress = tutorVerification.formattedAddress || tutorInfo.formattedAddress || tutorInfo.address || '';
+                    const tutorAvatarUrl = tutorInfo.avatarUrl || tutorInfo.AvatarUrl || (isMainTutor ? contract.tutorAvatarUrl : undefined);
+                    
+                    // Count sessions taught by this tutor
+                    const sessionsTaught = sessions.filter((s: ApiSession) => 
+                      s.status === 'completed' && s.tutorName?.toLowerCase() === tutorName.toLowerCase()
+                    ).length;
+                    
+                    // Get feedbacks for this tutor
+                    const tutorFeedbacks = tutorData.id ? (tutorFeedbacksMap.get(tutorData.id) || []) : [];
+                    const isLoadingFeedbacks = tutorData.id ? (loadingTutorFeedbacksMap.get(tutorData.id) || false) : false;
+                    
+                    // Calculate ratings
+                    const totalReviews = tutorFeedbacks.length;
+                    const avgOverall = totalReviews > 0 ? tutorFeedbacks.reduce((sum, f) => sum + (f.overallSatisfactionRating || 0), 0) / totalReviews : 0;
+                    const avgCommunication = tutorFeedbacks.filter(f => f.communicationRating).length > 0
+                      ? tutorFeedbacks.reduce((sum, f) => sum + (f.communicationRating || 0), 0) / tutorFeedbacks.filter(f => f.communicationRating).length : 0;
+                    const avgSessionQuality = tutorFeedbacks.filter(f => f.sessionQualityRating).length > 0
+                      ? tutorFeedbacks.reduce((sum, f) => sum + (f.sessionQualityRating || 0), 0) / tutorFeedbacks.filter(f => f.sessionQualityRating).length : 0;
+                    const avgLearningProgress = tutorFeedbacks.filter(f => f.learningProgressRating).length > 0
+                      ? tutorFeedbacks.reduce((sum, f) => sum + (f.learningProgressRating || 0), 0) / tutorFeedbacks.filter(f => f.learningProgressRating).length : 0;
+                    const avgProfessionalism = tutorFeedbacks.filter(f => f.professionalismRating).length > 0
+                      ? tutorFeedbacks.reduce((sum, f) => sum + (f.professionalismRating || 0), 0) / tutorFeedbacks.filter(f => f.professionalismRating).length : 0;
+                    const wouldRecommendCount = tutorFeedbacks.filter(f => f.wouldRecommend).length;
+                    const recommendPercentage = totalReviews > 0 ? (wouldRecommendCount / totalReviews) * 100 : 0;
+                    
+                    return (
+                      <div key={`${tutorData.id || tutorName}-${index}`} className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                        {/* Header with Avatar */}
+                        <div className="flex items-center space-x-4 mb-6 pb-4 border-b border-gray-200">
+                          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden flex-shrink-0 relative ${
+                            isMainTutor ? 'bg-gradient-to-br from-purple-400 to-indigo-500' : 
+                            isSubstitute ? 'bg-gradient-to-br from-green-400 to-emerald-500' : 
+                            'bg-gradient-to-br from-blue-400 to-cyan-500'
+                          }`}>
+                            {tutorAvatarUrl ? (
+                              <>
+                                <img 
+                                  src={tutorAvatarUrl} 
+                                  alt={tutorName} 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const icon = target.nextElementSibling as HTMLElement;
+                                    if (icon) icon.style.display = 'flex';
+                                  }}
+                                />
+                                <User className="w-8 h-8 text-white hidden" />
+                              </>
+                            ) : (
+                              <User className="w-8 h-8 text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {isMainTutor ? 'Main Tutor' : isSubstitute ? `Substitute Tutor ${tutorData.type === 'substitute1' ? '1' : '2'}` : 'Tutor'}
+                              </h3>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900 truncate">{tutorName}</p>
+                            {sessionsTaught > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">{sessionsTaught} session{sessionsTaught > 1 ? 's' : ''} taught</p>
+                            )}
+                            {tutorVerification && tutorVerification.university && (
+                              <p className="text-xs text-gray-600 mt-1 truncate">
+                                <Award className="w-3 h-3 inline mr-1" />
+                                {tutorVerification.university}
+                                {tutorVerification.major && ` - ${tutorVerification.major}`}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-lg font-bold text-gray-900">{contract.tutorRating.toFixed(1)}</span>
+                        
+                        <div className="space-y-5">
+                          {/* Contact Information */}
+                          {tutorEmail && (
+                            <div className="flex items-start space-x-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <MessageSquare className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
+                                <p className="text-base text-gray-900 break-all">{tutorEmail}</p>
+                              </div>
+                            </div>
+                          )}
+                          {tutorPhone && (
+                            <div className="flex items-start space-x-3">
+                              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Phone className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
+                                <p className="text-base text-gray-900">{tutorPhone}</p>
+                              </div>
+                            </div>
+                          )}
+                          {tutorAddress && (
+                            <div className="flex items-start space-x-3">
+                              <div className={`w-10 h-10 ${isMainTutor ? 'bg-purple-100' : isSubstitute ? 'bg-green-100' : 'bg-blue-100'} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                <MapPin className={`w-5 h-5 ${isMainTutor ? 'text-purple-600' : isSubstitute ? 'text-green-600' : 'text-blue-600'}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-700 mb-1">Address</p>
+                                <p className="text-base text-gray-900">{tutorAddress}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Tutor Rating Section */}
+                          {tutorData.id && (
+                            <div className="pt-4 border-t border-gray-200">
+                              <h4 className="text-sm font-semibold text-gray-900 mb-4">Tutor Rating</h4>
+                              {isLoadingFeedbacks ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                </div>
+                              ) : totalReviews > 0 ? (
+                                <div className="space-y-4">
+                                  {/* Overall Rating */}
+                                  <div className="text-center pb-4 border-b border-gray-200">
+                                    <div className="flex items-center justify-center space-x-2 mb-2">
+                                      <div className="flex">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star
+                                            key={i}
+                                            className={`w-5 h-5 ${
+                                              i < Math.floor(avgOverall)
+                                                ? 'text-yellow-400 fill-current'
+                                                : 'text-gray-300'
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                      <span className="text-xl font-bold text-gray-900">{avgOverall.toFixed(1)}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-600">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</p>
+                                    {recommendPercentage > 0 && (
+                                      <p className="text-xs text-green-600 mt-1">{recommendPercentage.toFixed(0)}% would recommend</p>
+                                    )}
+                                  </div>
+                                  
+                                  {/* Individual Rating Breakdown */}
+                                  {(avgCommunication > 0 || avgSessionQuality > 0 || avgLearningProgress > 0 || avgProfessionalism > 0) && (
+                                    <div className="space-y-2">
+                                      {avgCommunication > 0 && (
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-600">Communication</span>
+                                            <span className="text-xs font-semibold text-gray-900">{avgCommunication.toFixed(1)}</span>
+                                          </div>
+                                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                            <div 
+                                              className="bg-blue-600 h-1.5 rounded-full" 
+                                              style={{ width: `${(avgCommunication / 5) * 100}%` }}
+                                            ></div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {avgSessionQuality > 0 && (
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-600">Session Quality</span>
+                                            <span className="text-xs font-semibold text-gray-900">{avgSessionQuality.toFixed(1)}</span>
+                                          </div>
+                                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                            <div 
+                                              className="bg-purple-600 h-1.5 rounded-full" 
+                                              style={{ width: `${(avgSessionQuality / 5) * 100}%` }}
+                                            ></div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {avgLearningProgress > 0 && (
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-600">Learning Progress</span>
+                                            <span className="text-xs font-semibold text-gray-900">{avgLearningProgress.toFixed(1)}</span>
+                                          </div>
+                                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                            <div 
+                                              className="bg-green-600 h-1.5 rounded-full" 
+                                              style={{ width: `${(avgLearningProgress / 5) * 100}%` }}
+                                            ></div>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {avgProfessionalism > 0 && (
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-600">Professionalism</span>
+                                            <span className="text-xs font-semibold text-gray-900">{avgProfessionalism.toFixed(1)}</span>
+                                          </div>
+                                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                            <div 
+                                              className="bg-indigo-600 h-1.5 rounded-full" 
+                                              style={{ width: `${(avgProfessionalism / 5) * 100}%` }}
+                                            ></div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Recent Reviews */}
+                                  {tutorFeedbacks.slice(0, 2).some(f => f.feedbackText || f.additionalComments) && (
+                                    <div className="pt-3 border-t border-gray-200">
+                                      <h5 className="text-xs font-semibold text-gray-900 mb-2">Recent Reviews</h5>
+                                      <div className="space-y-2">
+                                        {tutorFeedbacks.slice(0, 2).map((feedback, idx) => {
+                                          const comment = feedback.feedbackText || feedback.additionalComments;
+                                          if (!comment) return null;
+                                          return (
+                                            <div key={idx} className="bg-gray-50 p-2 rounded-lg">
+                                              <div className="flex items-center space-x-2 mb-1">
+                                                <div className="flex">
+                                                  {[...Array(5)].map((_, i) => (
+                                                    <Star
+                                                      key={i}
+                                                      className={`w-3 h-3 ${
+                                                        i < Math.floor(feedback.overallSatisfactionRating)
+                                                          ? 'text-yellow-400 fill-current'
+                                                          : 'text-gray-300'
+                                                      }`}
+                                                    />
+                                                  ))}
+                                                </div>
+                                                <span className="text-xs text-gray-500">
+                                                  {feedback.userFullName || 'Anonymous'}
+                                                </span>
+                                              </div>
+                                              <p className="text-xs text-gray-700 line-clamp-2">{comment}</p>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="text-center py-4">
+                                  <p className="text-xs text-gray-500">No reviews yet</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  };
+
+                  // Get tutors directly from raw contract data
+                  const contractData = contractRawData || contract as any;
+                  const mainTutorId = contractData?.MainTutorId || contractData?.mainTutorId || contractData?.main_tutor_id;
+                  const mainTutorName = contract?.tutorName || contractData?.MainTutorName || contractData?.mainTutorName || mainTutorInfo?.fullName || mainTutorInfo?.FullName || mainTutorInfo?.name;
+                  
+                  const substituteTutor1Id = contractData?.substitute_tutor1_id || contractData?.substituteTutor1Id || contractData?.SubstituteTutor1Id;
+                  const substituteTutor1Name = contractData?.substitute_tutor1_name || contractData?.substituteTutor1Name || contractData?.SubstituteTutor1Name || substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name;
+                  
+                  const substituteTutor2Id = contractData?.substitute_tutor2_id || contractData?.substituteTutor2Id || contractData?.SubstituteTutor2Id;
+                  const substituteTutor2Name = contractData?.substitute_tutor2_name || contractData?.substituteTutor2Name || contractData?.SubstituteTutor2Name || substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name;
+                  
+                  // Create tutors list
+                  const tutorsList: any[] = [];
+                  
+                  // Add main tutor - only need ID, name can be from info
+                  if (mainTutorId) {
+                    tutorsList.push({
+                      id: mainTutorId,
+                      name: mainTutorName || mainTutorInfo?.fullName || mainTutorInfo?.FullName || mainTutorInfo?.name || 'Main Tutor',
+                      type: 'main',
+                      info: mainTutorInfo,
+                      verification: mainTutorVerification,
+                    });
+                  }
+                  
+                  // Add substitute tutor 1
+                  if (substituteTutor1Id) {
+                    tutorsList.push({
+                      id: substituteTutor1Id,
+                      name: substituteTutor1Name || substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || 'Substitute Tutor 1',
+                      type: 'substitute1',
+                      info: substituteTutor1Info || null,
+                      verification: substituteTutor1Verification || null,
+                    });
+                  }
+                  
+                  // Add substitute tutor 2
+                  if (substituteTutor2Id) {
+                    tutorsList.push({
+                      id: substituteTutor2Id,
+                      name: substituteTutor2Name || substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || 'Substitute Tutor 2',
+                      type: 'substitute2',
+                      info: substituteTutor2Info || null,
+                      verification: substituteTutor2Verification || null,
+                    });
+                  }
+                  
+                  const mainTutor = tutorsList.find(t => t.type === 'main');
+                  const substituteTutors = tutorsList.filter(t => t.type === 'substitute1' || t.type === 'substitute2');
+                  
+                  if (tutorsList.length === 0) {
+                    return (
+                      <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-12 text-center">
+                        <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <h4 className="text-xl font-semibold text-gray-900 mb-2">No Tutor Information</h4>
+                        <p className="text-gray-600">No tutor information available for this contract</p>
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <>
+                      {/* Main Tutor Section */}
+                      {mainTutor && (
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-6">Main Tutor</h2>
+                          <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
+                            {renderTutorCard(mainTutor, 0)}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Substitute Tutors Section */}
+                      {substituteTutors.length > 0 && (
+                        <div>
+                          <h2 className="text-2xl font-bold text-gray-900 mb-6">Substitute Tutors</h2>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {substituteTutors.map((tutor, index) => renderTutorCard(tutor, index))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
-            </div>
-
-            {/* Substitute Tutor 1 */}
-            {(() => {
-              const contractData = (contract as any);
-              const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
-              return substituteTutor1Id ? (
-                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-                  <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
-                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Substitute Tutor 1</h3>
-                      <p className="text-sm text-gray-500">Backup Tutor Information</p>
-                    </div>
-                  </div>
-                  <div className="space-y-5">
-                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Tutor Name</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        {substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || substituteTutor1Info?.name || contractData.substitute_tutor1_name || contractData.substituteTutor1Name || contractData.SubstituteTutor1Name || 'N/A'}
-                      </p>
-                    </div>
-                    {(substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email) && (
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Mail className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
-                          <p className="text-base text-gray-900 break-all">{substituteTutor1Info?.email || contractData.substituteTutor1Email || contractData.SubstituteTutor1Email || 'N/A'}</p>
-                        </div>
-                      </div>
-                    )}
-                    {(substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone) && (
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Phone className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
-                          <p className="text-base text-gray-900">
-                            {substituteTutor1Info?.phoneNumber || substituteTutor1Info?.phone || contractData.substituteTutor1Phone || contractData.SubstituteTutor1Phone || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null;
-            })()}
-
-            {/* Substitute Tutor 2 */}
-            {(() => {
-              const contractData = (contract as any);
-              const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
-              return substituteTutor2Id ? (
-                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-                  <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200">
-                    <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                      <User className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Substitute Tutor 2</h3>
-                      <p className="text-sm text-gray-500">Backup Tutor Information</p>
-                    </div>
-                  </div>
-                  <div className="space-y-5">
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Tutor Name</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        {substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || substituteTutor2Info?.name || contractData.substitute_tutor2_name || contractData.substituteTutor2Name || contractData.SubstituteTutor2Name || 'N/A'}
-                      </p>
-                    </div>
-                    {(substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email) && (
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Mail className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
-                          <p className="text-base text-gray-900 break-all">{substituteTutor2Info?.email || contractData.substituteTutor2Email || contractData.SubstituteTutor2Email || 'N/A'}</p>
-                        </div>
-                      </div>
-                    )}
-                    {(substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone) && (
-                      <div className="flex items-start space-x-3">
-                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <Phone className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
-                          <p className="text-base text-gray-900">
-                            {substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone || 'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : null;
-            })()}
+            )}
           </div>
         )}
       </div>

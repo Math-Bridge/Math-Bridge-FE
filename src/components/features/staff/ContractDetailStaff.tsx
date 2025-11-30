@@ -20,9 +20,10 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  Monitor,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -38,7 +39,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'management' | 'tutors' | 'dailyReports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'management' | 'tutors' | 'sessions' | 'dailyReports'>('overview');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   
   // Tutor assignment states
@@ -68,12 +69,54 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   // Tutor sorting options
   const [sortByRating, setSortByRating] = useState(false);
   const [sortByDistance, setSortByDistance] = useState(false);
+  
+  // Sessions states
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [selectedNewTutorId, setSelectedNewTutorId] = useState<string>('');
+  const [reassigning, setReassigning] = useState(false);
+  const [replacementTutors, setReplacementTutors] = useState<any[]>([]);
+  const [loadingReplacementTutors, setLoadingReplacementTutors] = useState(false);
 
   useEffect(() => {
     if (contractId) {
       fetchContractDetails();
     }
   }, [contractId]);
+
+  // Fetch sessions when switching to sessions tab
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!contractId || activeTab !== 'sessions') return;
+      
+      try {
+        setLoadingSessions(true);
+        const result = await getSessionsByContractId(contractId);
+        if (result.success && result.data) {
+          // Sort by session date and time
+          const sorted = [...result.data].sort((a, b) => {
+            const dateA = new Date(`${a.sessionDate}T${a.startTime}`).getTime();
+            const dateB = new Date(`${b.sessionDate}T${b.startTime}`).getTime();
+            return dateA - dateB;
+          });
+          setSessions(sorted);
+        } else {
+          setSessions([]);
+        }
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+        setSessions([]);
+      } finally {
+        setLoadingSessions(false);
+      }
+    };
+
+    if (activeTab === 'sessions') {
+      fetchSessions();
+    }
+  }, [contractId, activeTab]);
 
   // Fetch daily reports when switching to daily reports tab
   useEffect(() => {
@@ -456,6 +499,51 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
     }
   };
 
+  const handleReassignSession = (session: Session) => {
+    setSelectedSession(session);
+    setShowReassignModal(true);
+    setSelectedNewTutorId('');
+  };
+
+  const handleConfirmReassign = async () => {
+    if (!selectedSession || !selectedNewTutorId) {
+      showError('Please select a tutor');
+      return;
+    }
+
+    try {
+      setReassigning(true);
+      // Use changeSessionTutor API (new endpoint)
+      const result = await changeSessionTutor(selectedSession.bookingId, selectedNewTutorId);
+      if (result.success) {
+        showSuccess(result.data?.message || 'Session tutor changed successfully');
+        setShowReassignModal(false);
+        setSelectedSession(null);
+        setSelectedNewTutorId('');
+        setReplacementTutors([]);
+        // Refresh sessions
+        if (contractId && activeTab === 'sessions') {
+          const sessionsResult = await getSessionsByContractId(contractId);
+          if (sessionsResult.success && sessionsResult.data) {
+            const sorted = [...sessionsResult.data].sort((a, b) => {
+              const dateA = new Date(`${a.sessionDate}T${a.startTime}`).getTime();
+              const dateB = new Date(`${b.sessionDate}T${b.startTime}`).getTime();
+              return dateA - dateB;
+            });
+            setSessions(sorted);
+          }
+        }
+      } else {
+        showError(result.error || 'Failed to change session tutor');
+      }
+    } catch (error: any) {
+      console.error('Error reassigning session:', error);
+      showError(error?.message || 'Failed to change session tutor');
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const normalizedStatus = String(status || '').toLowerCase().trim();
     switch (normalizedStatus) {
@@ -469,6 +557,24 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
         return 'bg-red-100 text-red-800';
       case 'unpaid':
         return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getSessionStatusColor = (status: string) => {
+    const normalizedStatus = String(status || '').toLowerCase().trim();
+    switch (normalizedStatus) {
+      case 'scheduled':
+        return 'bg-blue-100 text-blue-800';
+      case 'processing':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      case 'rescheduled':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -611,6 +717,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 { key: 'overview', label: 'Overview', icon: FileText },
                 { key: 'management', label: 'Management', icon: Edit },
                 { key: 'tutors', label: 'Tutors', icon: User },
+                { key: 'sessions', label: 'Sessions', icon: Calendar },
                 { key: 'dailyReports', label: 'Daily Reports', icon: Calendar },
               ].map((tab) => (
                 <button
@@ -702,6 +809,15 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         <div>
                           <p className="text-sm text-gray-600">Phone</p>
                           <p className="font-medium">{parentInfo.phoneNumber || parentInfo.phone || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(parentInfo.formattedAddress || parentInfo.address) && (
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Address</p>
+                          <p className="font-medium">{parentInfo.formattedAddress || parentInfo.address || 'N/A'}</p>
                         </div>
                       </div>
                     )}
@@ -984,6 +1100,111 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
           </div>
         )}
 
+        {activeTab === 'sessions' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Sessions</h3>
+                <p className="text-sm text-gray-600 mt-1">View and manage all sessions for this contract</p>
+              </div>
+              <div className="p-6">
+                {loadingSessions ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading sessions...</p>
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">No sessions found for this contract</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {sessions.map((session) => {
+                      const sessionDateTime = new Date(`${session.sessionDate}T${session.startTime}`);
+                      const endDateTime = new Date(`${session.sessionDate}T${session.endTime}`);
+                      const isPast = sessionDateTime < new Date();
+                      const canReassign = session.status !== 'completed' && session.status !== 'cancelled';
+                      
+                      return (
+                        <div
+                          key={session.bookingId}
+                          className={`border rounded-lg p-4 transition-all hover:shadow-md ${
+                            isPast ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <Calendar className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="font-semibold text-gray-900">
+                                    {sessionDateTime.toLocaleDateString('en-US', {
+                                      weekday: 'long',
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {sessionDateTime.toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })} - {endDateTime.toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-4 mt-3">
+                                <div className="flex items-center space-x-2">
+                                  <User className="w-4 h-4 text-gray-400" />
+                                  <span className="text-sm text-gray-600">Tutor:</span>
+                                  <span className="text-sm font-medium text-gray-900">{session.tutorName || 'N/A'}</span>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2">
+                                  {session.isOnline ? (
+                                    <>
+                                      <Monitor className="w-4 h-4 text-blue-400" />
+                                      <span className="text-sm text-blue-600">Online</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <MapPin className="w-4 h-4 text-gray-400" />
+                                      <span className="text-sm text-gray-600">{session.offlineAddress || 'Offline'}</span>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionStatusColor(session.status)}`}>
+                                  {session.status.charAt(0).toUpperCase() + session.status.slice(1)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {canReassign && (
+                              <button
+                                onClick={() => handleReassignSession(session)}
+                                className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                <span>Re-assign</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'dailyReports' && (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -1107,12 +1328,21 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                       </div>
                     </div>
                   )}
-                  {mainTutorInfo.phoneNumber || mainTutorInfo.phone && (
+                  {(mainTutorInfo.phoneNumber || mainTutorInfo.phone) && (
                     <div className="flex items-center space-x-3">
                       <Phone className="w-5 h-5 text-gray-400" />
                       <div>
                         <p className="text-sm text-gray-600">Phone</p>
                         <p className="font-medium">{mainTutorInfo.phoneNumber || mainTutorInfo.phone || 'N/A'}</p>
+                      </div>
+                    </div>
+                  )}
+                  {(mainTutorInfo.formattedAddress || mainTutorInfo.address) && (
+                    <div className="flex items-center space-x-3">
+                      <MapPin className="w-5 h-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-600">Address</p>
+                        <p className="font-medium">{mainTutorInfo.formattedAddress || mainTutorInfo.address || 'N/A'}</p>
                       </div>
                     </div>
                   )}
@@ -1155,6 +1385,15 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         </div>
                       </div>
                     )}
+                    {(substituteTutor1Info?.formattedAddress || substituteTutor1Info?.address || contractData.substituteTutor1Address) && (
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Address</p>
+                          <p className="font-medium">{substituteTutor1Info?.formattedAddress || substituteTutor1Info?.address || contractData.substituteTutor1Address || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : null;
@@ -1193,6 +1432,15 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         <div>
                           <p className="text-sm text-gray-600">Phone</p>
                           <p className="font-medium">{substituteTutor2Info?.phoneNumber || substituteTutor2Info?.phone || contractData.substituteTutor2Phone || contractData.SubstituteTutor2Phone || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(substituteTutor2Info?.formattedAddress || substituteTutor2Info?.address || contractData.substituteTutor2Address) && (
+                      <div className="flex items-center space-x-3">
+                        <MapPin className="w-5 h-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-600">Address</p>
+                          <p className="font-medium">{substituteTutor2Info?.formattedAddress || substituteTutor2Info?.address || contractData.substituteTutor2Address || 'N/A'}</p>
                         </div>
                       </div>
                     )}
@@ -1425,6 +1673,190 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Re-assign Session Modal */}
+      {showReassignModal && selectedSession && contract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Re-assign Session</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
+                    Session: {new Date(`${selectedSession.sessionDate}T${selectedSession.startTime}`).toLocaleString()}
+                  </p>
+                  <p className="text-gray-600 text-sm">
+                    Current Tutor: {selectedSession.tutorName || 'N/A'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setSelectedSession(null);
+                    setSelectedNewTutorId('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select New Tutor
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  {loadingReplacementTutors 
+                    ? 'Loading available tutors...' 
+                    : replacementTutors.length > 0
+                      ? 'Available tutors for this session (substitute tutors prioritized)'
+                      : 'No available tutors found. Showing contract tutors as fallback.'}
+                </p>
+                
+                {loadingReplacementTutors ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading replacement tutors...</p>
+                  </div>
+                ) : replacementTutors.length > 0 ? (
+                  <div className="space-y-2">
+                    {replacementTutors.map((tutor: any) => (
+                      <label
+                        key={tutor.tutorId}
+                        className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                          tutor.isSubstitute ? 'border-green-300 bg-green-50' : 'border-gray-200'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="tutor"
+                          value={tutor.tutorId}
+                          checked={selectedNewTutorId === tutor.tutorId}
+                          onChange={(e) => setSelectedNewTutorId(e.target.value)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <p className="font-medium text-gray-900">{tutor.fullName || 'N/A'}</p>
+                            {tutor.isSubstitute && (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                Substitute
+                              </span>
+                            )}
+                            {tutor.rating > 0 && (
+                              <div className="flex items-center space-x-1">
+                                <Star className="w-3 h-3 text-yellow-400 fill-current" />
+                                <span className="text-xs text-gray-600">{tutor.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                          {tutor.email && (
+                            <p className="text-sm text-gray-600">{tutor.email}</p>
+                          )}
+                          {tutor.phoneNumber && (
+                            <p className="text-xs text-gray-500">{tutor.phoneNumber}</p>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  // Fallback to contract tutors if no replacement tutors
+                  <div className="space-y-2">
+                    {contract.mainTutorId && (
+                      <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <input
+                          type="radio"
+                          name="tutor"
+                          value={contract.mainTutorId}
+                          checked={selectedNewTutorId === contract.mainTutorId}
+                          onChange={(e) => setSelectedNewTutorId(e.target.value)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {contract.mainTutorName || mainTutorInfo?.fullName || mainTutorInfo?.FullName || 'Main Tutor'}
+                          </p>
+                          <p className="text-sm text-gray-600">Main Tutor</p>
+                        </div>
+                      </label>
+                    )}
+                    
+                    {(() => {
+                      const contractData = contract as any;
+                      const substituteTutor1Id = contractData.substitute_tutor1_id || contractData.substituteTutor1Id || contractData.SubstituteTutor1Id;
+                      return substituteTutor1Id ? (
+                        <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <input
+                            type="radio"
+                            name="tutor"
+                            value={substituteTutor1Id}
+                            checked={selectedNewTutorId === substituteTutor1Id}
+                            onChange={(e) => setSelectedNewTutorId(e.target.value)}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">
+                              {substituteTutor1Info?.fullName || substituteTutor1Info?.FullName || contractData.substituteTutor1Name || 'Substitute Tutor 1'}
+                            </p>
+                            <p className="text-sm text-gray-600">Substitute Tutor 1</p>
+                          </div>
+                        </label>
+                      ) : null;
+                    })()}
+                    
+                    {(() => {
+                      const contractData = contract as any;
+                      const substituteTutor2Id = contractData.substitute_tutor2_id || contractData.substituteTutor2Id || contractData.SubstituteTutor2Id;
+                      return substituteTutor2Id ? (
+                        <label className="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <input
+                            type="radio"
+                            name="tutor"
+                            value={substituteTutor2Id}
+                            checked={selectedNewTutorId === substituteTutor2Id}
+                            onChange={(e) => setSelectedNewTutorId(e.target.value)}
+                            className="text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">
+                              {substituteTutor2Info?.fullName || substituteTutor2Info?.FullName || contractData.substituteTutor2Name || 'Substitute Tutor 2'}
+                            </p>
+                            <p className="text-sm text-gray-600">Substitute Tutor 2</p>
+                          </div>
+                        </label>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setSelectedSession(null);
+                    setSelectedNewTutorId('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={reassigning}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmReassign}
+                  disabled={reassigning || !selectedNewTutorId}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {reassigning ? 'Re-assigning...' : 'Confirm Re-assign'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

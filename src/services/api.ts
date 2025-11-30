@@ -1494,10 +1494,39 @@ export async function getContractById(contractId: string) {
     
     if (response.success && response.data) {
       const { reschedule_count, ...cleanContract } = response.data;
+      
+      // Map timeSlot from various possible field names or construct from startTime/endTime
+      let timeSlot = cleanContract.timeSlot || 
+                     cleanContract.TimeSlot || 
+                     cleanContract.time_slot ||
+                     cleanContract.Time_Slot;
+      
+      // If timeSlot is not available, try to construct from startTime and endTime
+      if (!timeSlot) {
+        const startTime = cleanContract.startTime || cleanContract.StartTime || cleanContract.start_time;
+        const endTime = cleanContract.endTime || cleanContract.EndTime || cleanContract.end_time;
+        if (startTime && endTime) {
+          // Format time strings (handle both HH:mm and full datetime formats)
+          const formatTime = (timeStr: string) => {
+            if (timeStr.includes('T')) {
+              // ISO datetime format
+              const date = new Date(timeStr);
+              return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            } else if (timeStr.includes(':')) {
+              // Already in HH:mm format
+              return timeStr.substring(0, 5); // Take only HH:mm part
+            }
+            return timeStr;
+          };
+          timeSlot = `${formatTime(startTime)} - ${formatTime(endTime)}`;
+        }
+      }
+      
       return {
         success: true,
         data: {
           ...cleanContract,
+          timeSlot: timeSlot || 'Not set',
           rescheduleCount: response.data.rescheduleCount || response.data.RescheduleCount || 0,
         } as Contract,
         error: null
@@ -3471,6 +3500,186 @@ export async function getSessionByIdForTutor(bookingId: string) {
   return result;
 }
 
+// Get sessions by contract ID
+// Strategy: Get contract to get childId, then get sessions by childId and filter by contractId
+export async function getSessionsByContractId(contractId: string) {
+  try {
+    // Get contract first to get childId
+    const contractResult = await getContractById(contractId);
+    if (!contractResult.success || !contractResult.data) {
+      return {
+        success: false,
+        error: 'Contract not found',
+        data: undefined,
+      };
+    }
+
+    const contract = contractResult.data;
+    // Get childId from contract
+    const childId = (contract as any).childId || 
+                    (contract as any).ChildId || 
+                    (contract as any).child_id;
+    
+    if (!childId) {
+      return {
+        success: false,
+        error: 'Child ID not found in contract',
+        data: undefined,
+      };
+    }
+
+    // Get sessions by childId
+    const sessionsResult = await getSessionsByChildId(childId);
+    if (!sessionsResult.success || !sessionsResult.data) {
+      // If getSessionsByChildId fails (e.g., due to role restriction), fallback to tutor-based approach
+      console.warn('Failed to get sessions by childId, falling back to tutor-based approach');
+      
+      const tutorIds: string[] = [];
+      if (contract.mainTutorId) tutorIds.push(contract.mainTutorId);
+      if (contract.substituteTutor1Id) tutorIds.push(contract.substituteTutor1Id);
+      if (contract.substituteTutor2Id) tutorIds.push(contract.substituteTutor2Id);
+
+      if (tutorIds.length === 0) {
+        return {
+          success: true,
+          data: [],
+          error: null,
+        };
+      }
+
+      // Fetch sessions for all tutors and filter by contractId
+      const allSessions: Session[] = [];
+      for (const tutorId of tutorIds) {
+        const result = await getTutorSessions(tutorId);
+        if (result.success && result.data) {
+          allSessions.push(...result.data);
+        }
+      }
+
+      // Filter by contractId and remove duplicates
+      const contractSessions = allSessions
+        .filter(session => session.contractId === contractId)
+        .filter((session, index, self) => 
+          index === self.findIndex(s => s.bookingId === session.bookingId)
+        );
+
+      return {
+        success: true,
+        data: contractSessions,
+        error: null,
+      };
+    }
+
+    // Filter sessions by contractId (since getSessionsByChildId returns all sessions for the child)
+    const contractSessions = sessionsResult.data
+      .filter(session => session.contractId === contractId);
+
+    return {
+      success: true,
+      data: contractSessions,
+      error: null,
+    };
+  } catch (error: any) {
+    console.error('Error fetching sessions by contract ID:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch sessions',
+      data: undefined,
+    };
+  }
+}
+
+// Update session tutor (re-assign)
+// Backend endpoint: PUT /api/sessions/{bookingId}/tutor
+export async function updateSessionTutor(bookingId: string, newTutorId: string) {
+  try {
+    const result = await apiService.request<{
+      success: boolean;
+      message: string;
+      bookingId: string;
+      newTutorId: string;
+    }>(`/sessions/${bookingId}/tutor`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        newTutorId: newTutorId,
+      }),
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error updating session tutor:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to update session tutor',
+      data: undefined,
+    };
+  }
+}
+
+// Get replacement tutors for a session
+// Backend endpoint: GET /api/sessions/{bookingId}/replacement-tutors
+export async function getReplacementTutors(bookingId: string) {
+  try {
+    const result = await apiService.request<{
+      replacementTutors: Array<{
+        tutorId: string;
+        fullName: string;
+        email: string;
+        phoneNumber?: string;
+        rating?: number;
+        isSubstitute: boolean;
+        isAvailable: boolean;
+      }>;
+      otherAvailableTutors?: Array<{
+        tutorId: string;
+        fullName: string;
+        email: string;
+        phoneNumber?: string;
+        rating?: number;
+        isSubstitute: boolean;
+        isAvailable: boolean;
+      }>;
+    }>(`/sessions/${bookingId}/replacement-tutors`, {
+      method: 'GET',
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error fetching replacement tutors:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch replacement tutors',
+      data: undefined,
+    };
+  }
+}
+
+// Change tutor for a session
+// Backend endpoint: PUT /api/sessions/change-tutor
+export async function changeSessionTutor(bookingId: string, newTutorId: string) {
+  try {
+    const result = await apiService.request<{
+      success: boolean;
+      message: string;
+    }>(`/sessions/change-tutor`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        bookingId: bookingId,
+        newTutorId: newTutorId,
+      }),
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error changing session tutor:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to change session tutor',
+      data: undefined,
+    };
+  }
+}
+
 // Update session status
 // Backend endpoint: PUT /api/sessions/{bookingId}/status
 // Note: Tutors can only set status to 'processing' or 'completed'
@@ -5016,6 +5225,141 @@ export async function getUnitsByContractId(contractId: string) {
       success: false,
       data: [],
       error: error?.message || 'Failed to fetch units by contract',
+    };
+  }
+}
+
+// ==================== Report APIs (Parent Report Tutor) ====================
+
+export interface Report {
+  reportId: string;
+  parentId: string;
+  tutorId: string;
+  content: string;
+  url?: string;
+  status: string;
+  createdDate: string;
+  type?: string;
+  contractId?: string;
+  parent?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+  tutor?: {
+    id: string;
+    fullName: string;
+    email: string;
+  };
+}
+
+export interface CreateReportRequest {
+  tutorId: string;
+  content: string;
+  url?: string;
+  type?: string;
+  contractId: string;
+}
+
+// Get reports by parent ID
+export async function getReportsByParent(parentId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/reports/parent/${parentId}`, {
+      method: 'GET',
+    });
+
+    if (result.success && result.data) {
+      const mappedData: Report[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        parentId: item.parentId || item.ParentId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        content: item.content || item.Content || '',
+        url: item.url || item.Url,
+        status: item.status || item.Status || 'pending',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        type: item.type || item.Type,
+        contractId: item.contractId || item.ContractId,
+        parent: item.parent || item.Parent ? {
+          id: item.parent?.id || item.parent?.Id || item.Parent?.id || item.Parent?.Id || '',
+          fullName: item.parent?.fullName || item.parent?.FullName || item.Parent?.fullName || item.Parent?.FullName || '',
+          email: item.parent?.email || item.parent?.Email || item.Parent?.email || item.Parent?.Email || '',
+        } : undefined,
+        tutor: item.tutor || item.Tutor ? {
+          id: item.tutor?.id || item.tutor?.Id || item.Tutor?.id || item.Tutor?.Id || '',
+          fullName: item.tutor?.fullName || item.tutor?.FullName || item.Tutor?.fullName || item.Tutor?.FullName || '',
+          email: item.tutor?.email || item.tutor?.Email || item.Tutor?.email || item.Tutor?.Email || '',
+        } : undefined,
+      }));
+
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch reports',
+    };
+  }
+}
+
+// Create a new report
+export async function createReport(data: CreateReportRequest) {
+  try {
+    const result = await apiService.request<any>(`/reports`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tutorId: data.tutorId,
+        content: data.content,
+        url: data.url || null,
+        type: data.type || null,
+        contractId: data.contractId,
+      }),
+    });
+
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: Report = {
+        reportId: item.reportId || item.ReportId || '',
+        parentId: item.parentId || item.ParentId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        content: item.content || item.Content || '',
+        url: item.url || item.Url,
+        status: item.status || item.Status || 'pending',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        type: item.type || item.Type,
+        contractId: item.contractId || item.ContractId,
+        parent: item.parent || item.Parent ? {
+          id: item.parent?.id || item.parent?.Id || item.Parent?.id || item.Parent?.Id || '',
+          fullName: item.parent?.fullName || item.parent?.FullName || item.Parent?.fullName || item.Parent?.FullName || '',
+          email: item.parent?.email || item.parent?.Email || item.Parent?.email || item.Parent?.Email || '',
+        } : undefined,
+        tutor: item.tutor || item.Tutor ? {
+          id: item.tutor?.id || item.tutor?.Id || item.Tutor?.id || item.Tutor?.Id || '',
+          fullName: item.tutor?.fullName || item.tutor?.FullName || item.Tutor?.fullName || item.Tutor?.FullName || '',
+          email: item.tutor?.email || item.tutor?.Email || item.Tutor?.email || item.Tutor?.Email || '',
+        } : undefined,
+      };
+
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create report';
+    return {
+      success: false,
+      data: null,
+      error: errorMessage,
     };
   }
 }

@@ -14,4 +14,5 @@ export { default as ContractDetailPage } from './ContractDetailPage';
 export { default as TutorDetailPage } from './TutorDetailPage';
 export { default as ParentDailyReportsPage } from './ParentDailyReportsPage';
 export { default as ParentTestResultsPage } from './ParentTestResultsPage';
+export { default as ParentTutorReportsPage } from './ParentTutorReportsPage';
 export { default as FinalFeedbackPage } from './FinalFeedbackPage';
