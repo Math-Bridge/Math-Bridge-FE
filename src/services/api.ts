@@ -5229,7 +5229,7 @@ export async function getUnitsByContractId(contractId: string) {
   }
 }
 
-// ==================== Report APIs (Parent Report Tutor) ====================
+// ==================== Tutor Report APIs ====================
 
 export interface Report {
   reportId: string;
@@ -5237,7 +5237,7 @@ export interface Report {
   tutorId: string;
   content: string;
   url?: string;
-  status: string;
+  status: 'pending' | 'approved' | 'denied';
   createdDate: string;
   type?: string;
   contractId?: string;
@@ -5255,10 +5255,10 @@ export interface Report {
 
 export interface CreateReportRequest {
   tutorId: string;
+  contractId: string;
   content: string;
   url?: string;
   type?: string;
-  contractId: string;
 }
 
 // Get reports by parent ID
@@ -5275,7 +5275,7 @@ export async function getReportsByParent(parentId: string) {
         tutorId: item.tutorId || item.TutorId || '',
         content: item.content || item.Content || '',
         url: item.url || item.Url,
-        status: item.status || item.Status || 'pending',
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'denied',
         createdDate: item.createdDate || item.CreatedDate || '',
         type: item.type || item.Type,
         contractId: item.contractId || item.ContractId,
@@ -5300,10 +5300,11 @@ export async function getReportsByParent(parentId: string) {
 
     return result;
   } catch (error: any) {
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to fetch reports';
     return {
       success: false,
       data: [],
-      error: error?.message || 'Failed to fetch reports',
+      error: errorMessage,
     };
   }
 }
@@ -5311,15 +5312,31 @@ export async function getReportsByParent(parentId: string) {
 // Create a new report
 export async function createReport(data: CreateReportRequest) {
   try {
+    if (!data.tutorId || !data.contractId || !data.content) {
+      return {
+        success: false,
+        data: null,
+        error: 'Tutor ID, Contract ID, and Content are required',
+      };
+    }
+
+    const requestBody: any = {
+      tutorId: data.tutorId,
+      contractId: data.contractId,
+      content: data.content.trim(),
+    };
+
+    if (data.url && data.url.trim()) {
+      requestBody.url = data.url.trim();
+    }
+
+    if (data.type && data.type.trim()) {
+      requestBody.type = data.type.trim();
+    }
+
     const result = await apiService.request<any>(`/reports`, {
       method: 'POST',
-      body: JSON.stringify({
-        tutorId: data.tutorId,
-        content: data.content,
-        url: data.url || null,
-        type: data.type || null,
-        contractId: data.contractId,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (result.success && result.data) {
@@ -5330,7 +5347,7 @@ export async function createReport(data: CreateReportRequest) {
         tutorId: item.tutorId || item.TutorId || '',
         content: item.content || item.Content || '',
         url: item.url || item.Url,
-        status: item.status || item.Status || 'pending',
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'denied',
         createdDate: item.createdDate || item.CreatedDate || '',
         type: item.type || item.Type,
         contractId: item.contractId || item.ContractId,
@@ -5360,6 +5377,112 @@ export async function createReport(data: CreateReportRequest) {
       success: false,
       data: null,
       error: errorMessage,
+    };
+  }
+}
+
+// Get all reports (for staff/admin)
+export async function getAllReports() {
+  try {
+    const result = await apiService.request<any[]>(`/reports`, {
+      method: 'GET',
+    });
+
+    if (result.success && result.data) {
+      const mappedData: Report[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        parentId: item.parentId || item.ParentId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        content: item.content || item.Content || '',
+        url: item.url || item.Url,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'denied',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        type: item.type || item.Type,
+        contractId: item.contractId || item.ContractId,
+        parent: item.parent || item.Parent ? {
+          id: item.parent?.id || item.parent?.Id || item.Parent?.id || item.Parent?.Id || '',
+          fullName: item.parent?.fullName || item.parent?.FullName || item.Parent?.fullName || item.Parent?.FullName || '',
+          email: item.parent?.email || item.parent?.Email || item.Parent?.email || item.Parent?.Email || '',
+        } : undefined,
+        tutor: item.tutor || item.Tutor ? {
+          id: item.tutor?.id || item.tutor?.Id || item.Tutor?.id || item.Tutor?.Id || '',
+          fullName: item.tutor?.fullName || item.tutor?.FullName || item.Tutor?.fullName || item.Tutor?.FullName || '',
+          email: item.tutor?.email || item.tutor?.Email || item.Tutor?.email || item.Tutor?.Email || '',
+        } : undefined,
+      }));
+
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to fetch reports';
+    return {
+      success: false,
+      data: [],
+      error: errorMessage,
+    };
+  }
+}
+
+// Update report status (for staff/admin)
+export async function updateReportStatus(reportId: string, status: 'approved' | 'denied') {
+  try {
+    if (!reportId || !status) {
+      return {
+        success: false,
+        error: 'Report ID and status are required',
+        data: undefined,
+      };
+    }
+
+    const result = await apiService.request<any>(`/reports/${reportId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+
+    if (result.success && result.data) {
+      const item = result.data;
+      const mappedData: Report = {
+        reportId: item.reportId || item.ReportId || '',
+        parentId: item.parentId || item.ParentId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        content: item.content || item.Content || '',
+        url: item.url || item.Url,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'denied',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        type: item.type || item.Type,
+        contractId: item.contractId || item.ContractId,
+        parent: item.parent || item.Parent ? {
+          id: item.parent?.id || item.parent?.Id || item.Parent?.id || item.Parent?.Id || '',
+          fullName: item.parent?.fullName || item.parent?.FullName || item.Parent?.fullName || item.Parent?.FullName || '',
+          email: item.parent?.email || item.parent?.Email || item.Parent?.email || item.Parent?.Email || '',
+        } : undefined,
+        tutor: item.tutor || item.Tutor ? {
+          id: item.tutor?.id || item.tutor?.Id || item.Tutor?.id || item.Tutor?.Id || '',
+          fullName: item.tutor?.fullName || item.tutor?.FullName || item.Tutor?.fullName || item.Tutor?.FullName || '',
+          email: item.tutor?.email || item.tutor?.Email || item.Tutor?.email || item.Tutor?.Email || '',
+        } : undefined,
+      };
+
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error updating report status:', error);
+    return {
+      success: false,
+      data: null,
+      error: error?.response?.data?.error || error?.message || 'Failed to update report status',
     };
   }
 }

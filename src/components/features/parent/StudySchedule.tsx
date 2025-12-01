@@ -740,6 +740,17 @@ const StudySchedule: React.FC = () => {
                         )}
                       </div>
                     </div>
+                    {!selectedSession.isOnline && (selectedSession.offlineAddress || sessionDetail?.offlineAddress) && (
+                      <div className="bg-white p-4 rounded-xl border border-gray-200">
+                        <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Address</div>
+                        <div className="flex items-start space-x-2 text-gray-900">
+                          <MapPin className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm font-medium break-words">
+                            {selectedSession.offlineAddress || sessionDetail?.offlineAddress || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="bg-white p-4 rounded-xl border border-gray-200">
                       <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Status</div>
                       <span

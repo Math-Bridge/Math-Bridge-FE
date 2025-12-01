@@ -53,6 +53,7 @@ import {
   StaffDailyReportsPage,
   FinalFeedbackManagementPage,
   TutorDailyReportPage,
+  StaffTutorReportsPage,
 } from './pages/features';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
@@ -420,6 +421,11 @@ function App() {
             <Route path="staff/final-feedback" element={
               <ProtectedRoute>
                 <FinalFeedbackManagementPage />
+              </ProtectedRoute>
+            } />
+            <Route path="staff/tutor-reports" element={
+              <ProtectedRoute>
+                <StaffTutorReportsPage />
               </ProtectedRoute>
             } />
           </Route>

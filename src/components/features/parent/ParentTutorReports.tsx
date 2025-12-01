@@ -28,10 +28,13 @@ import {
 import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const ParentTutorReports: React.FC = () => {
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +60,100 @@ const ParentTutorReports: React.FC = () => {
       fetchContracts();
     }
   }, [user?.id]);
+
+  // Check if contractId is passed from navigation state
+  useEffect(() => {
+    const state = location.state as { contractId?: string } | null;
+    if (state?.contractId && contracts.length > 0) {
+      // Find the contract
+      const contract = contracts.find(c => c.contractId === state.contractId);
+      if (contract) {
+        // Set the contract and open modal
+        setSelectedContractIdForReport(state.contractId);
+        setShowCreateModal(true);
+        
+        // Trigger the contract selection logic to load tutors
+        const loadTutors = async () => {
+          const contractData = contract as any;
+          const tutors: Array<{id: string, name: string, type: string}> = [];
+          
+          // Add main tutor
+          const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id || contract.mainTutorId;
+          if (mainTutorId) {
+            let mainTutorName = contractData.MainTutorName || contractData.mainTutorName || contract.mainTutorName || '';
+            // If no name, try to fetch it
+            if (!mainTutorName) {
+              try {
+                const userResult = await apiService.getUserById(mainTutorId);
+                if (userResult.success && userResult.data) {
+                  mainTutorName = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Main Tutor';
+                }
+              } catch (err) {
+                console.warn('Error fetching main tutor name:', err);
+              }
+            }
+            tutors.push({
+              id: mainTutorId,
+              name: mainTutorName || 'Main Tutor',
+              type: 'main'
+            });
+          }
+          
+          // Add substitute tutor 1
+          const subTutor1Id = contractData.SubstituteTutor1Id || contractData.substituteTutor1Id || contractData.substitute_tutor1_id;
+          if (subTutor1Id) {
+            let subTutor1Name = contractData.SubstituteTutor1Name || contractData.substituteTutor1Name || contractData.substitute_tutor1_name || '';
+            if (!subTutor1Name) {
+              try {
+                const userResult = await apiService.getUserById(subTutor1Id);
+                if (userResult.success && userResult.data) {
+                  subTutor1Name = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Substitute Tutor 1';
+                }
+              } catch (err) {
+                console.warn('Error fetching substitute tutor 1 name:', err);
+              }
+            }
+            tutors.push({
+              id: subTutor1Id,
+              name: subTutor1Name || 'Substitute Tutor 1',
+              type: 'substitute1'
+            });
+          }
+          
+          // Add substitute tutor 2
+          const subTutor2Id = contractData.SubstituteTutor2Id || contractData.substituteTutor2Id || contractData.substitute_tutor2_id;
+          if (subTutor2Id) {
+            let subTutor2Name = contractData.SubstituteTutor2Name || contractData.substituteTutor2Name || contractData.substitute_tutor2_name || '';
+            if (!subTutor2Name) {
+              try {
+                const userResult = await apiService.getUserById(subTutor2Id);
+                if (userResult.success && userResult.data) {
+                  subTutor2Name = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Substitute Tutor 2';
+                }
+              } catch (err) {
+                console.warn('Error fetching substitute tutor 2 name:', err);
+              }
+            }
+            tutors.push({
+              id: subTutor2Id,
+              name: subTutor2Name || 'Substitute Tutor 2',
+              type: 'substitute2'
+            });
+          }
+          
+          setAvailableTutorsForContract(tutors);
+          if (tutors.length > 0) {
+            setSelectedTutorId(tutors[0].id);
+          }
+          
+          // Clear location state to prevent reopening modal on navigation
+          navigate(location.pathname, { replace: true, state: null });
+        };
+        
+        loadTutors();
+      }
+    }
+  }, [location.state, contracts, navigate, location.pathname]);
 
   const fetchReports = async () => {
     if (!user?.id) return;

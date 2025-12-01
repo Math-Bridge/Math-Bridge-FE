@@ -1121,9 +1121,34 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 ) : (
                   <div className="space-y-4">
                     {sessions.map((session) => {
-                      const sessionDateTime = new Date(`${session.sessionDate}T${session.startTime}`);
-                      const endDateTime = new Date(`${session.sessionDate}T${session.endTime}`);
-                      const isPast = sessionDateTime < new Date();
+                      // Backend SessionDto already provides StartTime/EndTime as full ISO DateTime strings.
+                      // Use them directly (same approach as TutorSessions) to avoid "Invalid Date".
+                      let sessionDateTime: Date | null = null;
+                      let endDateTime: Date | null = null;
+
+                      if (session.startTime) {
+                        const startMs = Date.parse(session.startTime);
+                        if (!isNaN(startMs)) {
+                          sessionDateTime = new Date(startMs);
+                        }
+                      }
+
+                      if (session.endTime) {
+                        const endMs = Date.parse(session.endTime);
+                        if (!isNaN(endMs)) {
+                          endDateTime = new Date(endMs);
+                        }
+                      }
+
+                      // Fallback: if times are missing but sessionDate exists, at least show the date
+                      if (!sessionDateTime && session.sessionDate) {
+                        const dateMs = Date.parse(session.sessionDate);
+                        if (!isNaN(dateMs)) {
+                          sessionDateTime = new Date(dateMs);
+                        }
+                      }
+
+                      const isPast = sessionDateTime ? sessionDateTime < new Date() : false;
                       const canReassign = session.status !== 'completed' && session.status !== 'cancelled';
                       
                       return (
@@ -1138,23 +1163,36 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                               <div className="flex items-center space-x-3 mb-2">
                                 <Calendar className="w-5 h-5 text-gray-400" />
                                 <div>
-                                  <p className="font-semibold text-gray-900">
-                                    {sessionDateTime.toLocaleDateString('en-US', {
-                                      weekday: 'long',
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })}
-                                  </p>
-                                  <p className="text-sm text-gray-600">
-                                    {sessionDateTime.toLocaleTimeString('en-US', {
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })} - {endDateTime.toLocaleTimeString('en-US', {
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </p>
+                                  {sessionDateTime ? (
+                                    <>
+                                      <p className="font-semibold text-gray-900">
+                                        {sessionDateTime.toLocaleDateString('en-US', {
+                                          weekday: 'long',
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric',
+                                        })}
+                                      </p>
+                                      <p className="text-sm text-gray-600">
+                                        {sessionDateTime.toLocaleTimeString('en-US', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })}{' '}
+                                        -{' '}
+                                        {(endDateTime || sessionDateTime).toLocaleTimeString('en-US', {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                        })}
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="font-semibold text-gray-900">Schedule not set</p>
+                                      <p className="text-sm text-gray-600">
+                                        Session date/time information is not available
+                                      </p>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               

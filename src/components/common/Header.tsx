@@ -47,8 +47,12 @@ const Header: React.FC = () => {
         { name: 'Dashboard', href: '/tutor/dashboard', icon: Home },
       ];
     } else if (user?.role === 'staff') {
-      // Staff has no navigation items - they stay in dashboard
-      return [];
+      // Basic navigation for Staff role
+      return [
+        { name: 'Dashboard', href: '/staff', icon: Home },
+        { name: 'Contracts', href: '/staff/contracts', icon: FileText },
+        { name: 'Tutor Reports', href: '/staff/tutor-reports', icon: FileText },
+      ];
     } else if (user?.role === 'parent') {
       // Navigation for Parent role
       return [

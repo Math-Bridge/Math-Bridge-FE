@@ -17,10 +17,11 @@ import {
   ChevronRight,
   Users,
   MapPin,
-  Sparkles
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getContractsByParent, getChildrenByParent, getChildUnitProgress, ChildUnitProgress, getFinalFeedbackByContractAndProvider, FinalFeedback } from '../../../services/api';
+import { getContractsByParent, getChildrenByParent, getChildUnitProgress, ChildUnitProgress, getFinalFeedbackByContractAndProvider, FinalFeedback, createReport, CreateReportRequest, apiService } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -44,12 +45,14 @@ interface Contract {
   offlineAddress?: string | null;
   isOnline?: boolean;
   createdAt: string;
+  // Raw contract data for accessing tutor IDs
+  rawData?: any;
 }
 
 const ContractsManagement: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,6 +64,16 @@ const ContractsManagement: React.FC = () => {
   const [unitProgressMap, setUnitProgressMap] = useState<Record<string, ChildUnitProgress | null>>({});
   const [loadingProgress, setLoadingProgress] = useState<Record<string, boolean>>({});
   const [finalFeedbackMap, setFinalFeedbackMap] = useState<Record<string, FinalFeedback | null>>({});
+  
+  // Report modal states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedContractForReport, setSelectedContractForReport] = useState<Contract | null>(null);
+  const [selectedTutorId, setSelectedTutorId] = useState<string>('');
+  const [availableTutorsForContract, setAvailableTutorsForContract] = useState<Array<{id: string, name: string, type: string}>>([]);
+  const [reportContent, setReportContent] = useState('');
+  const [reportUrl, setReportUrl] = useState('');
+  const [reportType, setReportType] = useState('');
+  const [isCreatingReport, setIsCreatingReport] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -145,7 +158,9 @@ const ContractsManagement: React.FC = () => {
             endDate: cleanContract.EndDate || cleanContract.endDate || '',
             schedule,
             isOnline: cleanContract.IsOnline ?? cleanContract.isOnline ?? true,
-            createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || new Date().toISOString()
+            createdAt: cleanContract.CreatedAt || cleanContract.CreatedDate || new Date().toISOString(),
+            // Store raw contract data to access tutor IDs
+            rawData: contract
           };
         }));
         setContracts(mappedContracts);
@@ -266,6 +281,149 @@ const ContractsManagement: React.FC = () => {
   const handleReschedule = (id: string) => navigate(`/contracts/${id}/reschedule`);
   const handleFeedback = (id: string) => navigate(`/contracts/${id}/feedback`);
   const handleRetry = () => fetchData();
+  
+  const handleOpenReportModal = async (contract: Contract) => {
+    setSelectedContractForReport(contract);
+    setShowReportModal(true);
+    setSelectedTutorId('');
+    setAvailableTutorsForContract([]);
+    setReportContent('');
+    setReportUrl('');
+    setReportType('');
+    
+    // Load tutors for this contract - use rawData if available, otherwise try contract object
+    const contractData = contract.rawData || contract as any;
+    const tutors: Array<{id: string, name: string, type: string}> = [];
+    
+    // Add main tutor - try multiple field name variations
+    const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id || 
+                        contractData.MainTutor?.Id || contractData.MainTutor?.id || 
+                        contractData.mainTutor?.Id || contractData.mainTutor?.id;
+    if (mainTutorId) {
+      let mainTutorName = contractData.MainTutorName || contractData.mainTutorName || 
+                          contractData.MainTutor?.FullName || contractData.MainTutor?.fullName ||
+                          contractData.MainTutor?.Name || contractData.MainTutor?.name ||
+                          contract.tutorName || '';
+      if (!mainTutorName || mainTutorName === 'Tutor not assigned') {
+        try {
+          const userResult = await apiService.getUserById(mainTutorId);
+          if (userResult.success && userResult.data) {
+            mainTutorName = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Main Tutor';
+          }
+        } catch (err) {
+          console.warn('Error fetching main tutor name:', err);
+        }
+      }
+      if (mainTutorName && mainTutorName !== 'Tutor not assigned') {
+        tutors.push({
+          id: mainTutorId,
+          name: mainTutorName,
+          type: 'main'
+        });
+      }
+    } else if (contract.tutorName && contract.tutorName !== 'Tutor not assigned') {
+      // If we have tutor name but no ID, try to find tutor by name or use a fallback
+      // For now, we'll skip this tutor since we need an ID to create a report
+      console.warn('Main tutor ID not found for contract:', contract.id);
+    }
+    
+    // Add substitute tutor 1
+    const subTutor1Id = contractData.SubstituteTutor1Id || contractData.substituteTutor1Id || contractData.substitute_tutor1_id ||
+                        contractData.SubstituteTutor1?.Id || contractData.SubstituteTutor1?.id ||
+                        contractData.substituteTutor1?.Id || contractData.substituteTutor1?.id;
+    if (subTutor1Id) {
+      let subTutor1Name = contractData.SubstituteTutor1Name || contractData.substituteTutor1Name || 
+                          contractData.SubstituteTutor1?.FullName || contractData.SubstituteTutor1?.fullName ||
+                          contractData.SubstituteTutor1?.Name || contractData.SubstituteTutor1?.name ||
+                          contractData.substitute_tutor1_name || '';
+      if (!subTutor1Name) {
+        try {
+          const userResult = await apiService.getUserById(subTutor1Id);
+          if (userResult.success && userResult.data) {
+            subTutor1Name = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Substitute Tutor 1';
+          }
+        } catch (err) {
+          console.warn('Error fetching substitute tutor 1 name:', err);
+        }
+      }
+      tutors.push({
+        id: subTutor1Id,
+        name: subTutor1Name || 'Substitute Tutor 1',
+        type: 'substitute1'
+      });
+    }
+    
+    // Add substitute tutor 2
+    const subTutor2Id = contractData.SubstituteTutor2Id || contractData.substituteTutor2Id || contractData.substitute_tutor2_id ||
+                        contractData.SubstituteTutor2?.Id || contractData.SubstituteTutor2?.id ||
+                        contractData.substituteTutor2?.Id || contractData.substituteTutor2?.id;
+    if (subTutor2Id) {
+      let subTutor2Name = contractData.SubstituteTutor2Name || contractData.substituteTutor2Name || 
+                          contractData.SubstituteTutor2?.FullName || contractData.SubstituteTutor2?.fullName ||
+                          contractData.SubstituteTutor2?.Name || contractData.SubstituteTutor2?.name ||
+                          contractData.substitute_tutor2_name || '';
+      if (!subTutor2Name) {
+        try {
+          const userResult = await apiService.getUserById(subTutor2Id);
+          if (userResult.success && userResult.data) {
+            subTutor2Name = userResult.data.fullName || userResult.data.FullName || userResult.data.name || 'Substitute Tutor 2';
+          }
+        } catch (err) {
+          console.warn('Error fetching substitute tutor 2 name:', err);
+        }
+      }
+      tutors.push({
+        id: subTutor2Id,
+        name: subTutor2Name || 'Substitute Tutor 2',
+        type: 'substitute2'
+      });
+    }
+    
+    setAvailableTutorsForContract(tutors);
+    if (tutors.length > 0) {
+      setSelectedTutorId(tutors[0].id);
+    } else {
+      console.warn('No tutors found for contract:', contract.id, 'Raw data:', contractData);
+    }
+  };
+  
+  const handleCreateReport = async () => {
+    if (!selectedTutorId || !selectedContractForReport || !reportContent.trim()) {
+      showError('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setIsCreatingReport(true);
+      const reportData: CreateReportRequest = {
+        tutorId: selectedTutorId,
+        contractId: selectedContractForReport.id,
+        content: reportContent.trim(),
+        url: reportUrl.trim() || undefined,
+        type: reportType.trim() || undefined,
+      };
+
+      const result = await createReport(reportData);
+      if (result.success && result.data) {
+        showSuccess('Report created successfully');
+        setShowReportModal(false);
+        // Reset form
+        setSelectedContractForReport(null);
+        setSelectedTutorId('');
+        setAvailableTutorsForContract([]);
+        setReportContent('');
+        setReportUrl('');
+        setReportType('');
+      } else {
+        showError(result.error || 'Failed to create report');
+      }
+    } catch (error: any) {
+      console.error('Error creating report:', error);
+      showError(error?.response?.data?.error || 'Failed to create report');
+    } finally {
+      setIsCreatingReport(false);
+    }
+  };
 
   // SKELETON LOADING
   if (loading) {
@@ -503,7 +661,18 @@ const ContractsManagement: React.FC = () => {
                     <span>View Details</span>
                   </button>
 
-
+                  {contract.tutorName && 
+                   contract.tutorName !== 'Tutor not assigned' && 
+                   contract.status !== 'unpaid' && 
+                   contract.status !== 'pending' && (
+                    <button
+                      onClick={() => handleOpenReportModal(contract)}
+                      className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    >
+                      <AlertTriangle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span>Report Tutor</span>
+                    </button>
+                  )}
 
                   {contract.status === 'completed' && !finalFeedbackMap[contract.id] && (
                     <button
@@ -621,6 +790,148 @@ const ContractsManagement: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Create Report Modal */}
+      {showReportModal && selectedContractForReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Create New Report</h2>
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setSelectedContractForReport(null);
+                    setSelectedTutorId('');
+                    setAvailableTutorsForContract([]);
+                    setReportContent('');
+                    setReportUrl('');
+                    setReportType('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Contract
+                </label>
+                <input
+                  type="text"
+                  value={`${selectedContractForReport.childName} - ${selectedContractForReport.packageName}`}
+                  disabled
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Select Tutor <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedTutorId}
+                  onChange={(e) => setSelectedTutorId(e.target.value)}
+                  disabled={availableTutorsForContract.length === 0}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white disabled:bg-gray-50 disabled:text-gray-500"
+                  required
+                >
+                  <option value="">
+                    {availableTutorsForContract.length === 0 
+                      ? 'No tutors available' 
+                      : '-- Select a tutor --'}
+                  </option>
+                  {availableTutorsForContract.map((tutor) => (
+                    <option key={tutor.id} value={tutor.id}>
+                      {tutor.type === 'main' ? 'Main Tutor: ' : tutor.type === 'substitute1' ? 'Substitute Tutor 1: ' : 'Substitute Tutor 2: '}
+                      {tutor.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Choose the tutor you want to report</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Report Type (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Complaint, Feedback, Issue"
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Report Content <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  placeholder="Describe the issue or concern in detail..."
+                  value={reportContent}
+                  onChange={(e) => setReportContent(e.target.value)}
+                  rows={6}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white resize-none"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Please provide detailed information about the issue or concern</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Related URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={reportUrl}
+                  onChange={(e) => setReportUrl(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                />
+                <p className="mt-1 text-xs text-gray-500">Link to any relevant documents or evidence</p>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setSelectedContractForReport(null);
+                  setSelectedTutorId('');
+                  setAvailableTutorsForContract([]);
+                  setReportContent('');
+                  setReportUrl('');
+                  setReportType('');
+                }}
+                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
+                disabled={isCreatingReport}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateReport}
+                disabled={isCreatingReport || !selectedTutorId || !reportContent.trim()}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isCreatingReport ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    <span>Create Report</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

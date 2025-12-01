@@ -243,7 +243,7 @@ const ContractDetail: React.FC = () => {
           endDate: contractData.EndDate || contractData.endDate || '',
           schedule: schedule,
           centerName: contractData.CenterName || contractData.centerName || 'Online',
-          centerAddress: contractData.CenterAddress || contractData.centerAddress || '',
+          centerAddress: contractData.CenterAddress || contractData.centerAddress || contractData.OfflineAddress || contractData.offlineAddress || '',
           createdAt: contractData.CreatedDate || contractData.createdDate || contractData.CreatedAt || contractData.createdAt || '',
           sessions: [], // TODO: Fetch sessions from API
           tutorRating: contractData.TutorRating || contractData.tutorRating || 0
@@ -1004,7 +1004,7 @@ const ContractDetail: React.FC = () => {
                         />
                       ) : null}
                       <User className={`w-8 h-8 text-white ${substituteTutor1AvatarUrl ? 'hidden' : ''}`} />
-                    </div>
+          </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-green-700 uppercase tracking-wide mb-1">
                         Substitute Tutor 1
@@ -1130,6 +1130,15 @@ const ContractDetail: React.FC = () => {
                       </p>
                     </div>
                   </div>
+                  {contract.centerAddress && (
+                    <div className="flex items-start space-x-3 md:col-span-2">
+                      <MapPin className="w-5 h-5 text-gray-400 mt-1 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-gray-600">Address</p>
+                        <p className="font-medium break-words">{contract.centerAddress}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1580,7 +1589,7 @@ const ContractDetail: React.FC = () => {
               <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-12 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading tutor information...</p>
-              </div>
+                </div>
             ) : (
               <div className="space-y-8">
                 {(() => {
@@ -1645,10 +1654,10 @@ const ContractDetail: React.FC = () => {
                                 />
                                 <User className="w-8 h-8 text-white hidden" />
                               </>
-                            ) : (
+                    ) : (
                               <User className="w-8 h-8 text-white" />
-                            )}
-                          </div>
+                    )}
+                  </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-1">
                               <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -1664,46 +1673,46 @@ const ContractDetail: React.FC = () => {
                                 <Award className="w-3 h-3 inline mr-1" />
                                 {tutorVerification.university}
                                 {tutorVerification.major && ` - ${tutorVerification.major}`}
-                              </p>
-                            )}
-                          </div>
+                    </p>
+                  )}
+                </div>
                         </div>
                         
                         <div className="space-y-5">
                           {/* Contact Information */}
                           {tutorEmail && (
-                            <div className="flex items-start space-x-3">
-                              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <MessageSquare className="w-5 h-5 text-blue-600" />
-                              </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="w-5 h-5 text-blue-600" />
+                    </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Email</p>
                                 <p className="text-base text-gray-900 break-all">{tutorEmail}</p>
-                              </div>
-                            </div>
-                          )}
+                    </div>
+                  </div>
+                )}
                           {tutorPhone && (
-                            <div className="flex items-start space-x-3">
-                              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                <Phone className="w-5 h-5 text-green-600" />
-                              </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-5 h-5 text-green-600" />
+                    </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Phone Number</p>
                                 <p className="text-base text-gray-900">{tutorPhone}</p>
-                              </div>
-                            </div>
-                          )}
+                    </div>
+                  </div>
+                )}
                           {tutorAddress && (
-                            <div className="flex items-start space-x-3">
+                  <div className="flex items-start space-x-3">
                               <div className={`w-10 h-10 ${isMainTutor ? 'bg-purple-100' : isSubstitute ? 'bg-green-100' : 'bg-blue-100'} rounded-lg flex items-center justify-center flex-shrink-0`}>
                                 <MapPin className={`w-5 h-5 ${isMainTutor ? 'text-purple-600' : isSubstitute ? 'text-green-600' : 'text-blue-600'}`} />
-                              </div>
+                    </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-700 mb-1">Address</p>
+                      <p className="text-sm font-semibold text-gray-700 mb-1">Address</p>
                                 <p className="text-base text-gray-900">{tutorAddress}</p>
-                              </div>
-                            </div>
-                          )}
+                    </div>
+                  </div>
+                )}
                           
                           {/* Tutor Rating Section */}
                           {tutorData.id && (
@@ -1712,94 +1721,94 @@ const ContractDetail: React.FC = () => {
                               {isLoadingFeedbacks ? (
                                 <div className="flex items-center justify-center py-4">
                                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                </div>
+                    </div>
                               ) : totalReviews > 0 ? (
                                 <div className="space-y-4">
                                   {/* Overall Rating */}
                                   <div className="text-center pb-4 border-b border-gray-200">
                                     <div className="flex items-center justify-center space-x-2 mb-2">
-                                      <div className="flex">
-                                        {[...Array(5)].map((_, i) => (
-                                          <Star
-                                            key={i}
-                                            className={`w-5 h-5 ${
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-5 h-5 ${
                                               i < Math.floor(avgOverall)
-                                                ? 'text-yellow-400 fill-current'
-                                                : 'text-gray-300'
-                                            }`}
-                                          />
-                                        ))}
-                                      </div>
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
                                       <span className="text-xl font-bold text-gray-900">{avgOverall.toFixed(1)}</span>
-                                    </div>
+                      </div>
                                     <p className="text-xs text-gray-600">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</p>
                                     {recommendPercentage > 0 && (
                                       <p className="text-xs text-green-600 mt-1">{recommendPercentage.toFixed(0)}% would recommend</p>
-                                    )}
-                                  </div>
-                                  
+                )}
+            </div>
+
                                   {/* Individual Rating Breakdown */}
                                   {(avgCommunication > 0 || avgSessionQuality > 0 || avgLearningProgress > 0 || avgProfessionalism > 0) && (
                                     <div className="space-y-2">
                                       {avgCommunication > 0 && (
-                                        <div>
+                    <div>
                                           <div className="flex items-center justify-between mb-1">
                                             <span className="text-xs text-gray-600">Communication</span>
                                             <span className="text-xs font-semibold text-gray-900">{avgCommunication.toFixed(1)}</span>
-                                          </div>
+                    </div>
                                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                                             <div 
                                               className="bg-blue-600 h-1.5 rounded-full" 
                                               style={{ width: `${(avgCommunication / 5) * 100}%` }}
                                             ></div>
-                                          </div>
-                                        </div>
+                  </div>
+                    </div>
                                       )}
                                       {avgSessionQuality > 0 && (
                                         <div>
                                           <div className="flex items-center justify-between mb-1">
                                             <span className="text-xs text-gray-600">Session Quality</span>
                                             <span className="text-xs font-semibold text-gray-900">{avgSessionQuality.toFixed(1)}</span>
-                                          </div>
+                        </div>
                                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                                             <div 
                                               className="bg-purple-600 h-1.5 rounded-full" 
                                               style={{ width: `${(avgSessionQuality / 5) * 100}%` }}
                                             ></div>
-                                          </div>
-                                        </div>
-                                      )}
+                        </div>
+                      </div>
+                    )}
                                       {avgLearningProgress > 0 && (
                                         <div>
                                           <div className="flex items-center justify-between mb-1">
                                             <span className="text-xs text-gray-600">Learning Progress</span>
                                             <span className="text-xs font-semibold text-gray-900">{avgLearningProgress.toFixed(1)}</span>
-                                          </div>
+                        </div>
                                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                                             <div 
                                               className="bg-green-600 h-1.5 rounded-full" 
                                               style={{ width: `${(avgLearningProgress / 5) * 100}%` }}
                                             ></div>
-                                          </div>
-                                        </div>
-                                      )}
+                        </div>
+                      </div>
+                    )}
                                       {avgProfessionalism > 0 && (
                                         <div>
                                           <div className="flex items-center justify-between mb-1">
                                             <span className="text-xs text-gray-600">Professionalism</span>
                                             <span className="text-xs font-semibold text-gray-900">{avgProfessionalism.toFixed(1)}</span>
-                                          </div>
+                        </div>
                                           <div className="w-full bg-gray-200 rounded-full h-1.5">
                                             <div 
                                               className="bg-indigo-600 h-1.5 rounded-full" 
                                               style={{ width: `${(avgProfessionalism / 5) * 100}%` }}
                                             ></div>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                                   )}
-                                  
+
                                   {/* Recent Reviews */}
                                   {tutorFeedbacks.slice(0, 2).some(f => f.feedbackText || f.additionalComments) && (
                                     <div className="pt-3 border-t border-gray-200">
@@ -1822,25 +1831,25 @@ const ContractDetail: React.FC = () => {
                                                       }`}
                                                     />
                                                   ))}
-                                                </div>
+                    </div>
                                                 <span className="text-xs text-gray-500">
                                                   {feedback.userFullName || 'Anonymous'}
                                                 </span>
-                                              </div>
+                    </div>
                                               <p className="text-xs text-gray-700 line-clamp-2">{comment}</p>
-                                            </div>
+                  </div>
                                           );
                                         })}
-                                      </div>
-                                    </div>
+                    </div>
+                        </div>
                                   )}
-                                </div>
+                        </div>
                               ) : (
                                 <div className="text-center py-4">
                                   <p className="text-xs text-gray-500">No reviews yet</p>
-                                </div>
-                              )}
-                            </div>
+                      </div>
+                    )}
+                        </div>
                           )}
                         </div>
                       </div>
@@ -1903,7 +1912,7 @@ const ContractDetail: React.FC = () => {
                         <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                         <h4 className="text-xl font-semibold text-gray-900 mb-2">No Tutor Information</h4>
                         <p className="text-gray-600">No tutor information available for this contract</p>
-                      </div>
+                        </div>
                     );
                   }
                   
@@ -1915,9 +1924,9 @@ const ContractDetail: React.FC = () => {
                           <h2 className="text-2xl font-bold text-gray-900 mb-6">Main Tutor</h2>
                           <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
                             {renderTutorCard(mainTutor, 0)}
-                          </div>
                         </div>
-                      )}
+                      </div>
+                    )}
                       
                       {/* Substitute Tutors Section */}
                       {substituteTutors.length > 0 && (
@@ -1925,12 +1934,12 @@ const ContractDetail: React.FC = () => {
                           <h2 className="text-2xl font-bold text-gray-900 mb-6">Substitute Tutors</h2>
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {substituteTutors.map((tutor, index) => renderTutorCard(tutor, index))}
-                          </div>
-                        </div>
+                  </div>
+                </div>
                       )}
                     </>
                   );
-                })()}
+            })()}
               </div>
             )}
           </div>
