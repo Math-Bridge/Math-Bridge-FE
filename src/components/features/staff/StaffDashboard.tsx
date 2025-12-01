@@ -118,6 +118,7 @@ const StaffDashboard: React.FC = () => {
     { name: 'Tutor Center Assignment', icon: Building, path: '/staff/tutor-center-assignment', view: 'tutor-center-assignment' as const },
     { name: 'Contract Management', icon: FileText, path: '/staff/contracts', view: 'contracts' as const },
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
+    { name: 'Daily Reports Management', icon: BarChart3, path: '/staff/daily-reports', view: 'daily-reports' as const },
     { name: 'Final Feedback Management', icon: Star, path: '/staff/final-feedback', view: 'final-feedback' as const },
     { name: 'Tutor Reports', icon: AlertTriangle, path: '/staff/tutor-reports', view: 'tutor-reports' as const },
     { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
@@ -257,8 +258,7 @@ const StaffDashboard: React.FC = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column */}
+      <div className="grid grid-cols-1 gap-6">
         <div className="space-y-6">
           {/* My Tasks Widget */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
@@ -329,57 +329,6 @@ const StaffDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-6">
-          {/* Reminders Widget */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Bell className="w-5 h-5 text-blue-800" />
-                <h2 className="text-xl font-bold text-gray-900">Reminders</h2>
-              </div>
-              <span className="text-sm text-gray-600">Today • {stats.unreadMessages}</span>
-            </div>
-            <div className="space-y-3">
-              <div
-                onClick={() => setCurrentView('contracts')}
-                className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer hover:bg-yellow-100 transition-colors"
-              >
-                <p className="text-sm text-gray-900 font-medium">
-                  Review pending contracts and assign tutors
-                </p>
-                <p className="text-xs text-gray-600 mt-1">Due today</p>
-              </div>
-              <div
-                onClick={() => setCurrentView('reschedules')}
-                className="p-4 bg-blue-50 border border-blue-200 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
-              >
-                <p className="text-sm text-gray-900 font-medium">
-                  Follow up on reschedule requests
-                </p>
-                <p className="text-xs text-gray-600 mt-1">2 pending</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Calendar Widget */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Calendar className="w-5 h-5 text-blue-800" />
-                <h2 className="text-xl font-bold text-gray-900">Calendar</h2>
-              </div>
-            </div>
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <p className="font-semibold text-gray-900 mb-1">Upcoming Sessions</p>
-              <p className="text-sm text-gray-600">Today • {stats.upcomingSessions} sessions</p>
-              <div className="mt-3 pt-3 border-t border-blue-200">
-                <p className="text-sm font-medium text-gray-900">Meeting with Tutors</p>
-                <p className="text-xs text-gray-600">10:00 - 11:00 am</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </>
   );

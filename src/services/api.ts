@@ -2405,36 +2405,107 @@ export interface StaffStats {
 }
 
 export async function getStaffStats() {
-  // TODO: Replace with actual API endpoint when available
-  // For now, calculate from contracts and reschedule requests
   try {
-    const [contractsRes, rescheduleRes] = await Promise.all([
-      apiService.request<Contract[]>('/contracts'),
+    const [contractsRes, rescheduleRes, tutorsRes, centersRes, sessionStatsRes] = await Promise.all([
+      getAllContracts(),
       getRescheduleRequests('pending'),
+      getAllTutors(),
+      getAllCenters(),
+      getSessionStatistics(),
     ]);
 
-    const pendingContracts = contractsRes.success && contractsRes.data
-      ? contractsRes.data.filter(c => c.status === 'pending' || !c.mainTutorId).length
-      : 0;
+    // Calculate pending contracts: only count contracts with explicit 'pending' status
+    // Do not count null/undefined/empty status or 'unpaid' status
+    let pendingContracts = 0;
+    if (contractsRes.success && contractsRes.data && Array.isArray(contractsRes.data)) {
+      pendingContracts = contractsRes.data.filter((c: any) => {
+        // Get status from contract (handle both PascalCase and camelCase)
+        const rawStatus = c.Status || c.status;
+        
+        // Only process if status exists and is not null/undefined/empty
+        if (!rawStatus || rawStatus === null || rawStatus === undefined || String(rawStatus).trim() === '') {
+          return false;
+        }
+        
+        // Convert to string and normalize (lowercase, trim whitespace)
+        const normalizedStatus = String(rawStatus).toLowerCase().trim();
+        
+        // Only count contracts with explicit 'pending' status (not 'unpaid')
+        return normalizedStatus === 'pending';
+      }).length;
+    }
 
-    const rescheduleRequests = rescheduleRes.success && rescheduleRes.data
-      ? rescheduleRes.data.length
-      : 0;
+    // Calculate reschedule requests - filter by pending status on frontend
+    // Only count requests with explicit 'pending' status that haven't been processed
+    let rescheduleRequests = 0;
+    if (rescheduleRes.success && rescheduleRes.data && Array.isArray(rescheduleRes.data)) {
+      rescheduleRequests = rescheduleRes.data.filter((r: any) => {
+        // Status is already normalized to lowercase in getRescheduleRequests mapping
+        const status = (r.status || '').toLowerCase().trim();
+        
+        // Only count if status is explicitly 'pending'
+        if (status !== 'pending') {
+          return false;
+        }
+        
+        // Additional check: A truly pending request should not have been processed yet
+        // (no processedDate and no staffId means it hasn't been processed)
+        const hasProcessedDate = r.processedDate || r.ProcessedDate;
+        const hasStaffId = r.staffId || r.StaffId;
+        
+        // Count as pending only if it hasn't been processed
+        return !hasProcessedDate && !hasStaffId;
+      }).length;
+    }
+
+    // Calculate active tutors: tutors with verified status
+    let activeTutors = 0;
+    if (tutorsRes.success && tutorsRes.data) {
+      activeTutors = tutorsRes.data.filter((t: any) => {
+        const status = (t.verificationStatus || t.VerificationStatus || t.status || '').toString().toLowerCase().trim();
+        return status === 'approved' || status === 'verified' || status === 'active';
+      }).length;
+    }
+
+    // Calculate total centers
+    let totalCenters = 0;
+    if (centersRes.success && centersRes.data) {
+      if (Array.isArray(centersRes.data)) {
+        totalCenters = centersRes.data.length;
+      } else if (centersRes.data.data && Array.isArray(centersRes.data.data)) {
+        totalCenters = centersRes.data.data.length;
+      }
+    }
+
+    // Calculate completed and upcoming sessions from session statistics
+    let completedSessions = 0;
+    let upcomingSessions = 0;
+    if (sessionStatsRes.success && sessionStatsRes.data) {
+      const stats = sessionStatsRes.data;
+      completedSessions = stats.completedSessions || stats.CompletedSessions || 0;
+      upcomingSessions = stats.upcomingSessions || stats.UpcomingSessions || 0;
+      if (import.meta.env.DEV) {
+        console.log('Session statistics:', { completedSessions, upcomingSessions, fullData: stats });
+      }
+    } else if (import.meta.env.DEV) {
+      console.warn('Failed to fetch session statistics:', sessionStatsRes.error);
+    }
 
     return {
       success: true,
       data: {
         pendingContracts,
-        activeTutors: 0, // TODO: Get from tutor API
-        totalCenters: 0, // TODO: Get from center API
+        activeTutors,
+        totalCenters,
         unreadMessages: 0, // TODO: Get from chat API
-        upcomingSessions: 0, // TODO: Get from sessions API
-        completedSessions: 0, // TODO: Get from sessions API
+        upcomingSessions,
+        completedSessions,
         rescheduleRequests,
         newParentRequests: 0, // TODO: Get from parent requests API
       } as StaffStats,
     };
   } catch (error) {
+    console.error('Error fetching staff stats:', error);
     return {
       success: false,
       error: 'Failed to fetch staff stats',
