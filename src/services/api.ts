@@ -3987,6 +3987,7 @@ export interface DailyReport {
   tutorId: string;
   bookingId: string;
   notes?: string;
+  url?: string;
   onTrack: boolean;
   haveHomework: boolean;
   createdDate: string; // DateOnly format (YYYY-MM-DD)
@@ -4003,6 +4004,7 @@ export interface CreateDailyReportRequest {
   childId: string; // Required
   bookingId: string; // Required
   notes?: string; // Optional, max 1000 chars
+  url?: string; // Optional
   onTrack: boolean; // Required
   haveHomework: boolean; // Required
   unitId: string; // Required
@@ -4010,6 +4012,7 @@ export interface CreateDailyReportRequest {
 
 export interface UpdateDailyReportRequest {
   notes?: string; // Optional, max 1000 chars
+  url?: string; // Optional
   onTrack?: boolean; // Optional
   haveHomework?: boolean; // Optional
   unitId?: string; // Optional
@@ -4086,6 +4089,7 @@ export async function getDailyReportById(reportId: string) {
         tutorId: item.tutorId || item.TutorId || '',
         bookingId: item.bookingId || item.BookingId || '',
         notes: item.notes || item.Notes,
+        url: item.url || item.Url,
         onTrack: item.onTrack ?? item.OnTrack ?? false,
         haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
         createdDate: item.createdDate || item.CreatedDate || '',
@@ -4148,6 +4152,7 @@ export async function getDailyReportsByTutor() {
           tutorId: item.tutorId || item.TutorId || '',
           bookingId: item.bookingId || item.BookingId || '',
           notes: item.notes || item.Notes,
+          url: item.url || item.Url,
           onTrack: item.onTrack ?? item.OnTrack ?? false,
           haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
           createdDate: item.createdDate || item.CreatedDate || '',
@@ -4218,6 +4223,7 @@ export async function getDailyReportsByChild(childId: string) {
           tutorId: item.tutorId || item.TutorId || '',
           bookingId: item.bookingId || item.BookingId || '',
           notes: item.notes || item.Notes,
+          url: item.url || item.Url,
           onTrack: item.onTrack ?? item.OnTrack ?? false,
           haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
           createdDate: item.createdDate || item.CreatedDate || '',
@@ -4281,6 +4287,7 @@ export async function getDailyReportsByContractId(contractId: string) {
           tutorId: item.tutorId || item.TutorId || '',
           bookingId: item.bookingId || item.BookingId || '',
           notes: item.notes || item.Notes,
+          url: item.url || item.Url,
           onTrack: item.onTrack ?? item.OnTrack ?? false,
           haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
           createdDate: item.createdDate || item.CreatedDate || '',
@@ -4344,6 +4351,7 @@ export async function getDailyReportsByBooking(bookingId: string) {
           tutorId: item.tutorId || item.TutorId || '',
           bookingId: item.bookingId || item.BookingId || '',
           notes: item.notes || item.Notes,
+          url: item.url || item.Url,
           onTrack: item.onTrack ?? item.OnTrack ?? false,
           haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
           createdDate: item.createdDate || item.CreatedDate || '',
@@ -4517,6 +4525,10 @@ export async function createDailyReport(data: CreateDailyReportRequest) {
       requestBody.notes = data.notes.trim();
     }
     
+    if (data.url && data.url.trim() !== '') {
+      requestBody.url = data.url.trim();
+    }
+    
     const result = await apiService.request<{ message: string; reportId: string }>(`/daily-reports`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
@@ -4566,6 +4578,9 @@ export async function updateDailyReport(reportId: string, data: UpdateDailyRepor
     
     if (data.notes !== undefined) {
       requestBody.notes = data.notes.trim() || null;
+    }
+    if (data.url !== undefined) {
+      requestBody.url = data.url.trim() || null;
     }
     if (data.onTrack !== undefined) {
       requestBody.onTrack = data.onTrack;

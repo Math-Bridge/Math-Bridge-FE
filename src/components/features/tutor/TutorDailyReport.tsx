@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   Search,
+  ExternalLink,
 } from 'lucide-react';
 import {
   getTutorSessions,
@@ -63,6 +64,7 @@ const TutorDailyReport: React.FC = () => {
   const [onTrack, setOnTrack] = useState(true);
   const [haveHomework, setHaveHomework] = useState(false);
   const [notes, setNotes] = useState('');
+  const [url, setUrl] = useState('');
   const [childId, setChildId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -97,6 +99,7 @@ const TutorDailyReport: React.FC = () => {
       setOnTrack(existingReport.onTrack);
       setHaveHomework(existingReport.haveHomework);
       setNotes(existingReport.notes || '');
+      setUrl(existingReport.url || '');
     }
   }, [existingReport]);
 
@@ -315,6 +318,7 @@ const TutorDailyReport: React.FC = () => {
     setOnTrack(true);
     setHaveHomework(false);
     setNotes('');
+    setUrl('');
     // Don't reset units here - they will be reloaded when fetchUnits is called
   };
 
@@ -326,6 +330,7 @@ const TutorDailyReport: React.FC = () => {
     setOnTrack(report.onTrack);
     setHaveHomework(report.haveHomework);
     setNotes(report.notes || '');
+    setUrl(report.url || '');
   };
 
   const handleBackToCreate = () => {
@@ -375,6 +380,7 @@ const TutorDailyReport: React.FC = () => {
           onTrack,
           haveHomework,
           notes: notes.trim() || undefined,
+          url: url.trim() || undefined,
         };
 
         const result = await updateDailyReport(existingReport.reportId, updateData);
@@ -395,6 +401,7 @@ const TutorDailyReport: React.FC = () => {
           onTrack,
           haveHomework,
           notes: notes.trim() || undefined,
+          url: url.trim() || undefined,
         };
 
         const result = await createDailyReport(createData);
@@ -463,6 +470,7 @@ const TutorDailyReport: React.FC = () => {
         report.childName?.toLowerCase().includes(term) ||
         report.unitName?.toLowerCase().includes(term) ||
         report.notes?.toLowerCase().includes(term) ||
+        report.url?.toLowerCase().includes(term) ||
         report.sessionDate?.toLowerCase().includes(term)
       );
     }
@@ -790,6 +798,21 @@ const TutorDailyReport: React.FC = () => {
                     <p className="text-xs text-gray-500 mt-1">{notes.length}/1000 characters</p>
                   </div>
 
+                  {/* URL */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Link to any relevant documents or resources</p>
+                  </div>
+
                   {/* Submit Button */}
                   <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
                     <button
@@ -1048,6 +1071,24 @@ const TutorDailyReport: React.FC = () => {
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">Notes</h4>
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                       <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedReport.notes}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* URL Section */}
+                {selectedReport.url && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">URL</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <a
+                        href={selectedReport.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
+                      >
+                        <span>{selectedReport.url}</span>
+                        <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                      </a>
                     </div>
                   </div>
                 )}

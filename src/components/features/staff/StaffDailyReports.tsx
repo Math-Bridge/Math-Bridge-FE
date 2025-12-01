@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Trash2,
   Edit,
+  ExternalLink,
 } from 'lucide-react';
 import {
   getDailyReportsByChild,
@@ -148,6 +149,7 @@ const StaffDailyReports: React.FC = () => {
     const matchesSearch = !searchTerm ||
       report.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.url?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.tutorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.childName?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -347,6 +349,20 @@ const StaffDailyReports: React.FC = () => {
                       <div className="mb-4">
                         <h4 className="text-sm font-semibold text-gray-700 mb-2">Notes</h4>
                         <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes}</p>
+                      </div>
+                    )}
+                    {report.url && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">URL</h4>
+                        <a
+                          href={report.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
+                        >
+                          <span>{report.url}</span>
+                          <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                        </a>
                       </div>
                     )}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">

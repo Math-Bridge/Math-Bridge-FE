@@ -16,6 +16,7 @@ import {
   Target,
   Award,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import {
   getDailyReportsByChild,
@@ -186,6 +187,7 @@ const ParentDailyReports: React.FC = () => {
     const matchesSearch = !searchTerm || 
       report.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.url?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.tutorName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesFilter = filterOnTrack === 'all' ||
@@ -564,6 +566,25 @@ const ParentDailyReports: React.FC = () => {
                             </div>
                             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                               <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{report.notes}</p>
+                            </div>
+                          </div>
+                        )}
+                        {report.url && (
+                          <div className="mb-6">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <FileText className="w-5 h-5 text-gray-600" />
+                              <h4 className="text-base font-bold text-gray-900">URL</h4>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                              <a
+                                href={report.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
+                              >
+                                <span>{report.url}</span>
+                                <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                              </a>
                             </div>
                           </div>
                         )}
