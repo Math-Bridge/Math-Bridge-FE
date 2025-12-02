@@ -2666,6 +2666,8 @@ export interface Tutor {
   achievements?: TutorAchievement[]; // Achievements list
   averageRating?: number; // Average rating from reviews (used by contract-specific endpoint)
   reviewCount?: number; // Number of reviews (used by contract-specific endpoint)
+  feedbackCount?: number; // Number of feedbacks (alias for reviewCount)
+  distanceKm?: number; // Distance in kilometers (used by contract-specific endpoint with location)
 }
 
 export interface TutorAchievement {
@@ -3034,12 +3036,28 @@ export async function rejectTutorVerification(tutorId: string) {
  * This endpoint checks for overlapping contracts and returns tutors sorted by rating
  * @param contractId - The contract ID to get available tutors for
  */
-export async function getAvailableTutorsForContract(contractId: string) {
+export async function getAvailableTutorsForContract(
+  contractId: string, 
+  sortByRating?: boolean, 
+  sortByDistance?: boolean
+) {
   try {
-    const result = await apiService.request<any[]>(`/contracts/${contractId}/available-tutors`);
+    // Build query parameters
+    const params = new URLSearchParams();
+    if (sortByRating !== undefined) {
+      params.append('sortByRating', String(sortByRating));
+    }
+    if (sortByDistance !== undefined) {
+      params.append('sortByDistance', String(sortByDistance));
+    }
+    
+    const queryString = params.toString();
+    const url = `/contracts/${contractId}/available-tutors${queryString ? `?${queryString}` : ''}`;
+    
+    const result = await apiService.request<any[]>(url);
     
     if (result.success && result.data) {
-      // Backend returns AvailableTutorResponse with UserId, FullName, Email, PhoneNumber, AverageRating, ReviewCount
+      // Backend returns AvailableTutorResponse with userId, fullName, email, phoneNumber, averageRating, feedbackCount, distanceKm
       const mappedTutors: Tutor[] = result.data.map((tutor: any) => ({
         userId: tutor.userId || tutor.UserId || '',
         fullName: tutor.fullName || tutor.FullName || tutor.name || tutor.Name || '',
@@ -3051,7 +3069,9 @@ export async function getAvailableTutorsForContract(contractId: string) {
         canTeachOnline: undefined,
         canTeachOffline: undefined,
         averageRating: tutor.averageRating || tutor.AverageRating || 0,
-        reviewCount: tutor.reviewCount || tutor.ReviewCount || 0,
+        reviewCount: tutor.feedbackCount || tutor.reviewCount || tutor.ReviewCount || tutor.FeedbackCount || 0,
+        feedbackCount: tutor.feedbackCount || tutor.FeedbackCount || tutor.reviewCount || tutor.ReviewCount || 0,
+        distanceKm: tutor.distanceKm || tutor.DistanceKm || undefined,
       })).filter((tutor: Tutor) => tutor.userId && tutor.userId.trim() !== '');
 
       return {
@@ -3079,10 +3099,16 @@ export async function getAvailableTutors(params?: {
   endTime?: string;
   isOnline?: boolean;
   contractId?: string; // Add contractId parameter
+  sortByRating?: boolean; // Add sorting parameter
+  sortByDistance?: boolean; // Add sorting parameter
 }) {
   // If contractId is provided, use the contract-specific endpoint
   if (params?.contractId) {
-    return getAvailableTutorsForContract(params.contractId);
+    return getAvailableTutorsForContract(
+      params.contractId, 
+      params.sortByRating, 
+      params.sortByDistance
+    );
   }
 
   // Otherwise, use existing searchTutorsByAvailability function
