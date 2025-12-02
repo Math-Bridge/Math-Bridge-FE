@@ -62,6 +62,8 @@ export interface Child {
   grade: string;
   dateOfBirth?: string;
   status?: string;
+  avatarUrl?: string;
+  avatarVersion?: number;
 }
 
 // Contract types
