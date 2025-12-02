@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ImageUploader from '../../../components/features/homework/ImageUploader';
 import SolutionDisplay from '../../../components/features/homework/SolutionDisplay';
 import { analyzeHomeworkImage } from '../../../services/homeworkService';
@@ -10,6 +10,15 @@ const HomeworkHelperPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  useEffect(() => {
+    // Hide welcome animation after 3 seconds
+    const timer = setTimeout(() => {
+      setShowWelcome(false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleImageSelected = (file: File) => {
     setSelectedFile(file);
@@ -62,18 +71,48 @@ const HomeworkHelperPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-10">
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Floating Math Symbols Background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 left-10 text-6xl text-indigo-200 opacity-40 animate-float-random-1">∑</div>
+        <div className="absolute top-40 right-20 text-5xl text-blue-200 opacity-40 animate-float-random-2">π</div>
+        <div className="absolute bottom-40 left-20 text-7xl text-purple-200 opacity-40 animate-float-random-3">∫</div>
+        <div className="absolute top-60 right-40 text-5xl text-indigo-200 opacity-40 animate-float-random-1" style={{ animationDelay: '2s' }}>√</div>
+        <div className="absolute bottom-60 right-10 text-6xl text-blue-200 opacity-40 animate-float-random-2" style={{ animationDelay: '1s' }}>∞</div>
+        <div className="absolute top-32 left-1/3 text-5xl text-purple-200 opacity-40 animate-float-random-3" style={{ animationDelay: '3s' }}>θ</div>
+      </div>
+
+      {/* Welcome Animation Overlay */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-shift">
+          <div className="text-center animate-scale-in">
+            <div className="text-8xl mb-4 animate-wave inline-block">👋</div>
+            <h2 className="text-5xl md:text-6xl font-bold text-white mb-4 animate-slide-in-down">
+              Welcome!
+            </h2>
+            <p className="text-2xl md:text-3xl text-white/90 animate-slide-in-up">
+              Let's solve some math together! 🎓✨
+            </p>
+            <div className="mt-8 flex justify-center gap-6 text-5xl">
+              <span className="animate-bounce-slow text-white">📐</span>
+              <span className="animate-bounce-slow text-white" style={{ animationDelay: '0.2s' }}>📊</span>
+              <span className="animate-bounce-slow text-white" style={{ animationDelay: '0.4s' }}>🔢</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-3xl mx-auto relative z-10">
+        <div className="text-center mb-10 animate-fade-in">
           <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Homework Helper
+            Homework Helper 📚
           </h1>
           <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
             Upload a photo of a math problem and get an instant step-by-step solution.
           </p>
         </div>
 
-        <div className="bg-white shadow-lg rounded-2xl overflow-hidden p-6 md:p-8">
+        <div className="bg-white shadow-lg rounded-2xl overflow-hidden p-6 md:p-8 animate-slide-in-up transition-all hover:shadow-xl">
           <ImageUploader
             onImageSelected={handleImageSelected}
             onImageCleared={handleImageCleared}
