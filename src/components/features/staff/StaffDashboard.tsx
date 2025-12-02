@@ -36,6 +36,7 @@ import StaffDailyReports from './StaffDailyReports';
 import FinalFeedbackManagement from './FinalFeedbackManagement';
 import TutorCenterAssignment from './TutorCenterAssignment';
 import StaffTutorReports from './StaffTutorReports';
+import NotificationBell from '../../common/NotificationBell';
 
 interface RecentActivity {
   id: string;
@@ -191,14 +192,21 @@ const StaffDashboard: React.FC = () => {
 
   const renderDashboardView = () => (
     <>
-      {/* Header with Greeting */}
+      {/* Header with Greeting and Notifications */}
       <div className="mb-8">
-        <p className="text-sm text-gray-600 mb-2">{getCurrentDate()}</p>
-        <h1 className="text-4xl font-bold text-gray-900 mb-3">
-          Hello, {user?.name?.split(' ')[0] || 'Staff'}
-        </h1>
-        <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-800 to-blue-900 text-white rounded-xl font-semibold">
-          <span>How can I help you today?</span>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <p className="text-sm text-gray-600 mb-2">{getCurrentDate()}</p>
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">
+              Hello, {user?.name?.split(' ')[0] || 'Staff'}
+            </h1>
+            <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-800 to-blue-900 text-white rounded-xl font-semibold">
+              <span>How can I help you today?</span>
+            </div>
+          </div>
+          <div className="ml-4">
+            <NotificationBell />
+          </div>
         </div>
       </div>
 

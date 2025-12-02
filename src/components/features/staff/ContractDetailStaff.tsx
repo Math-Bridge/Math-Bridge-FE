@@ -1179,8 +1179,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive') && (
+                    {mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive') && (
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={handleReassignMainTutor}
                           disabled={loadingReplacementPlan}
@@ -1189,15 +1189,17 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                           <RefreshCw className="w-4 h-4" />
                           <span>Re-assign Main Tutor</span>
                         </button>
-                      )}
+                      </div>
+                    )}
+                    {!contract.mainTutorId && (
                       <button
                         onClick={handleOpenAssignTutor}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                       >
                         <UserPlus className="w-4 h-4" />
-                        <span>{contract.mainTutorId ? 'Change Tutor' : 'Assign Tutor'}</span>
+                        <span>Assign Tutor</span>
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

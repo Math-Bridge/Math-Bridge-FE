@@ -726,19 +726,6 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                       <span>Assign Tutor</span>
                                     </button>
                                   )}
-                                  {contract.mainTutorId && (
-                                    <button
-                                      onClick={() => {
-                                        handleAssignTutor(contract);
-                                        setOpenDropdownId(null);
-                                        setDropdownPosition(null);
-                                      }}
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                                    >
-                                      <UserCheck className="w-4 h-4" />
-                                      <span>Re-assign Tutor</span>
-                                    </button>
-                                  )}
                                   <button
                                     onClick={() => {
                                       navigate(`/staff/contracts/${contract.contractId}`);

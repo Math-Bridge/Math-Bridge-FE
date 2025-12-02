@@ -3837,6 +3837,7 @@ export async function changeSessionTutor(bookingId: string, newTutorId: string) 
 
 // Get main tutor replacement plan
 // Backend endpoint: GET /api/sessions/{contractId}/main-tutor-replacement-plan
+// Backend response: { success: true, data: { contractId, childName, remainingSessions, bannedMainTutor, recommendedPlan, canProceed, message } }
 export async function getMainTutorReplacementPlan(contractId: string) {
   try {
     const result = await apiService.request<{
@@ -3861,6 +3862,28 @@ export async function getMainTutorReplacementPlan(contractId: string) {
     }>(`/sessions/${contractId}/main-tutor-replacement-plan`, {
       method: 'GET',
     });
+
+    // Backend returns { success: true, data: {...} }
+    // apiService.request wraps it in { success, data, error }
+    // So result.data contains the backend's { success: true, data: {...} }
+    // We need to extract the inner data
+    if (result.success && result.data) {
+      const backendResponse = result.data as any;
+      // If backend response has nested structure { success: true, data: {...} }
+      if (backendResponse.success && backendResponse.data) {
+        return {
+          success: true,
+          data: backendResponse.data,
+          error: null,
+        };
+      }
+      // If backend response is already the data object
+      return {
+        success: true,
+        data: backendResponse,
+        error: null,
+      };
+    }
 
     return result;
   } catch (error: any) {
