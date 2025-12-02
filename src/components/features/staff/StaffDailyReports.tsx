@@ -12,27 +12,21 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
-  Edit,
   ExternalLink,
 } from 'lucide-react';
 import {
-  getDailyReportsByChild,
-  getDailyReportsByTutor,
+  getAllDailyReports,
   deleteDailyReport,
   DailyReport,
-  getChildrenByParent,
-  Child,
   getAllUnits,
   Unit,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
-import { useAuth } from '../../../hooks/useAuth';
+
 
 const StaffDailyReports: React.FC = () => {
   const { showSuccess, showError } = useToast();
   const [reports, setReports] = useState<DailyReport[]>([]);
-  const [children, setChildren] = useState<Child[]>([]);
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,49 +34,19 @@ const StaffDailyReports: React.FC = () => {
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   useEffect(() => {
     fetchAllReports();
     fetchUnits();
   }, []);
 
-  useEffect(() => {
-    if (selectedChildId) {
-      fetchReportsByChild();
-    } else {
-      fetchAllReports();
-    }
-  }, [selectedChildId]);
-
   const fetchAllReports = async () => {
     try {
       setLoading(true);
-      // For staff, we can get reports by tutor or by child
-      // For simplicity, we'll get all reports by fetching for all children
-      // In a real scenario, you might have a staff-specific endpoint
-      const result = await getDailyReportsByTutor();
-      if (result.success && result.data) {
-        const sorted = [...result.data].sort((a, b) => {
-          const dateA = new Date(a.createdDate).getTime();
-          const dateB = new Date(b.createdDate).getTime();
-          return dateB - dateA;
-        });
-        setReports(sorted);
-      }
-    } catch (error) {
-      console.error('Error fetching reports:', error);
-      showError('Failed to load daily reports');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchReportsByChild = async () => {
-    if (!selectedChildId) return;
-
-    try {
-      setLoading(true);
-      const result = await getDailyReportsByChild(selectedChildId);
+      // Fetch all daily reports using the /api/daily-reports endpoint
+      const result = await getAllDailyReports();
       if (result.success && result.data) {
         const sorted = [...result.data].sort((a, b) => {
           const dateA = new Date(a.createdDate).getTime();
@@ -120,11 +84,7 @@ const StaffDailyReports: React.FC = () => {
       const result = await deleteDailyReport(reportId);
       if (result.success) {
         showSuccess('Report deleted successfully');
-        if (selectedChildId) {
-          await fetchReportsByChild();
-        } else {
-          await fetchAllReports();
-        }
+        await fetchAllReports();
       } else {
         showError(result.error || 'Failed to delete report');
       }
@@ -159,7 +119,10 @@ const StaffDailyReports: React.FC = () => {
 
     const matchesUnit = !selectedUnitId || report.unitId === selectedUnitId;
 
-    return matchesSearch && matchesFilter && matchesUnit;
+    const matchesDateFrom = !dateFrom || report.createdDate >= dateFrom;
+    const matchesDateTo = !dateTo || report.createdDate <= dateTo;
+
+    return matchesSearch && matchesFilter && matchesUnit && matchesDateFrom && matchesDateTo;
   });
 
   if (loading) {
@@ -183,13 +146,7 @@ const StaffDailyReports: React.FC = () => {
             <p className="text-gray-600 mt-2">View and manage all daily reports</p>
           </div>
           <button
-            onClick={() => {
-              if (selectedChildId) {
-                fetchReportsByChild();
-              } else {
-                fetchAllReports();
-              }
-            }}
+            onClick={fetchAllReports}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
           >
             <RefreshCw className="w-4 h-4" />
@@ -197,9 +154,55 @@ const StaffDailyReports: React.FC = () => {
           </button>
         </div>
 
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Reports</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredReports.length}</p>
+              </div>
+              <FileText className="w-8 h-8 text-blue-500" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">On Track</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {filteredReports.filter(r => r.onTrack).length}
+                </p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Off Track</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {filteredReports.filter(r => !r.onTrack).length}
+                </p>
+              </div>
+              <XCircle className="w-8 h-8 text-red-500" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">With Homework</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {filteredReports.filter(r => r.haveHomework).length}
+                </p>
+              </div>
+              <BookOpen className="w-8 h-8 text-blue-500" />
+            </div>
+          </div>
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -239,15 +242,41 @@ const StaffDailyReports: React.FC = () => {
                   ))}
               </select>
             </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                placeholder="From Date"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                placeholder="To Date"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
             <div>
-              <select
-                value={selectedChildId || ''}
-                onChange={(e) => setSelectedChildId(e.target.value || null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterOnTrack('all');
+                  setSelectedUnitId(null);
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                className="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                <option value="">All Children</option>
-                {/* In a real scenario, you'd fetch children here */}
-              </select>
+                Clear Filters
+              </button>
             </div>
           </div>
         </div>
@@ -365,24 +394,63 @@ const StaffDailyReports: React.FC = () => {
                         </a>
                       </div>
                     )}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Report ID:</span>
-                        <span className="ml-2 text-gray-900 font-mono text-xs">{report.reportId}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Child ID:</span>
-                        <span className="ml-2 text-gray-900 font-mono text-xs">{report.childId}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Tutor ID:</span>
-                        <span className="ml-2 text-gray-900 font-mono text-xs">{report.tutorId}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Booking ID:</span>
-                        <span className="ml-2 text-gray-900 font-mono text-xs">{report.bookingId}</span>
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Session Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-start">
+                          <User className="w-4 h-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-gray-600 block">Tutor</span>
+                            <span className="text-gray-900 font-medium">{report.tutorName || 'Unknown'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-start">
+                          <User className="w-4 h-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-gray-600 block">Child</span>
+                            <span className="text-gray-900 font-medium">{report.childName || 'Unknown'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-start">
+                          <BookOpen className="w-4 h-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-gray-600 block">Unit</span>
+                            <span className="text-gray-900 font-medium">{report.unitName || 'Unknown'}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-start">
+                          <Calendar className="w-4 h-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <span className="text-gray-600 block">Session Date</span>
+                            <span className="text-gray-900 font-medium">
+                              {report.sessionDate ? formatDate(report.sessionDate) : formatDate(report.createdDate)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                    
+                    <details className="text-xs text-gray-500">
+                      <summary className="cursor-pointer hover:text-gray-700 font-medium mb-2">Technical Details (IDs)</summary>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 p-3 bg-gray-50 rounded">
+                        <div>
+                          <span className="text-gray-600 block">Report ID</span>
+                          <span className="text-gray-900 font-mono text-xs break-all">{report.reportId}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 block">Child ID</span>
+                          <span className="text-gray-900 font-mono text-xs break-all">{report.childId}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 block">Tutor ID</span>
+                          <span className="text-gray-900 font-mono text-xs break-all">{report.tutorId}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 block">Booking ID</span>
+                          <span className="text-gray-900 font-mono text-xs break-all">{report.bookingId}</span>
+                        </div>
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>

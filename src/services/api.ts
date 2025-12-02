@@ -4216,6 +4216,109 @@ export async function getDailyReportById(reportId: string) {
 }
 
 // Get all daily reports for logged-in tutor
+// Get all daily reports (for staff)
+export async function getAllDailyReports() {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Fetch all units, tutors, and children to enrich the data
+      let unitsMap: { [key: string]: string } = {};
+      let tutorsMap: { [key: string]: string } = {};
+      let childrenMap: { [key: string]: string } = {};
+      
+      // Fetch units
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      // Fetch tutors
+      try {
+        const tutorsResult = await getAllTutors();
+        if (tutorsResult.success && tutorsResult.data) {
+          tutorsMap = tutorsResult.data.reduce((acc: any, tutor: any) => {
+            if (tutor.userId && tutor.fullName) {
+              acc[tutor.userId] = tutor.fullName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch tutors for enrichment:', error);
+      }
+
+      // Fetch children
+      try {
+        const childrenResult = await getAllChildren();
+        if (childrenResult.success && childrenResult.data) {
+          childrenMap = childrenResult.data.reduce((acc: any, child: any) => {
+            if (child.childId && child.fullName) {
+              acc[child.childId] = child.fullName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch children for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const tutorId = item.tutorId || item.TutorId || '';
+        const childId = item.childId || item.ChildId || '';
+        
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        const tutorName = item.tutorName || item.TutorName || (tutorId && tutorsMap[tutorId] ? tutorsMap[tutorId] : undefined);
+        const childName = item.childName || item.ChildName || (childId && childrenMap[childId] ? childrenMap[childId] : undefined);
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: childId,
+          tutorId: tutorId,
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          url: item.url || item.Url,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: childName,
+          tutorName: tutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch all daily reports',
+    };
+  }
+}
+
 export async function getDailyReportsByTutor() {
   try {
     const result = await apiService.request<any[]>(`/daily-reports/tutor`, {
