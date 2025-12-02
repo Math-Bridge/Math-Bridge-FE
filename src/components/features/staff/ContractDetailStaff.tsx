@@ -23,7 +23,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session, getMainTutorReplacementPlan, replaceMainTutor } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -79,6 +79,13 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [reassigning, setReassigning] = useState(false);
   const [replacementTutors, setReplacementTutors] = useState<any[]>([]);
   const [loadingReplacementTutors, setLoadingReplacementTutors] = useState(false);
+
+  // Main tutor replacement states
+  const [showReplacementPlanModal, setShowReplacementPlanModal] = useState(false);
+  const [replacementPlan, setReplacementPlan] = useState<any>(null);
+  const [loadingReplacementPlan, setLoadingReplacementPlan] = useState(false);
+  const [executingReplacement, setExecutingReplacement] = useState(false);
+  const [mainTutorStatus, setMainTutorStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (contractId) {
@@ -248,6 +255,12 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
             const tutorResult = await apiService.getUserById(contractData.mainTutorId);
             if (tutorResult.success && tutorResult.data) {
               setMainTutorInfo(tutorResult.data);
+              // Check if main tutor is banned or inactive
+              if (tutorResult.data.status === 'banned' || tutorResult.data.status === 'inactive') {
+                setMainTutorStatus(tutorResult.data.status);
+              } else {
+                setMainTutorStatus(null);
+              }
             } else {
               // Use contract data as fallback
               if (contractData.mainTutorName) {
@@ -258,6 +271,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                   phone: contractData.mainTutorPhone || contractData.MainTutorPhone
                 });
               }
+              setMainTutorStatus(null);
             }
           } catch (err: any) {
             // Silently handle unauthorized/404 errors - use contract data instead
@@ -275,6 +289,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 phone: contractData.mainTutorPhone || contractData.MainTutorPhone
               });
             }
+            setMainTutorStatus(null);
           }
         }
 
@@ -541,6 +556,70 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
       showError(error?.message || 'Failed to change session tutor');
     } finally {
       setReassigning(false);
+    }
+  };
+
+  const handleReassignMainTutor = async () => {
+    if (!contractId || !contract) return;
+
+    try {
+      setLoadingReplacementPlan(true);
+      const result = await getMainTutorReplacementPlan(contractId);
+      if (result.success && result.data) {
+        setReplacementPlan(result.data);
+        setShowReplacementPlanModal(true);
+      } else {
+        showError(result.error || 'Failed to fetch replacement plan');
+      }
+    } catch (error: any) {
+      console.error('Error fetching replacement plan:', error);
+      showError(error?.message || 'Failed to fetch replacement plan');
+    } finally {
+      setLoadingReplacementPlan(false);
+    }
+  };
+
+  const handleConfirmMainTutorReplacement = async () => {
+    if (!contractId || !replacementPlan || !replacementPlan.recommendedPlan) {
+      showError('Replacement plan is not available');
+      return;
+    }
+
+    const { newMainTutorId, newSubstituteTutorId } = replacementPlan.recommendedPlan;
+    if (!newMainTutorId || !newSubstituteTutorId) {
+      showError('Invalid replacement plan');
+      return;
+    }
+
+    try {
+      setExecutingReplacement(true);
+      const result = await replaceMainTutor(contractId, newMainTutorId, newSubstituteTutorId);
+      if (result.success) {
+        showSuccess('Main tutor replaced successfully');
+        setShowReplacementPlanModal(false);
+        setReplacementPlan(null);
+        // Refresh contract details
+        await fetchContractDetails();
+        // Refresh sessions if on sessions tab
+        if (activeTab === 'sessions' && contractId) {
+          const sessionsResult = await getSessionsByContractId(contractId);
+          if (sessionsResult.success && sessionsResult.data) {
+            const sorted = [...sessionsResult.data].sort((a, b) => {
+              const dateA = new Date(`${a.sessionDate}T${a.startTime}`).getTime();
+              const dateB = new Date(`${b.sessionDate}T${b.startTime}`).getTime();
+              return dateA - dateB;
+            });
+            setSessions(sorted);
+          }
+        }
+      } else {
+        showError(result.error || 'Failed to replace main tutor');
+      }
+    } catch (error: any) {
+      console.error('Error replacing main tutor:', error);
+      showError(error?.message || 'Failed to replace main tutor');
+    } finally {
+      setExecutingReplacement(false);
     }
   };
 
@@ -1083,16 +1162,42 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Main Tutor</label>
                   <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <span className="font-medium text-gray-900">
-                      {contract.mainTutorName || 'Not Assigned'}
-                    </span>
-                    <button
-                      onClick={handleOpenAssignTutor}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>{contract.mainTutorId ? 'Change Tutor' : 'Assign Tutor'}</span>
-                    </button>
+                    <div className="flex-1">
+                      <span className="font-medium text-gray-900">
+                        {contract.mainTutorName || 'Not Assigned'}
+                      </span>
+                      {mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive') && (
+                        <div className="mt-2">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            mainTutorStatus === 'banned' 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            {mainTutorStatus === 'banned' ? 'Banned' : 'Inactive'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive') && (
+                        <button
+                          onClick={handleReassignMainTutor}
+                          disabled={loadingReplacementPlan}
+                          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Re-assign Main Tutor</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleOpenAssignTutor}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>{contract.mainTutorId ? 'Change Tutor' : 'Assign Tutor'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1708,6 +1813,171 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                     >
                       {loadingTutors ? 'Assigning Tutors...' : 'Confirm Assignment'}
                     </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Tutor Replacement Plan Modal */}
+      {showReplacementPlanModal && replacementPlan && contract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Re-assign Main Tutor</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
+                    Contract: {contract.packageName} - {replacementPlan.childName || contract.childName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReplacementPlanModal(false);
+                    setReplacementPlan(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={executingReplacement}
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingReplacementPlan ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading replacement plan...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Current Status */}
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                      <h3 className="font-semibold text-red-900">Current Main Tutor</h3>
+                    </div>
+                    <p className="text-sm text-red-800">
+                      <span className="font-medium">{replacementPlan.bannedMainTutor}</span> is {mainTutorStatus === 'banned' ? 'banned' : 'inactive'}
+                    </p>
+                    <p className="text-sm text-red-700 mt-1">
+                      {replacementPlan.remainingSessions} remaining session(s) need to be reassigned
+                    </p>
+                  </div>
+
+                  {/* Replacement Plan */}
+                  {replacementPlan.recommendedPlan ? (
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-2 mb-3">
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
+                          <h3 className="font-semibold text-blue-900">Recommended Replacement Plan</h3>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {/* Plan Type Badge */}
+                          <div>
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                              replacementPlan.recommendedPlan.planType === 'promote_substitute'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-purple-100 text-purple-800'
+                            }`}>
+                              {replacementPlan.recommendedPlan.planType === 'promote_substitute' 
+                                ? 'Promote Substitute Tutor' 
+                                : 'External Replacement'}
+                            </span>
+                          </div>
+
+                          {/* New Main Tutor */}
+                          <div className="bg-white rounded-lg p-4 border border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                              <User className="w-4 h-4 mr-2 text-purple-600" />
+                              New Main Tutor
+                            </h4>
+                            <p className="text-lg font-medium text-gray-900">
+                              {replacementPlan.recommendedPlan.newMainTutorName}
+                            </p>
+                            {replacementPlan.recommendedPlan.ratingMain > 0 && (
+                              <div className="flex items-center space-x-1 mt-1">
+                                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                <span className="text-sm text-gray-600">
+                                  Rating: {replacementPlan.recommendedPlan.ratingMain.toFixed(1)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* New Substitute Tutor */}
+                          <div className="bg-white rounded-lg p-4 border border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
+                              <User className="w-4 h-4 mr-2 text-green-600" />
+                              New Substitute Tutor
+                            </h4>
+                            <p className="text-lg font-medium text-gray-900">
+                              {replacementPlan.recommendedPlan.newSubstituteTutorName}
+                            </p>
+                            {replacementPlan.recommendedPlan.ratingSub > 0 && (
+                              <div className="flex items-center space-x-1 mt-1">
+                                <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                <span className="text-sm text-gray-600">
+                                  Rating: {replacementPlan.recommendedPlan.ratingSub.toFixed(1)}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Message */}
+                      {replacementPlan.message && (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <p className="text-sm text-gray-700">{replacementPlan.message}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2">
+                        <AlertCircle className="w-5 h-5 text-yellow-600" />
+                        <p className="text-yellow-800">{replacementPlan.message || 'No replacement plan available'}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        setShowReplacementPlanModal(false);
+                        setReplacementPlan(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      disabled={executingReplacement}
+                    >
+                      Cancel
+                    </button>
+                    {replacementPlan.canProceed && replacementPlan.recommendedPlan && (
+                      <button
+                        onClick={handleConfirmMainTutorReplacement}
+                        disabled={executingReplacement}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+                      >
+                        {executingReplacement ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Executing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Confirm Replacement</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -1111,6 +1111,8 @@ export interface Child {
   grade: string;
   dateOfBirth?: string;
   status?: string;
+  avatarUrl?: string;
+  avatarVersion?: number;
   // Ignore fields that don't exist in backend
   reschedule_count?: never; // This field doesn't exist, ignore it
   rescheduleCount?: never;
@@ -1238,6 +1240,62 @@ export async function linkCenterToChild(childId: string, centerId: string) {
 
 export async function getChildContracts(childId: string) {
   return apiService.request<any[]>(`/children/${childId}/contracts`);
+}
+
+export async function uploadChildAvatar(childId: string, file: File): Promise<ApiResponse<{ avatarUrl: string; message: string }>> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const url = `${baseUrl}/children/${childId}/avatar`;
+    
+    const token = localStorage.getItem('authToken');
+    
+    const headers: HeadersInit = {};
+    if (token) {
+      const cleanToken = token.trim();
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
+    }
+    // Don't set Content-Type - browser will set it with boundary for multipart/form-data
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+
+    const text = await response.text();
+    let data: any = undefined;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch (parseError) {
+      console.error('Failed to parse response:', parseError);
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error || `HTTP ${response.status}: ${response.statusText}`,
+        data: undefined
+      };
+    }
+
+    return {
+      success: true,
+      data: data,
+      error: undefined
+    };
+  } catch (error: any) {
+    console.error('Error uploading child avatar:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.message || 'Failed to upload child avatar',
+    };
+  }
 }
 
 // =====================
@@ -3777,6 +3835,80 @@ export async function changeSessionTutor(bookingId: string, newTutorId: string) 
   }
 }
 
+// Get main tutor replacement plan
+// Backend endpoint: GET /api/sessions/{contractId}/main-tutor-replacement-plan
+export async function getMainTutorReplacementPlan(contractId: string) {
+  try {
+    const result = await apiService.request<{
+      success: boolean;
+      data: {
+        contractId: string;
+        childName: string;
+        remainingSessions: number;
+        bannedMainTutor: string;
+        recommendedPlan: {
+          planType: 'promote_substitute' | 'external_replacement';
+          newMainTutorId: string;
+          newMainTutorName: string;
+          newSubstituteTutorId: string;
+          newSubstituteTutorName: string;
+          ratingMain: number;
+          ratingSub: number;
+        } | null;
+        canProceed: boolean;
+        message: string;
+      };
+    }>(`/sessions/${contractId}/main-tutor-replacement-plan`, {
+      method: 'GET',
+    });
+
+    return result;
+  } catch (error: any) {
+    console.error('Error fetching main tutor replacement plan:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch replacement plan',
+      data: undefined,
+    };
+  }
+}
+
+// Replace main tutor for contract
+// Backend endpoint: PUT /api/sessions/{contractId}/main-tutor
+export async function replaceMainTutor(
+  contractId: string,
+  newMainTutorId: string,
+  newSubstituteTutorId: string
+) {
+  try {
+    const result = await apiService.request<{
+      contractId: string;
+      newMainTutorId: string;
+      newSubstituteTutorId: string;
+      replacedAt: string;
+    }>(`/sessions/${contractId}/main-tutor`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        newMainTutorId: newMainTutorId,
+        newSubstituteTutorId: newSubstituteTutorId,
+      }),
+    });
+
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error: any) {
+    console.error('Error replacing main tutor:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to replace main tutor',
+      data: undefined,
+    };
+  }
+}
+
 // Update session status
 // Backend endpoint: PUT /api/sessions/{bookingId}/status
 // Note: Tutors can only set status to 'processing' or 'completed'
@@ -4216,6 +4348,109 @@ export async function getDailyReportById(reportId: string) {
 }
 
 // Get all daily reports for logged-in tutor
+// Get all daily reports (for staff)
+export async function getAllDailyReports() {
+  try {
+    const result = await apiService.request<any[]>(`/daily-reports`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Fetch all units, tutors, and children to enrich the data
+      let unitsMap: { [key: string]: string } = {};
+      let tutorsMap: { [key: string]: string } = {};
+      let childrenMap: { [key: string]: string } = {};
+      
+      // Fetch units
+      try {
+        const unitsResult = await getAllUnits();
+        if (unitsResult.success && unitsResult.data) {
+          unitsMap = unitsResult.data.reduce((acc: any, unit: Unit) => {
+            if (unit.unitId && unit.unitName) {
+              acc[unit.unitId] = unit.unitName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch units for enrichment:', error);
+      }
+
+      // Fetch tutors
+      try {
+        const tutorsResult = await getAllTutors();
+        if (tutorsResult.success && tutorsResult.data) {
+          tutorsMap = tutorsResult.data.reduce((acc: any, tutor: any) => {
+            if (tutor.userId && tutor.fullName) {
+              acc[tutor.userId] = tutor.fullName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch tutors for enrichment:', error);
+      }
+
+      // Fetch children
+      try {
+        const childrenResult = await getAllChildren();
+        if (childrenResult.success && childrenResult.data) {
+          childrenMap = childrenResult.data.reduce((acc: any, child: any) => {
+            if (child.childId && child.fullName) {
+              acc[child.childId] = child.fullName;
+            }
+            return acc;
+          }, {});
+        }
+      } catch (error) {
+        console.warn('Failed to fetch children for enrichment:', error);
+      }
+
+      const mappedData: DailyReport[] = result.data.map((item: any) => {
+        const unitId = item.unitId || item.UnitId || '';
+        const tutorId = item.tutorId || item.TutorId || '';
+        const childId = item.childId || item.ChildId || '';
+        
+        const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
+        const tutorName = item.tutorName || item.TutorName || (tutorId && tutorsMap[tutorId] ? tutorsMap[tutorId] : undefined);
+        const childName = item.childName || item.ChildName || (childId && childrenMap[childId] ? childrenMap[childId] : undefined);
+        
+        return {
+          reportId: item.reportId || item.ReportId || '',
+          childId: childId,
+          tutorId: tutorId,
+          bookingId: item.bookingId || item.BookingId || '',
+          notes: item.notes || item.Notes,
+          url: item.url || item.Url,
+          onTrack: item.onTrack ?? item.OnTrack ?? false,
+          haveHomework: item.haveHomework ?? item.HaveHomework ?? false,
+          createdDate: item.createdDate || item.CreatedDate || '',
+          unitId: unitId,
+          testId: item.testId || item.TestId,
+          childName: childName,
+          tutorName: tutorName,
+          unitName: unitName,
+          sessionDate: item.sessionDate || item.SessionDate,
+        };
+      });
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch all daily reports',
+    };
+  }
+}
+
 export async function getDailyReportsByTutor() {
   try {
     const result = await apiService.request<any[]>(`/daily-reports/tutor`, {
