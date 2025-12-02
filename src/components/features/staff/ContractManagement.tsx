@@ -22,6 +22,7 @@ import {
   CheckCircle,
   User,
   UserCheck,
+  Navigation,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
@@ -919,10 +920,10 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
             </div>
 
             <div className="p-6">
-              {loadingTutors && !availableTutors.length ? (
+              {loadingTutors ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading available tutors...</p>
+                  <p className="text-gray-600">Loading tutors...</p>
                 </div>
               ) : availableTutors.length === 0 ? (
                 <div className="text-center py-8">
@@ -949,15 +950,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedMainTutor.centerName}
                               </p>
                             )}
-                            {selectedMainTutor.rating && (
-                              <div className="flex items-center mt-2">
-                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                <span className="text-sm font-medium text-gray-700">{selectedMainTutor.rating.toFixed(1)}</span>
-                                {selectedMainTutor.reviewCount && (
-                                  <span className="text-xs text-gray-500 ml-1">({selectedMainTutor.reviewCount} reviews)</span>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-3 mt-2 flex-wrap">
+                              {(selectedMainTutor.averageRating !== undefined && selectedMainTutor.averageRating > 0) && (
+                                <div className="flex items-center">
+                                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedMainTutor.averageRating.toFixed(1)}</span>
+                                  {(selectedMainTutor.feedbackCount || selectedMainTutor.reviewCount) && (
+                                    <span className="text-xs text-gray-500 ml-1">({selectedMainTutor.feedbackCount || selectedMainTutor.reviewCount})</span>
+                                  )}
+                                </div>
+                              )}
+                              {selectedMainTutor.distanceKm !== undefined && (
+                                <div className="flex items-center">
+                                  <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedMainTutor.distanceKm.toFixed(2)} km</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
@@ -998,15 +1007,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                     {tutor.centerName}
                                   </p>
                                 )}
-                                {tutor.rating && (
-                                  <div className="flex items-center mt-2">
-                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
-                                    {tutor.reviewCount && (
-                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                  {(tutor.averageRating !== undefined && tutor.averageRating > 0) && (
+                                    <div className="flex items-center">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.averageRating.toFixed(1)}</span>
+                                      {(tutor.feedbackCount || tutor.reviewCount) && (
+                                        <span className="text-xs text-gray-500 ml-1">({tutor.feedbackCount || tutor.reviewCount})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {tutor.distanceKm !== undefined && (
+                                    <div className="flex items-center">
+                                      <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.distanceKm.toFixed(2)} km</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <button
                                 onClick={(e) => {
@@ -1049,15 +1066,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedSubstituteTutor1.centerName}
                               </p>
                             )}
-                            {selectedSubstituteTutor1.rating && (
-                              <div className="flex items-center mt-2">
-                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor1.rating.toFixed(1)}</span>
-                                {selectedSubstituteTutor1.reviewCount && (
-                                  <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor1.reviewCount} reviews)</span>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-3 mt-2 flex-wrap">
+                              {(selectedSubstituteTutor1.averageRating !== undefined && selectedSubstituteTutor1.averageRating > 0) && (
+                                <div className="flex items-center">
+                                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor1.averageRating.toFixed(1)}</span>
+                                  {(selectedSubstituteTutor1.feedbackCount || selectedSubstituteTutor1.reviewCount) && (
+                                    <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor1.feedbackCount || selectedSubstituteTutor1.reviewCount})</span>
+                                  )}
+                                </div>
+                              )}
+                              {selectedSubstituteTutor1.distanceKm !== undefined && (
+                                <div className="flex items-center">
+                                  <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor1.distanceKm.toFixed(2)} km</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
@@ -1098,15 +1123,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                     {tutor.centerName}
                                   </p>
                                 )}
-                                {tutor.rating && (
-                                  <div className="flex items-center mt-2">
-                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
-                                    {tutor.reviewCount && (
-                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                  {(tutor.averageRating !== undefined && tutor.averageRating > 0) && (
+                                    <div className="flex items-center">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.averageRating.toFixed(1)}</span>
+                                      {(tutor.feedbackCount || tutor.reviewCount) && (
+                                        <span className="text-xs text-gray-500 ml-1">({tutor.feedbackCount || tutor.reviewCount})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {tutor.distanceKm !== undefined && (
+                                    <div className="flex items-center">
+                                      <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.distanceKm.toFixed(2)} km</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <button
                                 onClick={(e) => {
@@ -1149,15 +1182,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 {selectedSubstituteTutor2.centerName}
                               </p>
                             )}
-                            {selectedSubstituteTutor2.rating && (
-                              <div className="flex items-center mt-2">
-                                <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor2.rating.toFixed(1)}</span>
-                                {selectedSubstituteTutor2.reviewCount && (
-                                  <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor2.reviewCount} reviews)</span>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-3 mt-2 flex-wrap">
+                              {(selectedSubstituteTutor2.averageRating !== undefined && selectedSubstituteTutor2.averageRating > 0) && (
+                                <div className="flex items-center">
+                                  <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor2.averageRating.toFixed(1)}</span>
+                                  {(selectedSubstituteTutor2.feedbackCount || selectedSubstituteTutor2.reviewCount) && (
+                                    <span className="text-xs text-gray-500 ml-1">({selectedSubstituteTutor2.feedbackCount || selectedSubstituteTutor2.reviewCount})</span>
+                                  )}
+                                </div>
+                              )}
+                              {selectedSubstituteTutor2.distanceKm !== undefined && (
+                                <div className="flex items-center">
+                                  <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                  <span className="text-sm font-medium text-gray-700">{selectedSubstituteTutor2.distanceKm.toFixed(2)} km</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
@@ -1198,15 +1239,23 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                     {tutor.centerName}
                                   </p>
                                 )}
-                                {tutor.rating && (
-                                  <div className="flex items-center mt-2">
-                                    <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                    <span className="text-sm font-medium text-gray-700">{tutor.rating.toFixed(1)}</span>
-                                    {tutor.reviewCount && (
-                                      <span className="text-xs text-gray-500 ml-1">({tutor.reviewCount} reviews)</span>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                  {(tutor.averageRating !== undefined && tutor.averageRating > 0) && (
+                                    <div className="flex items-center">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.averageRating.toFixed(1)}</span>
+                                      {(tutor.feedbackCount || tutor.reviewCount) && (
+                                        <span className="text-xs text-gray-500 ml-1">({tutor.feedbackCount || tutor.reviewCount})</span>
+                                      )}
+                                    </div>
+                                  )}
+                                  {tutor.distanceKm !== undefined && (
+                                    <div className="flex items-center">
+                                      <Navigation className="w-4 h-4 text-blue-500 mr-1" />
+                                      <span className="text-sm font-medium text-gray-700">{tutor.distanceKm.toFixed(2)} km</span>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <button
                                 onClick={(e) => {
