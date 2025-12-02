@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ImageUploader from '../../../components/features/homework/ImageUploader';
 import SolutionDisplay from '../../../components/features/homework/SolutionDisplay';
 import { analyzeHomeworkImage } from '../../../services/homeworkService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import RobotImage from '../../../assets/images/mathbridge-ai-robot.png';
+
+const clickSound = typeof Audio !== 'undefined' ? new Audio('/src/assets/sound/Robot.mp3') : null;
 
 const HomeworkHelperPage: React.FC = () => {
   const [solution, setSolution] = useState<string | null>(null);
@@ -10,16 +13,189 @@ const HomeworkHelperPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
 
+  // Robot states
+  const [showRobot, setShowRobot] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState({
+    x: typeof window !== 'undefined' ? window.innerWidth - 380 : 0,
+    y: 100,
+  });
+  const dragRef = useRef<HTMLDivElement>(null);
+
+  // Tương tác robot
+  const [hasBeenClicked, setHasBeenClicked] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+  const [isDizzy, setIsDizzy] = useState(false);
+  const [isSpinningMad, setIsSpinningMad] = useState(false);
+
+  // Typing animation
+  const introText = "I am the AI of MathBridge website, I only guide you to solve exercises but do not provide you with answers.";
+  const guideText = "Please upload a photo of a math problem and get an instant step-by-step solution.";
+
+  const [displayedText, setDisplayedText] = useState("");
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [phase, setPhase] = useState<'intro' | 'guide' | 'idle'>('intro');
+
+  // Câu nói
+  const funnyReactions = [
+    "Ouch! That tickles!", "Hey! I'm working!", "Keep clicking... I dare you!",
+    "Too much fun!", "Stop it! I'm dizzy!", "Boop beep!", "Overheating!",
+    "Dance mode activated!", "I'm not a button!", "Loved or bullied?",
+  ];
+  const dizzyReactions = ["Ughhh... too much...", "Circuits spinning...", "Mercy please...", "I see stars!", "Wheeeee~", "Balance not found..."];
+  const overloadReactions = ["OVERLOAD!!!", "CAN'T TAKE IT!!!", "SYSTEM FAILURE!!!", "REBOOTING..."];
+
+  // Phát âm thanh
+  const playClickSound = () => {
+    if (clickSound) {
+      clickSound.currentTime = 0;
+      clickSound.volume = 0.7;
+      clickSound.play().catch(() => {});
+    }
+  };
+
+  // Reset robot về trạng thái ban đầu 
+  const resetRobot = () => {
+    setClickCount(0);
+    setIsDizzy(false);
+    setIsSpinningMad(false);
+    setHasBeenClicked(false);
+    setPhase('intro');
+    setDisplayedText("");
+    setCurrentIndex(0);
+  };
+
+  const handleRobotClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    playClickSound();
+
+    setHasBeenClicked(true);
+    setPhase('idle');
+
+    const newCount = clickCount + 1;
+    setClickCount(newCount);
+
+    // Click ≥ 20 lần → Xoay điên + tự động reset 
+    if (newCount >= 20) {
+      setIsSpinningMad(true);
+      setDisplayedText(overloadReactions[Math.floor(Math.random() * overloadReactions.length)]);
+
+      setTimeout(() => {
+        resetRobot();
+      }, 3000); 
+
+      return;
+    }
+
+    // 12–19 lần → Xoay điên bình thường
+    if (newCount >= 12 && !isSpinningMad) {
+      setIsSpinningMad(true);
+      setDisplayedText("I'M LOSING IT!!!");
+      setTimeout(() => setIsSpinningMad(false), 5000);
+    }
+    // 7–11 lần → Dizzy
+    else if (newCount >= 7 && newCount < 12) {
+      if (!isDizzy) {
+        setIsDizzy(true);
+        setDisplayedText(dizzyReactions[Math.floor(Math.random() * dizzyReactions.length)]);
+        setTimeout(() => {
+          setIsDizzy(false);
+          setDisplayedText("I'm... okay now...");
+        }, 4000);
+      }
+    }
+    // Dưới 7 lần → Vui vẻ
+    else {
+      setDisplayedText(funnyReactions[Math.floor(Math.random() * funnyReactions.length)]);
+    }
+
+    // Rung nhẹ mỗi lần click
+    if (dragRef.current) {
+      dragRef.current.classList.add('animate-shake-once');
+      setTimeout(() => dragRef.current?.classList.remove('animate-shake-once'), 600);
+    }
+  };
+
+  const isOnLeftSide = typeof window !== 'undefined' && position.x < window.innerWidth / 2;
+
+  // Typing effect
   useEffect(() => {
-    // Hide welcome animation after 3 seconds
-    const timer = setTimeout(() => {
-      setShowWelcome(false);
-    }, 3000);
-    return () => clearTimeout(timer);
+    if (!showRobot || isDizzy || isSpinningMad || hasBeenClicked) return;
+
+    const text = phase === 'intro' ? introText : guideText;
+
+    if (currentIndex < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayedText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, 45);
+      return () => clearTimeout(timer);
+    }
+
+    if (phase === 'intro' && currentIndex >= introText.length) {
+      setTimeout(() => {
+        setPhase('guide');
+        setDisplayedText("");
+        setCurrentIndex(0);
+      }, 1500);
+    }
+
+    if (phase === 'guide' && currentIndex >= guideText.length) {
+      setTimeout(() => setPhase('idle'), 1000);
+    }
+  }, [currentIndex, phase, showRobot, isDizzy, isSpinningMad, hasBeenClicked]);
+
+  // Dragging
+  useEffect(() => {
+    if (!isDragging) return;
+    const move = (e: MouseEvent) => {
+      setPosition(p => ({ x: p.x + e.movementX, y: p.y + e.movementY }));
+    };
+    const up = () => setIsDragging(false);
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, [isDragging]);
+
+  // Resize
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition(p => ({
+        x: Math.min(p.x, window.innerWidth - 400),
+        y: Math.max(50, Math.min(p.y, window.innerHeight - 200)),
+      }));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // CSS động (không còn hiệu ứng rơi)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('robot-full-fx')) return;
+
+    const style = document.createElement('style');
+    style.id = 'robot-full-fx';
+    style.innerHTML = `
+      @keyframes spin-mad { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes spin-super-fast { from { transform: rotate(0deg); } to { transform: rotate(1440deg); } }
+      @keyframes shake { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-12px)} 20%,40%,60%,80%{transform:translateX(12px)} }
+      @keyframes shake-once { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-8px)} 20%,40%,60%,80%{transform:translateX(8px)} }
+      .animate-spin-mad { animation: spin-mad 0.18s linear infinite !important; }
+      .animate-spin-super-fast { animation: spin-super-fast 1.5s linear 1 !important; }
+      .animate-shake { animation: shake 0.5s ease-in-out infinite; }
+      .animate-shake-once { animation: shake-once 0.6s ease-in-out; }
+      .animate-ping-slow { animation: ping 4s cubic-bezier(0,0,0.2,1) infinite; }
+      .animate-bounce-slow { animation: bounce 3s infinite; }
+    `;
+    document.head.appendChild(style);
+  }, []);
+
+  // Xử lý ảnh
   const handleImageSelected = (file: File) => {
     setSelectedFile(file);
     setSolution(null);
@@ -36,113 +212,161 @@ const HomeworkHelperPage: React.FC = () => {
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
-
     setIsLoading(true);
     setError(null);
     setSolution(null);
     setHint(null);
-
     try {
       const response = await analyzeHomeworkImage(selectedFile);
-      
-      if (response.latex) {
-          setSolution(response.latex);
-      } else {
-          // Fallback if no latex field found, but maybe in a 'result' string if the parser didn't catch it deep enough
-          // or simply error out if structure is completely unexpected
-          if (typeof response === 'string') {
-               setSolution(response);
-          } else {
-               setSolution(null);
-               setError("Could not identify the problem in the image.");
-               return;
-          }
-      }
-
-      if (response.hint) {
-          setHint(response.hint);
-      }
+      if (response.latex) setSolution(response.latex);
+      else if (typeof response === 'string') setSolution(response);
+      if (response.hint) setHint(response.hint);
     } catch (err: any) {
-      console.error("Homework analysis error:", err);
-      setError(err.message || 'An unexpected error occurred while analyzing the image.');
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Floating Math Symbols Background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 text-6xl text-indigo-200 opacity-40 animate-float-random-1">∑</div>
-        <div className="absolute top-40 right-20 text-5xl text-blue-200 opacity-40 animate-float-random-2">π</div>
-        <div className="absolute bottom-40 left-20 text-7xl text-purple-200 opacity-40 animate-float-random-3">∫</div>
-        <div className="absolute top-60 right-40 text-5xl text-indigo-200 opacity-40 animate-float-random-1" style={{ animationDelay: '2s' }}>√</div>
-        <div className="absolute bottom-60 right-10 text-6xl text-blue-200 opacity-40 animate-float-random-2" style={{ animationDelay: '1s' }}>∞</div>
-        <div className="absolute top-32 left-1/3 text-5xl text-purple-200 opacity-40 animate-float-random-3" style={{ animationDelay: '3s' }}>θ</div>
-      </div>
+  // Khi robot bị tắt thủ công (ấn nút X)
+  if (!showRobot) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative">
+        <button
+          onClick={() => {
+            setShowRobot(true);
+            resetRobot();
+          }}
+          className="fixed top-80 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-5 shadow-2xl transition-all hover:scale-110 animate-bounce"
+        >
+          <img src={RobotImage} alt="Wake robot" className="w-14 h-14 rounded-full" />
+        </button>
 
-      {/* Welcome Animation Overlay */}
-      {showWelcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 animate-gradient-shift">
-          <div className="text-center animate-scale-in">
-            <div className="text-8xl mb-4 animate-wave inline-block">👋</div>
-            <h2 className="text-5xl md:text-6xl font-bold text-white mb-4 animate-slide-in-down">
-              Welcome!
-            </h2>
-            <p className="text-2xl md:text-3xl text-white/90 animate-slide-in-up">
-              Let's solve some math together! 🎓✨
-            </p>
-            <div className="mt-8 flex justify-center gap-6 text-5xl">
-              <span className="animate-bounce-slow text-white">📐</span>
-              <span className="animate-bounce-slow text-white" style={{ animationDelay: '0.2s' }}>📊</span>
-              <span className="animate-bounce-slow text-white" style={{ animationDelay: '0.4s' }}>🔢</span>
+        <div className="pt-20 text-center">
+          <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-blue-400 to-blue-200 bg-clip-text text-transparent">
+            MathBridge AI Assistant
+          </h1>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 pb-16 mt-10">
+          <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden border border-gray-100">
+            <div className="p-6 md:p-10">
+              <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
+              {selectedFile && (
+                <div className="mt-8 flex justify-center">
+                  <button onClick={handleAnalyze} disabled={isLoading}
+                    className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-2xl transition-all ${isLoading ? 'bg-indigo-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-xl hover:scale-105'}`}>
+                    {isLoading ? <>Analyzing...</> : <>Start Solving</>}
+                  </button>
+                </div>
+              )}
+              <SolutionDisplay solution={solution} hint={hint} error={error} />
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <div className="max-w-3xl mx-auto relative z-10">
-        <div className="text-center mb-10 animate-fade-in">
-          <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-            Homework Helper 📚
-          </h1>
-          <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Upload a photo of a math problem and get an instant step-by-step solution.
-          </p>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative">
+
+      <div
+        ref={dragRef}
+        className={`fixed z-50 flex items-start gap-5 select-none transition-all ${
+          isSpinningMad ? 'animate-spin-mad' : ''
+        } ${isDizzy ? 'animate-shake' : ''}`}
+        style={{
+          top: `${position.y}px`,
+          left: `${position.x}px`,
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}
+        onMouseDown={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.tagName === 'IMG') return;
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+      >
+        {/* Bong bóng chat */}
+        <div className={`relative bg-white rounded-2xl shadow-2xl p-4 max-w-xs border border-indigo-100 ${isOnLeftSide ? 'order-2' : 'order-1'}`}>
+          <div className="text-sm md:text-base font-medium text-gray-800 leading-relaxed min-h-[3rem]">
+            {displayedText || (!hasBeenClicked && phase !== 'idle' ? '' : '\u00A0')}
+            {phase !== 'idle' && !hasBeenClicked && !isDizzy && !isSpinningMad && (
+              <span className="inline-block w-2 h-5 bg-indigo-600 ml-1 animate-pulse" />
+            )}
+          </div>
+          <div
+            className={`absolute top-7 ${isOnLeftSide ? 'left-[-12px]' : '-right-3'} w-0 h-0`}
+            style={{
+              borderTop: '12px solid transparent',
+              borderBottom: '12px solid transparent',
+              borderLeft: isOnLeftSide ? 'none' : '12px solid white',
+              borderRight: isOnLeftSide ? '12px solid white' : 'none',
+            }}
+          />
         </div>
 
-        <div className="bg-white shadow-lg rounded-2xl overflow-hidden p-6 md:p-8 animate-slide-in-up transition-all hover:shadow-xl">
-          <ImageUploader
-            onImageSelected={handleImageSelected}
-            onImageCleared={handleImageCleared}
-            isLoading={isLoading}
+        {/* Robot */}
+        <div className={`relative ${isOnLeftSide ? 'order-1' : 'order-2'}`}>
+          <img
+            src={RobotImage}
+            alt="MathBridge AI"
+            className={`w-28 h-28 md:w-32 md:h-32 object-contain drop-shadow-2xl animate-bounce-slow cursor-pointer transition-all ${
+              isSpinningMad ? 'animate-spin-super-fast' : ''
+            }`}
+            onClick={handleRobotClick}
           />
 
-          {selectedFile && (
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={handleAnalyze}
-                disabled={isLoading}
-                className={`flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-white transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                  isLoading
-                    ? 'bg-indigo-400 cursor-wait'
-                    : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  'Analyze Problem'
-                )}
-              </button>
-            </div>
+          {isSpinningMad && (
+            <>
+              <div className="absolute inset-0 rounded-full bg-red-600 opacity-70 animate-ping" />
+              <div className="absolute inset-0 rounded-full bg-red-500 opacity-50 animate-ping" style={{ animationDelay: '0.3s' }} />
+            </>
           )}
 
-          <SolutionDisplay solution={solution} hint={hint} error={error} />
+          <div className="absolute -inset-2 rounded-full bg-indigo-400 opacity-15 blur-md pointer-events-none" />
+          <div className="absolute -inset-3 rounded-full bg-indigo-500 opacity-20 animate-ping-slow pointer-events-none" />
+
+          {/* Nút Close thủ công */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setDisplayedText("Okay, I'm out!");
+              setTimeout(() => setShowRobot(false), 600);
+            }}
+            className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg z-10 transition-all hover:scale-110"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Nội dung trang chính */}
+      <div className="pt-20 text-center">
+        <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-blue-400 to-blue-200 bg-clip-text text-transparent">
+          MathBridge AI Assistant
+        </h1>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 pb-16 mt-10">
+        <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden border border-gray-100">
+          <div className="p-6 md:p-10">
+            <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
+            {selectedFile && (
+              <div className="mt-8 flex justify-center">
+                <button onClick={handleAnalyze} disabled={isLoading}
+                  className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-2xl transition-all ${isLoading ? 'bg-indigo-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-xl hover:scale-105'}`}>
+                  {isLoading ? (
+                    <> <Loader2 className="w-6 h-6 animate-spin" /> Analyzing... </>
+                  ) : (
+                    <> Start Solving </>
+                  )}
+                </button>
+              </div>
+            )}
+            <SolutionDisplay solution={solution} hint={hint} error={error} />
+          </div>
         </div>
       </div>
     </div>
