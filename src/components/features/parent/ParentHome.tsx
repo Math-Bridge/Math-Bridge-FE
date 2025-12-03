@@ -395,10 +395,10 @@ const ParentHome: React.FC = () => {
             </div>
           </section>
 
-          {/* Schedule */}
-          <section className="mb-10">
+          {/* Schedule - Hidden */}
+          {/* <section className="mb-10">
             <ScheduleCalendarWidget compact={false} />
-          </section>
+          </section> */}
 
           {/* Popular Packages */}
           <section className="mb-10">

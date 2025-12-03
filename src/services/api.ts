@@ -131,7 +131,33 @@ class ApiService {
         }
       }
 
-      const response = await fetch(url, config);
+      // Check if this is an expected 404 endpoint that should be suppressed
+      const isExpected404Endpoint = url.includes('/learning-forecast') || 
+        url.includes('/unit-progress') ||
+        url.includes('/daily-reports/contract/');
+
+      // Temporarily suppress console errors for expected 404 endpoints
+      let originalConsoleError: typeof console.error | null = null;
+      if (isExpected404Endpoint) {
+        originalConsoleError = console.error;
+        console.error = (...args: any[]) => {
+          // Suppress errors that contain 404 or Not Found for expected endpoints
+          const errorString = args.join(' ');
+          if (!errorString.includes('404') && !errorString.includes('Not Found')) {
+            originalConsoleError?.apply(console, args);
+          }
+        };
+      }
+
+      let response: Response;
+      try {
+        response = await fetch(url, config);
+      } finally {
+        // Restore original console.error
+        if (originalConsoleError) {
+          console.error = originalConsoleError;
+        }
+      }
       const text = await response.text();
       let data: any = undefined;
       try {
@@ -214,12 +240,26 @@ class ApiService {
         const isNotFound = response.status === 404;
         
         // Skip logging for expected 404s (learning forecast, unit progress when no reports exist)
+        // These are normal cases when there's no data yet, not actual errors
         const isExpectedNotFound = isNotFound && (
           url.includes('/learning-forecast') || 
           url.includes('/unit-progress') ||
+          // Match any /daily-reports/contract/{id} endpoint (with or without /unit-progress)
+          url.includes('/daily-reports/contract/') ||
           (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('no daily reports found'))
         );
         
+        // Suppress console errors for expected 404s - don't log them at all
+        if (isExpectedNotFound) {
+          // Return error response but don't log it - this is expected behavior
+          return {
+            success: false,
+            error: errorMessage || 'Resource not found',
+            errorDetails: errorDetails,
+          };
+        }
+        
+        // Only log unexpected errors
         if (import.meta.env.DEV && !isUnauthorizedAccess && !isExpectedNotFound) {
           console.error('API Error:', {
             url,
@@ -4634,6 +4674,22 @@ export async function getDailyReportsByContractId(contractId: string) {
       method: 'GET',
     });
     
+    // Handle 404 gracefully - no daily reports means empty array, not an error
+    // This is expected behavior, not an error
+    if (!result.success && (
+        result.error?.includes('404') || 
+        result.error?.includes('Not Found') ||
+        result.error?.includes('Resource not found') ||
+        result.error?.toLowerCase().includes('not found')
+      )) {
+      // Silently return empty array - this is expected when there are no daily reports
+      return {
+        success: true,
+        data: [],
+        error: null,
+      };
+    }
+    
     if (result.success && result.data) {
       // Fetch all units to map unit IDs to names
       let unitsMap: { [key: string]: string } = {};
@@ -4818,8 +4874,16 @@ export async function getChildUnitProgress(contractId: string) {
     });
     
     // Handle 404 gracefully - no daily reports means no progress data
-    if (!result.success && result.error && 
-        (result.error.includes('No daily reports found') || result.error.includes('404'))) {
+    // This is expected behavior, not an error - silently return no data
+    if (!result.success && (
+        result.error?.includes('404') || 
+        result.error?.includes('Not Found') ||
+        result.error?.includes('Resource not found') ||
+        result.error?.includes('No daily reports found') ||
+        result.error?.toLowerCase().includes('not found')
+      )) {
+      // Silently return no data - this is expected when there are no daily reports
+      // Don't log or show this as an error to the user
       return {
         success: false,
         data: null,

@@ -219,10 +219,15 @@ const ContractsManagement: React.FC = () => {
           if (result.success && result.data) {
             setUnitProgressMap(prev => ({ ...prev, [contract.id]: result.data }));
           } else {
+            // No data available (e.g., no daily reports yet) - this is expected, not an error
             setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
           }
         } catch (error) {
-          console.error(`Error fetching progress for contract ${contract.id}:`, error);
+          // Only log unexpected errors (not 404s which are handled silently)
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
+            console.error(`Error fetching progress for contract ${contract.id}:`, error);
+          }
           setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
         } finally {
           setLoadingProgress(prev => ({ ...prev, [contract.id]: false }));

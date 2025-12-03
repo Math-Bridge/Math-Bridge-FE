@@ -147,11 +147,16 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
           setDailyReports(sorted);
         } else {
           // If no reports found for this contract, set empty array
+          // This is expected when there are no daily reports yet, not an error
           setDailyReports([]);
         }
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Error fetching daily reports:', error);
+        // Only log unexpected errors (not 404s which are handled silently)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
+          if (import.meta.env.DEV) {
+            console.error('Error fetching daily reports:', error);
+          }
         }
         setDailyReports([]);
       } finally {

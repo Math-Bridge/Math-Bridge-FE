@@ -263,9 +263,14 @@ const ContractDetail: React.FC = () => {
             if (progressResult.success && progressResult.data) {
               setUnitProgress(progressResult.data);
             }
+            // If no data (e.g., no daily reports yet), silently set to null - this is expected
           } catch (err) {
-            if (import.meta.env.DEV) {
-              console.warn('Error fetching unit progress:', err);
+            // Only log unexpected errors (not 404s which are handled silently)
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching unit progress:', err);
+              }
             }
           } finally {
             setLoadingUnitProgress(false);
@@ -443,11 +448,16 @@ const ContractDetail: React.FC = () => {
           setDailyReports(sorted);
         } else {
           // If no reports found for this contract, set empty array
+          // This is expected when there are no daily reports yet, not an error
           setDailyReports([]);
         }
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error('Error fetching daily reports:', error);
+        // Only log unexpected errors (not 404s which are handled silently)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
+          if (import.meta.env.DEV) {
+            console.error('Error fetching daily reports:', error);
+          }
         }
         setDailyReports([]);
       } finally {
