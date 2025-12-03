@@ -1111,6 +1111,8 @@ export interface Child {
   grade: string;
   dateOfBirth?: string;
   status?: string;
+  avatarUrl?: string;
+  avatarVersion?: number;
   // Ignore fields that don't exist in backend
   reschedule_count?: never; // This field doesn't exist, ignore it
   rescheduleCount?: never;
@@ -1238,6 +1240,62 @@ export async function linkCenterToChild(childId: string, centerId: string) {
 
 export async function getChildContracts(childId: string) {
   return apiService.request<any[]>(`/children/${childId}/contracts`);
+}
+
+export async function uploadChildAvatar(childId: string, file: File): Promise<ApiResponse<{ avatarUrl: string; message: string }>> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const url = `${baseUrl}/children/${childId}/avatar`;
+    
+    const token = localStorage.getItem('authToken');
+    
+    const headers: HeadersInit = {};
+    if (token) {
+      const cleanToken = token.trim();
+      if (cleanToken) {
+        headers['Authorization'] = `Bearer ${cleanToken}`;
+      }
+    }
+    // Don't set Content-Type - browser will set it with boundary for multipart/form-data
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers,
+      body: formData,
+    });
+
+    const text = await response.text();
+    let data: any = undefined;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch (parseError) {
+      console.error('Failed to parse response:', parseError);
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data?.error || `HTTP ${response.status}: ${response.statusText}`,
+        data: undefined
+      };
+    }
+
+    return {
+      success: true,
+      data: data,
+      error: undefined
+    };
+  } catch (error: any) {
+    console.error('Error uploading child avatar:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.message || 'Failed to upload child avatar',
+    };
+  }
 }
 
 // =====================
@@ -3772,6 +3830,103 @@ export async function changeSessionTutor(bookingId: string, newTutorId: string) 
     return {
       success: false,
       error: error?.message || 'Failed to change session tutor',
+      data: undefined,
+    };
+  }
+}
+
+// Get main tutor replacement plan
+// Backend endpoint: GET /api/sessions/{contractId}/main-tutor-replacement-plan
+// Backend response: { success: true, data: { contractId, childName, remainingSessions, bannedMainTutor, recommendedPlan, canProceed, message } }
+export async function getMainTutorReplacementPlan(contractId: string) {
+  try {
+    const result = await apiService.request<{
+      success: boolean;
+      data: {
+        contractId: string;
+        childName: string;
+        remainingSessions: number;
+        bannedMainTutor: string;
+        recommendedPlan: {
+          planType: 'promote_substitute' | 'external_replacement';
+          newMainTutorId: string;
+          newMainTutorName: string;
+          newSubstituteTutorId: string;
+          newSubstituteTutorName: string;
+          ratingMain: number;
+          ratingSub: number;
+        } | null;
+        canProceed: boolean;
+        message: string;
+      };
+    }>(`/sessions/${contractId}/main-tutor-replacement-plan`, {
+      method: 'GET',
+    });
+
+    // Backend returns { success: true, data: {...} }
+    // apiService.request wraps it in { success, data, error }
+    // So result.data contains the backend's { success: true, data: {...} }
+    // We need to extract the inner data
+    if (result.success && result.data) {
+      const backendResponse = result.data as any;
+      // If backend response has nested structure { success: true, data: {...} }
+      if (backendResponse.success && backendResponse.data) {
+        return {
+          success: true,
+          data: backendResponse.data,
+          error: null,
+        };
+      }
+      // If backend response is already the data object
+      return {
+        success: true,
+        data: backendResponse,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error fetching main tutor replacement plan:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch replacement plan',
+      data: undefined,
+    };
+  }
+}
+
+// Replace main tutor for contract
+// Backend endpoint: PUT /api/sessions/{contractId}/main-tutor
+export async function replaceMainTutor(
+  contractId: string,
+  newMainTutorId: string,
+  newSubstituteTutorId: string
+) {
+  try {
+    const result = await apiService.request<{
+      contractId: string;
+      newMainTutorId: string;
+      newSubstituteTutorId: string;
+      replacedAt: string;
+    }>(`/sessions/${contractId}/main-tutor`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        newMainTutorId: newMainTutorId,
+        newSubstituteTutorId: newSubstituteTutorId,
+      }),
+    });
+
+    return {
+      success: true,
+      data: result,
+      error: null,
+    };
+  } catch (error: any) {
+    console.error('Error replacing main tutor:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to replace main tutor',
       data: undefined,
     };
   }

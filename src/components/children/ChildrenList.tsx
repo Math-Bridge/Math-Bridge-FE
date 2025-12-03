@@ -71,7 +71,9 @@ const ChildrenList: React.FC<ChildrenListProps> = ({
               centerName: cleanChild.CenterName || cleanChild.centerName || undefined,
               grade: cleanChild.Grade || cleanChild.grade || '',
               dateOfBirth: cleanChild.DateOfBirth || cleanChild.dateOfBirth || undefined,
-              status: (cleanChild.Status || cleanChild.status || 'active').toLowerCase()
+              status: (cleanChild.Status || cleanChild.status || 'active').toLowerCase(),
+              avatarUrl: cleanChild.AvatarUrl || cleanChild.avatarUrl || undefined,
+              avatarVersion: cleanChild.AvatarVersion || cleanChild.avatarVersion || undefined
             };
           })
         );

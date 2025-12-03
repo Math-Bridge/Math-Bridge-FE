@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, School as SchoolIcon, Calendar } from 'lucide-react';
-import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getActiveSchools, School } from '../../services/api';
+import { X, User, School as SchoolIcon, Calendar, Upload, ImagePlus } from 'lucide-react';
+import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getActiveSchools, School, uploadChildAvatar } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
@@ -13,6 +13,8 @@ interface ChildFormProps {
     centerId?: string;
     grade: string;
     dateOfBirth?: string;
+    avatarUrl?: string;
+    avatarVersion?: number;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -32,6 +34,11 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(child?.avatarUrl || null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   // Update form data when child prop changes (for edit mode)
   useEffect(() => {
@@ -57,6 +64,21 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
         grade: child.grade || 'grade 9',
         dateOfBirth: formattedDateOfBirth
       });
+
+      // Set avatar URL with version for cache busting
+      if (child.avatarUrl) {
+        let url = child.avatarUrl;
+        if (child.avatarVersion) {
+          const separator = url.includes('?') ? '&' : '?';
+          url = `${url}${separator}v=${child.avatarVersion}`;
+        }
+        setAvatarUrl(url);
+        setAvatarError(false);
+      } else {
+        setAvatarUrl(null);
+        setAvatarError(false);
+      }
+
       console.log('ChildForm: Updated form data for edit mode:', {
         child,
         formData: {
@@ -67,14 +89,18 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
           dateOfBirth: formattedDateOfBirth
         }
       });
-    } else {
-      // Reset form for add mode
-      setFormData({
-        fullName: '',
-        schoolId: '',
-        grade: 'grade 9',
-        dateOfBirth: ''
-      });
+      } else {
+        // Reset form for add mode
+        setFormData({
+          fullName: '',
+          schoolId: '',
+          grade: 'grade 9',
+          dateOfBirth: ''
+        });
+        setAvatarUrl(null);
+        setAvatarPreview(null);
+        setSelectedAvatarFile(null);
+        setAvatarError(false);
     }
   }, [child]);
 
@@ -218,6 +244,20 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
         const result = await addChild(user.id, requestData as AddChildRequest);
         if (result.success) {
           showSuccess('Child added successfully!');
+          
+          // If avatar file was selected, upload it now
+          if (selectedAvatarFile && result.data) {
+            // Get the child ID from response
+            const data = result.data as any;
+            const newChildId = data.childId || data.ChildId || data.id;
+            
+            // If we have childId, upload avatar
+            if (newChildId) {
+              await uploadAvatarForNewChild(newChildId, selectedAvatarFile);
+            } else {
+              console.warn('ChildId not found in response, avatar upload skipped');
+            }
+          }
         } else {
           showError(result.error || 'Failed to add child');
           setErrors({ general: result.error || 'Failed to add child' });
@@ -271,6 +311,93 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
     }
   };
 
+  const handleAvatarFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file');
+      return;
+    }
+
+    // Backend accepts max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Image size must be less than 2MB');
+      return;
+    }
+
+    // Check file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      showError('Invalid file type. Only JPG, PNG and WebP are allowed.');
+      return;
+    }
+
+    // If editing existing child, upload immediately
+    if (child?.childId) {
+      handleAvatarUpload(file);
+    } else {
+      // If adding new child, save file for later upload
+      setSelectedAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!child?.childId) {
+      // This shouldn't happen, but just in case
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await uploadChildAvatar(child.childId, file);
+
+      if (response.success && response.data) {
+        const newAvatarUrl = response.data.avatarUrl;
+        setAvatarUrl(newAvatarUrl);
+        setAvatarError(false);
+        showSuccess('Profile picture uploaded successfully!');
+        // Refresh child data
+        onSuccess();
+      } else {
+        showError(response.error || 'Failed to upload profile picture');
+      }
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      showError(error?.message || 'Failed to upload profile picture. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const uploadAvatarForNewChild = async (childId: string, file: File) => {
+    setIsUploadingAvatar(true);
+    try {
+      const response = await uploadChildAvatar(childId, file);
+      if (response.success && response.data) {
+        setAvatarUrl(response.data.avatarUrl);
+        setAvatarError(false);
+        showSuccess('Profile picture uploaded successfully!');
+      } else {
+        // Don't show error as main action (creating child) already succeeded
+        console.warn('Failed to upload avatar:', response.error);
+      }
+    } catch (error: any) {
+      console.error('Error uploading avatar for new child:', error);
+    } finally {
+      setIsUploadingAvatar(false);
+      setSelectedAvatarFile(null);
+      setAvatarPreview(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -292,6 +419,44 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
               {errors.general}
             </div>
           )}
+
+          {/* Avatar Upload Section - Show for both add and edit */}
+          <div className="flex flex-col items-center mb-4">
+            <div className="relative">
+              {(avatarUrl || avatarPreview) && !avatarError ? (
+                <img
+                  src={avatarPreview || avatarUrl || ''}
+                  alt={child?.fullName || 'Child'}
+                  className="w-24 h-24 rounded-full object-cover border-4 border-blue-200 shadow-lg"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center border-4 border-blue-200 shadow-lg">
+                  <User className="w-12 h-12 text-white" />
+                </div>
+              )}
+              <label className={`absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors shadow-lg ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isUploadingAvatar ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ImagePlus className="w-5 h-5" />
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleAvatarFileSelect}
+                  disabled={isUploadingAvatar}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              {child ? 'Click icon to upload avatar' : 'Click icon to select avatar (will upload after saving)'}
+            </p>
+            {selectedAvatarFile && !child && (
+              <p className="text-xs text-blue-600 mt-1">Avatar ready to upload</p>
+            )}
+          </div>
 
           <div>
             <label className="form-label">{t('fullName')} *</label>

@@ -60,6 +60,15 @@ const ParentDailyReports: React.FC = () => {
       fetchReports();
       fetchProgress();
       fetchForecast();
+      
+      // Auto-reload reports, progress, and forecast every 60 seconds
+      const reportsInterval = setInterval(() => {
+        fetchReports();
+        fetchProgress();
+        fetchForecast();
+      }, 60000);
+      
+      return () => clearInterval(reportsInterval);
     }
   }, [selectedChildId]);
 

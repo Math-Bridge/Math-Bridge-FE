@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User, School, Calendar, MapPin, Edit, Trash2, RotateCcw } from 'lucide-react';
 import { Child } from '../../services/api';
 
@@ -10,6 +10,7 @@ interface ChildCardProps {
 }
 
 const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestore }) => {
+  const [avatarError, setAvatarError] = useState(false);
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not specified';
     try {
@@ -56,11 +57,21 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestor
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-5">
             <div className="relative flex-shrink-0">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl ring-4 ring-white/60
-                ${child.status === 'deleted' ? 'bg-gray-400' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}
-              >
-                <User className="w-9 h-9 text-white" />
-              </div>
+              {child.avatarUrl && !avatarError ? (
+                <img
+                  src={child.avatarUrl + (child.avatarVersion ? `?v=${child.avatarVersion}` : '')}
+                  alt={child.fullName}
+                  className={`w-16 h-16 rounded-2xl object-cover shadow-xl ring-4 ring-white/60
+                    ${child.status === 'deleted' ? 'opacity-50' : ''}`}
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl ring-4 ring-white/60
+                  ${child.status === 'deleted' ? 'bg-gray-400' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}
+                >
+                  <User className="w-9 h-9 text-white" />
+                </div>
+              )}
             </div>
 
             <div className="flex-1 min-w-0">
