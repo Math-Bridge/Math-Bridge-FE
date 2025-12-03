@@ -19,7 +19,7 @@ import TutorsByCenter from './components/tutors/TutorsByCenter';
 import { PackageList } from './components/package';
 import PackageDetailPage from './pages/PackageDetailPage';
 import PackageFormPage from './pages/PackageFormPage';
-
+import { NotificationProvider } from './contexts/NotificationContext';
 import {
   ParentHomePage,
   ParentSchedulePage,
@@ -177,6 +177,7 @@ function App() {
         <ToastProvider>
           <AuthProvider>
             <SSENotificationProvider>
+              <NotificationProvider>
               <ScrollToTop />
               <Routes>
               <Route path="/" element={<Layout />}>
@@ -430,6 +431,7 @@ function App() {
             } />
           </Route>
         </Routes>
+        </NotificationProvider>
             </SSENotificationProvider>
           </AuthProvider>
         </ToastProvider>

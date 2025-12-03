@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, X, Trash2 } from 'lucide-react';
-import { useNotifications } from '../../hooks/useNotifications';
+import { Bell, X, Trash2, RefreshCw } from 'lucide-react';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
 
 const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | 'all' | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -17,7 +18,7 @@ const NotificationBell: React.FC = () => {
     activeTab,
     currentPage,
     totalPages,
-    fetchNotifications,
+    fetchNotifications,   // Giữ lại để refresh thủ công
     markAsRead,
     markAllAsRead,
     deleteNotification,
@@ -26,19 +27,7 @@ const NotificationBell: React.FC = () => {
     goToPage,
   } = useNotifications();
 
-  // Debug: Log unread count changes
-  useEffect(() => {
-    console.log('NotificationBell - Unread count updated:', unreadCount);
-  }, [unreadCount]);
-
-  // Fetch notifications when dropdown opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchNotifications();
-    }
-  }, [isOpen, fetchNotifications]);
-
-  // Click outside handler
+  // Click outside để đóng dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -50,36 +39,36 @@ const NotificationBell: React.FC = () => {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  // Keyboard navigation
+  // Đóng bằng phím Escape
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  // Xử lý click vào thông báo
   const handleNotificationClick = async (notification: any) => {
     if (notification.status !== 'Read') {
       await markAsRead(notification.id);
     }
 
-    // Navigate based on notification type
     if (notification.contractId) {
       navigate(`/contracts/${notification.contractId}`);
+    } else if (notification.link) {
+      navigate(notification.link);
     }
 
     setIsOpen(false);
   };
 
+  // Xử lý xóa
   const handleDeleteClick = (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation();
     setDeleteTarget(notificationId);
@@ -106,21 +95,29 @@ const NotificationBell: React.FC = () => {
     setDeleteTarget(null);
   };
 
+  // Refresh thủ công (kéo xuống hoặc nút refresh)
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchNotifications();
+    setIsRefreshing(false);
+  };
+
+  // Format thời gian
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
     return date.toLocaleDateString();
   };
 
   const filteredNotifications = activeTab === 'unread'
-    ? (notifications || []).filter(n => n.status !== 'Read')
-    : (notifications || []);
+    ? notifications.filter(n => n.status !== 'Read')
+    : notifications;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -131,11 +128,10 @@ const NotificationBell: React.FC = () => {
         aria-label={`Notifications, ${unreadCount} unread`}
         aria-expanded={isOpen}
       >
-        <Bell className={`h-5 w-5 ${unreadCount > 0 ? 'text-blue-600' : ''}`} aria-hidden="true" />
+        <Bell className={`h-5 w-5 transition-colors ${unreadCount > 0 ? 'text-blue-600' : ''}`} />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center shadow-lg"
-            style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
+            className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center shadow-lg animate-pulse"
             aria-label={`${unreadCount} unread notifications`}
           >
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -145,22 +141,28 @@ const NotificationBell: React.FC = () => {
 
       {/* Dropdown */}
       {isOpen && (
-        <div
-          className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden"
-          role="menu"
-          aria-orientation="vertical"
-        >
+        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">Notifications</h3>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-blue-400 rounded transition-colors"
-                aria-label="Close notifications"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || loading}
+                  className="p-1.5 hover:bg-blue-400 rounded transition-colors disabled:opacity-50"
+                  aria-label="Refresh notifications"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 hover:bg-blue-400 rounded transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -173,8 +175,6 @@ const NotificationBell: React.FC = () => {
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
-              role="tab"
-              aria-selected={activeTab === 'all'}
             >
               All
             </button>
@@ -185,10 +185,8 @@ const NotificationBell: React.FC = () => {
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
-              role="tab"
-              aria-selected={activeTab === 'unread'}
             >
-              Unread ({unreadCount})
+              Unread {unreadCount > 0 && `(${unreadCount})`}
             </button>
           </div>
 
@@ -205,7 +203,7 @@ const NotificationBell: React.FC = () => {
               )}
               <button
                 onClick={handleDeleteAllClick}
-                className="flex-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 rounded transition-colors flex items-center justify-center gap-1"
+                className="flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 rounded transition-colors"
               >
                 <Trash2 className="h-3 w-3" />
                 Delete all
@@ -215,14 +213,15 @@ const NotificationBell: React.FC = () => {
 
           {/* Notifications List */}
           <div className="max-h-96 overflow-y-auto">
-            {loading ? (
+            {loading && notifications.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : filteredNotifications.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Bell className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No notifications</p>
+              <div className="text-center py-12 text-gray-500">
+                <Bell className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-medium">No notifications</p>
+                <p className="text-xs mt-1">You're all caught up!</p>
               </div>
             ) : (
               <div>
@@ -233,16 +232,15 @@ const NotificationBell: React.FC = () => {
                     className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
                       notification.status !== 'Read'
                         ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                        : 'opacity-75'
+                        : ''
                     }`}
-                    role="menuitem"
                   >
-                    <div className="flex justify-between items-start gap-2">
+                    <div className="flex justify-between items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 mb-1">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
                           {notification.message}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-1">
                           {formatTimeAgo(notification.createdAt)}
                         </p>
                       </div>
@@ -262,21 +260,21 @@ const NotificationBell: React.FC = () => {
 
           {/* Pagination */}
           {activeTab === 'all' && totalPages > 1 && (
-            <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+            <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-sm">
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-blue-600 hover:bg-blue-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-600">
+              <span className="text-gray-600">
                 Page {currentPage} of {totalPages}
               </span>
               <button
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 text-blue-600 hover:bg-blue-100 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>
@@ -285,17 +283,15 @@ const NotificationBell: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Confirm Delete Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Confirm Delete
-            </h3>
-            <p className="text-gray-600 mb-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Delete</h3>
+            <p className="text-gray-600 mb-6">
               {deleteTarget === 'all'
-                ? 'Are you sure you want to delete all notifications?'
-                : 'Are you sure you want to delete this notification?'}
+                ? 'Delete all notifications? This cannot be undone.'
+                : 'Delete this notification?'}
             </p>
             <div className="flex gap-3 justify-end">
               <button

@@ -37,7 +37,7 @@ import FinalFeedbackManagement from './FinalFeedbackManagement';
 import TutorCenterAssignment from './TutorCenterAssignment';
 import StaffTutorReports from './StaffTutorReports';
 import NotificationBell from '../../common/NotificationBell';
-
+import { NotificationProvider } from '../../../contexts/NotificationContext';
 interface RecentActivity {
   id: string;
   type: 'contract' | 'message' | 'session' | 'request';
@@ -356,6 +356,7 @@ const StaffDashboard: React.FC = () => {
   };
 
   return (
+    <NotificationProvider>
     <div className="min-h-screen bg-gray-50">
       {/* Hover hotspot to reveal sidebar */}
       <div
@@ -439,6 +440,7 @@ const StaffDashboard: React.FC = () => {
         </div>
       </main>
     </div>
+    </NotificationProvider>
   );
 };
 
