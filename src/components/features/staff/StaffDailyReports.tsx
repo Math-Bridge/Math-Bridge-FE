@@ -22,6 +22,7 @@ import {
   Unit,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
 
 
 const StaffDailyReports: React.FC = () => {
@@ -389,7 +390,7 @@ const StaffDailyReports: React.FC = () => {
                           rel="noopener noreferrer"
                           className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
                         >
-                          <span>{report.url}</span>
+                          <span>{removeIdFromUrl(report.url)}</span>
                           <ExternalLink className="w-4 h-4 flex-shrink-0" />
                         </a>
                       </div>

@@ -25,12 +25,14 @@ import {
 } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
 
 const FinalFeedbackForm: React.FC = () => {
   const { id: contractId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { showSuccess, showError } = useToast();
+  useHideIdInUrl(); // Hide ID in URL bar
 
   const [contract, setContract] = useState<Contract | null>(null);
   const [existingFeedback, setExistingFeedback] = useState<FinalFeedback | null>(null);

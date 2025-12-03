@@ -19,6 +19,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTutorById, getFinalFeedbacksByUserId, apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
 
 interface TutorProfile {
   id: string;
@@ -61,6 +62,7 @@ const TutorDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id: tutorId } = useParams<{ id: string }>();
   const { showError } = useToast();
+  useHideIdInUrl(); // Hide ID in URL bar
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);

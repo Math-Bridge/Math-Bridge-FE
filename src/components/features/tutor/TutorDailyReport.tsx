@@ -31,6 +31,7 @@ import {
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
 
 interface Unit {
   unitId: string;
@@ -1086,7 +1087,7 @@ const TutorDailyReport: React.FC = () => {
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
                       >
-                        <span>{selectedReport.url}</span>
+                        <span>{removeIdFromUrl(selectedReport.url)}</span>
                         <ExternalLink className="w-4 h-4 flex-shrink-0" />
                       </a>
                     </div>

@@ -16,6 +16,7 @@ import {
 import { getAllReports, Report, updateReportStatus } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
 
 const StaffTutorReports: React.FC = () => {
   const { user } = useAuth();
@@ -400,7 +401,7 @@ const StaffTutorReports: React.FC = () => {
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2"
                           >
-                            <span>{report.url}</span>
+                            <span>{removeIdFromUrl(report.url)}</span>
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </div>

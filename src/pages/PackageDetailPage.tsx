@@ -4,6 +4,7 @@ import { PackageDetail } from '../components/package';
 import { getPackageById } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../contexts/ToastContext';
+import { useHideIdInUrl } from '../hooks/useHideIdInUrl';
 import type { Course } from '../types';
 
 const PackageDetailPage: React.FC = () => {
@@ -12,6 +13,7 @@ const PackageDetailPage: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
+  useHideIdInUrl(); // Hide ID in URL bar
   const isAdmin = user?.role === 'admin';
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);

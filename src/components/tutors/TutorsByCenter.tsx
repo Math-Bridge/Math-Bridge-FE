@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getTutorsByCenter } from '../../services/api';
+import { useHideIdInUrl } from '../../hooks/useHideIdInUrl';
 
 interface Tutor {
   id: string;
@@ -54,6 +55,7 @@ interface Center {
 const TutorsByCenter: React.FC = () => {
   const { centerId } = useParams<{ centerId: string }>();
   const navigate = useNavigate();
+  useHideIdInUrl(); // Hide ID in URL bar
   
   // Mock center data - trong thực tế sẽ fetch từ API
   const [center, setCenter] = useState<Center | null>(null);

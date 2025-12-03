@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Toast, ToastType, ToastContainer } from '../components/common/Toast';
+import { removeIdFromMessage } from '../utils/urlUtils';
 
 interface ToastContextType {
   showToast: (message: string, type?: ToastType, duration?: number) => void;
@@ -35,11 +36,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showToast = useCallback(
     (message: string, type: ToastType = 'info', duration: number = 5000) => {
+      // Remove ID from message before displaying
+      const cleanedMessage = removeIdFromMessage(message);
       const id = `toast-${Date.now()}-${Math.random()}`;
       const newToast: Toast = {
         id,
         type,
-        message,
+        message: cleanedMessage,
         duration,
       };
 

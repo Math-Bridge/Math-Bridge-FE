@@ -26,6 +26,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session, getMainTutorReplacementPlan, replaceMainTutor } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
+import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
 
 interface ContractDetailStaffProps {
   hideBackButton?: boolean;
@@ -36,6 +38,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const { id: contractId } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
+  useHideIdInUrl(); // Hide ID in URL bar
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1433,6 +1436,19 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                                   <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
                                   <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes || report.Notes}</p>
+                                </div>
+                              )}
+                              {(report.url || report.Url) && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm font-medium text-gray-700 mb-1">URL:</p>
+                                  <a
+                                    href={report.url || report.Url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium break-all"
+                                  >
+                                    {removeIdFromUrl(report.url || report.Url)}
+                                  </a>
                                 </div>
                               )}
                             </div>

@@ -50,6 +50,25 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3 seconds
 
+  // Helper function to remove ID from notification message
+  const removeIdFromMessage = useCallback((message: string): string => {
+    if (!message) return message;
+    
+    // Remove various ID patterns:
+    // - (ID: xxx), (NotificationId: xxx), (ContractId: xxx), etc.
+    // - - ID: xxx, - NotificationId: xxx, etc.
+    // - [ID: xxx], [NotificationId: xxx], etc.
+    // - ID: xxx, NotificationId: xxx, etc. (at the end)
+    let cleaned = message
+      .replace(/\s*\([^)]*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      .trim();
+    
+    return cleaned || message; // Return original if cleaned is empty
+  }, []);
+
   // Map backend notification format to frontend format
   const mapBackendNotification = useCallback((backendData: BackendNotification): SSENotification => {
     // Determine notification type based on NotificationType or default to 'info'
@@ -68,15 +87,19 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
       }
     }
 
+    const rawMessage = backendData.Message || 'New notification';
+    const cleanedMessage = removeIdFromMessage(rawMessage);
+    const cleanedTitle = backendData.Title ? removeIdFromMessage(backendData.Title) : undefined;
+
     return {
       id: backendData.NotificationId,
-      title: backendData.Title,
-      message: backendData.Message || 'New notification',
+      title: cleanedTitle,
+      message: cleanedMessage,
       type,
       timestamp: backendData.CreatedDate || backendData.SentDate || new Date().toISOString(),
       data: backendData,
     };
-  }, []);
+  }, [removeIdFromMessage]);
 
   const handleNotification = useCallback((notification: SSENotification) => {
     console.log('SSE Notification received:', notification);

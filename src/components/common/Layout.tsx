@@ -4,10 +4,12 @@ import Header from './Header';
 import Footer from './Footer';
 import CustomerSupportButton from './CustomerSupportButton';
 import { useAuth } from '../../hooks/useAuth';
+import { useHideIdInUrl } from '../../hooks/useHideIdInUrl';
 
 const Layout: React.FC = () => {
   const location = useLocation();
   const { user } = useAuth();
+  useHideIdInUrl(); // Hide ID in URL bar for all routes
   const isAuthPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
   const isUnauthorizedPage = location.pathname === '/unauthorized';
 

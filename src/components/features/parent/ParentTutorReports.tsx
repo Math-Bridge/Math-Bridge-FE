@@ -29,6 +29,7 @@ import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
 
 const ParentTutorReports: React.FC = () => {
   const { user } = useAuth();
@@ -536,7 +537,7 @@ const ParentTutorReports: React.FC = () => {
                             rel="noopener noreferrer"
                             className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2"
                           >
-                            <span>{report.url}</span>
+                            <span>{removeIdFromUrl(report.url)}</span>
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </div>

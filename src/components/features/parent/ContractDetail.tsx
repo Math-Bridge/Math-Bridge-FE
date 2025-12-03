@@ -28,6 +28,8 @@ import { getContractById, getContractsByParent, apiService, createContractDirect
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
+import { removeIdFromUrl } from '../../../utils/urlUtils';
+import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
 
 interface Session {
   id: string;
@@ -67,6 +69,7 @@ const ContractDetail: React.FC = () => {
   const { id: contractId } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
+  useHideIdInUrl(); // Hide ID in URL bar
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [contractRawData, setContractRawData] = useState<any>(null); // Store raw contract data from API
   const [loading, setLoading] = useState(true);
@@ -1569,6 +1572,19 @@ const ContractDetail: React.FC = () => {
                                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                                   <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
                                   <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes || report.Notes}</p>
+                                </div>
+                              )}
+                              {(report.url || report.Url) && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm font-medium text-gray-700 mb-1">URL:</p>
+                                  <a
+                                    href={report.url || report.Url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium break-all"
+                                  >
+                                    {removeIdFromUrl(report.url || report.Url)}
+                                  </a>
                                 </div>
                               )}
                             </div>

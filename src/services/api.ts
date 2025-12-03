@@ -632,11 +632,30 @@ class ApiService {
 
   // ==================== Notification Methods ====================
 
+  // Helper function to remove ID from notification message
+  private removeIdFromMessage(message: string): string {
+    if (!message) return message;
+    
+    // Remove various ID patterns:
+    // - (ID: xxx), (NotificationId: xxx), (ContractId: xxx), etc.
+    // - - ID: xxx, - NotificationId: xxx, etc.
+    // - [ID: xxx], [NotificationId: xxx], etc.
+    // - ID: xxx, NotificationId: xxx, etc. (at the end)
+    let cleaned = message
+      .replace(/\s*\([^)]*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Ii][Dd]|NotificationId|ContractId|BookingId|UserId|MessageId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      .trim();
+    
+    return cleaned || message; // Return original if cleaned is empty
+  }
+
   // Helper function to map API response to internal format
   private mapNotificationFromApi(apiNotification: NotificationApiResponse): Notification {
     return {
       id: apiNotification.notificationId,
-      message: apiNotification.message,
+      message: this.removeIdFromMessage(apiNotification.message),
       type: apiNotification.notificationType,
       status: apiNotification.status,
       createdAt: apiNotification.createdDate,
