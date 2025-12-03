@@ -126,8 +126,19 @@ const StudySchedule: React.FC = () => {
 
   // Fetch sessions when child is selected
   useEffect(() => {
+    // Clear selected session and session detail when child changes
+    setSelectedSession(null);
+    setSessionDetail(null);
+    
     if (selectedChildId) {
       fetchSessionsForChild(selectedChildId);
+      
+      // Auto-reload sessions every 30 seconds
+      const sessionsInterval = setInterval(() => {
+        fetchSessionsForChild(selectedChildId);
+      }, 30000);
+      
+      return () => clearInterval(sessionsInterval);
     } else {
       setSessions([]);
     }

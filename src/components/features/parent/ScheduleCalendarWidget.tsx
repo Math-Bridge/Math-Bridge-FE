@@ -98,6 +98,13 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
   useEffect(() => {
     if (selectedChildId) {
       fetchSessionsForChild(selectedChildId);
+      
+      // Auto-reload sessions every 30 seconds
+      const sessionsInterval = setInterval(() => {
+        fetchSessionsForChild(selectedChildId);
+      }, 30000);
+      
+      return () => clearInterval(sessionsInterval);
     } else {
       setSessions([]);
     }

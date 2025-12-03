@@ -68,6 +68,95 @@ const ParentHome: React.FC = () => {
     if (user?.id) fetchHomeData();
   }, [user?.id]);
 
+  // Auto-reload wallet balance every 5 seconds
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchWalletBalance = async () => {
+      try {
+        const walletResponse = await apiService.getUserWallet(user.id);
+        if (walletResponse.success && walletResponse.data?.walletBalance != null) {
+          setWalletBalance(walletResponse.data.walletBalance);
+        }
+      } catch (err) {
+        console.error('Error fetching wallet balance:', err);
+      }
+    };
+
+    // Fetch immediately
+    fetchWalletBalance();
+    
+    // Then reload every 5 seconds
+    const walletInterval = setInterval(fetchWalletBalance, 5000);
+    
+    return () => clearInterval(walletInterval);
+  }, [user?.id]);
+
+  // Auto-reload other data (contracts, tutors, packages) every 30 seconds
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const fetchOtherData = async () => {
+      try {
+        const tutorsResponse = await getTopRatedTutors(3);
+        if (tutorsResponse.success && tutorsResponse.data) {
+          const tutors = tutorsResponse.data.tutors || tutorsResponse.data.Tutors || [];
+          setTopRatedTutors(tutors);
+        }
+
+        const contractsResponse = await getContractsByParent(user.id);
+        if (contractsResponse.success && contractsResponse.data) {
+          const contracts = contractsResponse.data;
+          const sessions: UpcomingSession[] = [];
+          contracts
+            .filter((c: any) => ['active', 'pending'].includes((c.Status || c.status || '').toLowerCase()))
+            .slice(0, 5)
+            .forEach((contract: any) => {
+              const startDate = contract.StartDate || contract.startDate;
+              if (startDate && new Date(startDate) >= new Date()) {
+                sessions.push({
+                  id: contract.ContractId || contract.id || '',
+                  childName: contract.ChildName || 'N/A',
+                  subject: contract.PackageName || 'Package',
+                  tutorName: contract.MainTutorName || 'Will be assigned',
+                  date: new Date(startDate).toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric' }),
+                  duration: '1 hour'
+                });
+              }
+            });
+          setUpcomingSessions(sessions);
+        }
+
+        const packagesResponse = await apiService.getAllPackages();
+        if (packagesResponse.success && packagesResponse.data) {
+          const mappedPackages: PopularPackage[] = packagesResponse.data
+            .slice(0, 3)
+            .map((pkg: any) => {
+              const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || pkg.sessions || 0;
+              const weeks = sessionCount > 0 ? Math.ceil(sessionCount / 3) : 4;
+
+              return {
+                id: pkg.PackageId || pkg.packageId || pkg.id || '',
+                title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
+                description: pkg.Description || pkg.description || 'Comprehensive tutoring package',
+                price: pkg.Price || pkg.price || 0,
+                duration: `${weeks} week${weeks > 1 ? 's' : ''}`,
+                level: pkg.level || pkg.difficulty || 'Intermediate'
+              };
+            });
+          setPopularPackages(mappedPackages);
+        }
+      } catch (err) {
+        console.error('Error fetching home data:', err);
+      }
+    };
+
+    // Start interval after initial load
+    const dataInterval = setInterval(fetchOtherData, 30000);
+    
+    return () => clearInterval(dataInterval);
+  }, [user?.id]);
+
   const fetchHomeData = async () => {
     if (!user?.id) return;
     setIsLoading(true);

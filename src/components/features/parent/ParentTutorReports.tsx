@@ -58,6 +58,14 @@ const ParentTutorReports: React.FC = () => {
     if (user?.id) {
       fetchReports();
       fetchContracts();
+      
+      // Auto-reload reports and contracts every 60 seconds
+      const reportsInterval = setInterval(() => {
+        fetchReports();
+        fetchContracts();
+      }, 60000);
+      
+      return () => clearInterval(reportsInterval);
     }
   }, [user?.id]);
 

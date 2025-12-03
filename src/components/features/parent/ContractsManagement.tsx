@@ -187,7 +187,16 @@ const ContractsManagement: React.FC = () => {
     }
   }, [user?.id, showError]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData(); 
+    
+    // Auto-reload contracts every 30 seconds
+    const contractsInterval = setInterval(() => {
+      fetchData();
+    }, 30000);
+    
+    return () => clearInterval(contractsInterval);
+  }, [fetchData]);
 
   // Fetch unit progress for active/completed contracts
   useEffect(() => {

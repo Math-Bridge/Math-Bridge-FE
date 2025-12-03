@@ -101,7 +101,13 @@ const WalletComponent: React.FC = () => {
       }
     };
 
+    // Fetch immediately
     fetchWalletData();
+    
+    // Auto-reload every 5 seconds
+    const walletInterval = setInterval(fetchWalletData, 5000);
+    
+    return () => clearInterval(walletInterval);
   }, []);
 
   const formatCurrency = (amount: number) => {
