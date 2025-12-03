@@ -10,6 +10,13 @@ export const useNotifications = () => {
   const [totalPages, setTotalPages] = useState<number>(1);
   const pageSize = 10;
 
+  // Calculate unread count from local notifications
+  const updateUnreadCountFromNotifications = useCallback((notifs: Notification[]) => {
+    const localUnreadCount = notifs.filter(n => n.status !== 'Read').length;
+    console.log('Local unread count from notifications:', localUnreadCount);
+    return localUnreadCount;
+  }, []);
+
   // Fetch unread count
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -17,14 +24,15 @@ export const useNotifications = () => {
       console.log('Unread count response:', response);
       
       // Handle both numeric and object responses
+      let count = 0;
       if (typeof response === 'number') {
-        setUnreadCount(response);
+        count = response;
       } else if (response && typeof response === 'object') {
-        const count = (response as any).count || (response as any).unreadCount || 0;
-        setUnreadCount(count);
-      } else {
-        setUnreadCount(0);
+        count = (response as any).count || (response as any).unreadCount || 0;
       }
+      
+      console.log('Setting unread count to:', count);
+      setUnreadCount(count);
     } catch (error) {
       console.error('Error fetching unread count:', error);
       setUnreadCount(0);
@@ -45,14 +53,26 @@ export const useNotifications = () => {
         if (Array.isArray(response)) {
           setNotifications(response);
           setTotalPages(1);
+          // Update unread count from fetched notifications
+          const localUnread = updateUnreadCountFromNotifications(response);
+          if (localUnread !== unreadCount) {
+            setUnreadCount(localUnread);
+          }
         } else if (response && typeof response === 'object') {
           const data = (response as any).data || (response as any).notifications || [];
           const total = (response as any).totalPages || 1;
-          setNotifications(Array.isArray(data) ? data : []);
+          const notifArray = Array.isArray(data) ? data : [];
+          setNotifications(notifArray);
           setTotalPages(total);
+          // Update unread count from fetched notifications
+          const localUnread = updateUnreadCountFromNotifications(notifArray);
+          if (localUnread !== unreadCount) {
+            setUnreadCount(localUnread);
+          }
         } else {
           setNotifications([]);
           setTotalPages(1);
+          setUnreadCount(0);
         }
       } else {
         response = await apiService.getUnreadNotifications();
@@ -61,29 +81,39 @@ export const useNotifications = () => {
         // Handle different response formats
         if (Array.isArray(response)) {
           setNotifications(response);
+          setUnreadCount(response.length);
         } else if (response && typeof response === 'object') {
           const data = (response as any).data || (response as any).notifications || [];
-          setNotifications(Array.isArray(data) ? data : []);
+          const notifArray = Array.isArray(data) ? data : [];
+          setNotifications(notifArray);
+          setUnreadCount(notifArray.length);
         } else {
           setNotifications([]);
+          setUnreadCount(0);
         }
         setTotalPages(1);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, unreadCount, updateUnreadCountFromNotifications]);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
       await apiService.markNotificationAsRead(notificationId);
-      setNotifications(prev =>
-        prev?.map(n => n.id === notificationId ? { ...n, status: 'Read' } : n) || []
-      );
+      setNotifications(prev => {
+        const updated = prev?.map(n => n.id === notificationId ? { ...n, status: 'Read' } : n) || [];
+        // Update unread count immediately
+        const newUnreadCount = updated.filter(n => n.status !== 'Read').length;
+        setUnreadCount(newUnreadCount);
+        return updated;
+      });
+      // Also fetch from server to ensure sync
       await fetchUnreadCount();
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -107,7 +137,13 @@ export const useNotifications = () => {
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
       await apiService.deleteNotification(notificationId);
-      setNotifications(prev => prev?.filter(n => n.id !== notificationId) || []);
+      setNotifications(prev => {
+        const updated = prev?.filter(n => n.id !== notificationId) || [];
+        // Update unread count immediately
+        const newUnreadCount = updated.filter(n => n.status !== 'Read').length;
+        setUnreadCount(newUnreadCount);
+        return updated;
+      });
       await fetchUnreadCount();
       await fetchNotifications();
     } catch (error) {

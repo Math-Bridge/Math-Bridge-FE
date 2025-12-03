@@ -26,6 +26,11 @@ const NotificationBell: React.FC = () => {
     goToPage,
   } = useNotifications();
 
+  // Debug: Log unread count changes
+  useEffect(() => {
+    console.log('NotificationBell - Unread count updated:', unreadCount);
+  }, [unreadCount]);
+
   // Fetch notifications when dropdown opens
   useEffect(() => {
     if (isOpen) {
@@ -126,10 +131,11 @@ const NotificationBell: React.FC = () => {
         aria-label={`Notifications, ${unreadCount} unread`}
         aria-expanded={isOpen}
       >
-        <Bell className="h-5 w-5" aria-hidden="true" />
+        <Bell className={`h-5 w-5 ${unreadCount > 0 ? 'text-blue-600' : ''}`} aria-hidden="true" />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse"
+            className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center shadow-lg"
+            style={{ animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}
             aria-label={`${unreadCount} unread notifications`}
           >
             {unreadCount > 99 ? '99+' : unreadCount}
