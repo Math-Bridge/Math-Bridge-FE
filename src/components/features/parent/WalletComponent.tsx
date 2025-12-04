@@ -163,7 +163,7 @@ const WalletComponent: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-14 w-14 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-14 w-14 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">Loading your wallet...</p>
         </div>
       </div>
@@ -172,12 +172,12 @@ const WalletComponent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
 
         {/* Header */}
         <div className="mb-10 text-center sm:text-left">
           <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 justify-center sm:justify-start">
-            <Wallet className="w-10 h-10 text-blue-600" />
+            <Wallet className="w-10 h-10 text-primary" />
             My Wallet
           </h1>
           <p className="text-gray-600 mt-2 text-lg">Manage your balance and view transaction history</p>
@@ -200,7 +200,7 @@ const WalletComponent: React.FC = () => {
               </div>
               <button
                 onClick={() => navigate('/wallet/topup')}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-5 text-white font-bold text-lg shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl"
+                className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-primary-dark px-8 py-5 text-white font-bold text-lg shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl"
               >
                 <span className="relative z-10 flex items-center gap-3">
                   <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform" />

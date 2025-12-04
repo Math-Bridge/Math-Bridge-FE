@@ -110,7 +110,7 @@ const ParentScheduleCalendar: React.FC = () => {
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'scheduled':
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-primary/20 text-primary-dark border-primary/40';
     }
   };
 
@@ -158,7 +158,7 @@ const handleSessionClick = (session: Session) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -169,7 +169,7 @@ const handleSessionClick = (session: Session) => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
-            <Calendar className="w-8 h-8 text-blue-600" />
+            <Calendar className="w-8 h-8 text-primary" />
             <span>Study Schedule</span>
           </h1>
           <p className="text-gray-600 mt-2">Manage your study schedule</p>

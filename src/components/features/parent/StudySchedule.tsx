@@ -74,8 +74,8 @@ const StudySchedule: React.FC = () => {
           }));
         setChildren(mappedChildren);
 
-        // Auto-select first child if only one child
-        if (mappedChildren.length === 1) {
+        // Auto-select first child if there are any children
+        if (mappedChildren.length > 0) {
           setSelectedChildId(mappedChildren[0].childId);
         }
       } else {
@@ -357,7 +357,7 @@ const StudySchedule: React.FC = () => {
         return 'bg-green-100 text-green-800 border-green-300';
       case 'scheduled':
       case 'processing':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-primary/20 text-primary-dark border-primary/40';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-300';
       case 'rescheduled':
@@ -429,14 +429,14 @@ const StudySchedule: React.FC = () => {
           className={`
             min-h-[250px] p-3 rounded-lg flex flex-col transition-all duration-200 w-full
             ${isCurrentDay
-              ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-400 shadow-md'
+              ? 'bg-gradient-to-br from-primary/10 to-primary/20 border-2 border-primary/50 shadow-md'
               : 'bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm'
             }
           `}
         >
           <div className={`
             text-lg font-bold mb-3 w-8 h-8 flex items-center justify-center rounded-lg
-            ${isCurrentDay ? 'bg-blue-600 text-white' : 'text-gray-900'}
+            ${isCurrentDay ? 'bg-primary text-white' : 'text-gray-900'}
           `}>
             {dayOfMonth}
           </div>
@@ -493,82 +493,114 @@ const StudySchedule: React.FC = () => {
 
   if (loading || loadingSessions) {
     return (
-      <div className="p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+                style={{
+                  left: `${10 + (i * 70) % 85}%`,
+                  top: `${15 + (i * 55) % 80}%`,
+                  animationDelay: `${i * 3}s`,
+                }}
+              >
+                {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12">
         <div className="flex flex-col items-center justify-center py-12">
           <div className="relative">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-3 border-t-3 border-blue-500"></div>
-            <Calendar className="w-5 h-5 text-blue-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            <div className="animate-spin rounded-full h-12 w-12 border-b-3 border-t-3 border-primary"></div>
+            <Calendar className="w-5 h-5 text-primary absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
           </div>
           <span className="mt-4 text-gray-600 font-medium">Loading study schedule...</span>
         </div>
       </div>
+        </div>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+          }
+          .animate-float { animation: float 25s linear infinite; }
+        `}} />
+      </>
     );
   }
 
   if (error && sessions.length === 0) {
     return (
-      <div className="p-8 bg-red-50 rounded-2xl border border-red-200 shadow-sm">
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+        </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-8 max-w-md">
         <div className="flex items-center space-x-3 text-red-700">
           <div className="p-2 bg-red-100 rounded-lg">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Error Loading Schedule</h3>
+                <h3 className="font-semibold text-lg text-primary-dark">Error Loading Schedule</h3>
             <p className="text-sm text-red-600 mt-1">{error}</p>
           </div>
         </div>
       </div>
+        </div>
+      </>
     );
   }
 
   return (
     <>
-      {/* Animated Background */}
+      {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 animate-gradient" />
-        <div className="absolute inset-0 bg-gradient-to-tl from-cyan-100/20 via-transparent to-amber-100/20 animate-gradient-reverse" />
+        <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
         <div className="absolute inset-0 pointer-events-none">
-          {[...Array(12)].map((_, i) => (
+          {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="absolute text-purple-300/10 text-6xl font-black select-none animate-float"
+              className="absolute text-primary/15 text-7xl font-light select-none animate-float"
               style={{
-                left: `${10 + (i * 65) % 85}%`,
-                top: `${15 + (i * 50) % 80}%`,
-                animationDelay: `${i * 2}s`,
+                left: `${10 + (i * 70) % 85}%`,
+                top: `${15 + (i * 55) % 80}%`,
+                animationDelay: `${i * 3}s`,
               }}
             >
-              {i % 5 === 0 ? 'π' : i % 4 === 0 ? '∑' : i % 3 === 0 ? '∞' : '∫'}
+              {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="min-h-screen py-8 px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/50 overflow-hidden w-full">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-8 text-white overflow-hidden">
-              {/* Decorative elements */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
-              
-              <div className="flex items-center justify-between relative z-10">
-                <div>
+          <div className="mb-12">
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 sm:p-10">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+                  <div className="text-white">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
                       <Calendar className="w-8 h-8 text-white" />
                     </div>
-                    <h1 className="text-4xl font-bold text-white drop-shadow-lg">Study Schedule</h1>
+                      <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow-lg">Study Schedule</h1>
                   </div>
-                  <p className="text-lg text-white/95 ml-14">Manage and track your child's learning sessions</p>
-
+                    <p className="text-lg sm:text-xl text-white/95 ml-14">Manage and track your child's learning sessions</p>
                 </div>
                 {/* Children Selector */}
-                <>
                   {children.length > 0 ? (
                     <div className="relative z-10">
-                      <div className="bg-white/20 backdrop-blur-md rounded-xl p-1 border border-white/30">
+                      <div className="bg-white/20 backdrop-blur-md rounded-xl p-1 border-2 border-white/30">
                         <select
                           value={selectedChildId || ''}
                           onChange={(e) => {
@@ -593,27 +625,29 @@ const StudySchedule: React.FC = () => {
                       No children found. Please add a child first.
                     </div>
                   )}
-                </>
+                </div>
+              </div>
               </div>
             </div>
 
-            <div className="p-6">
+          {/* Main Content */}
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6">
               {!selectedChildId ? (
                 <div className="text-center py-16">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-full mb-6">
-                    <User className="w-10 h-10 text-blue-600" />
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-6">
+                  <User className="w-10 h-10 text-primary" />
                   </div>
-                  <h4 className="text-xl font-semibold text-gray-900 mb-2">Please select a child</h4>
+                <h4 className="text-xl font-semibold text-primary-dark mb-2">Please select a child</h4>
                   <p className="text-gray-600 max-w-md mx-auto">
                     Choose a child from the dropdown above to view their study schedule.
                   </p>
                 </div>
               ) : sessions.length === 0 ? (
                 <div className="text-center py-16">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-6">
-                    <Calendar className="w-10 h-10 text-gray-400" />
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/10 rounded-full mb-6">
+                  <Calendar className="w-10 h-10 text-primary" />
                   </div>
-                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No sessions</h4>
+                <h4 className="text-xl font-semibold text-primary-dark mb-2">No sessions</h4>
                   <p className="text-gray-600 max-w-md mx-auto">
                     {children.find(c => c.childId === selectedChildId)?.fullName || 'This child'} doesn't have any study sessions scheduled yet.
                   </p>
@@ -621,11 +655,11 @@ const StudySchedule: React.FC = () => {
               ) : (
                 <>
                   {/* Calendar Navigation */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-xl border border-blue-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-gray-50 p-4 rounded-xl border-2 border-primary/20">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={goToPreviousWeek}
-                    className="p-3 bg-white hover:bg-gradient-to-br hover:from-blue-500 hover:to-cyan-500 text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border border-gray-200 hover:border-transparent"
+                    className="p-3 bg-white hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-math hover:scale-105 border-2 border-gray-200 hover:border-primary"
                     title="Previous week"
                   >
                     <ChevronLeft className="w-5 h-5" />
@@ -634,23 +668,23 @@ const StudySchedule: React.FC = () => {
                     type="date"
                     value={selectedDate}
                     onChange={(e) => handleDatePickerChange(e.target.value)}
-                    className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 font-medium text-gray-700"
+                    className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 font-medium text-gray-700"
                   />
                   <button
                     onClick={goToNextWeek}
-                    className="p-3 bg-white hover:bg-gradient-to-br hover:from-blue-500 hover:to-cyan-500 text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border border-gray-200 hover:border-transparent"
+                    className="p-3 bg-white hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-math hover:scale-105 border-2 border-gray-200 hover:border-primary"
                     title="Next week"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
                   <button
                     onClick={goToToday}
-                    className="px-4 py-2.5 bg-gradient-to-br from-blue-600 to-cyan-600 text-white font-bold rounded-xl hover:bg-blue-700 hover:scale-105 hover:shadow-lg transition-all duration-300 shadow-md border border-white/10"
+                    className="px-4 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark hover:scale-105 hover:shadow-math transition-all duration-300 shadow-math border-2 border-primary/20"
                   >
                     Today
                   </button>
                 </div>
-                <div className="text-sm font-semibold text-gray-700 bg-gray-50 px-4 py-2.5 rounded-xl">
+                <div className="text-sm font-semibold text-gray-700 bg-white px-4 py-2.5 rounded-xl border-2 border-primary/20">
                   {daysInWeek[0].toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} -{' '}
                   {daysInWeek[6].toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
                 </div>
@@ -677,7 +711,7 @@ const StudySchedule: React.FC = () => {
 
               {/* Selected Session Details Panel */}
               {selectedSession && (
-                <div className="mt-6 p-6 bg-gradient-to-br from-blue-50 via-white to-white border-2 border-blue-200 rounded-2xl shadow-lg">
+                <div className="mt-6 p-6 bg-white border-2 border-primary/20 rounded-2xl shadow-math">
                   <div className="flex items-start justify-between mb-6">
                     <div>
                       <h4 className="text-xl font-bold text-gray-900">Session Details</h4>
@@ -692,7 +726,7 @@ const StudySchedule: React.FC = () => {
                     </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <div className="bg-gray-50 p-4 rounded-xl border-2 border-primary/20">
                       <div className="text-sm font-semibold text-gray-500 mb-3 uppercase tracking-wide">Time</div>
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2 text-gray-900">
@@ -786,7 +820,7 @@ const StudySchedule: React.FC = () => {
                    sessionDetail.status !== 'cancelled' && 
                    sessionDetail.status !== 'rescheduled' && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
-                      <div className="bg-white p-4 rounded-xl border border-gray-200">
+                      <div className="bg-gray-50 p-4 rounded-xl border-2 border-primary/20">
                         <div className="flex items-start gap-3">
                           <LinkIcon className="w-5 h-5 text-blue-500 mt-1" />
                           <div className="flex-1">
@@ -802,14 +836,14 @@ const StudySchedule: React.FC = () => {
                                     href={sessionDetail.videoConferenceLink}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium shadow-math hover:shadow-math-lg"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                     Join Online Session
                                   </a>
                                   <button
                                     onClick={() => handleCopyLink(sessionDetail.videoConferenceLink!)}
-                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                                    className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium border-2 border-gray-200"
                                     title="Copy link"
                                   >
                                     {copiedLink ? (
@@ -851,7 +885,7 @@ const StudySchedule: React.FC = () => {
                                 <button
                                   onClick={handleCreateVideoConference}
                                   disabled={creatingVideoConference}
-                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed shadow-math hover:shadow-math-lg"
                                 >
                                   {creatingVideoConference ? (
                                     <>
@@ -898,7 +932,7 @@ const StudySchedule: React.FC = () => {
                        })() && (
                         <button
                           onClick={() => setShowReschedulePopup(true)}
-                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-xl hover:bg-orange-100 transition-all duration-200 font-semibold"
+                          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 border-2 border-orange-200 rounded-xl hover:bg-orange-100 transition-all duration-200 font-semibold"
                         >
                           <RefreshCw className="w-5 h-5" />
                           <span>Request Reschedule</span>
@@ -906,7 +940,7 @@ const StudySchedule: React.FC = () => {
                       )}
                       <button
                         onClick={handleCloseDetail}
-                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 text-sm font-semibold"
+                        className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 text-sm font-semibold border-2 border-gray-200"
                       >
                         Close
                       </button>
@@ -918,39 +952,38 @@ const StudySchedule: React.FC = () => {
               {/* Legend */}
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <div className="flex flex-wrap items-center gap-6 text-sm">
-                  <div className="font-bold text-gray-900 text-base">Legend</div>
+                  <div className="font-bold text-primary-dark text-base">Legend</div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-blue-100 border border-blue-300 rounded-lg shadow-sm"></div>
+                    <div className="w-6 h-6 bg-primary/20 border-2 border-primary/40 rounded-lg"></div>
                     <span className="text-gray-700 font-medium">Scheduled</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-green-100 border border-green-300 rounded-lg"></div>
+                    <div className="w-6 h-6 bg-green-100 border-2 border-green-300 rounded-lg"></div>
                     <span className="text-gray-700 font-medium">Completed</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-red-100 border border-red-300 rounded-lg"></div>
+                    <div className="w-6 h-6 bg-red-100 border-2 border-red-300 rounded-lg"></div>
                     <span className="text-gray-700 font-medium">Cancelled</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-yellow-100 border border-yellow-300 rounded-lg"></div>
+                    <div className="w-6 h-6 bg-yellow-100 border-2 border-yellow-300 rounded-lg"></div>
                     <span className="text-gray-700 font-medium">Rescheduled</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Monitor className="w-5 h-5 text-blue-600" />
+                    <Monitor className="w-5 h-5 text-primary" />
                     <span className="text-gray-700 font-medium">Online</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-emerald-600" />
+                    <MapPin className="w-5 h-5 text-primary" />
                     <span className="text-gray-700 font-medium">In-Person</span>
                   </div>
                 </div>
-                <div className="mt-4 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                <div className="mt-4 text-xs text-gray-500 bg-gray-50 p-3 rounded-xl border-2 border-primary/20">
                   <p className="font-medium">Click on any session to view full details.</p>
                 </div>
               </div>
             </>
           )}
-            </div>
           </div>
         </div>
       </div>
@@ -979,21 +1012,11 @@ const StudySchedule: React.FC = () => {
         />
       )}
 
-      <style>{`
-        @keyframes gradient {
-          0%, 100% { transform: translateX(-5%) translateY(-5%); }
-          50% { transform: translateX(5%) translateY(5%); }
-        }
-        @keyframes gradient-reverse {
-          0%, 100% { transform: translateX(5%) translateY(5%); }
-          50% { transform: translateX(-5%) translateY(-5%); }
-        }
+      <style dangerouslySetInnerHTML={{ __html: `
         @keyframes float {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-30px); }
         }
-        .animate-gradient { animation: gradient 30s ease infinite; }
-        .animate-gradient-reverse { animation: gradient-reverse 35s ease infinite; }
         .animate-float { animation: float 25s linear infinite; }
         
         .custom-scrollbar::-webkit-scrollbar {
@@ -1009,7 +1032,7 @@ const StudySchedule: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
         }
-      `}</style>
+      `}} />
     </>
   );
 };

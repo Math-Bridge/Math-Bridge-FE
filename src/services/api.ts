@@ -5539,6 +5539,46 @@ export async function getAllCurriculums() {
   }
 }
 
+export async function getCurriculumById(curriculumId: string) {
+  try {
+    const result = await apiService.request<any>(`/curricula/${curriculumId}`, { method: 'GET' });
+    if (result.success && result.data) {
+      const item = result.data;
+      const mapped: Curriculum = {
+        curriculumId: item.curriculumId || item.CurriculumId || curriculumId,
+        curriculumName: item.curriculumName || item.CurriculumName || '',
+        curriculumCode: item.curriculumCode || item.CurriculumCode,
+        description: item.description || item.Description,
+        grades: item.grades || item.Grades,
+        syllabusUrl: item.syllabusUrl || item.SyllabusUrl,
+        totalCredits: item.totalCredits || item.TotalCredits || 0,
+        totalSchools: item.totalSchools || item.TotalSchools || 0,
+        totalPackages: item.totalPackages || item.TotalPackages || 0,
+        isActive: item.isActive !== undefined ? item.isActive : (item.IsActive !== undefined ? item.IsActive : true),
+        createdDate: item.createdDate || item.CreatedDate,
+        updatedDate: item.updatedDate || item.UpdatedDate,
+      };
+      return { success: true, data: mapped };
+    }
+    return { success: false, data: null, error: result.error || 'Failed to fetch curriculum' };
+  } catch (error: any) {
+    return { success: false, data: null, error: error?.message || 'Failed to fetch curriculum' };
+  }
+}
+
+export async function getUnitsByCurriculumId(curriculumId: string) {
+  try {
+    const result = await apiService.request<any>(`/units/by-curriculum/${curriculumId}`, { method: 'GET' });
+    if (result.success && result.data) {
+      const data = Array.isArray(result.data) ? result.data : (result.data.data || []);
+      return { success: true, data };
+    }
+    return { success: false, data: [], error: result.error || 'Failed to fetch units' };
+  } catch (error: any) {
+    return { success: false, data: [], error: error?.message || 'Failed to fetch units' };
+  }
+}
+
 export async function createCurriculum(request: { 
   CurriculumName: string; 
   Description?: string;

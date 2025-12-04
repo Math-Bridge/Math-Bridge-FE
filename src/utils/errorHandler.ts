@@ -1,73 +1,143 @@
-import { ApiResponse } from '../services/api';
+/**
+ * Centralized error handling utilities
+ */
+
+import { ERROR_MESSAGES, HTTP_STATUS, EXPECTED_404_ENDPOINTS, STORAGE_KEYS } from '../constants';
+
+export interface ApiError {
+  message: string;
+  status?: number;
+  details?: any;
+}
 
 /**
- * Extract error message from API response or error object
+ * Checks if a 404 error is expected (normal behavior, not an error)
  */
-export const getErrorMessage = (error: any, defaultMessage: string = 'Đã xảy ra lỗi'): string => {
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error?.message) {
-    return error.message;
-  }
-
-  if (error?.error) {
-    return error.error;
-  }
-
-  if (error?.response?.data?.error) {
-    return error.response.data.error;
-  }
-
-  if (error?.response?.data?.message) {
-    return error.response.data.message;
-  }
-
-  return defaultMessage;
-};
+export function isExpected404(url: string, errorMessage?: string): boolean {
+  const urlLower = url.toLowerCase();
+  const messageLower = errorMessage?.toLowerCase() || '';
+  
+  return EXPECTED_404_ENDPOINTS.some(endpoint => 
+    urlLower.includes(endpoint.toLowerCase()) ||
+    messageLower.includes('no daily reports found')
+  );
+}
 
 /**
- * Handle API response and show toast on error
- * Returns true if success, false if error
+ * Extracts error message from API response
  */
-export const handleApiResponse = <T>(
-  response: ApiResponse<T>,
-  toast: {
-    showError: (message: string) => void;
-    showSuccess?: (message: string) => void;
-  },
-  successMessage?: string
-): boolean => {
-  if (!response.success) {
-    const errorMsg = response.error || getErrorMessage(response, 'Đã xảy ra lỗi');
-    toast.showError(errorMsg);
-    return false;
+export function extractErrorMessage(data: any, text?: string): string {
+  if (data?.error) {
+    return typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
   }
-
-  if (successMessage && toast.showSuccess) {
-    toast.showSuccess(successMessage);
+  
+  if (data?.message) {
+    return typeof data.message === 'string' ? data.message : JSON.stringify(data.message);
   }
-
-  return true;
-};
+  
+  if (data?.errors) {
+    if (Array.isArray(data.errors)) {
+      return data.errors.join(', ');
+    }
+    if (typeof data.errors === 'object') {
+      return Object.values(data.errors).flat().join(', ');
+    }
+  }
+  
+  if (typeof data === 'string') {
+    return data;
+  }
+  
+  if (text) {
+    return text.substring(0, 200);
+  }
+  
+  return ERROR_MESSAGES.NETWORK_ERROR;
+}
 
 /**
- * Wrap async function with error handling and toast
+ * Handles HTTP error responses
  */
-export const withErrorHandling = async <T>(
-  fn: () => Promise<T>,
-  toast: {
-    showError: (message: string) => void;
-  },
-  errorMessage: string = 'Đã xảy ra lỗi'
-): Promise<T | null> => {
-  try {
-    return await fn();
-  } catch (error) {
-    const msg = getErrorMessage(error, errorMessage);
-    toast.showError(msg);
-    return null;
+export function handleHttpError(
+  status: number,
+  url: string,
+  errorMessage: string,
+  errorDetails?: any
+): ApiError {
+  // Handle 401 Unauthorized
+  if (status === HTTP_STATUS.UNAUTHORIZED) {
+    // Clear invalid token and user data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      
+      // Redirect to login only if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1000);
+      }
+    }
+    
+    return {
+      message: ERROR_MESSAGES.UNAUTHORIZED,
+      status,
+      details: errorDetails,
+    };
   }
-};
-
+  
+  // Handle 403 Forbidden
+  if (status === HTTP_STATUS.FORBIDDEN) {
+    const message = errorMessage.includes('HTTP error! status: 403')
+      ? ERROR_MESSAGES.FORBIDDEN
+      : errorMessage;
+    
+    if (import.meta.env.DEV) {
+      console.warn('403 Forbidden:', {
+        url,
+        message,
+        userRole: typeof window !== 'undefined' && localStorage.getItem('user')
+          ? JSON.parse(localStorage.getItem('user') || '{}').role
+          : 'unknown',
+      });
+    }
+    
+    return {
+      message,
+      status,
+      details: errorDetails,
+    };
+  }
+  
+  // Handle 404 Not Found
+  if (status === HTTP_STATUS.NOT_FOUND) {
+    if (isExpected404(url, errorMessage)) {
+      // Expected 404 - return error but don't log
+      return {
+        message: errorMessage || ERROR_MESSAGES.NOT_FOUND,
+        status,
+        details: errorDetails,
+      };
+    }
+  }
+  
+  // Handle 500 with unauthorized access message
+  const isUnauthorizedAccess = 
+    status === HTTP_STATUS.INTERNAL_SERVER_ERROR &&
+    errorMessage.toLowerCase().includes('unauthorized');
+  
+  // Only log unexpected errors in development
+  if (import.meta.env.DEV && !isUnauthorizedAccess && !isExpected404(url, errorMessage)) {
+    console.error('API Error:', {
+      url,
+      status,
+      error: errorMessage,
+    });
+  }
+  
+  return {
+    message: errorMessage,
+    status,
+    details: errorDetails,
+  };
+}

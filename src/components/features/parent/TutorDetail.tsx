@@ -237,7 +237,7 @@ const TutorDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -261,8 +261,9 @@ const TutorDetail: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => navigate('/tutors')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg"
             >
+              <ArrowLeft className="w-5 h-5" />
               Back to Tutors
             </button>
             <button
@@ -279,15 +280,15 @@ const TutorDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => navigate('/tutors')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-6"
+            className="flex items-center gap-2 px-4 py-2 bg-white text-primary border-2 border-primary rounded-xl font-semibold hover:bg-primary hover:text-white transition-all shadow-math hover:shadow-math-lg mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span className="font-semibold">Back to Tutors</span>
+            Back to Tutors
           </button>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4 min-w-0 flex-1">

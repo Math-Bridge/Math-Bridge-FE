@@ -195,7 +195,7 @@ const FinalFeedbackForm: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -210,7 +210,7 @@ const FinalFeedbackForm: React.FC = () => {
           <p className="text-gray-600">Contract not found</p>
           <button
             onClick={() => navigate('/contracts')}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
           >
             Back to Contracts
           </button>
@@ -220,8 +220,8 @@ const FinalFeedbackForm: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="min-h-screen bg-gray-50 py-12 sm:py-16 px-2 sm:px-3 lg:px-4">
+      <div className="max-w-[95%] mx-auto">
         {/* Header */}
         <div className="mb-6">
           <button

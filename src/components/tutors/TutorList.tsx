@@ -161,26 +161,90 @@ const TutorList: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading tutors...</p>
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+                style={{
+                  left: `${10 + (i * 70) % 85}%`,
+                  top: `${15 + (i * 55) % 80}%`,
+                  animationDelay: `${i * 3}s`,
+                }}
+              >
+                {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading tutors...</p>
+          </div>
+        </div>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+          }
+          .animate-float { animation: float 25s linear infinite; }
+        `}} />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Our Math Tutors</h1>
-          <p className="text-gray-600">Browse our qualified math tutors. Contact our staff to discuss your learning needs.</p>
+    <>
+      {/* Subtle Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+              style={{
+                left: `${10 + (i * 70) % 85}%`,
+                top: `${15 + (i * 55) % 80}%`,
+                animationDelay: `${i * 3}s`,
+              }}
+            >
+              {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+          {/* Header */}
+          <div className="mb-12">
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 sm:p-10">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow-lg mb-2">
+                      Our Math Tutors
+                    </h1>
+                    <p className="text-lg sm:text-xl text-white/95">
+                      Browse our qualified math tutors. Contact our staff to discuss your learning needs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 mb-8">
           <div className="max-w-md">
             {/* Search - only by name */}
             <div className="relative">
@@ -190,56 +254,57 @@ const TutorList: React.FC = () => {
                 placeholder="Search by tutor name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all bg-white"
               />
             </div>
           </div>
         </div>
 
-        {/* Results Count */}
-        <div className="mb-6 flex items-center justify-between">
-          <p className="text-gray-600">
-            Showing {startIndex + 1}-{Math.min(endIndex, sortedTutors.length)} of {sortedTutors.length} tutors
-            {searchTerm && ` (filtered from ${tutors.length} total)`}
-          </p>
-        </div>
+          {/* Results Count */}
+          <div className="mb-6 flex items-center justify-between">
+            <p className="text-gray-600 font-medium">
+              Showing <span className="font-bold text-primary">{startIndex + 1}-{Math.min(endIndex, sortedTutors.length)}</span> of{" "}
+              <span className="font-bold text-primary">{sortedTutors.length}</span> tutors
+              {searchTerm && ` (filtered from ${tutors.length} total)`}
+            </p>
+          </div>
 
-        {/* Tutors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {paginatedTutors.map((tutor) => (
-            <div key={tutor.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-              {/* Tutor Image */}
-              <div className="relative h-48 bg-gradient-to-br from-blue-500 to-purple-600">
-                <img
-                  src={tutor.avatarUrl}
-                  alt={tutor.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback to default avatar if image fails to load
-                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&background=random`;
-                  }}
-                />
-                {tutor.isVerified && (
-                  <div className="absolute top-3 right-3 bg-green-500 text-white p-1 rounded-full">
-                    <Award className="h-4 w-4" />
-                  </div>
-                )}
-              </div>
-
-              {/* Tutor Info */}
-              <div className="p-6">
-                  <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900">{tutor.name}</h3>
-                  {tutor.rating > 0 && (
-                    <div className="flex items-center space-x-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm font-medium text-gray-900">{tutor.rating.toFixed(1)}</span>
-                      {tutor.totalReviews > 0 && (
-                        <span className="text-sm text-gray-500">({tutor.totalReviews})</span>
-                      )}
+          {/* Tutors Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {paginatedTutors.map((tutor) => (
+              <div key={tutor.id} className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden hover:shadow-math-lg transition-all transform hover:scale-[1.02]">
+                {/* Tutor Image */}
+                <div className="relative aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary-dark/20 overflow-hidden">
+                  <img
+                    src={tutor.avatarUrl}
+                    alt={tutor.name}
+                    className="w-full h-full object-cover object-center"
+                    onError={(e) => {
+                      // Fallback to default avatar if image fails to load
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&background=random`;
+                    }}
+                  />
+                  {tutor.isVerified && (
+                    <div className="absolute top-3 right-3 bg-primary text-white p-2 rounded-full shadow-math">
+                      <Award className="h-4 w-4" />
                     </div>
                   )}
                 </div>
+
+                {/* Tutor Info */}
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-bold text-primary-dark">{tutor.name}</h3>
+                    {tutor.rating > 0 && (
+                      <div className="flex items-center space-x-1">
+                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                        <span className="text-sm font-semibold text-primary-dark">{tutor.rating.toFixed(1)}</span>
+                        {tutor.totalReviews > 0 && (
+                          <span className="text-sm text-gray-500">({tutor.totalReviews})</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-sm text-gray-600">
@@ -256,113 +321,120 @@ const TutorList: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Subjects */}
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-1">
-                    {tutor.subjects.slice(0, 3).map((subject, index) => (
-                      <span
-                        key={index}
-                        className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
-                      >
-                        {subject}
-                      </span>
-                    ))}
-                    {tutor.subjects.length > 3 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                        +{tutor.subjects.length - 3} more
-                      </span>
-                    )}
+                  {/* Subjects */}
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-1">
+                      {tutor.subjects.slice(0, 3).map((subject, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-primary/10 text-primary border-2 border-primary/20 text-xs rounded-full font-medium"
+                        >
+                          {subject}
+                        </span>
+                      ))}
+                      {tutor.subjects.length > 3 && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full border-2 border-gray-200">
+                          +{tutor.subjects.length - 3} more
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-
-
-                {/* Action Button */}
-                <button
-                  onClick={() => handleViewDetails(tutor.id)}
-                  className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                >
-                  <User className="h-4 w-4" />
-                  <span>{t('viewProfile')}</span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                  {/* Action Button */}
+                  <button
+                    onClick={() => handleViewDetails(tutor.id)}
+                    className="w-full bg-primary text-white px-4 py-3 rounded-xl font-semibold hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg flex items-center justify-center gap-2"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>{t('viewProfile')}</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
               </div>
             </div>
           ))}
         </div>
 
-        {/* No Results */}
-        {sortedTutors.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('noTutorsFound')}</h3>
-            <p className="text-gray-600">Try adjusting your search criteria or contact our staff for assistance.</p>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {sortedTutors.length > 0 && totalPages > 1 && (
-          <div className="flex items-center justify-center space-x-2 mt-8">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className={`px-4 py-2 rounded-lg border ${
-                currentPage === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-
-            {/* Page Numbers */}
-            <div className="flex space-x-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                // Show first page, last page, current page, and pages around current
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-4 py-2 rounded-lg border ${
-                        currentPage === page
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return (
-                    <span key={page} className="px-2 py-2 text-gray-400">
-                      ...
-                    </span>
-                  );
-                }
-                return null;
-              })}
+          {/* No Results */}
+          {sortedTutors.length === 0 && (
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12 text-center">
+              <Users className="h-16 w-16 text-primary mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-primary-dark mb-2">{t('noTutorsFound')}</h3>
+              <p className="text-gray-600">Try adjusting your search criteria or contact our staff for assistance.</p>
             </div>
+          )}
 
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className={`px-4 py-2 rounded-lg border ${
-                currentPage === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-        )}
+          {/* Pagination */}
+          {sortedTutors.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className={`px-4 py-2 rounded-xl border-2 ${
+                  currentPage === 1
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Show first page, last page, current page, and pages around current
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-4 py-2 rounded-xl border-2 ${
+                          currentPage === page
+                            ? 'bg-primary text-white border-primary shadow-math'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return (
+                      <span key={page} className="px-2 py-2 text-gray-400">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className={`px-4 py-2 rounded-xl border-2 ${
+                  currentPage === totalPages
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        .animate-float { animation: float 25s linear infinite; }
+      `}} />
+    </>
   );
 };
 

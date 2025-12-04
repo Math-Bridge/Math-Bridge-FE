@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL } from '../constants';
 
 const SSE_URL = `${API_BASE_URL}/Notification/sse/connect`;
 

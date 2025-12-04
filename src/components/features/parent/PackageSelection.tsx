@@ -123,19 +123,19 @@ const PackageSelection: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <button
             onClick={() => navigate('/contracts/create')}
-            className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors mb-4 sm:mb-6 text-sm sm:text-base"
+            className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors mb-4 sm:mb-6 text-sm sm:text-base"
           >
             <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="font-semibold">Back to Contract Creation</span>
@@ -166,7 +166,7 @@ const PackageSelection: React.FC = () => {
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="all">{t('allSubjects')}</option>
                 {subjects.map(subject => (
@@ -180,7 +180,7 @@ const PackageSelection: React.FC = () => {
               <select
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="all">{t('allLevels')}</option>
                 {levels.map(level => (
@@ -194,7 +194,7 @@ const PackageSelection: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="popular">{t('popular')}</option>
                 <option value="rating">Highest Rated</option>
@@ -308,7 +308,7 @@ const PackageSelection: React.FC = () => {
 
                 <button
                   onClick={() => handleSelectPackage(pkg.id)}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
                 >
                   {t('enrollNow')}
                 </button>
@@ -329,7 +329,7 @@ const PackageSelection: React.FC = () => {
                 setSelectedSubject('all');
                 setSelectedLevel('all');
               }}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
             >
               Clear Filters
             </button>

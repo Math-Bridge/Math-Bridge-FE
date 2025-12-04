@@ -799,7 +799,7 @@ const CreateContract: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -808,7 +808,7 @@ const CreateContract: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
           <button
@@ -828,7 +828,7 @@ const CreateContract: React.FC = () => {
             {/* Step 1: Select Child */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
               <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
-                currentStep === 'select-child' ? 'bg-blue-600 text-white' : 
+                currentStep === 'select-child' ? 'bg-primary text-white' : 
                 ['select-package', 'schedule', 'payment'].includes(currentStep) ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
@@ -838,7 +838,7 @@ const CreateContract: React.FC = () => {
                   <span className="font-semibold text-xs sm:text-base">1</span>
                 )}
               </div>
-              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-child' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-child' ? 'text-primary' : 'text-gray-600'}`}>
                 Select Child
               </span>
             </div>
@@ -850,7 +850,7 @@ const CreateContract: React.FC = () => {
             {/* Step 2: Select Package */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
               <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
-                currentStep === 'select-package' ? 'bg-blue-600 text-white' : 
+                currentStep === 'select-package' ? 'bg-primary text-white' : 
                 ['schedule', 'payment'].includes(currentStep) ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
@@ -860,7 +860,7 @@ const CreateContract: React.FC = () => {
                   <span className="font-semibold text-xs sm:text-base">2</span>
                 )}
               </div>
-              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-package' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'select-package' ? 'text-primary' : 'text-gray-600'}`}>
                 Select Package
               </span>
             </div>
@@ -872,7 +872,7 @@ const CreateContract: React.FC = () => {
             {/* Step 3: Schedule */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
               <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
-                currentStep === 'schedule' ? 'bg-blue-600 text-white' : 
+                currentStep === 'schedule' ? 'bg-primary text-white' : 
                 currentStep === 'payment' ? 'bg-green-500 text-white' : 
                 'bg-gray-200 text-gray-600'
               }`}>
@@ -882,7 +882,7 @@ const CreateContract: React.FC = () => {
                   <span className="font-semibold text-xs sm:text-base">3</span>
                 )}
               </div>
-              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'schedule' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'schedule' ? 'text-primary' : 'text-gray-600'}`}>
                 Schedule
               </span>
             </div>
@@ -894,11 +894,11 @@ const CreateContract: React.FC = () => {
             {/* Step 4: Payment */}
             <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
               <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
-                currentStep === 'payment' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                currentStep === 'payment' ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'
               }`}>
                 <span className="font-semibold text-xs sm:text-base">4</span>
               </div>
-              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'payment' ? 'text-blue-600' : 'text-gray-600'}`}>
+              <span className={`font-medium text-xs sm:text-sm md:text-base hidden sm:inline ${currentStep === 'payment' ? 'text-primary' : 'text-gray-600'}`}>
                 Payment
               </span>
             </div>
@@ -930,7 +930,7 @@ const CreateContract: React.FC = () => {
                 </p>
                 <button
                   onClick={handleCreateChild}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2 mx-auto"
+                  className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors flex items-center space-x-2 mx-auto"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Add Child</span>
@@ -942,12 +942,12 @@ const CreateContract: React.FC = () => {
                   <div
                     key={child.childId}
                     onClick={() => handleSelectChild(child)}
-                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User className="w-6 h-6 text-blue-600" />
+                        <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                          <User className="w-6 h-6 text-primary" />
                         </div>
                         <div>
                           <h3 className="font-bold text-gray-900">{child.fullName}</h3>
@@ -968,7 +968,7 @@ const CreateContract: React.FC = () => {
                 ))}
                 <button
                   onClick={handleCreateChild}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center space-x-2 text-gray-600 hover:text-blue-600"
+                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary hover:bg-primary/10 transition-all flex items-center justify-center space-x-2 text-gray-600 hover:text-primary"
                 >
                   <Plus className="w-5 h-5" />
                   <span className="font-medium">Add Another Child</span>
@@ -987,7 +987,7 @@ const CreateContract: React.FC = () => {
             </h2>
 
             {selectedChild && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <div className="mb-6 p-4 bg-primary/10 rounded-lg">
                 <p className="text-sm text-gray-600">Selected Child:</p>
                 <p className="font-semibold text-gray-900">{selectedChild.fullName}</p>
               </div>
@@ -1018,9 +1018,9 @@ const CreateContract: React.FC = () => {
                         <div
                           key={pkg.packageId}
                           onClick={() => handleSelectPackage(pkg)}
-                          className={`border rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
+                          className={`border-2 rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
                             selectedPackage?.packageId === pkg.packageId
-                              ? 'border-blue-500 bg-blue-50'
+                              ? 'border-primary bg-primary/10'
                               : 'border-gray-200'
                           }`}
                         >
@@ -1066,7 +1066,7 @@ const CreateContract: React.FC = () => {
                   <button
                     onClick={handleContinueFromPackage}
                     disabled={!selectedPackage}
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    className="flex-1 px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                   >
                     <span>Continue to Schedule</span>
                     <ArrowRight className="w-5 h-5" />
@@ -1086,7 +1086,7 @@ const CreateContract: React.FC = () => {
             </h2>
 
             {selectedChild && selectedPackage && (
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <div className="mb-6 p-4 bg-primary/10 rounded-lg">
                 <p className="text-sm text-gray-600">Selected:</p>
                 <p className="font-semibold text-gray-900">{selectedChild.fullName} • {selectedPackage.packageName}</p>
               </div>
@@ -1140,7 +1140,7 @@ const CreateContract: React.FC = () => {
                     maxDate.setDate(maxDate.getDate() + 7);
                     return maxDate.toISOString().split('T')[0];
                   })()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 />
                 <p className="mt-1 text-xs text-gray-500">Select when the contract should start (max 1 week from now)</p>
               </div>
@@ -1225,10 +1225,10 @@ const CreateContract: React.FC = () => {
                         disabled={isDisabled}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-100 text-blue-700 font-semibold hover:bg-blue-200'
+                            ? 'border-primary bg-primary/20 text-primary-dark font-semibold hover:bg-primary/30'
                             : isDisabled
                             ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
                         }`}
                       >
                         <div className="text-center">
@@ -1312,17 +1312,17 @@ const CreateContract: React.FC = () => {
                         disabled={isPast}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                            ? 'border-primary bg-primary/10 text-primary-dark font-semibold shadow-sm'
                             : isPast
                             ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
                         }`}
                         title={isPast ? 'This time slot is in the past' : ''}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{slot.label}</span>
                           {isSelected && (
-                            <CheckCircle className="w-5 h-5 text-blue-600" />
+                            <CheckCircle className="w-5 h-5 text-primary" />
                           )}
                 </div>
                         <p className="text-xs text-gray-500 mt-1">1.5 hours</p>
@@ -1353,8 +1353,8 @@ const CreateContract: React.FC = () => {
                     }}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       schedule.isOnline
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                        ? 'border-primary bg-primary/10 text-primary-dark'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
                     }`}
                   >
                     <div className="text-center">
@@ -1426,8 +1426,8 @@ const CreateContract: React.FC = () => {
                     }}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       schedule.isOnline
-                        ? 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
-                        : 'border-blue-500 bg-blue-50 text-blue-700'
+                        ? 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
+                        : 'border-primary bg-primary/10 text-primary-dark'
                     }`}
                   >
                     <div className="text-center">
@@ -1453,8 +1453,8 @@ const CreateContract: React.FC = () => {
                       }}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         schedule.videoCallPlatform === 'Google Meet'
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                          ? 'border-primary bg-primary/10 text-primary-dark'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
                       }`}
                     >
                       <div className="text-center">
@@ -1470,8 +1470,8 @@ const CreateContract: React.FC = () => {
                       }}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         schedule.videoCallPlatform === 'Zoom'
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                          ? 'border-primary bg-primary/10 text-primary-dark'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
                       }`}
                     >
                       <div className="text-center">
@@ -1600,7 +1600,7 @@ const CreateContract: React.FC = () => {
                         }
                       }}
                       placeholder="Enter address or select from suggestions"
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                     />
                     
                     {/* Address Autocomplete Suggestions */}
@@ -1608,7 +1608,7 @@ const CreateContract: React.FC = () => {
                       <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {loadingSuggestions ? (
                           <div className="p-3 text-center text-gray-500">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
                             <p className="mt-2 text-xs">Searching for addresses...</p>
                           </div>
                         ) : addressSuggestions.length > 0 ? (
@@ -1673,7 +1673,7 @@ const CreateContract: React.FC = () => {
                                   setLoadingCenters(false);
                                 }
                               }}
-                              className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                              className="w-full text-left px-4 py-3 hover:bg-primary/10 border-b border-gray-100 last:border-b-0 transition-colors"
                             >
                               {suggestion.structured_formatting ? (
                                 <div>
@@ -1697,8 +1697,8 @@ const CreateContract: React.FC = () => {
                     <p className="mt-1 text-xs text-red-600">Address is required for offline sessions</p>
                   )}
                   {userProfileAddress && !schedule.offlineAddress && (
-                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-800">
+                    <div className="mt-2 p-2 bg-primary/10 border-2 border-primary/30 rounded-lg">
+                      <p className="text-xs text-primary-dark">
                         <strong>Suggestion:</strong> You have an address in your profile: <span className="font-medium">{userProfileAddress}</span>
                       </p>
                       <button
@@ -1996,8 +1996,8 @@ const CreateContract: React.FC = () => {
                     }}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       paymentMethod === 'wallet'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                        ? 'border-primary bg-primary/10 text-primary-dark'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
                     }`}
                   >
                     <div className="flex items-center space-x-3">
@@ -2021,8 +2021,8 @@ const CreateContract: React.FC = () => {
                     }}
                     className={`p-4 rounded-lg border-2 transition-all text-left ${
                       paymentMethod === 'direct_payment'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300'
+                        ? 'border-primary bg-primary/10 text-primary-dark'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
                     }`}
                   >
                     <div className="flex items-center space-x-3">

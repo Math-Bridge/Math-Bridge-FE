@@ -231,45 +231,97 @@ const HomeworkHelperPage: React.FC = () => {
   // Khi robot bị tắt thủ công (ấn nút X)
   if (!showRobot) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative">
-        <button
-          onClick={() => {
-            setShowRobot(true);
-            resetRobot();
-          }}
-          className="fixed top-80 right-6 z-50 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-5 shadow-2xl transition-all hover:scale-110 animate-bounce"
-        >
-          <img src={RobotImage} alt="Wake robot" className="w-14 h-14 rounded-full" />
-        </button>
-
-        <div className="pt-20 text-center">
-          <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-blue-400 to-blue-200 bg-clip-text text-transparent">
-            MathBridge AI Assistant
-          </h1>
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+                style={{
+                  left: `${10 + (i * 70) % 85}%`,
+                  top: `${15 + (i * 55) % 80}%`,
+                  animationDelay: `${i * 3}s`,
+                }}
+              >
+                {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+              </div>
+            ))}
+          </div>
         </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
+          <button
+            onClick={() => {
+              setShowRobot(true);
+              resetRobot();
+            }}
+            className="fixed top-80 right-6 z-50 bg-primary hover:bg-primary-dark text-white rounded-full p-5 shadow-math-lg transition-all hover:scale-110 animate-bounce"
+          >
+            <img src={RobotImage} alt="Wake robot" className="w-14 h-14 rounded-full" />
+          </button>
 
-        <div className="max-w-4xl mx-auto px-4 pb-16 mt-10">
-          <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden border border-gray-100">
-            <div className="p-6 md:p-10">
-              <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
-              {selectedFile && (
-                <div className="mt-8 flex justify-center">
-                  <button onClick={handleAnalyze} disabled={isLoading}
-                    className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-2xl transition-all ${isLoading ? 'bg-indigo-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-xl hover:scale-105'}`}>
-                    {isLoading ? <>Analyzing...</> : <>Start Solving</>}
-                  </button>
+          <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+            <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+              <div className="mb-12">
+                <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
+                  <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 sm:p-10">
+                    <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow-lg text-center">
+                      MathBridge AI Assistant
+                    </h1>
+                  </div>
                 </div>
-              )}
-              <SolutionDisplay solution={solution} hint={hint} error={error} />
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 md:p-10">
+                <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
+                {selectedFile && (
+                  <div className="mt-8 flex justify-center">
+                    <button onClick={handleAnalyze} disabled={isLoading}
+                      className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-xl transition-all ${isLoading ? 'bg-primary/50' : 'bg-primary hover:bg-primary-dark shadow-math hover:shadow-math-lg'}`}>
+                      {isLoading ? <>Analyzing...</> : <>Start Solving</>}
+                    </button>
+                  </div>
+                )}
+                <SolutionDisplay solution={solution} hint={hint} error={error} />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+          }
+          .animate-float { animation: float 25s linear infinite; }
+        `}} />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 relative">
+    <>
+      {/* Subtle Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+              style={{
+                left: `${10 + (i * 70) % 85}%`,
+                top: `${15 + (i * 55) % 80}%`,
+                animationDelay: `${i * 3}s`,
+              }}
+            >
+              {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
 
       <div
         ref={dragRef}
@@ -342,34 +394,46 @@ const HomeworkHelperPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Nội dung trang chính */}
-      <div className="pt-20 text-center">
-        <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-blue-400 to-blue-200 bg-clip-text text-transparent">
-          MathBridge AI Assistant
-        </h1>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 pb-16 mt-10">
-        <div className="bg-white/95 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden border border-gray-100">
-          <div className="p-6 md:p-10">
-            <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
-            {selectedFile && (
-              <div className="mt-8 flex justify-center">
-                <button onClick={handleAnalyze} disabled={isLoading}
-                  className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-2xl transition-all ${isLoading ? 'bg-indigo-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-xl hover:scale-105'}`}>
-                  {isLoading ? (
-                    <> <Loader2 className="w-6 h-6 animate-spin" /> Analyzing... </>
-                  ) : (
-                    <> Start Solving </>
-                  )}
-                </button>
+        {/* Nội dung trang chính */}
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+          <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+            <div className="mb-12">
+              <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
+                <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 sm:p-10">
+                  <h1 className="text-4xl sm:text-5xl font-bold text-white drop-shadow-lg text-center">
+                    MathBridge AI Assistant
+                  </h1>
+                </div>
               </div>
-            )}
-            <SolutionDisplay solution={solution} hint={hint} error={error} />
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 md:p-10">
+              <ImageUploader onImageSelected={handleImageSelected} onImageCleared={handleImageCleared} isLoading={isLoading} />
+              {selectedFile && (
+                <div className="mt-8 flex justify-center">
+                  <button onClick={handleAnalyze} disabled={isLoading}
+                    className={`flex items-center gap-3 px-9 py-4 text-lg font-bold text-white rounded-xl transition-all ${isLoading ? 'bg-primary/50' : 'bg-primary hover:bg-primary-dark shadow-math hover:shadow-math-lg'}`}>
+                    {isLoading ? (
+                      <> <Loader2 className="w-6 h-6 animate-spin" /> Analyzing... </>
+                    ) : (
+                      <> Start Solving </>
+                    )}
+                  </button>
+                </div>
+              )}
+              <SolutionDisplay solution={solution} hint={hint} error={error} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        .animate-float { animation: float 25s linear infinite; }
+      `}} />
+    </>
   );
 };
 

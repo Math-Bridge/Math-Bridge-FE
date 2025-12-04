@@ -786,7 +786,7 @@ const ContractDetail: React.FC = () => {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/20 text-primary-dark';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'unpaid':
@@ -801,7 +801,7 @@ const ContractDetail: React.FC = () => {
       case 'completed':
         return 'bg-green-100 text-green-800';
       case 'upcoming':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-primary/20 text-primary-dark';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'rescheduled':
@@ -858,15 +858,15 @@ const ContractDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error || !contract) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -876,7 +876,7 @@ const ContractDetail: React.FC = () => {
           {user?.role !== 'staff' && (
             <button
               onClick={() => navigate('/contracts')}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
             >
               Back to Contracts
             </button>
@@ -884,7 +884,7 @@ const ContractDetail: React.FC = () => {
           {user?.role === 'staff' && (
             <button
               onClick={() => navigate(-1)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
             >
               Go Back
             </button>
@@ -895,13 +895,13 @@ const ContractDetail: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50 py-8 animate-slide-in-left">
+    <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50 py-8 animate-slide-in-left">
       {/* Back Button - Top Left Corner (Only for non-staff roles) */}
       {user?.role !== 'staff' && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 mb-6">
           <button
             onClick={() => navigate('/contracts')}
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-white/90 backdrop-blur-sm border border-emerald-200 rounded-2xl text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 transition-all duration-300 font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-white/90 backdrop-blur-sm border-2 border-primary/40 rounded-2xl text-primary hover:bg-primary/10 hover:border-primary/60 hover:text-primary-dark transition-all duration-300 font-bold shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Contracts</span>
@@ -909,12 +909,12 @@ const ContractDetail: React.FC = () => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent animate-fade-in">{contract.packageName}</h1>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent animate-fade-in">{contract.packageName}</h1>
               <p className="text-gray-600 mt-2 text-lg animate-fade-in stagger-1">{contract.subject}</p>
             </div>
           </div>
@@ -924,11 +924,11 @@ const ContractDetail: React.FC = () => {
             {/* Children Card */}
             <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-3xl flex items-center justify-center shadow-lg">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-1">Children</p>
+                  <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">Children</p>
                   <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
                   <p className="text-sm text-gray-600 mt-1">Learner</p>
                 </div>
@@ -945,7 +945,7 @@ const ContractDetail: React.FC = () => {
                 <div className={`w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden ${
                   contract.tutorName === 'Tutor not assigned' 
                     ? 'bg-gray-400' 
-                    : 'bg-gradient-to-br from-purple-400 to-indigo-500'
+                    : 'bg-gradient-to-br from-primary to-primary-dark'
                 }`}>
                   {contract.tutorName !== 'Tutor not assigned' && contract.tutorAvatarUrl ? (
                     <img 
@@ -1002,7 +1002,7 @@ const ContractDetail: React.FC = () => {
               return (
                 <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                   <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-green-400 to-emerald-500">
+                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-accent-green to-primary">
                       {substituteTutor1AvatarUrl ? (
                         <img 
                           src={substituteTutor1AvatarUrl} 
@@ -1046,7 +1046,7 @@ const ContractDetail: React.FC = () => {
               return (
                 <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
                   <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-blue-400 to-cyan-500">
+                    <div className="w-16 h-16 rounded-3xl flex items-center justify-center shadow-lg overflow-hidden bg-gradient-to-br from-primary to-primary-light">
                       {substituteTutor2AvatarUrl ? (
                         <img 
                           src={substituteTutor2AvatarUrl} 
@@ -1063,7 +1063,7 @@ const ContractDetail: React.FC = () => {
                       <User className={`w-8 h-8 text-white ${substituteTutor2AvatarUrl ? 'hidden' : ''}`} />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-1">
+                      <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
                         Substitute Tutor 2
                       </p>
                       <h2 className="text-2xl font-bold text-gray-900">
@@ -1094,7 +1094,7 @@ const ContractDetail: React.FC = () => {
                   onClick={() => setActiveTab(tab.key as any)}
                   className={`flex items-center space-x-2 py-3 px-6 rounded-2xl font-bold text-sm transition-all duration-300 transform hover:scale-105 ${
                     activeTab === tab.key
-                      ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg'
+                      ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg'
                       : 'bg-white/50 text-gray-600 hover:bg-white hover:text-gray-800'
                   }`}
                 >
@@ -1186,7 +1186,7 @@ const ContractDetail: React.FC = () => {
                     <button
                       onClick={handlePayment}
                       disabled={isCreatingPayment}
-                      className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed justify-center font-bold"
+                      className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-2xl hover:from-primary-dark hover:to-primary transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed justify-center font-bold"
                     >
                       {isCreatingPayment ? (
                         <>

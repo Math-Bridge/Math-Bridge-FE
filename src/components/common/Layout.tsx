@@ -36,7 +36,7 @@ const Layout: React.FC = () => {
               alt="Mathematics and equations"
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-blue-900 bg-opacity-20"></div>
+            <div className="absolute inset-0 bg-primary-dark bg-opacity-20"></div>
             <div className="absolute inset-0 flex items-center justify-center animate-slide-in-left">
               <div className="text-white text-center">
                 <div className="text-8xl mb-4 animate-bounce-slow">∫</div>
@@ -70,7 +70,7 @@ const Layout: React.FC = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {!shouldHideHeader && <Header />}
       
-      <main className={`flex-1 ${shouldHideHeader ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 math-bg-pattern'}`}>
+      <main className="flex-1">
         <Outlet />
       </main>
       
@@ -81,5 +81,4 @@ const Layout: React.FC = () => {
     </div>
   );
 };
-
 export default Layout;

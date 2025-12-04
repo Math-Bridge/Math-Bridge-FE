@@ -133,7 +133,7 @@ const TopUpComponent: React.FC = () => {
   if (paymentResponse) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        <div className="max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
           <button
             onClick={() => {
               setPaymentResponse(null);
@@ -189,20 +189,20 @@ const TopUpComponent: React.FC = () => {
                 </div>
 
                 {/* Current Balance */}
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
+                <div className="p-6 bg-gradient-to-br from-primary/10 to-primary-dark/10 rounded-2xl border-2 border-primary/30">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-blue-700 flex items-center gap-2">
+                      <p className="text-sm font-medium text-primary-dark flex items-center gap-2">
                         <Wallet className="w-5 h-5" />
                         Current Balance
                       </p>
-                      <p className="text-3xl font-bold text-blue-900 mt-2">
+                      <p className="text-3xl font-bold text-primary-dark mt-2">
                         {formatCurrency(walletBalance)}
                       </p>
                     </div>
-                    <RefreshCw className="w-6 h-6 text-blue-600 animate-spin" />
+                    <RefreshCw className="w-6 h-6 text-primary animate-spin" />
                   </div>
-                  <p className="text-xs text-blue-600 mt-2">Auto-updated every 5s</p>
+                  <p className="text-xs text-primary mt-2">Auto-updated every 5s</p>
                 </div>
               </div>
 
@@ -239,12 +239,12 @@ const TopUpComponent: React.FC = () => {
                     {item.copy && (
                       <button
                         onClick={() => handleCopy(item.value, item.copy!)}
-                        className="ml-4 p-3 rounded-xl bg-white border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all group-hover:shadow-md"
+                        className="ml-4 p-3 rounded-xl bg-white border-2 border-gray-200 hover:border-primary hover:bg-primary/10 transition-all group-hover:shadow-md"
                       >
                         {copiedField === item.copy ? (
                           <CheckCircle className="w-5 h-5 text-emerald-600" />
                         ) : (
-                          <Copy className="w-5 h-5 text-gray-500 group-hover:text-blue-600" />
+                          <Copy className="w-5 h-5 text-gray-500 group-hover:text-primary" />
                         )}
                       </button>
                     )}

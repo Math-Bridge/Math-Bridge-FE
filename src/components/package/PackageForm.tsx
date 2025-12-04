@@ -151,7 +151,7 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600">
+        <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-light p-6 rounded-t-3xl border-b-2 border-primary">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">
               {course ? 'Edit Package' : 'Create New Package'}
@@ -177,7 +177,7 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
                   value={formData.center_id}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-4 focus:ring-primary/20 transition-all outline-none"
                 >
                   <option value="">Select a center</option>
                   {centers.map(center => (
@@ -359,7 +359,7 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-primary to-primary-light text-white font-semibold rounded-xl hover:from-primary-dark hover:to-primary transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <>

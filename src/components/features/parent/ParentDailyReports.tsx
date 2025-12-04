@@ -94,7 +94,8 @@ const ParentDailyReports: React.FC = () => {
             status: child.Status || child.status || 'active',
           }));
         setChildren(mappedChildren);
-        if (mappedChildren.length === 1) {
+        // Auto-select first child if there are any children
+        if (mappedChildren.length > 0) {
           setSelectedChildId(mappedChildren[0].childId);
         }
       }
@@ -221,7 +222,7 @@ const ParentDailyReports: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -230,7 +231,7 @@ const ParentDailyReports: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
@@ -250,7 +251,7 @@ const ParentDailyReports: React.FC = () => {
         {children.length > 0 && (
           <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-6 mb-6 backdrop-blur-sm">
             <div className="flex items-center space-x-2 mb-3">
-              <User className="w-5 h-5 text-blue-600" />
+              <User className="w-5 h-5 text-primary" />
               <label className="block text-sm font-semibold text-gray-800">
                 Select Child
               </label>
@@ -258,7 +259,7 @@ const ParentDailyReports: React.FC = () => {
             <select
               value={selectedChildId || ''}
               onChange={(e) => setSelectedChildId(e.target.value || null)}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-gray-900 font-medium"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white text-gray-900 font-medium"
             >
               <option value="">-- Select a child --</option>
               {children.map((child) => (
@@ -273,7 +274,7 @@ const ParentDailyReports: React.FC = () => {
         {!selectedChildId ? (
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200/50 p-16 text-center backdrop-blur-sm">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full mb-6">
-              <FileText className="w-10 h-10 text-blue-600" />
+              <FileText className="w-10 h-10 text-primary" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-3">No Child Selected</h3>
             <p className="text-gray-600 text-lg">Please select a child to view their learning progress and daily reports</p>
@@ -332,7 +333,7 @@ const ParentDailyReports: React.FC = () => {
 
             {/* Learning Forecast */}
             {forecast && (
-              <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl shadow-md border-2 border-blue-200/50 p-8 mb-6 backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-primary/10 via-primary-dark/10 to-primary/10 rounded-2xl shadow-md border-2 border-primary/30 p-8 mb-6">
                 <div className="flex items-center space-x-3 mb-6">
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
                     <TrendingUp className="w-6 h-6 text-white" />
@@ -362,7 +363,7 @@ const ParentDailyReports: React.FC = () => {
                   </div>
                 </div>
                 {forecast.message && (
-                  <div className="mt-6 p-4 bg-blue-100/50 rounded-xl border border-blue-200/50">
+                  <div className="mt-6 p-4 bg-primary/20 rounded-xl border-2 border-primary/30">
                     <p className="text-sm text-gray-700 font-medium">{forecast.message}</p>
                   </div>
                 )}

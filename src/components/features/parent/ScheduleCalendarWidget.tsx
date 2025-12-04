@@ -46,8 +46,8 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
           }));
         setChildren(mappedChildren);
 
-        // Auto-select first child if only one child
-        if (mappedChildren.length === 1) {
+        // Auto-select first child if there are any children
+        if (mappedChildren.length > 0) {
           setSelectedChildId(mappedChildren[0].childId);
         }
       }
@@ -168,7 +168,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
         return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'scheduled':
       default:
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-primary/20 text-primary-dark border-primary/40';
     }
   };
 
@@ -224,7 +224,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
   if (loading || loadingSessions) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -235,7 +235,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Calendar className="w-5 h-5 text-blue-600 mr-2" />
+            <Calendar className="w-5 h-5 text-primary mr-2" />
             Schedule
           </h3>
           <div className="flex items-center gap-2 flex-wrap">
@@ -244,7 +244,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
                 <select
                   value={selectedChildId || ''}
                   onChange={(e) => setSelectedChildId(e.target.value || null)}
-                  className="appearance-none bg-white border border-gray-300 rounded-lg px-3 py-1.5 pr-8 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer hover:border-gray-400 transition-colors"
+                  className="appearance-none bg-white border-2 border-gray-300 rounded-lg px-3 py-1.5 pr-8 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary cursor-pointer hover:border-gray-400 transition-colors"
                 >
                   <option value="">Select child...</option>
                   {children.map((child) => (

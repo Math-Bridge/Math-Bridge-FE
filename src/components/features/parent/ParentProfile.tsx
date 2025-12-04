@@ -587,15 +587,15 @@ const ParentProfile: React.FC = () => {
   }, [user?.id, location.state, fetchUserData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Profile Setup Banner */}
         {showLocationBanner && (
-          <div className="mb-6 bg-blue-50 border-l-4 border-blue-600 p-4 rounded-lg shadow-sm animate-fade-in">
+          <div className="mb-6 bg-primary/10 border-l-4 border-primary p-4 rounded-lg shadow-sm animate-fade-in">
             <div className="flex items-start">
-              <AlertCircle className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-6 h-6 text-primary mr-3 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-blue-900 mb-1">
+                <h3 className="text-lg font-semibold text-primary-dark mb-1">
                   {(() => {
                     const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
                     if (state?.needsLocation && state?.needsPhone) {
@@ -608,7 +608,7 @@ const ParentProfile: React.FC = () => {
                     return 'Welcome! Please complete your profile';
                   })()}
                 </h3>
-                <p className="text-blue-800 text-sm">
+                <p className="text-primary-dark text-sm">
                   {(() => {
                     const state = location.state as { needsLocation?: boolean; needsPhone?: boolean } | null;
                     if (state?.needsLocation && state?.needsPhone) {
@@ -624,7 +624,7 @@ const ParentProfile: React.FC = () => {
               </div>
               <button
                 onClick={() => setShowLocationBanner(false)}
-                className="text-blue-600 hover:text-blue-800 transition-colors ml-2"
+                className="text-primary hover:text-primary-dark transition-colors ml-2"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -641,7 +641,7 @@ const ParentProfile: React.FC = () => {
         {/* Loading State */}
         {isFetching && (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         )}
 
@@ -656,7 +656,7 @@ const ParentProfile: React.FC = () => {
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                       activeTab === 'profile'
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'bg-primary/10 text-primary-dark'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -671,7 +671,7 @@ const ParentProfile: React.FC = () => {
                     onClick={() => setActiveTab('security')}
                     className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all mt-2 ${
                       activeTab === 'security'
-                        ? 'bg-blue-50 text-blue-700'
+                        ? 'bg-primary/10 text-primary-dark'
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -720,7 +720,7 @@ const ParentProfile: React.FC = () => {
                         {formData.name?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                       {isEditing && (
-                        <label className={`absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <label className={`absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary-dark transition-colors ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
                           {isUploadingAvatar ? (
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                           ) : (
@@ -758,7 +758,7 @@ const ParentProfile: React.FC = () => {
                           disabled={!isEditing}
                           className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
                             isEditing
-                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              ? 'border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
                               : 'border-slate-200 bg-slate-50 text-slate-600'
                           } transition-colors`}
                           placeholder="Enter your full name"
@@ -797,7 +797,7 @@ const ParentProfile: React.FC = () => {
                           disabled={!isEditing}
                           className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
                             isEditing
-                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              ? 'border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
                               : 'border-slate-200 bg-slate-50 text-slate-600'
                           } transition-colors`}
                           placeholder="Enter your phone number"
@@ -824,7 +824,7 @@ const ParentProfile: React.FC = () => {
                           disabled={!isEditing}
                           className={`w-full pl-10 pr-4 py-3 border rounded-xl ${
                             isEditing
-                              ? 'border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
+                              ? 'border-slate-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
                               : 'border-slate-200 bg-slate-50 text-slate-600'
                           } transition-colors`}
                           placeholder="Start typing your address..."
@@ -835,7 +835,7 @@ const ParentProfile: React.FC = () => {
                           <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto">
                             {isLoadingLocation ? (
                               <div className="p-4 text-center text-slate-500">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
                                 <p className="mt-2 text-sm">Searching...</p>
                               </div>
                             ) : locationPredictions.length > 0 ? (
@@ -843,10 +843,10 @@ const ParentProfile: React.FC = () => {
                                 <button
                                   key={prediction.placeId}
                                   onClick={() => handleLocationSelect(prediction)}
-                                  className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-slate-100 last:border-b-0"
+                                  className="w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors border-b border-slate-100 last:border-b-0"
                                 >
                                   <div className="flex items-start">
-                                    <MapPin className="w-4 h-4 text-blue-600 mt-1 mr-2 flex-shrink-0" />
+                                    <MapPin className="w-4 h-4 text-primary mt-1 mr-2 flex-shrink-0" />
                                     <div>
                                       <p className="text-slate-900 font-medium">{prediction.mainText}</p>
                                       <p className="text-sm text-slate-500">{prediction.secondaryText}</p>
@@ -875,7 +875,7 @@ const ParentProfile: React.FC = () => {
                     {!isEditing ? (
                       <button
                         onClick={handleEdit}
-                        className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+                        className="flex items-center px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors"
                       >
                         <Edit2 className="w-5 h-5 mr-2" />
                         Edit Profile

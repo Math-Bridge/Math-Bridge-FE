@@ -1,6 +1,7 @@
 // src/context/NotificationContext.tsx
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { apiService, Notification } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -22,15 +23,22 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true); // Bắt đầu là true để tránh flash
+  const [loading, setLoading] = useState<boolean>(false); // Start as false, only set true when fetching
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const pageSize = 10;
 
   const fetchUnreadCount = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!isAuthenticated) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
       const response = await apiService.getUnreadCount();
       let count = 0;
@@ -41,10 +49,19 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
       setUnreadCount(count);
     } catch (error) {
       console.error('Error fetching unread count:', error);
+      setUnreadCount(0);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchNotifications = useCallback(async () => {
+    // Only fetch if user is authenticated
+    if (!isAuthenticated) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       let response;
@@ -81,7 +98,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage]);
+  }, [isAuthenticated, activeTab, currentPage]);
 
   const markAsRead = useCallback(async (id: string) => {
     try {
@@ -130,17 +147,23 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const goToPage = useCallback((page: number) => setCurrentPage(page), []);
 
-  // CHỈNH SỬA CHÍNH TẠI ĐÂY: Gọi fetchNotifications ngay khi mount (để có dữ liệu thật)
+  // Only fetch notifications when user is authenticated
   useEffect(() => {
-    fetchNotifications(); 
+    if (isAuthenticated) {
+      fetchNotifications();
+      
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30_000);
 
-
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30_000);
-
-    return () => clearInterval(interval);
-  }, [fetchNotifications, fetchUnreadCount]); 
+      return () => clearInterval(interval);
+    } else {
+      // Clear notifications when user logs out
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+    }
+  }, [isAuthenticated, fetchNotifications, fetchUnreadCount]); 
 
   return (
     <NotificationContext.Provider value={{

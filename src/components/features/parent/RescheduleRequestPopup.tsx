@@ -385,8 +385,8 @@ const errorMessage = error instanceof Error ? error.message : 'Failed to submit 
         {/* Current Session Info */}
         <div className="p-6 bg-gray-50">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">Current Session</h3>

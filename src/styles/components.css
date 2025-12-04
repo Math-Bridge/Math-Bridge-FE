@@ -1,15 +1,46 @@
 /* Component styles */
 @layer components {
   .btn-primary {
-    @apply bg-blue-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-lg hover:shadow-xl;
+    @apply text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-lg hover:shadow-xl;
+    background-color: #0A5E7B;
+  }
+  
+  .btn-primary:hover {
+    background-color: #11113C;
+  }
+  
+  .btn-primary:focus {
+    --tw-ring-color: #0A5E7B;
   }
   
   .btn-secondary {
-    @apply bg-white text-blue-900 px-6 py-3 rounded-lg font-medium border border-blue-300 hover:bg-blue-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    @apply bg-white px-6 py-3 rounded-lg font-medium border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    color: #11113C;
+    border-color: #0A5E7B;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #F8E5CB;
+  }
+  
+  .btn-secondary:focus {
+    --tw-ring-color: #0A5E7B;
   }
   
   .form-input {
-    @apply w-full px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white text-gray-900 placeholder-gray-500;
+    @apply w-full px-4 py-3 rounded-lg focus:ring-2 transition-all duration-200 bg-white text-gray-900 placeholder-gray-600 border-2;
+    border-color: rgba(10, 94, 123, 0.6);
+  }
+  
+  .form-input:focus {
+    --tw-ring-color: #0A5E7B;
+    border-color: #0A5E7B;
+    outline: none;
+  }
+  
+  .form-input::placeholder {
+    color: #6B7280;
+    opacity: 1;
   }
   
   .form-label {
@@ -17,11 +48,14 @@
   }
   
   .card {
-    @apply bg-white rounded-xl shadow-xl border border-blue-100 p-8 backdrop-blur-sm;
+    @apply bg-white rounded-xl shadow-xl p-8 backdrop-blur-sm;
+    border-color: rgba(10, 94, 123, 0.2);
+    border-width: 1px;
   }
   
   .page-title {
-    @apply text-3xl font-bold text-gray-900 mb-2;
+    @apply text-3xl font-bold mb-2;
+    color: #11113C;
   }
   
   .page-subtitle {
@@ -29,11 +63,17 @@
   }
   
   .link {
-    @apply text-blue-900 hover:text-blue-700 transition-colors duration-200 font-medium;
+    @apply transition-colors duration-200 font-medium;
+    color: #11113C;
+  }
+  
+  .link:hover {
+    color: #0A5E7B;
   }
   
   .error-message {
-    @apply text-red-600 text-sm mt-1;
+    @apply text-sm mt-1;
+    color: #F20231;
   }
   
   .success-message {
@@ -41,14 +81,21 @@
   }
   
   .math-symbol {
-    @apply text-blue-300 opacity-20 absolute pointer-events-none select-none;
+    @apply opacity-20 absolute pointer-events-none select-none;
+    color: rgba(10, 94, 123, 0.3);
   }
   
   .stat-card {
-    @apply bg-white rounded-lg shadow-md border border-blue-100 p-6 hover:shadow-lg transition-shadow duration-200;
+    @apply bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-200;
+    border-color: rgba(10, 94, 123, 0.2);
+    border-width: 1px;
   }
   
   .activity-item {
-    @apply flex items-start space-x-3 p-3 rounded-lg hover:bg-blue-50 transition-colors duration-200;
+    @apply flex items-start space-x-3 p-3 rounded-lg transition-colors duration-200;
+  }
+  
+  .activity-item:hover {
+    background-color: #F8E5CB;
   }
 }

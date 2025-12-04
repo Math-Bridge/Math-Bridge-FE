@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Users, Plus, BookOpen, Sparkles } from "lucide-react";
+import { Users, Plus, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ChildrenList from "../../children/ChildrenList";
 import ChildForm from "../../children/ChildForm";
@@ -126,87 +126,78 @@ const MyChildren: React.FC = () => {
 
   return (
     <>
-      {/* Background */}
+      {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 animate-gradient" />
-        <div className="absolute inset-0 bg-gradient-to-tl from-indigo-100/20 via-transparent to-emerald-100/20 animate-gradient-reverse" />
+        <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
         <div className="absolute inset-0 pointer-events-none">
-          {[...Array(10)].map((_, i) => (
+          {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className="absolute text-cyan-300/10 text-6xl font-black select-none animate-float"
+              className="absolute text-primary/15 text-7xl font-light select-none animate-float"
               style={{
-                left: `${15 + ((i * 60) % 80)}%`,
-                top: `${20 + ((i * 45) % 75)}%`,
-                animationDelay: `${i * 2.5}s`,
+                left: `${10 + (i * 70) % 85}%`,
+                top: `${15 + (i * 55) % 80}%`,
+                animationDelay: `${i * 3}s`,
               }}
             >
-              {i % 4 === 0 ? "π" : i % 3 === 0 ? "∞" : i % 2 === 0 ? "∑" : "∫"}
+              {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="min-h-screen py-8 px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Hero */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 mb-10 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-700 via-cyan-700 to-teal-700 p-10 text-white">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8">
-                <div className="max-w-2xl">
-                  <h1 className="text-4xl font-bold mb-2 flex items-center gap-4">
-                    <Users className="h-12 w-12" />
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+          {/* Hero Header */}
+          <div className="mb-12 sm:mb-16">
+            <div className="bg-gradient-to-r from-primary-dark via-primary to-primary-light rounded-2xl shadow-math-lg overflow-hidden">
+              <div className="p-8 sm:p-12">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                  <div className="text-white">
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold mb-3 leading-tight flex items-center gap-4">
+                      <Users className="h-10 w-10 sm:h-12 sm:w-12" />
                     My Children
                   </h1>
-                  <p className="text-xl opacity-95 leading-relaxed">
+                    <p className="text-lg sm:text-xl opacity-95 mb-2">
                     Manage your children's learning profiles with ease
                   </p>
-                  <p className="text-sm opacity-70 mt-3">
+                    <p className="text-base opacity-80">
                     Add, edit, and track academic progress in one beautiful dashboard
                   </p>
                 </div>
 
                 <button
                   onClick={handleAddChild}
-                  className="group relative px-10 py-5 bg-white text-cyan-600 font-bold text-lg rounded-2xl shadow-xl 
-                    border border-cyan-200/50 backdrop-blur-sm overflow-hidden transition-all duration-400 ease-out
-                    hover:shadow-2xl hover:shadow-cyan-500/30 hover:bg-cyan-50 hover:border-cyan-300 hover:rotate-1 transform-gpu
-                    flex items-center gap-3 whitespace-nowrap"
+                    className="group px-6 py-3 bg-white text-primary font-bold rounded-xl shadow-lg hover:shadow-xl hover:bg-background-cream transition-all flex items-center gap-2 whitespace-nowrap"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 
-                    opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  <Plus className="h-7 w-7 relative z-10 transition-transform duration-300 group-hover:translate-x-1" />
-                  <span className="relative z-10">Add New Child</span>
-                  <Sparkles className="h-6 w-6 relative z-10 opacity-70 transition-opacity duration-300 group-hover:opacity-100" />
+                    <Plus className="h-5 w-5 group-hover:rotate-90 transition-transform" />
+                    Add New Child
                 </button>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Children List */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 p-8">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
               <div>
-                <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <BookOpen className="h-9 w-9 text-cyan-600" />
+                <h2 className="text-3xl sm:text-4xl font-bold text-primary-dark flex items-center gap-3 mb-2">
+                  <BookOpen className="h-8 w-8 sm:h-9 sm:w-9 text-primary" />
                   Children's Profiles
                 </h2>
-                <p className="text-gray-600 mt-2 text-lg">
+                <p className="text-gray-600 text-lg">
                   Click on any profile to view details or edit information
                 </p>
               </div>
             </div>
 
-            <div className="relative rounded-xl overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent 
-                translate-x-[-100%] animate-shimmer" />
               <ChildrenList
                 key={refreshKey}
                 onEditChild={handleEditChild}
                 onDeleteChild={handleDelete}
                 onRestoreChild={handleRestore}
               />
-            </div>
           </div>
 
           {/* Child Form Modal */}
@@ -246,19 +237,13 @@ const MyChildren: React.FC = () => {
         disabled={isRestoring}
       />
 
-      {/* ANIMATIONS */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          @keyframes gradient { 0%, 100% { transform: translateX(-5%) translateY(-5%); } 50% { transform: translateX(5%) translateY(5%); } }
-          @keyframes gradient-reverse { 0%, 100% { transform: translateX(5%) translateY(5%); } 50% { transform: translateX(-5%) translateY(-5%); } }
-          @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-30px) rotate(8deg); } }
-          @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-          .animate-gradient { animation: gradient 30s ease infinite; }
-          .animate-gradient-reverse { animation: gradient-reverse 35s ease infinite; }
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
           .animate-float { animation: float 25s linear infinite; }
-          .animate-shimmer { animation: shimmer 4s infinite; }
-        `,
-      }} />
+      `}} />
     </>
   );
 };

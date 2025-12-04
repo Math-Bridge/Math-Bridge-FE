@@ -3,7 +3,6 @@ import {
   BookOpen,
   Plus,
   Filter,
-  Sparkles,
   Search,
   X,
   ChevronLeft,
@@ -185,18 +184,34 @@ const PackageList: React.FC<PackageListProps> = ({
   // Loading State
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-8">
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+          <div className="absolute inset-0 pointer-events-none">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+                style={{
+                  left: `${10 + (i * 70) % 85}%`,
+                  top: `${15 + (i * 55) % 80}%`,
+                  animationDelay: `${i * 3}s`,
+                }}
+              >
+                {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
         <div className="text-center">
           <div className="relative mb-8">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-600 rounded-3xl blur-3xl opacity-50 animate-pulse"></div>
-            <div className="relative w-32 h-32 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-2xl animate-bounce">
+              <div className="relative w-32 h-32 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-math-lg animate-bounce">
               <BookOpen className="w-16 h-16 text-white" />
             </div>
-            <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-xl animate-spin">
-              <Sparkles className="w-8 h-8 text-white" />
             </div>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-3">
+            <h2 className="text-3xl font-bold text-primary-dark mb-3">
             Discovering Amazing Packages
           </h2>
           <p className="text-lg text-gray-600">
@@ -204,47 +219,84 @@ const PackageList: React.FC<PackageListProps> = ({
           </p>
         </div>
       </div>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px); }
+          }
+          .animate-float { animation: float 25s linear infinite; }
+        `}} />
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center p-8">
-        <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl border border-red-200 p-12 max-w-md text-center">
-          <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-6">
+      <>
+        {/* Subtle Animated Background */}
+        <div className="fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+        </div>
+        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12 max-w-md text-center">
+          <div className="w-24 h-24 bg-gradient-to-br from-accent-red to-accent-orange rounded-full flex items-center justify-center mx-auto mb-6">
             <X className="w-12 h-12 text-white" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">Oops!</h3>
+            <h3 className="text-2xl font-bold text-primary-dark mb-3">Oops!</h3>
           <p className="text-gray-600 mb-8">{error}</p>
           <button
             onClick={fetchCourses}
-            className="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white font-bold rounded-2xl hover:shadow-xl transform hover:scale-105 transition-all"
+              className="px-8 py-4 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg"
           >
             Try Again
           </button>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      {/* Subtle Animated Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
+        <div className="absolute inset-0 pointer-events-none">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-primary/15 text-7xl font-light select-none animate-float"
+              style={{
+                left: `${10 + (i * 70) % 85}%`,
+                top: `${15 + (i * 55) % 80}%`,
+                animationDelay: `${i * 3}s`,
+              }}
+            >
+              {i % 4 === 0 ? 'π' : i % 3 === 0 ? '∑' : i % 2 === 0 ? '∫' : '∞'}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
       {/* Hero Header */}
-      <div className="bg-white border border-emerald-100 rounded-2xl shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-300 p-8">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="mb-12">
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
+              <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 sm:p-10">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div className="text-white">
-              <h1 className="text-4xl font-bold mb-2">
+                    <h1 className="text-4xl sm:text-5xl font-bold mb-3">
                 {centerId ? "Center Packages" : "Explore Premium Packages"}
               </h1>
-              <p className="text-lg opacity-95">
+                    <p className="text-lg sm:text-xl opacity-95 mb-4">
                 Unlock your child's potential with our curated programs
               </p>
-              <div className="mt-4 flex items-center gap-3">
-                <span className="text-3xl font-bold">
+                    <div className="flex items-center gap-3">
+                      <span className="text-4xl font-bold">
                   {courses.length}
                 </span>
-                <span className="text-base opacity-90">Total Packages</span>
+                      <span className="text-lg opacity-90">Total Packages</span>
               </div>
             </div>
 
@@ -255,19 +307,19 @@ const PackageList: React.FC<PackageListProps> = ({
                     ? onCreatePackage()
                     : navigate("/packages/create")
                 }
-                className="group px-6 py-3 bg-white text-emerald-600 font-bold rounded-xl shadow-md hover:shadow-lg hover:bg-emerald-50 transition-all flex items-center gap-2"
+                      className="group px-6 py-3 bg-white text-primary font-bold rounded-xl shadow-math hover:shadow-math-lg hover:bg-background-cream transition-all flex items-center gap-2"
               >
                 <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
                 Add New Package
               </button>
             )}
+                </div>
           </div>
         </div>
       </div>
 
       {/* Filters + Search */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -276,12 +328,12 @@ const PackageList: React.FC<PackageListProps> = ({
                 placeholder="Search packages by name or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-gray-800"
+                className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all text-gray-800"
               />
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-2xl border border-gray-200">
+              <div className="flex items-center gap-2 bg-gray-50 px-4 py-3 rounded-xl border-2 border-gray-200">
                 <Filter className="w-5 h-5 text-gray-500" />
                 <select
                   value={categoryFilter}
@@ -299,7 +351,7 @@ const PackageList: React.FC<PackageListProps> = ({
               <select
                 value={levelFilter}
                 onChange={(e) => setLevelFilter(e.target.value)}
-                className="px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-gray-700 font-medium"
+                className="px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all text-gray-700 font-medium"
               >
                 {levels.map((level) => (
                   <option key={level} value={level}>
@@ -311,7 +363,7 @@ const PackageList: React.FC<PackageListProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-5 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all text-gray-700 font-medium"
+                className="px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all text-gray-700 font-medium"
               >
                 {statuses.map((status) => (
                   <option key={status} value={status}>
@@ -326,18 +378,18 @@ const PackageList: React.FC<PackageListProps> = ({
         {/* Results Info + Pagination Top */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-600 font-medium">
-            Showing <span className="font-bold text-emerald-600">{startIndex}–{endIndex}</span> of{" "}
-            <span className="font-bold text-emerald-600">{courses.length}</span> packages
+            Showing <span className="font-bold text-primary">{startIndex}–{endIndex}</span> of{" "}
+            <span className="font-bold text-primary">{courses.length}</span> packages
           </p>
         </div>
 
         {/* Packages Grid */}
         {courses.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-20 text-center">
-            <div className="w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full flex items-center justify-center mx-auto mb-8">
-              <BookOpen className="w-16 h-16 text-indigo-600" />
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-20 text-center">
+              <div className="w-32 h-32 bg-gradient-to-br from-primary/20 to-primary-dark/20 rounded-full flex items-center justify-center mx-auto mb-8">
+                <BookOpen className="w-16 h-16 text-primary" />
             </div>
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">
+              <h3 className="text-3xl font-bold text-primary-dark mb-4">
               No packages yet
             </h3>
             <p className="text-xl text-gray-600 mb-10">
@@ -346,16 +398,16 @@ const PackageList: React.FC<PackageListProps> = ({
             {isAdmin && (
               <button
                 onClick={() => onCreatePackage?.() || navigate("/packages/create")}
-                className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-lg rounded-2xl hover:shadow-2xl transform hover:scale-105 transition-all"
+                  className="px-10 py-5 bg-primary text-white font-bold text-lg rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg"
               >
                 Create First Package
               </button>
             )}
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="text-center py-20">
+            <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12 text-center">
             <BookOpen className="w-20 h-20 text-gray-300 mx-auto mb-6" />
-            <h3 className="text-2xl font-bold text-gray-700">No packages match your filters</h3>
+              <h3 className="text-2xl font-bold text-primary-dark">No packages match your filters</h3>
             <p className="text-gray-500 mt-3">Try adjusting your search or filters</p>
           </div>
         ) : (
@@ -394,7 +446,7 @@ const PackageList: React.FC<PackageListProps> = ({
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="p-3 rounded-xl border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all flex items-center gap-2 font-medium"
+                  className="p-3 rounded-xl border-2 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all flex items-center gap-2 font-medium"
                 >
                   <ChevronLeft className="w-5 h-5" /> Previous
                 </button>
@@ -406,8 +458,8 @@ const PackageList: React.FC<PackageListProps> = ({
                       onClick={() => setCurrentPage(page)}
                       className={`w-12 h-12 rounded-xl font-bold transition-all ${
                         currentPage === page
-                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                          ? "bg-primary text-white shadow-math"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-200"
                       }`}
                     >
                       {page}
@@ -418,7 +470,7 @@ const PackageList: React.FC<PackageListProps> = ({
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-3 rounded-xl border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all flex items-center gap-2 font-medium"
+                  className="p-3 rounded-xl border-2 border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all flex items-center gap-2 font-medium"
                 >
                   Next <ChevronRight className="w-5 h-5" />
                 </button>
@@ -427,13 +479,22 @@ const PackageList: React.FC<PackageListProps> = ({
 
             {/* Bottom Results Info */}
             <div className="text-center mt-8 text-gray-500 text-sm">
-              Page <span className="font-bold text-emerald-600">{currentPage}</span> of{" "}
+              Page <span className="font-bold text-primary">{currentPage}</span> of{" "}
               <span className="font-bold">{totalPages}</span>
             </div>
           </>
         )}
       </div>
     </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-30px); }
+        }
+        .animate-float { animation: float 25s linear infinite; }
+      `}} />
+    </>
   );
 };
 

@@ -281,9 +281,9 @@ const ContractsManagement: React.FC = () => {
 
   const getStatusConfig = (status: string) => {
     const config = {
-      active: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: CheckCircle, label: 'Active' },
+      active: { bg: 'bg-primary/10', text: 'text-primary-dark', border: 'border-primary/30', icon: CheckCircle, label: 'Active' },
       pending: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: Clock, label: 'Pending' },
-      completed: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: CheckCircle, label: 'Completed' },
+      completed: { bg: 'bg-primary/10', text: 'text-primary-dark', border: 'border-primary/30', icon: CheckCircle, label: 'Completed' },
       cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle, label: 'Cancelled' },
       unpaid: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: AlertCircle, label: 'Unpaid' },
     };
@@ -442,8 +442,8 @@ const ContractsManagement: React.FC = () => {
   // SKELETON LOADING
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50">
-        <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
           <div className="animate-pulse">
             <div className="h-10 bg-gray-200 rounded-xl w-64 mb-8"></div>
             <div className="space-y-6">
@@ -451,7 +451,7 @@ const ContractsManagement: React.FC = () => {
                 <div key={i} className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/50">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center space-x-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-emerald-200 to-blue-200 rounded-2xl"></div>
+                      <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-primary-dark/20 rounded-2xl"></div>
                       <div>
                         <div className="h-6 bg-gray-200 rounded-lg w-48 mb-2"></div>
                         <div className="h-4 bg-gray-200 rounded w-64"></div>
@@ -474,15 +474,15 @@ const ContractsManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
 
         {/* GỘP HEADER + FILTER – 1 KHỐI DUY NHẤT */}
         <div className="bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 p-8 mb-10 overflow-hidden">
           {/* HEADER */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
                 My Learning Contracts
               </h1>
               <p className="text-lg text-gray-600 flex items-center gap-2">
@@ -491,7 +491,7 @@ const ContractsManagement: React.FC = () => {
               </p>
               <div className="mt-3 flex items-center gap-6 text-sm">
                 <span className="font-semibold text-gray-700">{contracts.length} Total</span>
-                <span className="text-emerald-600 font-bold">
+                <span className="text-primary font-bold">
                   {contracts.filter(c => c.status === 'active').length} Active
                 </span>
               </div>
@@ -499,7 +499,7 @@ const ContractsManagement: React.FC = () => {
 
  <button
   onClick={handleCreateContract}
-  className="group relative px-8 py-4 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform transition-all duration-500 flex items-center gap-3 overflow-hidden lg:self-end origin-bottom-right hover:rotate-1 hover:scale-105"
+  className="group relative px-8 py-4 bg-gradient-to-r from-primary to-primary-dark text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform transition-all duration-500 flex items-center gap-3 overflow-hidden lg:self-end origin-bottom-right hover:rotate-1 hover:scale-105"
 >
   <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500"></div>
   <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
@@ -525,7 +525,7 @@ const ContractsManagement: React.FC = () => {
                     onClick={() => setFilter(tab.key as any)}
                     className={`px-5 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow-md transform hover:-translate-y-0.5 ${
                       filter === tab.key
-                        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white shadow-lg scale-105'
+                        ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
                         : 'bg-white/70 text-gray-700 hover:bg-white'
                     }`}
                   >
@@ -538,11 +538,11 @@ const ContractsManagement: React.FC = () => {
 
             {children.length > 0 && (
               <div className="flex items-center gap-3">
-                <Users className="w-5 h-5 text-emerald-600" />
+                <Users className="w-5 h-5 text-primary" />
                 <select
                   value={selectedChildId}
                   onChange={(e) => setSelectedChildId(e.target.value)}
-                  className="px-5 py-3 bg-white/90 backdrop-blur-sm border-2 border-emerald-200 rounded-2xl text-sm font-semibold text-gray-800 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-300 cursor-pointer min-w-[200px] shadow-sm"
+                  className="px-5 py-3 bg-white/90 backdrop-blur-sm border-2 border-primary/40 rounded-2xl text-sm font-semibold text-gray-800 focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all duration-300 cursor-pointer min-w-[200px] shadow-sm"
                 >
                   <option value="all">All Children ({filteredContracts.length})</option>
                   {children.map(child => {
@@ -574,12 +574,12 @@ const ContractsManagement: React.FC = () => {
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center gap-5">
                     <div className="relative">
-                      <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-3xl flex items-center justify-center shadow-lg">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
                         <FileText className="w-8 h-8 text-white" />
                       </div>
                       <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-md">
                         {contract.isOnline ? (
-                          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
                         ) : (
                           <MapPin className="w-3 h-3 text-red-500" />
                         )}
@@ -605,9 +605,9 @@ const ContractsManagement: React.FC = () => {
 
                 {/* INFO GRID */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                  <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl p-4 border border-emerald-100">
+                  <div className="bg-gradient-to-r from-primary/10 to-accent-green/10 rounded-2xl p-4 border-2 border-primary/30">
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-emerald-600" />
+                      <Calendar className="w-5 h-5 text-primary" />
                       <div>
                         <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Start Date</p>
                         <p className="text-lg font-bold text-gray-900">
@@ -617,9 +617,9 @@ const ContractsManagement: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100">
+                  <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-2xl p-4 border-2 border-primary/30">
                     <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                      <Clock className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Schedule</p>
                         <p className="text-sm font-bold text-gray-900 truncate" title={contract.schedule}>{contract.schedule}</p>

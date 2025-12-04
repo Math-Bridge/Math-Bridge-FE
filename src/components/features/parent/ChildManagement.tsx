@@ -192,14 +192,14 @@ const ChildManagement: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -209,7 +209,7 @@ const ChildManagement: React.FC = () => {
             </div>
             <button
               onClick={handleAddChild}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors flex items-center space-x-2"
             >
               <Plus className="w-5 h-5" />
               <span>Add Child</span>
@@ -230,7 +230,7 @@ const ChildManagement: React.FC = () => {
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
                       <Users className="w-6 h-6 text-blue-600" />
                     </div>
                     <div>

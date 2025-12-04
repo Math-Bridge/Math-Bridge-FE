@@ -133,7 +133,7 @@ const ParentWallet: React.FC = () => {
       case 'refund':
         return <Wallet className="h-5 w-5 text-purple-500" />;
       default:
-        return <Wallet className="h-5 w-5 text-blue-500" />;
+        return <Wallet className="h-5 w-5 text-primary" />;
     }
   };
 
@@ -218,7 +218,7 @@ const ParentWallet: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading wallet...</p>
         </div>
       </div>
@@ -233,7 +233,7 @@ const ParentWallet: React.FC = () => {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
           >
             Try Again
           </button>
@@ -245,7 +245,7 @@ const ParentWallet: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Page Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>
@@ -266,7 +266,7 @@ const ParentWallet: React.FC = () => {
           </div>
           
           <div className="text-center">
-            <div className="text-4xl font-bold text-blue-600 mb-2">
+            <div className="text-4xl font-bold text-primary mb-2">
               {showBalance ? formatCurrency(balance) : '••••••••'}
             </div>
             <p className="text-gray-600">Available Balance</p>
@@ -292,15 +292,15 @@ const ParentWallet: React.FC = () => {
 
           <button
             onClick={() => navigate('/wallet/history')}
-            className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl border border-blue-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+            className="p-6 bg-gradient-to-r from-primary/10 to-primary/20 rounded-xl border-2 border-primary/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+              <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
                 <Wallet className="h-6 w-6 text-white" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-blue-900">Transaction History</h3>
-                <p className="text-sm text-blue-700">View all transactions</p>
+                <h3 className="font-semibold text-primary-dark">Transaction History</h3>
+                <p className="text-sm text-primary-dark">View all transactions</p>
               </div>
             </div>
           </button>

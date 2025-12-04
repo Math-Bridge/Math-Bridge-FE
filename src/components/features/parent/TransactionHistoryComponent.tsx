@@ -175,7 +175,7 @@ const TransactionHistoryComponent: React.FC = () => {
       case 'withdrawal':
         return <TrendingDown className="w-5 h-5 text-red-600" />;
       case 'payment':
-        return <CreditCard className="w-5 h-5 text-blue-600" />;
+        return <CreditCard className="w-5 h-5 text-primary" />;
       case 'refund':
         return <CheckCircle className="w-5 h-5 text-purple-600" />;
       default:
@@ -232,7 +232,7 @@ const TransactionHistoryComponent: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading transaction history...</p>
         </div>
       </div>
@@ -241,7 +241,7 @@ const TransactionHistoryComponent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         <button
           onClick={() => navigate('/wallet')}
           className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-6"
@@ -323,7 +323,7 @@ const TransactionHistoryComponent: React.FC = () => {
               {!searchTerm && typeFilter === 'all' && (
                 <button
                   onClick={() => navigate('/wallet/topup')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
                 >
                   Top Up Now
                 </button>
@@ -341,7 +341,7 @@ const TransactionHistoryComponent: React.FC = () => {
                       <div className="flex items-center space-x-4 flex-1">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                           transaction.type === 'deposit' ? 'bg-green-100' :
-                          transaction.type === 'payment' ? 'bg-blue-100' :
+                          transaction.type === 'payment' ? 'bg-primary/20' :
                           transaction.type === 'refund' ? 'bg-purple-100' :
                           'bg-red-100'
                         }`}>

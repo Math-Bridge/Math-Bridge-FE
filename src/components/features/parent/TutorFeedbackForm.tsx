@@ -188,8 +188,8 @@ const TutorFeedbackForm: React.FC<TutorFeedbackFormProps> = ({
         {/* Session Info */}
         <div className="p-6 bg-gray-50">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <User className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center">
+              <User className="w-6 h-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">{tutorName}</h3>
@@ -205,7 +205,7 @@ const TutorFeedbackForm: React.FC<TutorFeedbackFormProps> = ({
             {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
               <div key={step} className="flex items-center space-x-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  currentStep >= step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+                  currentStep >= step ? 'bg-primary text-white' : 'bg-gray-200 text-gray-600'
                 }`}>
                   {step}
                 </div>
