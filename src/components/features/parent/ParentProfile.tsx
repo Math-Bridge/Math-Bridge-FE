@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -29,6 +29,7 @@ const ParentProfile: React.FC = () => {
   const { user, refreshUser } = useAuth();
   const { showSuccess, showError } = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -251,9 +252,10 @@ const ParentProfile: React.FC = () => {
             }
           }
           
-          // Use window.location to force full reload and re-check in ProtectedRoute
+          // Navigate to role-appropriate page after refresh
           setTimeout(() => {
-            window.location.href = redirectPath;
+            refreshUser(); // Refresh user context to update auth state
+            navigate(redirectPath, { replace: true });
           }, 500);
           return; // Exit early
         }

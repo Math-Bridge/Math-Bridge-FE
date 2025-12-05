@@ -18,6 +18,7 @@ import {
   getTopRatedTutors,
   TopRatedTutorDto
 } from '../../../services/api';
+import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 
 interface PopularPackage {
   id: string;
@@ -51,52 +52,54 @@ const ParentHome: React.FC = () => {
   }, [user?.id]);
 
   // Auto-reload other data (contracts, tutors, packages) every 30 seconds
-  useEffect(() => {
+  const fetchOtherData = async () => {
     if (!user?.id) return;
 
-    const fetchOtherData = async () => {
-      try {
-        const tutorsResponse = await getTopRatedTutors(4);
-        if (tutorsResponse.success && tutorsResponse.data) {
-          const tutors = tutorsResponse.data.tutors || [];
-          setTopRatedTutors(tutors);
-        }
-
-        const packagesResponse = await apiService.getAllPackages();
-        if (packagesResponse.success && packagesResponse.data) {
-          const packagesData = Array.isArray(packagesResponse.data) 
-            ? packagesResponse.data 
-            : (packagesResponse.data as any).data || (packagesResponse.data as any).packages || [];
-          
-          const mappedPackages: PopularPackage[] = packagesData
-            .slice(0, 3)
-            .map((pkg: any) => {
-              const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || pkg.sessions || 0;
-              const weeks = sessionCount > 0 ? Math.ceil(sessionCount / 3) : 4;
-
-              return {
-                id: pkg.PackageId || pkg.packageId || pkg.id || '',
-                title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
-                description: pkg.Description || pkg.description || 'Comprehensive tutoring package',
-                rating: pkg.Rating || pkg.rating || 4.5,
-                students: pkg.Students || pkg.students || pkg.StudentCount || 25000,
-                price: pkg.Price || pkg.price || 0,
-                duration: `${weeks} week${weeks > 1 ? 's' : ''}`,
-                level: pkg.level || pkg.difficulty || 'Intermediate'
-              };
-            });
-          setPopularPackages(mappedPackages);
-        }
-      } catch (err) {
-        console.error('Error fetching home data:', err);
+    try {
+      const tutorsResponse = await getTopRatedTutors(4);
+      if (tutorsResponse.success && tutorsResponse.data) {
+        const tutors = tutorsResponse.data.tutors || [];
+        setTopRatedTutors(tutors);
       }
-    };
 
-    // Start interval after initial load
-    const dataInterval = setInterval(fetchOtherData, 30000);
-    
-    return () => clearInterval(dataInterval);
-  }, [user?.id]);
+      const packagesResponse = await apiService.getAllPackages();
+      if (packagesResponse.success && packagesResponse.data) {
+        const packagesData = Array.isArray(packagesResponse.data) 
+          ? packagesResponse.data 
+          : (packagesResponse.data as any).data || (packagesResponse.data as any).packages || [];
+        
+        const mappedPackages: PopularPackage[] = packagesData
+          .slice(0, 3)
+          .map((pkg: any) => {
+            const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || pkg.sessions || 0;
+            const weeks = sessionCount > 0 ? Math.ceil(sessionCount / 3) : 4;
+
+            return {
+              id: pkg.PackageId || pkg.packageId || pkg.id || '',
+              title: pkg.PackageName || pkg.packageName || pkg.name || 'Package',
+              description: pkg.Description || pkg.description || 'Comprehensive tutoring package',
+              rating: pkg.Rating || pkg.rating || 4.5,
+              students: pkg.Students || pkg.students || pkg.StudentCount || 25000,
+              price: pkg.Price || pkg.price || 0,
+              duration: `${weeks} week${weeks > 1 ? 's' : ''}`,
+              level: pkg.level || pkg.difficulty || 'Intermediate'
+            };
+          });
+        setPopularPackages(mappedPackages);
+      }
+    } catch (err) {
+      console.error('Error fetching home data:', err);
+    }
+  };
+
+  // Auto-refresh every 30 seconds
+  useAutoRefresh({
+    fetchData: fetchOtherData,
+    interval: 30000,
+    enabled: !!user?.id,
+    fetchOnMount: false, // Don't fetch on mount, already fetched in fetchHomeData
+    dependencies: [user?.id]
+  });
 
   const fetchHomeData = async () => {
     if (!user?.id) return;

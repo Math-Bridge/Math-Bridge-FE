@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../../services/api';
+import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 
 interface Transaction {
   id: string;
@@ -47,68 +48,67 @@ const WalletComponent: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  useEffect(() => {
-    const fetchWalletData = async () => {
-      try {
-        const userStr = localStorage.getItem('user');
-        const userId = userStr ? JSON.parse(userStr).id : null;
+  // Fetch wallet data function
+  const fetchWalletData = async () => {
+    try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : null;
 
-        if (!userId) {
-          setLoading(false);
-          return;
-        }
-
-        const response = await apiService.getUserWallet(userId);
-        if (response.success && response.data) {
-          const walletResponse = response.data;
-
-          const transactions = (walletResponse.transactions || [])
-            .filter((tx: any) => (tx.status || '').toLowerCase() === 'completed')
-            .map((tx: any) => {
-              let type = (tx.type || tx.transactionType || '').toLowerCase();
-              const desc = (tx.description || tx.note || '').toLowerCase();
-
-              if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
-                type = 'payment';
-              } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
-                type = 'deposit';
-              } else if (type.includes('refund')) {
-                type = 'refund';
-              } else {
-                type = desc.includes('deposit') || desc.includes('topup') ? 'deposit' : 'payment';
-              }
-
-              return {
-                id: tx.id || tx.transactionId || String(Date.now() + Math.random()),
-                type: type as 'deposit' | 'payment' | 'refund' | 'withdrawal',
-                amount: Math.abs(tx.amount || 0),
-                description: tx.description || tx.note || 'Wallet Transaction',
-                date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-                status: 'completed' as const,
-                method: tx.method || tx.paymentMethod
-              };
-            });
-
-          setWalletData({
-            balance: walletResponse.walletBalance || 0,
-            recentTransactions: transactions
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching wallet:', error);
-      } finally {
+      if (!userId) {
         setLoading(false);
+        return;
       }
-    };
 
-    // Fetch immediately
-    fetchWalletData();
-    
-    // Auto-reload every 5 seconds
-    const walletInterval = setInterval(fetchWalletData, 5000);
-    
-    return () => clearInterval(walletInterval);
-  }, []);
+      const response = await apiService.getUserWallet(userId);
+      if (response.success && response.data) {
+        const walletResponse = response.data;
+
+        const transactions = (walletResponse.transactions || [])
+          .filter((tx: any) => (tx.status || '').toLowerCase() === 'completed')
+          .map((tx: any) => {
+            let type = (tx.type || tx.transactionType || '').toLowerCase();
+            const desc = (tx.description || tx.note || '').toLowerCase();
+
+            if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
+              type = 'payment';
+            } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
+              type = 'deposit';
+            } else if (type.includes('refund')) {
+              type = 'refund';
+            } else {
+              type = desc.includes('deposit') || desc.includes('topup') ? 'deposit' : 'payment';
+            }
+
+            return {
+              id: tx.id || tx.transactionId || String(Date.now() + Math.random()),
+              type: type as 'deposit' | 'payment' | 'refund' | 'withdrawal',
+              amount: Math.abs(tx.amount || 0),
+              description: tx.description || tx.note || 'Wallet Transaction',
+              date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+              status: 'completed' as const,
+              method: tx.method || tx.paymentMethod
+            };
+          });
+
+        setWalletData({
+          balance: walletResponse.walletBalance || 0,
+          recentTransactions: transactions
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching wallet:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Auto-refresh every 5 seconds (like before)
+  useAutoRefresh({
+    fetchData: fetchWalletData,
+    interval: 5000,
+    enabled: true,
+    fetchOnMount: true
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

@@ -13,6 +13,7 @@ import {
   Plus,
   X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 
 interface FormData {
@@ -40,6 +41,7 @@ interface FormData {
 }
 
 const TutorRegister: React.FC = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
@@ -217,7 +219,7 @@ const TutorRegister: React.FC = () => {
             Thank you for applying to become a tutor. We'll review your application and get back to you within 2-3 business days.
           </p>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => navigate('/')}
             className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
             Return to Home

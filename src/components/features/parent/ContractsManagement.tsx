@@ -75,9 +75,12 @@ const ContractsManagement: React.FC = () => {
   const [reportType, setReportType] = useState('');
   const [isCreatingReport, setIsCreatingReport] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      // Only show loading skeleton on initial load, not on auto-refresh
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       setError(null);
 
       const parentId = user?.id || (() => {
@@ -89,7 +92,9 @@ const ContractsManagement: React.FC = () => {
         const errorMsg = 'User information not found. Please log in again.';
         setError(errorMsg);
         showError(errorMsg);
-        setLoading(false);
+        if (isInitialLoad) {
+          setLoading(false);
+        }
         return;
       }
 
@@ -183,16 +188,19 @@ const ContractsManagement: React.FC = () => {
       setContracts([]);
       showError(errorMsg);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   }, [user?.id, showError]);
 
   useEffect(() => { 
-    fetchData(); 
+    // Initial load with loading state
+    fetchData(true); 
     
-    // Auto-reload contracts every 30 seconds
+    // Auto-reload contracts every 30 seconds without showing loading skeleton
     const contractsInterval = setInterval(() => {
-      fetchData();
+      fetchData(false);
     }, 30000);
     
     return () => clearInterval(contractsInterval);
@@ -208,19 +216,23 @@ const ContractsManagement: React.FC = () => {
         (c.status === 'active' || c.status === 'completed') && c.childId
       );
 
+      // Batch updates to avoid multiple re-renders
+      const progressUpdates: Record<string, ChildUnitProgress | null> = {};
+      const loadingUpdates: Record<string, boolean> = {};
+
       for (const contract of contractsNeedingProgress) {
         // Skip if already loading or loaded
         if (loadingProgress[contract.id] || unitProgressMap[contract.id]) continue;
 
-        setLoadingProgress(prev => ({ ...prev, [contract.id]: true }));
+        loadingUpdates[contract.id] = true;
 
         try {
           const result = await getChildUnitProgress(contract.id);
           if (result.success && result.data) {
-            setUnitProgressMap(prev => ({ ...prev, [contract.id]: result.data }));
+            progressUpdates[contract.id] = result.data;
           } else {
             // No data available (e.g., no daily reports yet) - this is expected, not an error
-            setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
+            progressUpdates[contract.id] = null;
           }
         } catch (error) {
           // Only log unexpected errors (not 404s which are handled silently)
@@ -228,14 +240,23 @@ const ContractsManagement: React.FC = () => {
           if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
             console.error(`Error fetching progress for contract ${contract.id}:`, error);
           }
-          setUnitProgressMap(prev => ({ ...prev, [contract.id]: null }));
+          progressUpdates[contract.id] = null;
         } finally {
-          setLoadingProgress(prev => ({ ...prev, [contract.id]: false }));
+          loadingUpdates[contract.id] = false;
         }
+      }
+
+      // Batch state updates to reduce re-renders
+      if (Object.keys(loadingUpdates).length > 0) {
+        setLoadingProgress(prev => ({ ...prev, ...loadingUpdates }));
+      }
+      if (Object.keys(progressUpdates).length > 0) {
+        setUnitProgressMap(prev => ({ ...prev, ...progressUpdates }));
       }
     };
 
     fetchUnitProgress();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts]);
 
   // Fetch final feedback for completed contracts
@@ -246,6 +267,9 @@ const ContractsManagement: React.FC = () => {
       // Only fetch for completed contracts
       const completedContracts = contracts.filter(c => c.status === 'completed');
 
+      // Batch updates to avoid multiple re-renders
+      const feedbackUpdates: Record<string, FinalFeedback | null> = {};
+
       for (const contract of completedContracts) {
         // Skip if already loaded
         if (finalFeedbackMap[contract.id] !== undefined) continue;
@@ -253,18 +277,24 @@ const ContractsManagement: React.FC = () => {
         try {
           const result = await getFinalFeedbackByContractAndProvider(contract.id, 'parent');
           if (result.success && result.data) {
-            setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: result.data }));
+            feedbackUpdates[contract.id] = result.data;
           } else {
-            setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: null }));
+            feedbackUpdates[contract.id] = null;
           }
         } catch (error) {
           // Silently handle - feedback may not exist yet
-          setFinalFeedbackMap(prev => ({ ...prev, [contract.id]: null }));
+          feedbackUpdates[contract.id] = null;
         }
+      }
+
+      // Batch state update to reduce re-renders
+      if (Object.keys(feedbackUpdates).length > 0) {
+        setFinalFeedbackMap(prev => ({ ...prev, ...feedbackUpdates }));
       }
     };
 
     fetchFinalFeedbacks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts]);
 
   const filteredContracts = contracts.filter(c => 
@@ -428,6 +458,8 @@ const ContractsManagement: React.FC = () => {
         setReportContent('');
         setReportUrl('');
         setReportType('');
+        // Refresh contracts data to reflect any changes (silent refresh, no loading)
+        fetchData(false);
       } else {
         showError(result.error || 'Failed to create report');
       }

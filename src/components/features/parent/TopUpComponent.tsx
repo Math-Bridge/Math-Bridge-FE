@@ -288,7 +288,20 @@ const TopUpComponent: React.FC = () => {
                   Back to Wallet
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    setPaymentResponse(null);
+                    setPaymentStatus(null);
+                    setIsPolling(false);
+                    setAmount(null);
+                    // Fetch latest wallet balance
+                    if (user?.id) {
+                      apiService.getUserWallet(user.id).then(res => {
+                        if (res.success && res.data) {
+                          setWalletBalance(res.data.walletBalance || 0);
+                        }
+                      }).catch(err => console.error('Error fetching wallet balance:', err));
+                    }
+                  }}
                   className="px-6 py-4 border-2 border-gray-300 text-gray-700 font-bold rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all"
                 >
                   New Payment

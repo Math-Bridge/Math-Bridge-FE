@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Wallet, RefreshCw, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
+import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 
 const ParentWallet: React.FC = () => {
   const navigate = useNavigate();
@@ -14,99 +15,96 @@ const ParentWallet: React.FC = () => {
   const pageSize = 5; // 5 transactions per page
   const isInitialLoadRef = useRef(true);
 
-  useEffect(() => {
-    const fetchWallet = async () => {
-      const isInitialLoad = isInitialLoadRef.current;
-      
-      if (isInitialLoad) {
-        setLoading(true);
-        setError(null);
-      }
-      
-      // Get userId from localStorage or context
-      const user = localStorage.getItem('user');
-      let userId = '';
-      try {
-        userId = user ? JSON.parse(user).id : 'demo-user';
-      } catch {
-        userId = 'demo-user';
-      }
+  // Fetch wallet data function
+  const fetchWallet = async () => {
+    const isInitialLoad = isInitialLoadRef.current;
+    
+    if (isInitialLoad) {
+      setLoading(true);
+      setError(null);
+    }
+    
+    // Get userId from localStorage or context
+    const user = localStorage.getItem('user');
+    let userId = '';
+    try {
+      userId = user ? JSON.parse(user).id : 'demo-user';
+    } catch {
+      userId = 'demo-user';
+    }
 
-      try {
-        const res = await apiService.getUserWallet(userId);
-        if (res.success && res.data) {
-          setBalance(res.data.walletBalance);
-          // Map transactions with correct type handling
-          const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
-            // Determine transaction type - handle both camelCase and PascalCase from backend
-            let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
-            const desc = (tx.description || tx.note || '').toLowerCase();
-            
-            // Map backend transaction types to frontend types
-            // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
-            if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
-              transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
-            } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+    try {
+      const res = await apiService.getUserWallet(userId);
+      if (res.success && res.data) {
+        setBalance(res.data.walletBalance);
+        // Map transactions with correct type handling
+        const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
+          // Determine transaction type - handle both camelCase and PascalCase from backend
+          let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+          const desc = (tx.description || tx.note || '').toLowerCase();
+          
+          // Map backend transaction types to frontend types
+          // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
+          if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+            transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
+          } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+            transactionType = 'deposit';
+          } else if (transactionType === 'refund') {
+            transactionType = 'refund';
+          } else if (transactionType === 'payment') {
+            transactionType = 'payment'; // Keep as payment
+          } else {
+            // If type is not set or unknown, try to infer from description
+            if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+              transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
+            } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
               transactionType = 'deposit';
-            } else if (transactionType === 'refund') {
-              transactionType = 'refund';
-            } else if (transactionType === 'payment') {
-              transactionType = 'payment'; // Keep as payment
             } else {
-              // If type is not set or unknown, try to infer from description
-              if (desc.includes('payment for contract') || desc.includes('contract payment')) {
-                transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
-              } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
-                transactionType = 'deposit';
-              } else {
-                transactionType = 'payment'; // Default to payment for contract payments
-              }
+              transactionType = 'payment'; // Default to payment for contract payments
             }
-            
-            return {
-              id: tx.id || tx.transactionId || String(Date.now()),
-              transactionId: tx.transactionId || tx.id,
-              type: transactionType,
-              amount: tx.amount || 0,
-              description: tx.description || tx.note || '',
-              date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-              status: tx.status?.toLowerCase() || 'completed',
-              method: tx.method || tx.paymentMethod,
-            };
-          });
-          // Filter out pending transactions - only show completed
-          const completedTransactions = mappedTransactions.filter(t => 
-            t.status?.toLowerCase() === 'completed'
-          );
-          setTransactions(completedTransactions);
-          setError(null);
-        } else {
-          if (isInitialLoad) {
-            setError(res.error || 'Failed to load wallet info');
           }
-        }
-      } catch (err) {
+          
+          return {
+            id: tx.id || tx.transactionId || String(Date.now()),
+            transactionId: tx.transactionId || tx.id,
+            type: transactionType,
+            amount: tx.amount || 0,
+            description: tx.description || tx.note || '',
+            date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+            status: tx.status?.toLowerCase() || 'completed',
+            method: tx.method || tx.paymentMethod,
+          };
+        });
+        // Filter out pending transactions - only show completed
+        const completedTransactions = mappedTransactions.filter(t => 
+          t.status?.toLowerCase() === 'completed'
+        );
+        setTransactions(completedTransactions);
+        setError(null);
+      } else {
         if (isInitialLoad) {
-          setError('Failed to load wallet info');
-        }
-      } finally {
-        if (isInitialLoad) {
-          setLoading(false);
-          isInitialLoadRef.current = false;
+          setError(res.error || 'Failed to load wallet info');
         }
       }
-    };
+    } catch (err) {
+      if (isInitialLoad) {
+        setError('Failed to load wallet info');
+      }
+    } finally {
+      if (isInitialLoad) {
+        setLoading(false);
+        isInitialLoadRef.current = false;
+      }
+    }
+  };
 
-    // Fetch initial wallet data
-    fetchWallet();
-
-    // Check wallet balance every 5 seconds
-    const walletInterval = setInterval(() => {
-      fetchWallet();
-    }, 5000);
-
-    return () => clearInterval(walletInterval);
-  }, []);
+  // Auto-refresh wallet data every 5 seconds
+  useAutoRefresh({
+    fetchData: fetchWallet,
+    interval: 5000,
+    enabled: true,
+    fetchOnMount: true
+  });
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {

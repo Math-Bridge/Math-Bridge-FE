@@ -267,7 +267,112 @@ const TutorDetail: React.FC = () => {
               Back to Tutors
             </button>
             <button
-              onClick={() => window.location.reload()}
+              onClick={async () => {
+                if (!tutorId) return;
+                setLoading(true);
+                try {
+                  const tutorResponse = await getTutorById(tutorId);
+                  if (tutorResponse.success && tutorResponse.data) {
+                    const tutorData = tutorResponse.data;
+                    const verification = tutorData.verification;
+                    
+                    const feedbacks = tutorData.finalFeedbacks || [];
+                    const avgRating = feedbacks.length > 0
+                      ? feedbacks.reduce((sum: number, fb: any) => sum + (fb.overallSatisfactionRating || fb.OverallSatisfactionRating || 0), 0) / feedbacks.length
+                      : 0;
+
+                    const schedules = tutorData.tutorSchedules || [];
+                    const availabilityMap: { [key: string]: string[] } = {};
+                    schedules.forEach((schedule: any) => {
+                      const dayOfWeek = schedule.dayOfWeek || schedule.DayOfWeek || '';
+                      const startTime = schedule.startTime || schedule.StartTime || '';
+                      const endTime = schedule.endTime || schedule.EndTime || '';
+                      if (dayOfWeek && startTime && endTime) {
+                        if (!availabilityMap[dayOfWeek]) {
+                          availabilityMap[dayOfWeek] = [];
+                        }
+                        availabilityMap[dayOfWeek].push(`${startTime}-${endTime}`);
+                      }
+                    });
+
+                    const availability = Object.entries(availabilityMap).map(([day, timeSlots]) => ({
+                      day,
+                      timeSlots
+                    }));
+
+                    const centers = tutorData.tutorCenters || [];
+                    const firstCenter = centers[0]?.center || centers[0]?.Center || null;
+
+                    let avatarUrl = tutorData.avatarUrl || tutorData.AvatarUrl;
+                    
+                    if (!avatarUrl && tutorData.userId) {
+                      try {
+                        const userResponse = await apiService.getUserById(tutorData.userId);
+                        if (userResponse.success && userResponse.data) {
+                          avatarUrl = userResponse.data.avatarUrl || userResponse.data.AvatarUrl || undefined;
+                        }
+                      } catch (err) {
+                        if (import.meta.env.DEV) {
+                          console.warn('Error fetching tutor avatar:', err);
+                        }
+                      }
+                    }
+
+                    setTutor({
+                      id: tutorData.userId,
+                      name: tutorData.fullName,
+                      email: tutorData.email,
+                      phone: tutorData.phone || 'N/A',
+                      bio: verification?.bio || 'No bio available',
+                      experience: 'Experienced',
+                      rating: Math.round(avgRating * 10) / 10,
+                      totalReviews: feedbacks.length,
+                      subjects: verification?.major ? [verification.major] : ['Mathematics'],
+                      qualifications: verification?.university ? [
+                        {
+                          title: verification.major || 'Degree',
+                          institution: verification.university,
+                          year: new Date(tutorData.createdDate || Date.now()).getFullYear().toString()
+                        }
+                      ] : [],
+                      languages: ['English', 'Vietnamese'],
+                      availability: availability.length > 0 ? availability : [
+                        { day: 'Monday', timeSlots: ['09:00-17:00'] },
+                        { day: 'Tuesday', timeSlots: ['09:00-17:00'] },
+                        { day: 'Wednesday', timeSlots: ['09:00-17:00'] },
+                        { day: 'Thursday', timeSlots: ['09:00-17:00'] },
+                        { day: 'Friday', timeSlots: ['09:00-17:00'] }
+                      ],
+                      hourlyRate: verification?.hourlyRate || 0,
+                      centerName: firstCenter?.centerName || firstCenter?.CenterName || 'Not assigned',
+                      centerAddress: firstCenter?.address || firstCenter?.Address || tutorData.formattedAddress || 'N/A',
+                      profileImage: avatarUrl,
+                      avatarUrl: avatarUrl || null,
+                      verified: verification?.verificationStatus === 'verified' || verification?.verificationStatus === 'Verified'
+                    });
+
+                    const reviewsResponse = await getFinalFeedbacksByUserId(tutorId);
+                    if (reviewsResponse.success && reviewsResponse.data) {
+                      const mappedReviews: Review[] = reviewsResponse.data.map((fb: any) => ({
+                        id: fb.feedbackId || fb.FeedbackId || '',
+                        parentName: fb.parentName || fb.ParentName || 'Anonymous',
+                        rating: fb.overallSatisfactionRating || fb.OverallSatisfactionRating || 0,
+                        comment: fb.comment || fb.Comment || 'No comment',
+                        date: fb.createdDate || fb.CreatedDate || new Date().toISOString(),
+                        subject: 'Mathematics'
+                      }));
+                      setReviews(mappedReviews);
+                    }
+                  } else {
+                    showError(tutorResponse.error || 'Failed to load tutor information');
+                  }
+                } catch (error) {
+                  console.error('Error fetching tutor data:', error);
+                  showError('Failed to load tutor information. Please try again later.');
+                } finally {
+                  setLoading(false);
+                }
+              }}
               className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
             >
               Retry
