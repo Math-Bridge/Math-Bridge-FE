@@ -281,13 +281,13 @@ const ContractsManagement: React.FC = () => {
 
   const getStatusConfig = (status: string) => {
     const config = {
-      active: { bg: 'bg-primary/10', text: 'text-primary-dark', border: 'border-primary/30', icon: CheckCircle, label: 'Active' },
-      pending: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: Clock, label: 'Pending' },
-      completed: { bg: 'bg-primary/10', text: 'text-primary-dark', border: 'border-primary/30', icon: CheckCircle, label: 'Completed' },
-      cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: XCircle, label: 'Cancelled' },
-      unpaid: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: AlertCircle, label: 'Unpaid' },
+      active: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', icon: CheckCircle, label: 'Active' },
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300', icon: Clock, label: 'Pending' },
+      completed: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', icon: CheckCircle, label: 'Completed' },
+      cancelled: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', icon: XCircle, label: 'Cancelled' },
+      unpaid: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', icon: AlertCircle, label: 'Unpaid' },
     };
-    return config[status as keyof typeof config] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: AlertCircle, label: 'Unknown' };
+    return config[status as keyof typeof config] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300', icon: AlertCircle, label: 'Unknown' };
   };
 
   const handleCreateContract = () => navigate('/contracts/create');

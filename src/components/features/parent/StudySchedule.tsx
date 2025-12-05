@@ -357,7 +357,7 @@ const StudySchedule: React.FC = () => {
         return 'bg-green-100 text-green-800 border-green-300';
       case 'scheduled':
       case 'processing':
-        return 'bg-primary/20 text-primary-dark border-primary/40';
+        return 'bg-blue-100 text-blue-800 border-blue-300';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-300';
       case 'rescheduled':
@@ -372,39 +372,41 @@ const StudySchedule: React.FC = () => {
     <div
       key={session.bookingId}
       className={`
-        group relative text-xs px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200
+        group relative text-xs px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg cursor-pointer transition-all duration-200
         ${getStatusColor(session.status)}
         ${selectedSession?.bookingId === session.bookingId ? 'ring-2 ring-blue-500 scale-105 shadow-md' : ''}
       `}
       onClick={() => handleSessionClick(session)}
       title={`Click to view details: ${formatTime(session.startTime)} - ${formatTime(session.endTime)}`}
     >
-      <div className="font-semibold flex items-center gap-1.5 mb-1.5">
-        <Clock className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-        <span className="truncate">{formatTime(session.startTime)}</span>
+      <div className="font-semibold flex items-center gap-1.5 mb-1">
+        <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0 opacity-70" />
+        <span className="truncate text-xs sm:text-sm">{formatTime(session.startTime)}</span>
       </div>
-      <div className="text-[10px] opacity-80 ml-5 mb-2">to {formatTime(session.endTime)}</div>
+      <div className="text-[10px] sm:text-xs opacity-80 ml-4 sm:ml-5 mb-1.5 break-words">
+        to {formatTime(session.endTime)}
+      </div>
       {session.tutorName && (
-        <div className="flex items-center gap-1 mb-1.5">
-          <User className="w-3 h-3 opacity-70" />
-          <span className="text-[10px] truncate">{session.tutorName}</span>
+        <div className="flex items-start gap-1 mb-1">
+          <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 opacity-70 flex-shrink-0 mt-0.5" />
+          <span className="text-[10px] sm:text-xs break-words line-clamp-2">{session.tutorName}</span>
         </div>
       )}
       {(session.childName || session.studentName) && (
-        <div className="text-[10px] opacity-80 ml-5 mb-2">
+        <div className="text-[10px] sm:text-xs opacity-80 ml-4 sm:ml-5 mb-1.5 break-words line-clamp-2">
           Student: {session.childName || session.studentName}
         </div>
       )}
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-1 flex-wrap mt-1.5">
         {session.isOnline ? (
-          <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="Online">
-            <Monitor className="w-2.5 h-2.5" />
-            <span>Online</span>
+          <span className="flex items-center gap-0.5 sm:gap-1 bg-white bg-opacity-60 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium" title="Online">
+            <Monitor className="w-2 h-2 sm:w-2.5 sm:h-2.5 flex-shrink-0" />
+            <span className="whitespace-nowrap">Online</span>
           </span>
         ) : (
-          <span className="flex items-center gap-1 bg-white bg-opacity-60 px-1.5 py-0.5 rounded text-[10px] font-medium" title="In-Person">
-            <MapPin className="w-2.5 h-2.5" />
-            <span>In-Person</span>
+          <span className="flex items-center gap-0.5 sm:gap-1 bg-white bg-opacity-60 px-1 sm:px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-medium" title="In-Person">
+            <MapPin className="w-2 h-2 sm:w-2.5 sm:h-2.5 flex-shrink-0" />
+            <span className="whitespace-nowrap">In-Person</span>
           </span>
         )}
       </div>
@@ -422,12 +424,12 @@ const StudySchedule: React.FC = () => {
       <div key={index} className="flex flex-col">
         {/* Day header */}
         <div className="text-center py-2 mb-2">
-          <div className="font-bold text-gray-900 text-sm">{dayName}</div>
+          <div className="font-bold text-gray-900 text-xs sm:text-sm truncate">{dayName}</div>
         </div>
         {/* Day cell */}
         <div
           className={`
-            min-h-[250px] p-3 rounded-lg flex flex-col transition-all duration-200 w-full
+            min-h-[200px] sm:min-h-[250px] p-2 sm:p-3 rounded-lg flex flex-col transition-all duration-200 w-full
             ${isCurrentDay
               ? 'bg-gradient-to-br from-primary/10 to-primary/20 border-2 border-primary/50 shadow-md'
               : 'bg-gray-50 border border-gray-200 hover:border-gray-300 hover:shadow-sm'
@@ -435,15 +437,15 @@ const StudySchedule: React.FC = () => {
           `}
         >
           <div className={`
-            text-lg font-bold mb-3 w-8 h-8 flex items-center justify-center rounded-lg
+            text-base sm:text-lg font-bold mb-2 sm:mb-3 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg flex-shrink-0
             ${isCurrentDay ? 'bg-primary text-white' : 'text-gray-900'}
           `}>
             {dayOfMonth}
           </div>
-          <div className="space-y-2 flex-1 overflow-y-auto max-h-[200px] custom-scrollbar">
+          <div className="space-y-1.5 sm:space-y-2 flex-1 overflow-y-auto max-h-[150px] sm:max-h-[200px] custom-scrollbar">
             {daySessions.length === 0 ? (
-              <div className="text-xs text-gray-400 text-center py-8">
-                <Clock className="w-6 h-6 mx-auto mb-2 opacity-30" />
+              <div className="text-[10px] sm:text-xs text-gray-400 text-center py-6 sm:py-8">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 mx-auto mb-2 opacity-30" />
                 <span>No sessions</span>
               </div>
             ) : (
@@ -655,53 +657,64 @@ const StudySchedule: React.FC = () => {
               ) : (
                 <>
                   {/* Calendar Navigation */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 bg-gray-50 p-4 rounded-xl border-2 border-primary/20">
-                  <div className="flex items-center gap-3">
+              <div className="mb-6 bg-white rounded-2xl border-2 border-primary/20 shadow-math overflow-hidden">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-0 lg:gap-6 p-4 sm:p-6">
+                  {/* Week Range Display - Left Side */}
+                  <div className="flex items-center gap-3 pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-gray-200 lg:pr-6">
+                    <div className="bg-primary/10 p-2.5 rounded-xl flex-shrink-0">
+                      <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">Week Range</div>
+                      <div className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                        {daysInWeek[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -{' '}
+                        {daysInWeek[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Navigation Controls - Right Side */}
+                  <div className="flex items-center justify-center lg:justify-end gap-2 sm:gap-3 pt-4 lg:pt-0 flex-1">
                     <button
                       onClick={goToPreviousWeek}
-                    className="p-3 bg-white hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-math hover:scale-105 border-2 border-gray-200 hover:border-primary"
-                    title="Previous week"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => handleDatePickerChange(e.target.value)}
-                    className="px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 font-medium text-gray-700"
-                  />
-                  <button
-                    onClick={goToNextWeek}
-                    className="p-3 bg-white hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-math hover:scale-105 border-2 border-gray-200 hover:border-primary"
-                    title="Next week"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={goToToday}
-                    className="px-4 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark hover:scale-105 hover:shadow-math transition-all duration-300 shadow-math border-2 border-primary/20"
-                  >
-                    Today
-                  </button>
-                </div>
-                <div className="text-sm font-semibold text-gray-700 bg-white px-4 py-2.5 rounded-xl border-2 border-primary/20">
-                  {daysInWeek[0].toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} -{' '}
-                  {daysInWeek[6].toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                      className="p-2.5 sm:p-3 bg-gray-50 hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border-2 border-gray-200 hover:border-primary flex-shrink-0"
+                      title="Previous week"
+                    >
+                      <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </button>
+                    
+                    <div className="relative flex-1 sm:flex-initial sm:min-w-[180px]">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary/60 pointer-events-none z-10" />
+                      <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => handleDatePickerChange(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-200 font-semibold text-gray-700 text-sm sm:text-base bg-white hover:border-primary/50 shadow-sm"
+                      />
+                    </div>
+                    
+                    <button
+                      onClick={goToNextWeek}
+                      className="p-2.5 sm:p-3 bg-gray-50 hover:bg-primary text-gray-700 hover:text-white rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 border-2 border-gray-200 hover:border-primary flex-shrink-0"
+                      title="Next week"
+                    >
+                      <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Weekly Calendar Grid - 2 Rows Layout */}
+              {/* Weekly Calendar Grid - Responsive Layout */}
               <div className="w-full">
-                {/* First Row: Sunday - Wednesday (4 days) */}
-                <div className="grid grid-cols-4 gap-3 mb-3">
+                {/* Mobile: Single column, Tablet: 2 columns, Desktop: 4+3 layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
                   {daysInWeek.slice(0, 4).map((day, index) => {
                     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday'];
                     return renderDayCell(day, dayNames[index], index);
                   })}
                 </div>
 
-                {/* Second Row: Thursday - Saturday (3 days) */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {daysInWeek.slice(4, 7).map((day, index) => {
                     const dayNames = ['Thursday', 'Friday', 'Saturday'];
                     return renderDayCell(day, dayNames[index], index + 4);

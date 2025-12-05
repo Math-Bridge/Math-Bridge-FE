@@ -437,15 +437,15 @@ const ParentHome: React.FC = () => {
                     <div key={idx} className={`bg-white rounded-xl p-6 border-2 ${config.borderClass} hover:shadow-math transition-all h-full flex flex-col`}>
                       <Quote className={`h-6 w-6 ${config.quoteClass} mb-4 flex-shrink-0`} />
                       <p className="text-gray-700 mb-6 leading-relaxed italic flex-1">
-                        "{testimonial.quote}"
-                      </p>
+                      "{testimonial.quote}"
+                    </p>
                       <div className="flex items-center gap-3 pt-4 border-t border-gray-200 flex-shrink-0">
                         <div className={`w-12 h-12 bg-gradient-to-br ${config.avatarClass} rounded-full flex items-center justify-center text-white font-semibold text-sm shadow-lg flex-shrink-0`}>
-                          {testimonial.name.split(' ').map(n => n[0]).join('')}
-                        </div>
+                        {testimonial.name.split(' ').map(n => n[0]).join('')}
+                      </div>
                         <div className="min-w-0">
                           <div className="font-semibold text-primary-dark">{testimonial.name}</div>
-                          <div className="text-sm text-gray-500">{testimonial.role}</div>
+                        <div className="text-sm text-gray-500">{testimonial.role}</div>
                         </div>
                       </div>
                     </div>
@@ -485,23 +485,23 @@ const ParentHome: React.FC = () => {
                       <div key={tutorId} className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden hover:shadow-math-lg transition-all transform hover:scale-[1.02]">
                         {/* Tutor Image */}
                         <div className="relative aspect-[3/2] bg-gradient-to-br from-primary/20 to-primary-dark/20 overflow-hidden">
-                          {tutorAvatarUrl ? (
-                            <img 
-                              src={tutorAvatarUrl} 
-                              alt={tutorName} 
+                            {tutorAvatarUrl ? (
+                              <img 
+                                src={tutorAvatarUrl} 
+                                alt={tutorName} 
                               className="w-full h-full object-cover object-center"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = fallbackAvatarUrl;
-                              }}
-                            />
-                          ) : (
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = fallbackAvatarUrl;
+                                }}
+                              />
+                            ) : (
                             <img src={fallbackAvatarUrl} alt={tutorName} className="w-full h-full object-cover object-center" />
-                          )}
+                            )}
                           {isVerified && (
                             <div className="absolute top-3 right-3 bg-primary text-white p-2 rounded-full shadow-math">
                               <Award className="h-4 w-4" />
-                            </div>
+                          </div>
                           )}
                         </div>
 
@@ -511,8 +511,8 @@ const ParentHome: React.FC = () => {
                             <h3 className="text-xl font-bold text-primary-dark">{tutorName}</h3>
                             {averageRating > 0 && (
                               <div className="flex items-center space-x-1">
-                                <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                                <span className="text-sm font-semibold text-primary-dark">{Number(averageRating).toFixed(1)}</span>
+                            <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                            <span className="text-sm font-semibold text-primary-dark">{Number(averageRating).toFixed(1)}</span>
                                 {feedbackCount > 0 && (
                                   <span className="text-sm text-gray-500">({feedbackCount})</span>
                                 )}
@@ -523,14 +523,14 @@ const ParentHome: React.FC = () => {
                           <p className="text-sm text-gray-600 mb-4">Math Instructor</p>
 
                           {/* Action Button */}
-                          <button 
-                            onClick={() => navigate(`/tutors/${tutorId}`)}
+                        <button 
+                          onClick={() => navigate(`/tutors/${tutorId}`)}
                             className="w-full bg-primary text-white px-4 py-3 rounded-xl font-semibold hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg flex items-center justify-center gap-2"
-                          >
+                        >
                             <User className="h-4 w-4" />
                             <span>View Profile</span>
                             <ChevronRight className="h-4 w-4" />
-                          </button>
+                        </button>
                         </div>
                       </div>
                     );

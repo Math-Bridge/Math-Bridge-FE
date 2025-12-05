@@ -50,14 +50,14 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestor
     <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden hover:shadow-math-lg transition-all transform hover:scale-[1.02] h-full flex flex-col">
       {/* Child Image */}
       <div className="relative aspect-[3/2] bg-gradient-to-br from-primary/20 to-primary-dark/20 overflow-hidden">
-        {child.avatarUrl && !avatarError ? (
-          <img
-            src={child.avatarUrl + (child.avatarVersion ? `?v=${child.avatarVersion}` : '')}
-            alt={child.fullName}
+              {child.avatarUrl && !avatarError ? (
+                <img
+                  src={child.avatarUrl + (child.avatarVersion ? `?v=${child.avatarVersion}` : '')}
+                  alt={child.fullName}
             className={`w-full h-full object-cover object-center ${child.status === 'deleted' ? 'opacity-50' : ''}`}
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
           <img 
             src={fallbackAvatarUrl} 
             alt={child.fullName} 
@@ -67,28 +67,28 @@ const ChildCard: React.FC<ChildCardProps> = ({ child, onEdit, onDelete, onRestor
         {child.status === 'deleted' && (
           <div className="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-math">
             Deleted
-          </div>
-        )}
-      </div>
+                </div>
+              )}
+            </div>
 
       {/* Child Info */}
       <div className="p-6 flex-1 flex flex-col">
         <div className="flex items-center justify-between mb-2">
           <h3 className={`text-xl font-bold ${child.status === 'deleted' ? 'text-gray-500' : 'text-primary-dark'}`}>
-            {child.fullName}
-          </h3>
+                {child.fullName}
+              </h3>
         </div>
 
         <div className="flex items-center gap-2 mb-4 flex-wrap">
-          {child.grade && (
-            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getGradeStyle(child.grade)}`}>
-              {formatGrade(child.grade)}
-            </span>
-          )}
+                {child.grade && (
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getGradeStyle(child.grade)}`}>
+                    {formatGrade(child.grade)}
+                  </span>
+                )}
           {child.status !== 'deleted' && (
-            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle()}`}>
-              {getStatusText()}
-            </span>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusStyle()}`}>
+                  {getStatusText()}
+                </span>
           )}
         </div>
 

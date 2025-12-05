@@ -786,7 +786,7 @@ const ContractDetail: React.FC = () => {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'completed':
-        return 'bg-primary/20 text-primary-dark';
+        return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'unpaid':
@@ -801,7 +801,7 @@ const ContractDetail: React.FC = () => {
       case 'completed':
         return 'bg-green-100 text-green-800';
       case 'upcoming':
-        return 'bg-primary/20 text-primary-dark';
+        return 'bg-blue-100 text-blue-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
       case 'rescheduled':
