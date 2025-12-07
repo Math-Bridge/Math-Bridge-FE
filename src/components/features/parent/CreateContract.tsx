@@ -1516,15 +1516,22 @@ const CreateContract: React.FC = () => {
             {selectedChild && (
               <div className="mb-6 space-y-3">
                 <div className="p-4 bg-primary/10 rounded-lg">
-                  <p className="text-sm text-gray-600">Selected {numberOfChildren === 1 ? 'Child' : 'Children'}:</p>
-                  <p className="font-semibold text-gray-900">
-                    {numberOfChildren === 1 
-                      ? selectedChild.fullName
-                      : selectedChildren.map(c => c.fullName).join(', ')
-                    }
-                  </p>
+                  <p className="text-sm text-gray-600 mb-2">Selected {numberOfChildren === 1 ? 'Child' : 'Children'}:</p>
+                  {numberOfChildren === 1 ? (
+                    <p className="font-semibold text-gray-900">
+                      {selectedChild.fullName}
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {selectedChildren.map((c, index) => (
+                        <p key={c.childId} className="font-semibold text-gray-900">
+                          {index + 1}. {c.fullName}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {numberOfChildren > 1 && (
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-gray-600 mt-2">
                       {numberOfChildren} children selected
                     </p>
                   )}
