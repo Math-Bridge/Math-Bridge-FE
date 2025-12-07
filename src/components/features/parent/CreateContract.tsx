@@ -94,6 +94,8 @@ const CreateContract: React.FC = () => {
   const { showError, showSuccess } = useToast();
   const [currentStep, setCurrentStep] = useState<Step>('select-child');
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const [selectedChildren, setSelectedChildren] = useState<Child[]>([]); // Multiple children selection
+  const [numberOfChildren, setNumberOfChildren] = useState<number>(1); // Number of children (1 or 2 - backend only supports max 2)
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [schedule, setSchedule] = useState<{
     daysOfWeeks: number;
@@ -106,12 +108,16 @@ const CreateContract: React.FC = () => {
     offlineLatitude?: number;
     offlineLongitude?: number;
     maxDistanceKm?: number;
+    useSameTimeForAllDays?: boolean; // Whether to use same time for all days
+    dayTimeSlots?: Record<number, { startTime: string; endTime: string }>; // Time slots for each day (bitmask -> time)
   }>({
     daysOfWeeks: 42, // Backend: Mon(2) + Wed(8) + Fri(32) = 42
     startTime: '19:00', // Default to slot 3: 19:00 - 20:30
     endTime: '20:30',
     isOnline: true,
-    startDate: new Date().toISOString().split('T')[0] // Default to today
+    startDate: new Date().toISOString().split('T')[0], // Default to today
+    useSameTimeForAllDays: true, // Default to same time for all days
+    dayTimeSlots: {} // Store time slots for each day
   });
   const [children, setChildren] = useState<Child[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -232,23 +238,148 @@ const CreateContract: React.FC = () => {
     try {
       // First, try to get autocomplete suggestions to find a placeId
       const autocompleteResult = await apiService.getAddressAutocomplete(address, 'VN');
-      if (autocompleteResult.success && autocompleteResult.data?.predictions && autocompleteResult.data.predictions.length > 0) {
-        // Use the first suggestion's placeId to get coordinates
-        const firstPrediction = autocompleteResult.data.predictions[0];
-        const placeId = firstPrediction.place_id || firstPrediction.placeId;
+      
+      if (import.meta.env.DEV) {
+        console.log('Autocomplete result:', autocompleteResult);
+      }
+      
+      // Handle different response structures
+      // Backend may return: { success: true, data: { success: true, predictions: [...] } }
+      // Or: { success: true, data: { predictions: [...] } }
+      // Or: { success: true, data: [...] } (direct array)
+      let predictions: any[] = [];
+      
+      if (autocompleteResult.success && autocompleteResult.data) {
+        const data = autocompleteResult.data as any;
         
-        if (placeId) {
-          const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
-          if (coordinatesResult.success && coordinatesResult.data) {
-            return {
-              latitude: coordinatesResult.data.latitude,
-              longitude: coordinatesResult.data.longitude
-            };
+        // Try multiple possible structures
+        if (Array.isArray(data)) {
+          predictions = data;
+        } else if (data.predictions && Array.isArray(data.predictions)) {
+          predictions = data.predictions;
+        } else if (data.data && Array.isArray(data.data)) {
+          // Check if data.data is predictions array or has predictions
+          if (data.data[0] && data.data[0].place_id) {
+            predictions = data.data;
+          } else if (data.data.predictions && Array.isArray(data.data.predictions)) {
+            predictions = data.data.predictions;
           }
+        }
+      }
+      
+      if (import.meta.env.DEV) {
+        console.log('Extracted predictions:', predictions.length, predictions);
+      }
+      
+      if (predictions.length > 0) {
+        if (import.meta.env.DEV) {
+          console.log('Found predictions:', predictions.length);
+        }
+        
+        // Try each prediction until we get valid coordinates
+        for (const prediction of predictions) {
+          // Handle different prediction structures
+          const placeId = prediction.place_id || prediction.placeId || prediction.placeID;
+        
+          if (placeId) {
+            if (import.meta.env.DEV) {
+              console.log('Trying placeId:', placeId, 'for address:', prediction.description || prediction.formatted_address || address);
+            }
+            
+            try {
+              const coordinatesResult = await getCoordinatesFromPlaceId(placeId);
+              
+              if (import.meta.env.DEV) {
+                console.log('Coordinates result:', coordinatesResult);
+              }
+              
+              // Handle different response structures for coordinates
+              let coordData: any = null;
+              
+              if (coordinatesResult.success) {
+                // Try direct data access
+                if (coordinatesResult.data) {
+                  const data = coordinatesResult.data as any;
+                  
+                  // Check if data has coordinates directly
+                  if (data.latitude !== undefined || data.Latitude !== undefined) {
+                    coordData = data;
+                  } else if (data.data && (data.data.latitude !== undefined || data.data.Latitude !== undefined)) {
+                    coordData = data.data;
+                  } else if (typeof data === 'object') {
+                    // Try to find coordinates in the object
+                    coordData = data;
+                  }
+                }
+              }
+              
+              if (coordData) {
+                // Try multiple possible field names
+                const latitude = coordData.latitude || coordData.Latitude || coordData.lat || coordData.Lat;
+                const longitude = coordData.longitude || coordData.Longitude || coordData.lng || coordData.Lng || coordData.lon;
+                
+                const coords = {
+                  latitude: typeof latitude === 'string' ? parseFloat(latitude) : latitude,
+                  longitude: typeof longitude === 'string' ? parseFloat(longitude) : longitude
+                };
+                
+                // Validate coordinates are valid numbers
+                if (coords.latitude !== undefined && coords.longitude !== undefined &&
+                    typeof coords.latitude === 'number' && typeof coords.longitude === 'number' &&
+                    !isNaN(coords.latitude) && !isNaN(coords.longitude) &&
+                    coords.latitude >= -90 && coords.latitude <= 90 &&
+                    coords.longitude >= -180 && coords.longitude <= 180) {
+                  
+                  if (import.meta.env.DEV) {
+                    console.log('Successfully geocoded address:', address, 'to:', coords);
+                  }
+                  
+                  return coords;
+                } else {
+                  if (import.meta.env.DEV) {
+                    console.warn('Invalid coordinates extracted:', coords, 'from data:', coordData);
+                  }
+                }
+              } else {
+                if (import.meta.env.DEV) {
+                  console.warn('No coordinate data found in response:', coordinatesResult);
+                }
+              }
+            } catch (coordError) {
+              if (import.meta.env.DEV) {
+                console.warn('Failed to get coordinates for placeId:', placeId, coordError);
+              }
+              // Continue to next prediction
+              continue;
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.warn('Prediction missing place_id:', prediction);
+            }
+          }
+        }
+        
+        // If we get here, none of the predictions worked
+        console.warn('No valid coordinates found for any prediction. Address:', address);
+      } else {
+        console.warn('No autocomplete predictions found for address:', address);
+        if (import.meta.env.DEV) {
+          console.warn('Autocomplete result:', autocompleteResult);
+          console.warn('Response data structure:', {
+            hasData: !!autocompleteResult.data,
+            dataType: typeof autocompleteResult.data,
+            isArray: Array.isArray(autocompleteResult.data),
+            dataKeys: autocompleteResult.data && typeof autocompleteResult.data === 'object' ? Object.keys(autocompleteResult.data) : [],
+            nestedData: (autocompleteResult.data as any)?.data ? Object.keys((autocompleteResult.data as any).data) : []
+          });
         }
       }
     } catch (error) {
       console.error('Error geocoding address:', error);
+      if (import.meta.env.DEV) {
+        console.error('Address that failed:', address);
+        console.error('Error details:', error);
+      }
     }
     
     return null;
@@ -502,9 +633,109 @@ const CreateContract: React.FC = () => {
     }
   };
 
+  // Calculate price based on number of children
+  const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
+    if (numberOfChildren === 1) {
+      return basePrice;
+    } else if (numberOfChildren === 2) {
+      return basePrice * 1.6; // Increase 60%
+    }
+    return basePrice;
+  };
+
   const handleSelectChild = (child: Child) => {
     setSelectedChild(child);
+    setSelectedChildren([child]);
+    // Ensure numberOfChildren is 1 when using single selection mode
+    if (numberOfChildren !== 1) {
+      setNumberOfChildren(1);
+    }
     setCurrentStep('select-package');
+  };
+
+  const handleToggleChild = (child: Child) => {
+    const isSelected = selectedChildren.some(c => c.childId === child.childId);
+    
+    if (isSelected) {
+      // Deselect child
+      const updated = selectedChildren.filter(c => c.childId !== child.childId);
+      setSelectedChildren(updated);
+      
+      // Update selectedChild to first child in the list, or null if empty
+      if (updated.length > 0) {
+        setSelectedChild(updated[0]); // Keep first child as primary
+      } else {
+        setSelectedChild(null);
+      }
+      // Note: numberOfChildren should NOT change here - it's set by user's choice
+    } else {
+      // Select child - check if we can select more
+      if (selectedChildren.length >= numberOfChildren) {
+        showError(`You can only select ${numberOfChildren} ${numberOfChildren === 1 ? 'child' : 'children'}`);
+        return;
+      }
+      
+      // Check max limit of 2 children (backend only supports max 2)
+      if (selectedChildren.length >= 2) {
+        showError('You can only select up to 2 children per contract');
+        return;
+      }
+      
+      // Validate that we're not selecting the same child twice
+      if (selectedChildren.some(c => c.childId === child.childId)) {
+        showError('This child is already selected. Please select a different child.');
+        return;
+      }
+      
+      const updated = [...selectedChildren, child];
+      setSelectedChildren(updated);
+      
+      // Update selectedChild to first child in the list
+      if (updated.length > 0) {
+        setSelectedChild(updated[0]); // Keep first child as primary
+      }
+      // Note: numberOfChildren should NOT change here - it's set by user's choice
+    }
+  };
+
+  const handleNumberOfChildrenChange = (count: number) => {
+    // Backend only supports max 2 children per contract
+    if (count < 1 || count > 2) return;
+    
+    if (count === 1) {
+      // If only 1 child, use selectedChild or first from selectedChildren
+      let newSelectedChildren: Child[] = [];
+      let newSelectedChild: Child | null = null;
+      
+      if (selectedChild) {
+        newSelectedChildren = [selectedChild];
+        newSelectedChild = selectedChild;
+      } else if (selectedChildren.length > 0) {
+        newSelectedChildren = [selectedChildren[0]];
+        newSelectedChild = selectedChildren[0];
+      }
+      
+      setNumberOfChildren(1);
+      setSelectedChildren(newSelectedChildren);
+      setSelectedChild(newSelectedChild);
+    } else if (count === 2) {
+      // If 2 children, keep existing selections (up to 2)
+      let newSelectedChildren: Child[] = [];
+      
+      if (selectedChildren.length > 0) {
+        // Keep existing selections, but limit to 2
+        newSelectedChildren = selectedChildren.slice(0, 2);
+      } else if (selectedChild) {
+        // If no selectedChildren but has selectedChild, use it
+        newSelectedChildren = [selectedChild];
+      }
+      
+      setNumberOfChildren(2);
+      setSelectedChildren(newSelectedChildren);
+      if (newSelectedChildren.length > 0) {
+        setSelectedChild(newSelectedChildren[0]); // Keep first child as primary
+      }
+    }
   };
 
   const handleSelectPackage = (pkg: Package) => {
@@ -538,9 +769,12 @@ const CreateContract: React.FC = () => {
       return;
     }
 
+    // Calculate final price based on number of children
+    const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren);
+
     // Check wallet balance only if payment method is wallet
-    if (paymentMethod === 'wallet' && walletBalance < selectedPackage.price) {
-      const insufficientAmount = selectedPackage.price - walletBalance;
+    if (paymentMethod === 'wallet' && walletBalance < finalPrice) {
+      const insufficientAmount = finalPrice - walletBalance;
       const errorMsg = `Insufficient wallet balance. You need ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(insufficientAmount)} more. Please top up your wallet first or choose bank transfer.`;
       setError(errorMsg);
       showError(errorMsg);
@@ -572,6 +806,10 @@ const CreateContract: React.FC = () => {
       // If selecting today, validate that the time slot is not in the past
       if (selectedDate.getTime() === today.getTime()) {
         const now = new Date();
+        
+        if (schedule.useSameTimeForAllDays) {
+          // Validate main time slot
+          if (schedule.startTime) {
         const [hours, minutes] = schedule.startTime.split(':').map(Number);
         const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
         
@@ -581,6 +819,35 @@ const CreateContract: React.FC = () => {
           showError(errorMsg);
           setIsCreating(false);
           return;
+            }
+          }
+        } else {
+          // Validate first day's time slot (will be used for backend)
+          const selectedDays = [
+            { label: 'Sunday', value: 1 },
+            { label: 'Monday', value: 2 },
+            { label: 'Tuesday', value: 4 },
+            { label: 'Wednesday', value: 8 },
+            { label: 'Thursday', value: 16 },
+            { label: 'Friday', value: 32 },
+            { label: 'Saturday', value: 64 }
+          ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+          
+          if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
+            const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
+            if (firstDaySlot.startTime) {
+              const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
+              const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+              
+              if (slotDateTime <= now) {
+                const errorMsg = `Cannot create contract with a time slot in the past for today (${selectedDays[0].label})`;
+                setError(errorMsg);
+                showError(errorMsg);
+                setIsCreating(false);
+                return;
+              }
+            }
+          }
         }
       }
       
@@ -592,6 +859,56 @@ const CreateContract: React.FC = () => {
       const formatDate = (date: Date) => {
         return date.toISOString().split('T')[0];
       };
+
+      // Build schedules array for backend
+      // Backend DayOfWeek enum: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+      // Frontend bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+      const schedules: Array<{ dayOfWeek: number; startTime: string; endTime: string }> = [];
+      
+      if (schedule.useSameTimeForAllDays) {
+        // Same time for all days - convert bitmask to schedules array
+        const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+          { bitmask: 1, dayOfWeek: 0 }, // Sunday
+          { bitmask: 2, dayOfWeek: 1 }, // Monday
+          { bitmask: 4, dayOfWeek: 2 }, // Tuesday
+          { bitmask: 8, dayOfWeek: 3 }, // Wednesday
+          { bitmask: 16, dayOfWeek: 4 }, // Thursday
+          { bitmask: 32, dayOfWeek: 5 }, // Friday
+          { bitmask: 64, dayOfWeek: 6 }  // Saturday
+        ];
+        
+        for (const map of dayMapping) {
+          if ((schedule.daysOfWeeks & map.bitmask) !== 0) {
+            schedules.push({
+              dayOfWeek: map.dayOfWeek,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime
+            });
+          }
+        }
+      } else {
+        // Different time per day - use dayTimeSlots
+        const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+          { bitmask: 1, dayOfWeek: 0 }, // Sunday
+          { bitmask: 2, dayOfWeek: 1 }, // Monday
+          { bitmask: 4, dayOfWeek: 2 }, // Tuesday
+          { bitmask: 8, dayOfWeek: 3 }, // Wednesday
+          { bitmask: 16, dayOfWeek: 4 }, // Thursday
+          { bitmask: 32, dayOfWeek: 5 }, // Friday
+          { bitmask: 64, dayOfWeek: 6 }  // Saturday
+        ];
+        
+        for (const map of dayMapping) {
+          if ((schedule.daysOfWeeks & map.bitmask) !== 0 && schedule.dayTimeSlots?.[map.bitmask]) {
+            const daySlot = schedule.dayTimeSlots[map.bitmask];
+            schedules.push({
+              dayOfWeek: map.dayOfWeek,
+              startTime: daySlot.startTime,
+              endTime: daySlot.endTime
+            });
+          }
+        }
+      }
 
       // Create contract request
       // Note: paymentMethod is used in frontend to determine payment flow after contract creation
@@ -605,12 +922,23 @@ const CreateContract: React.FC = () => {
         mainTutorId: null, // Staff will assign tutor later
         startDate: formatDate(startDate),
         endDate: formatDate(endDate),
-        daysOfWeeks: schedule.daysOfWeeks, // Must be 1-127, validated above
-        startTime: schedule.startTime, // Format: HH:mm (validated above)
-        endTime: schedule.endTime, // Format: HH:mm (validated above)
+        schedules: schedules, // New: Send schedules array instead of daysOfWeeks/startTime/endTime
         isOnline: schedule.isOnline,
         paymentMethod: paymentMethod // Used in frontend to determine payment flow
       };
+      
+      // Add secondChildId if multiple children selected (max 2 children supported)
+      if (numberOfChildren === 2 && selectedChildren.length >= 2) {
+        // Validate that children are different
+        if (selectedChildren[0].childId === selectedChildren[1].childId) {
+          const errorMsg = 'Cannot select the same child twice. Please select 2 different children.';
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+        contractData.secondChildId = selectedChildren[1].childId;
+      }
 
       // Optional fields - use selected center or child's center
       const centerIdToUse = selectedCenterId || selectedChild.centerId;
@@ -630,11 +958,23 @@ const CreateContract: React.FC = () => {
         }
         // If maxDistanceKm not set, it will default to 10 in api.ts
         
+        // First, use existing coordinates from state if available
+        if (schedule.offlineLatitude !== undefined && schedule.offlineLongitude !== undefined) {
+          contractData.offlineLatitude = schedule.offlineLatitude;
+          contractData.offlineLongitude = schedule.offlineLongitude;
+          if (import.meta.env.DEV) {
+            console.log('Using existing coordinates from state:', { 
+              latitude: schedule.offlineLatitude, 
+              longitude: schedule.offlineLongitude 
+            });
+          }
+        }
+        
         if (schedule.offlineAddress) {
           contractData.offlineAddress = schedule.offlineAddress;
           
-          // If address exists but coordinates are missing, try to geocode it
-          if ((schedule.offlineLatitude === undefined || schedule.offlineLongitude === undefined) && 
+          // If coordinates are still missing, try to geocode the address
+          if ((contractData.offlineLatitude === undefined || contractData.offlineLongitude === undefined) && 
               schedule.offlineAddress.trim().length >= 3) {
             try {
               const coordinates = await geocodeAddress(schedule.offlineAddress);
@@ -651,27 +991,102 @@ const CreateContract: React.FC = () => {
                   console.log('Geocoded address before submit:', { address: schedule.offlineAddress, coordinates });
                 }
               } else {
-                console.warn('Could not geocode address before submit:', schedule.offlineAddress);
+                // Geocoding failed - log details for debugging
+                console.warn('Geocoding failed for address:', schedule.offlineAddress);
+                console.warn('Attempting autocomplete again with different approach...');
+                
+                // Try one more time with a more specific search
+                try {
+                  // Try searching with "Vietnam" suffix if not already present
+                  let searchAddress = schedule.offlineAddress;
+                  if (!searchAddress.toLowerCase().includes('vietnam') && !searchAddress.toLowerCase().includes('việt nam')) {
+                    searchAddress = `${schedule.offlineAddress}, Vietnam`;
+                  }
+                  
+                  const retryCoordinates = await geocodeAddress(searchAddress);
+                  if (retryCoordinates) {
+                    contractData.offlineLatitude = retryCoordinates.latitude;
+                    contractData.offlineLongitude = retryCoordinates.longitude;
+                    setSchedule(prev => ({
+                      ...prev,
+                      offlineLatitude: retryCoordinates.latitude,
+                      offlineLongitude: retryCoordinates.longitude
+                    }));
+                    if (import.meta.env.DEV) {
+                      console.log('Geocoded address on retry:', { address: searchAddress, coordinates: retryCoordinates });
+                    }
+                  } else {
+                    // Still failed after retry - require coordinates for offline contracts
+                    const errorMsg = `Could not find coordinates for address: ${schedule.offlineAddress}. Please try selecting the address from the suggestions dropdown, or enter a more specific address.`;
+                    setError(errorMsg);
+                    showError(errorMsg);
+                    setIsCreating(false);
+                    return;
+                  }
+                } catch (retryError) {
+                  console.error('Error retrying geocoding:', retryError);
+                  const errorMsg = `Failed to find coordinates for address: ${schedule.offlineAddress}. Please try selecting the address from the suggestions dropdown.`;
+                  setError(errorMsg);
+                  showError(errorMsg);
+                  setIsCreating(false);
+                  return;
+                }
               }
             } catch (error) {
               console.error('Error geocoding address before submit:', error);
-              // Continue with submission even if geocoding fails
+              // Geocoding error - require coordinates for offline contracts
+              const errorMsg = `Failed to validate address: ${schedule.offlineAddress}. Please try selecting the address from the suggestions dropdown.`;
+              setError(errorMsg);
+              showError(errorMsg);
+              setIsCreating(false);
+              return;
             }
           }
         }
         
-        if (schedule.offlineLatitude !== undefined) {
-          contractData.offlineLatitude = schedule.offlineLatitude;
+        // Final validation: ensure offline contracts have coordinates
+        if (contractData.offlineLatitude === undefined || contractData.offlineLongitude === undefined) {
+          const errorMsg = 'Offline contracts require valid address coordinates. Please enter a valid address or try again.';
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
         }
-        if (schedule.offlineLongitude !== undefined) {
-          contractData.offlineLongitude = schedule.offlineLongitude;
+        
+        // Log final coordinates for debugging
+        if (import.meta.env.DEV) {
+          console.log('Final contract data coordinates:', {
+            latitude: contractData.offlineLatitude,
+            longitude: contractData.offlineLongitude,
+            address: contractData.offlineAddress
+          });
         }
       }
       // For online: maxDistanceKm defaults to 0 in api.ts
+      
+      // Validate schedules array before submitting
+      if (!schedules || schedules.length === 0) {
+        const errorMsg = 'No schedules selected. Please select at least one day with time slot.';
+        setError(errorMsg);
+        showError(errorMsg);
+        setIsCreating(false);
+        return;
+      }
+      
+      // Check for duplicate days
+      const daySet = new Set(schedules.map(s => s.dayOfWeek));
+      if (daySet.size !== schedules.length) {
+        const errorMsg = 'Duplicate day of week is not allowed. Please select different days.';
+        setError(errorMsg);
+        showError(errorMsg);
+        setIsCreating(false);
+        return;
+      }
 
       const result = await createContract(contractData);
 
       if (result.success) {
+        // Extract contractId from response
         const contractId = result.data?.contractId;
 
         // If payment method is wallet, deduct the wallet balance
@@ -722,7 +1137,7 @@ const CreateContract: React.FC = () => {
                   qrCodeUrl: qrCodeUrl,
                   orderReference: paymentData.orderReference || paymentData.OrderReference || '',
                   walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
-                  amount: paymentData.amount || paymentData.Amount || selectedPackage.price,
+                  amount: paymentData.amount || paymentData.Amount || calculatePrice(selectedPackage.price, numberOfChildren),
                   bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
                   transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
                 };
@@ -918,7 +1333,7 @@ const CreateContract: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center space-x-2">
               <User className="w-6 h-6" />
-              <span>Step 1: Select Your Child</span>
+              <span>Step 1: Select Number of Children</span>
             </h2>
 
             {children.length === 0 ? (
@@ -937,19 +1352,89 @@ const CreateContract: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {children.map((child) => (
+              <div className="space-y-6">
+                {/* Number of Children Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Select Number of Children <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[1, 2].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => handleNumberOfChildrenChange(count)}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          numberOfChildren === count
+                            ? 'border-primary bg-primary/10 text-primary-dark font-semibold shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/5'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-2xl font-bold mb-1">{count}</div>
+                          <div className="text-xs text-gray-600">
+                            {count === 1 ? 'Child' : 'Children'}
+                          </div>
+                          {count > 1 && (
+                            <div className="text-xs mt-1 text-primary font-medium">
+                              +60% price
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Select how many children will participate in this contract
+                  </p>
+                </div>
+
+                {/* Children Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    {numberOfChildren === 1 ? 'Select Child' : `Select ${numberOfChildren} Children`} <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-3">
+                    {children.map((child) => {
+                      const isSelected = selectedChildren.some(c => c.childId === child.childId);
+                      const canSelect = numberOfChildren === 1 || 
+                                       (numberOfChildren === 2 && selectedChildren.length < 2);
+                      
+                      return (
                   <div
                     key={child.childId}
-                    onClick={() => handleSelectChild(child)}
-                    className="border-2 border-gray-200 rounded-lg p-4 hover:border-primary hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => {
+                            if (numberOfChildren === 1) {
+                              handleSelectChild(child);
+                            } else {
+                              handleToggleChild(child);
+                            }
+                          }}
+                          className={`border-2 rounded-lg p-4 transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 shadow-md'
+                              : canSelect
+                              ? 'border-gray-200 hover:border-primary hover:shadow-md'
+                              : 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                          }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-4 flex-1">
+                              {numberOfChildren > 1 && (
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-primary bg-primary'
+                                    : 'border-gray-300 bg-white'
+                                }`}>
+                                  {isSelected && (
+                                    <CheckCircle className="w-4 h-4 text-white" />
+                                  )}
+                                </div>
+                              )}
                         <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
                           <User className="w-6 h-6 text-primary" />
                         </div>
-                        <div>
+                              <div className="flex-1">
                           <h3 className="font-bold text-gray-900">{child.fullName}</h3>
                           <p className="text-sm text-gray-600">
                             {child.schoolName || 'No school'} • {child.grade}
@@ -962,10 +1447,52 @@ const CreateContract: React.FC = () => {
                           )}
                         </div>
                       </div>
+                            {numberOfChildren === 1 && (
                       <ArrowRight className="w-5 h-5 text-gray-400" />
+                            )}
                     </div>
                   </div>
-                ))}
+                      );
+                    })}
+                  </div>
+                  {numberOfChildren > 1 && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Selected: {selectedChildren.length} / {numberOfChildren} children
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => navigate('/contracts')}
+                    className="flex-1 px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (numberOfChildren === 1 && !selectedChild) {
+                        showError('Please select a child');
+                        return;
+                      }
+                      if (numberOfChildren > 1 && selectedChildren.length !== numberOfChildren) {
+                        showError(`Please select ${numberOfChildren} children`);
+                        return;
+                      }
+                      setCurrentStep('select-package');
+                    }}
+                    disabled={
+                      (numberOfChildren === 1 && !selectedChild) ||
+                      (numberOfChildren > 1 && selectedChildren.length !== numberOfChildren)
+                    }
+                    className="flex-1 px-6 py-3 bg-primary text-white rounded-lg font-semibold hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <span>Continue to Package</span>
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+
                 <button
                   onClick={handleCreateChild}
                   className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary hover:bg-primary/10 transition-all flex items-center justify-center space-x-2 text-gray-600 hover:text-primary"
@@ -987,9 +1514,28 @@ const CreateContract: React.FC = () => {
             </h2>
 
             {selectedChild && (
-              <div className="mb-6 p-4 bg-primary/10 rounded-lg">
-                <p className="text-sm text-gray-600">Selected Child:</p>
-                <p className="font-semibold text-gray-900">{selectedChild.fullName}</p>
+              <div className="mb-6 space-y-3">
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <p className="text-sm text-gray-600">Selected {numberOfChildren === 1 ? 'Child' : 'Children'}:</p>
+                  <p className="font-semibold text-gray-900">
+                    {numberOfChildren === 1 
+                      ? selectedChild.fullName
+                      : selectedChildren.map(c => c.fullName).join(', ')
+                    }
+                  </p>
+                  {numberOfChildren > 1 && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      {numberOfChildren} children selected
+                    </p>
+                  )}
+                </div>
+                {numberOfChildren > 1 && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm font-medium text-yellow-800">
+                      Price Adjustment: +60% for 2 children
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1043,12 +1589,27 @@ const CreateContract: React.FC = () => {
                             </div>
                           </div>
                           <div className="pt-4 border-t border-gray-200">
-                            <p className="text-2xl font-bold text-gray-900">
+                            <div className="space-y-1">
+                              {numberOfChildren > 1 && (
+                                <p className="text-xs text-gray-500 line-through">
                               {new Intl.NumberFormat('vi-VN', { 
                                 style: 'currency', 
                                 currency: 'VND' 
                               }).format(pkg.price)}
                             </p>
+                              )}
+                              <p className={`text-2xl font-bold ${numberOfChildren > 1 ? 'text-primary' : 'text-gray-900'}`}>
+                                {new Intl.NumberFormat('vi-VN', { 
+                                  style: 'currency', 
+                                  currency: 'VND' 
+                                }).format(calculatePrice(pkg.price, numberOfChildren))}
+                              </p>
+                              {numberOfChildren > 1 && (
+                                <p className="text-xs text-primary font-medium">
+                                  +60% for 2 children
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1265,11 +1826,63 @@ const CreateContract: React.FC = () => {
                 </p>
               </div>
 
-              {/* Time Slot Selection */}
+              {/* Time Slot Selection Mode */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Time Slot <span className="text-red-500">*</span>
-                  <span className="ml-2 text-xs text-gray-500">(1.5 hours per slot)</span>
+                  Time Slot Selection <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchedule(prev => ({ 
+                        ...prev, 
+                        useSameTimeForAllDays: true,
+                        // Clear individual day slots when switching to same time mode
+                        dayTimeSlots: {}
+                      }));
+                      setError(null);
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      schedule.useSameTimeForAllDays
+                        ? 'border-primary bg-primary/10 text-primary-dark font-semibold'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="font-semibold">Same Time for All Days</div>
+                      <div className="text-xs mt-1 text-gray-600">One time slot for all selected days</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSchedule(prev => ({ 
+                        ...prev, 
+                        useSameTimeForAllDays: false,
+                        // Initialize day slots with current time if not set
+                        dayTimeSlots: prev.dayTimeSlots || {}
+                      }));
+                      setError(null);
+                    }}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !schedule.useSameTimeForAllDays
+                        ? 'border-primary bg-primary/10 text-primary-dark font-semibold'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="font-semibold">Different Time per Day</div>
+                      <div className="text-xs mt-1 text-gray-600">Choose time for each day</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Same Time for All Days */}
+                {schedule.useSameTimeForAllDays && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Select Time Slot <span className="text-xs text-gray-500">(1.5 hours per slot)</span>
                   </label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {TIME_SLOTS.map((slot) => {
@@ -1334,9 +1947,115 @@ const CreateContract: React.FC = () => {
                   <p className="mt-2 text-xs text-red-600">Please select a time slot</p>
                 ) : (
                   <p className="mt-2 text-xs text-gray-500">
-                    Selected: {schedule.startTime} - {schedule.endTime} (1.5 hours)
+                        Selected: {schedule.startTime} - {schedule.endTime} (1.5 hours) for all days
                   </p>
                 )}
+                  </div>
+                )}
+
+                {/* Different Time per Day */}
+                {!schedule.useSameTimeForAllDays && (() => {
+                  const selectedDays = [
+                    { label: 'Sunday', value: 1 },
+                    { label: 'Monday', value: 2 },
+                    { label: 'Tuesday', value: 4 },
+                    { label: 'Wednesday', value: 8 },
+                    { label: 'Thursday', value: 16 },
+                    { label: 'Friday', value: 32 },
+                    { label: 'Saturday', value: 64 }
+                  ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+
+                  return (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600 mb-3">
+                        Select time slot for each selected day:
+                      </p>
+                      {selectedDays.map((day) => {
+                        const daySlot = schedule.dayTimeSlots?.[day.value] || { startTime: '', endTime: '' };
+                        const isPast = (() => {
+                          if (!schedule.startDate) return false;
+                          const selectedDate = new Date(schedule.startDate);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          selectedDate.setHours(0, 0, 0, 0);
+                          return selectedDate.getTime() === today.getTime();
+                        })();
+
+                        return (
+                          <div key={day.value} className="p-4 border-2 border-gray-200 rounded-lg">
+                            <label className="block text-sm font-semibold text-gray-700 mb-3">
+                              {day.label} <span className="text-red-500">*</span>
+                            </label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {TIME_SLOTS.map((slot) => {
+                                const isSelected = daySlot.startTime === slot.from && daySlot.endTime === slot.to;
+                                
+                                const slotIsPast = isPast && (() => {
+                                  const now = new Date();
+                                  const [hours, minutes] = slot.from.split(':').map(Number);
+                                  const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                                  return slotDateTime <= now;
+                                })();
+                                
+                                return (
+                                  <button
+                                    key={slot.id}
+                                    type="button"
+                                    onClick={() => {
+                                      if (slotIsPast) {
+                                        showError(`Cannot select a time slot in the past for ${day.label}`);
+                                        return;
+                                      }
+                                      setSchedule(prev => ({
+                                        ...prev,
+                                        dayTimeSlots: {
+                                          ...prev.dayTimeSlots,
+                                          [day.value]: {
+                                            startTime: slot.from,
+                                            endTime: slot.to
+                                          }
+                                        }
+                                      }));
+                                      setError(null);
+                                    }}
+                                    disabled={slotIsPast}
+                                    className={`p-3 rounded-lg border-2 transition-all text-left ${
+                                      isSelected
+                                        ? 'border-primary bg-primary/10 text-primary-dark font-semibold shadow-sm'
+                                        : slotIsPast
+                                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
+                                    }`}
+                                    title={slotIsPast ? `This time slot is in the past for ${day.label}` : ''}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm font-semibold">{slot.label}</span>
+                                      {isSelected && (
+                                        <CheckCircle className="w-4 h-4 text-primary" />
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {!daySlot.startTime || !daySlot.endTime ? (
+                              <p className="mt-2 text-xs text-red-600">Please select a time slot for {day.label}</p>
+                            ) : (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Selected: {daySlot.startTime} - {daySlot.endTime}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-800">
+                          <strong>Note:</strong> Each day can have a different time slot. All selected schedules will be saved to the contract.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Online/Offline Selection */}
@@ -1617,7 +2336,7 @@ const CreateContract: React.FC = () => {
                               key={suggestion.place_id || `suggestion-${index}`}
                               type="button"
                               onClick={async () => {
-                                const placeId = suggestion.place_id || suggestion.placeId || '';
+                                const placeId = suggestion.place_id || '';
                                 setSchedule(prev => ({ ...prev, offlineAddress: suggestion.description }));
                                 setShowSuggestions(false);
                                 setAddressSuggestions([]);
@@ -1785,32 +2504,68 @@ const CreateContract: React.FC = () => {
                                   type="button"
                                   onClick={async () => {
                                     setSelectedCenterId(centerId);
-                                    // Update child with selected center
-                                    if (selectedChild?.childId) {
-                                      try {
+                                    // Update center for all selected children
+                                    const childrenToUpdate = numberOfChildren > 1 && selectedChildren.length > 0 
+                                      ? selectedChildren 
+                                      : (selectedChild ? [selectedChild] : []);
+                                    
+                                    if (childrenToUpdate.length === 0) {
+                                      showError('No children selected');
+                                      return;
+                                    }
+                                    
+                                    try {
+                                      // Update all selected children with the selected center
+                                      const updatePromises = childrenToUpdate.map(async (child) => {
                                         // Backend requires fullName, schoolId, and grade when updating
-                                        const updateResult = await updateChild(selectedChild.childId, {
-                                          fullName: selectedChild.fullName,
-                                          schoolId: selectedChild.schoolId,
-                                          grade: selectedChild.grade,
+                                        const updateResult = await updateChild(child.childId, {
+                                          fullName: child.fullName,
+                                          schoolId: child.schoolId,
+                                          grade: child.grade,
                                           centerId: centerId,
-                                          dateOfBirth: selectedChild.dateOfBirth
+                                          dateOfBirth: child.dateOfBirth
                                         });
-                                        if (updateResult.success) {
-                                          showSuccess(`Center updated for ${selectedChild.fullName}`);
-                                          // Update selectedChild state
+                                        return { child, updateResult };
+                                      });
+                                      
+                                      const results = await Promise.all(updatePromises);
+                                      const successCount = results.filter(r => r.updateResult.success).length;
+                                      
+                                      if (successCount === childrenToUpdate.length) {
+                                        // All updates successful
+                                        const childNames = childrenToUpdate.map(c => c.fullName).join(', ');
+                                        showSuccess(`Center updated for ${childrenToUpdate.length === 1 ? childNames : `all ${childrenToUpdate.length} children`}`);
+                                        
+                                        // Update selectedChild state (first child)
+                                        if (selectedChild && childrenToUpdate.some(c => c.childId === selectedChild.childId)) {
                                           setSelectedChild({
                                             ...selectedChild,
                                             centerId: centerId,
                                             centerName: centerName
                                           });
+                                        }
+                                        
+                                        // Update selectedChildren state
+                                        if (numberOfChildren > 1 && selectedChildren.length > 0) {
+                                          setSelectedChildren(selectedChildren.map(child => {
+                                            if (childrenToUpdate.some(c => c.childId === child.childId)) {
+                                              return {
+                                                ...child,
+                                                centerId: centerId,
+                                                centerName: centerName
+                                              };
+                                            }
+                                            return child;
+                                          }));
+                                        }
                                         } else {
-                                          showError(updateResult.error || 'Unable to update center');
+                                        // Some updates failed
+                                        const failedCount = childrenToUpdate.length - successCount;
+                                        showError(`Failed to update center for ${failedCount} ${failedCount === 1 ? 'child' : 'children'}`);
                                         }
                                       } catch (error) {
                                         console.error('Error updating child center:', error);
                                         showError('Error updating center');
-                                      }
                                     }
                                   }}
                                   className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
@@ -1884,6 +2639,10 @@ const CreateContract: React.FC = () => {
                     // If selecting today, validate that the time slot is not in the past
                     if (selectedDate.getTime() === today.getTime()) {
                       const now = new Date();
+                      
+                      if (schedule.useSameTimeForAllDays) {
+                        // Validate main time slot
+                        if (schedule.startTime) {
                       const [hours, minutes] = schedule.startTime.split(':').map(Number);
                       const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
                       
@@ -1892,6 +2651,34 @@ const CreateContract: React.FC = () => {
                         setError(msg);
                         showError(msg);
                         return;
+                          }
+                        }
+                      } else {
+                        // Validate first day's time slot
+                        const selectedDays = [
+                          { label: 'Sunday', value: 1 },
+                          { label: 'Monday', value: 2 },
+                          { label: 'Tuesday', value: 4 },
+                          { label: 'Wednesday', value: 8 },
+                          { label: 'Thursday', value: 16 },
+                          { label: 'Friday', value: 32 },
+                          { label: 'Saturday', value: 64 }
+                        ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+                        
+                        if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
+                          const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
+                          if (firstDaySlot.startTime) {
+                            const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
+                            const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+                            
+                            if (slotDateTime <= now) {
+                              const msg = `Cannot select a time slot in the past for today (${selectedDays[0].label})`;
+                              setError(msg);
+                              showError(msg);
+                              return;
+                            }
+                          }
+                        }
                       }
                     }
                     
@@ -1916,6 +2703,8 @@ const CreateContract: React.FC = () => {
                     }
                     
                     // Validate time slot is selected
+                    if (schedule.useSameTimeForAllDays) {
+                      // Same time for all days - validate main time slot
                     if (!schedule.startTime || !schedule.endTime) {
                       const msg = 'Please select a time slot';
                       setError(msg);
@@ -1933,14 +2722,66 @@ const CreateContract: React.FC = () => {
                       setError(msg);
                       showError(msg);
                       return;
+                      }
+                    } else {
+                      // Different time per day - validate all selected days have time slots
+                      const selectedDays = [
+                        { label: 'Sunday', value: 1 },
+                        { label: 'Monday', value: 2 },
+                        { label: 'Tuesday', value: 4 },
+                        { label: 'Wednesday', value: 8 },
+                        { label: 'Thursday', value: 16 },
+                        { label: 'Friday', value: 32 },
+                        { label: 'Saturday', value: 64 }
+                      ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+                      
+                      const missingDays = selectedDays.filter(day => {
+                        const daySlot = schedule.dayTimeSlots?.[day.value];
+                        return !daySlot || !daySlot.startTime || !daySlot.endTime;
+                      });
+                      
+                      if (missingDays.length > 0) {
+                        const msg = `Please select time slots for: ${missingDays.map(d => d.label).join(', ')}`;
+                        setError(msg);
+                        showError(msg);
+                        return;
+                      }
+                      
+                      // Validate all time slots are valid
+                      for (const day of selectedDays) {
+                        const daySlot = schedule.dayTimeSlots?.[day.value];
+                        if (daySlot) {
+                          const isValidSlot = TIME_SLOTS.some(
+                            slot => slot.from === daySlot.startTime && slot.to === daySlot.endTime
+                          );
+                          
+                          if (!isValidSlot) {
+                            const msg = `Invalid time slot for ${day.label}`;
+                            setError(msg);
+                            showError(msg);
+                            return;
+                          }
+                        }
+                      }
                     }
                     
                     // Validate offline location if offline is selected
-                    if (!schedule.isOnline && (!schedule.offlineAddress || schedule.offlineAddress.trim() === '')) {
+                    if (!schedule.isOnline) {
+                      if (!schedule.offlineAddress || schedule.offlineAddress.trim() === '') {
                       const msg = 'Please enter a location for offline sessions';
                       setError(msg);
                       showError(msg);
                       return;
+                      }
+                      
+                      // Validate coordinates exist (will be geocoded if missing during submit)
+                      // But at least check that address is valid length
+                      if (schedule.offlineAddress.trim().length < 5) {
+                        const msg = 'Please enter a valid address (at least 5 characters)';
+                        setError(msg);
+                        showError(msg);
+                        return;
+                      }
                     }
                     
                     // Validate that there are centers available for the offline location
@@ -2040,9 +2881,11 @@ const CreateContract: React.FC = () => {
               </div>
 
               {/* Wallet Balance Info - Only show if wallet payment is selected */}
-              {paymentMethod === 'wallet' && (
+              {paymentMethod === 'wallet' && (() => {
+                const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren);
+                return (
                 <div className={`p-4 rounded-lg border-2 ${
-                  walletBalance >= selectedPackage.price
+                    walletBalance >= finalPrice
                     ? 'bg-green-50 border-green-200'
                     : 'bg-red-50 border-red-200'
                 }`}>
@@ -2050,7 +2893,7 @@ const CreateContract: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600">Wallet Balance</p>
                       <p className={`text-2xl font-bold ${
-                        walletBalance >= selectedPackage.price ? 'text-green-700' : 'text-red-700'
+                          walletBalance >= finalPrice ? 'text-green-700' : 'text-red-700'
                       }`}>
                         {walletLoading ? (
                           <span className="text-sm">Loading...</span>
@@ -2059,7 +2902,7 @@ const CreateContract: React.FC = () => {
                         )}
                       </p>
                     </div>
-                    {walletBalance < selectedPackage.price && (
+                      {walletBalance < finalPrice && (
                       <button
                         onClick={() => navigate('/wallet/topup')}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
@@ -2068,17 +2911,18 @@ const CreateContract: React.FC = () => {
                       </button>
                     )}
                   </div>
-                  {walletBalance < selectedPackage.price && (
+                    {walletBalance < finalPrice && (
                     <p className="mt-2 text-sm text-red-700">
                       Insufficient balance. You need{' '}
                       <strong>
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price - walletBalance)}
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice - walletBalance)}
                       </strong>{' '}
                       more to create this contract.
                     </p>
                   )}
                 </div>
-              )}
+                );
+              })()}
 
               {/* Direct Payment Info - Only show if direct payment is selected */}
               {paymentMethod === 'direct_payment' && (
@@ -2092,11 +2936,29 @@ const CreateContract: React.FC = () => {
                       After creating the contract, you will receive a QR code to scan and complete the payment. The contract will be activated automatically once payment is confirmed.
                     </p>
                     <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-gray-600">Amount:</span>
-                        <span className="font-bold text-blue-700">
+                      <div className="space-y-2">
+                        {numberOfChildren > 1 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Base Price:</span>
+                            <span className="text-gray-500 line-through">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price)}
                         </span>
+                      </div>
+                        )}
+                        {numberOfChildren > 1 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Price Adjustment ({numberOfChildren} children):</span>
+                            <span className="text-primary font-medium">
+                              +60%
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 border-t border-gray-200">
+                          <span className="text-gray-600 font-medium">Total Amount:</span>
+                          <span className="font-bold text-blue-700 text-lg">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.price, numberOfChildren))}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2108,9 +2970,20 @@ const CreateContract: React.FC = () => {
                 <h3 className="font-bold text-gray-900 mb-4">Contract Summary</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Child:</span>
-                    <span className="font-medium">{selectedChild.fullName}</span>
+                    <span className="text-gray-600">{numberOfChildren === 1 ? 'Child' : 'Children'}:</span>
+                    <span className="font-medium">
+                      {numberOfChildren === 1 
+                        ? selectedChild.fullName
+                        : selectedChildren.map(c => c.fullName).join(', ')
+                      }
+                    </span>
                   </div>
+                  {numberOfChildren > 1 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Number of Children:</span>
+                      <span className="font-medium">{numberOfChildren} (+60% price)</span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Package:</span>
                     <span className="font-medium">{selectedPackage.packageName}</span>
@@ -2140,9 +3013,35 @@ const CreateContract: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Time Slot:</span>
                     <span className="font-medium">
-                      {schedule.startTime && schedule.endTime 
-                        ? `${schedule.startTime} - ${schedule.endTime} (1.5 hours)`
-                        : 'Not selected'}
+                      {schedule.useSameTimeForAllDays ? (
+                        schedule.startTime && schedule.endTime 
+                          ? `${schedule.startTime} - ${schedule.endTime} (1.5 hours) for all days`
+                          : 'Not selected'
+                      ) : (
+                        (() => {
+                          const selectedDays = [
+                            { label: 'Sun', value: 1 },
+                            { label: 'Mon', value: 2 },
+                            { label: 'Tue', value: 4 },
+                            { label: 'Wed', value: 8 },
+                            { label: 'Thu', value: 16 },
+                            { label: 'Fri', value: 32 },
+                            { label: 'Sat', value: 64 }
+                          ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+                          
+                          const timeSlots = selectedDays.map(day => {
+                            const daySlot = schedule.dayTimeSlots?.[day.value];
+                            if (daySlot && daySlot.startTime && daySlot.endTime) {
+                              return `${day.label}: ${daySlot.startTime}-${daySlot.endTime}`;
+                            }
+                            return null;
+                          }).filter(Boolean);
+                          
+                          return timeSlots.length > 0 
+                            ? timeSlots.join(', ')
+                            : 'Not selected';
+                        })()
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2166,14 +3065,35 @@ const CreateContract: React.FC = () => {
                     <span className="font-medium text-gray-500">Will be assigned by staff</span>
                   </div>
                   <div className="pt-3 border-t border-gray-200">
-                    <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      {numberOfChildren > 1 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Base Price:</span>
+                          <span className="text-gray-500 line-through">
+                            {new Intl.NumberFormat('vi-VN', { 
+                              style: 'currency', 
+                              currency: 'VND' 
+                            }).format(selectedPackage.price)}
+                          </span>
+                        </div>
+                      )}
+                      {numberOfChildren > 1 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Price Adjustment:</span>
+                          <span className="text-primary font-medium">
+                            +60% (2 children)
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-300">
                       <span className="text-lg font-bold text-gray-900">Total:</span>
                       <span className="text-2xl font-bold text-blue-600">
                         {new Intl.NumberFormat('vi-VN', { 
                           style: 'currency', 
                           currency: 'VND' 
-                        }).format(selectedPackage.price)}
+                          }).format(calculatePrice(selectedPackage.price, numberOfChildren))}
                       </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2190,7 +3110,7 @@ const CreateContract: React.FC = () => {
                 </button>
                 <button
                   onClick={handlePayment}
-                  disabled={isCreating || (paymentMethod === 'wallet' && walletBalance < selectedPackage.price)}
+                  disabled={isCreating || (paymentMethod === 'wallet' && walletBalance < calculatePrice(selectedPackage.price, numberOfChildren))}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {isCreating ? (

@@ -18,8 +18,8 @@ export default {
           purple: '#8B5CF6',     // Advanced topics
         },
         background: {
-          cream: '#F8E5CB',      // Very Light Cream/Off-white
-          light: '#FEF9F3',      // Very light cream
+          cream: '#FAE6DF',      // Very Light Cream/Off-white
+          light: '#FFF2EF',      // Very light cream
         },
         math: {
           blue: '#3B82F6',       // Math symbols blue

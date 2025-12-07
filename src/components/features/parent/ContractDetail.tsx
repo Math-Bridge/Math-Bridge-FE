@@ -44,6 +44,7 @@ interface Session {
 interface ContractDetail {
   id: string;
   childName: string;
+  secondChildName?: string | null; // For twin contracts
   tutorName: string;
   tutorEmail: string;
   tutorPhone: string;
@@ -183,8 +184,30 @@ const ContractDetail: React.FC = () => {
         }
 
         // Build schedule string
+        // Helper function to format schedules array to display string
+        const formatSchedulesToString = (schedules: any[]): string => {
+          if (!schedules || schedules.length === 0) return 'Schedule not set';
+          
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const dayShortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          
+          return schedules.map((s: any) => {
+            const dayOfWeek = s.dayOfWeek ?? s.DayOfWeek ?? 0;
+            const dayName = dayShortNames[dayOfWeek] || `Day ${dayOfWeek}`;
+            const startTime = (s.startTime ?? s.StartTime ?? '').substring(0, 5);
+            const endTime = (s.endTime ?? s.EndTime ?? '').substring(0, 5);
+            return `${dayName}: ${startTime}-${endTime}`;
+          }).join(', ');
+        };
+        
         let schedule = '';
-        if (contractData.DaysOfWeeksDisplay || contractData.daysOfWeeksDisplay) {
+        
+        // New format: Use schedules array if available
+        if (contractData.schedules && Array.isArray(contractData.schedules) && contractData.schedules.length > 0) {
+          schedule = formatSchedulesToString(contractData.schedules);
+        }
+        // Legacy format: DaysOfWeeksDisplay
+        else if (contractData.DaysOfWeeksDisplay || contractData.daysOfWeeksDisplay) {
           const days = contractData.DaysOfWeeksDisplay || contractData.daysOfWeeksDisplay;
           const startTime = contractData.StartTime || contractData.startTime || '';
           const endTime = contractData.EndTime || contractData.endTime || '';
@@ -195,7 +218,9 @@ const ContractDetail: React.FC = () => {
           } else {
             schedule = days;
           }
-        } else {
+        }
+        // Fallback: timeSlot or schedule field
+        else {
           schedule = contractData.timeSlot || contractData.schedule || 'Schedule not set';
         }
 
@@ -232,6 +257,7 @@ const ContractDetail: React.FC = () => {
         const mappedContract: ContractDetail = {
           id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
           childName: contractData.ChildName || contractData.childName || 'N/A',
+          secondChildName: contractData.SecondChildName || contractData.secondChildName || null,
           tutorName: contractData.MainTutorName || contractData.mainTutorName || 'Tutor not assigned',
           tutorEmail: contractData.MainTutorEmail || contractData.mainTutorEmail || '',
           tutorPhone: contractData.MainTutorPhone || contractData.mainTutorPhone || '',
@@ -928,9 +954,18 @@ const ContractDetail: React.FC = () => {
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">Children</p>
-                  <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
-                  <p className="text-sm text-gray-600 mt-1">Learner</p>
+                  <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
+                    {contract.secondChildName ? 'Children' : 'Child'}
+                  </p>
+                  <div className="space-y-1">
+                    <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
+                    {contract.secondChildName && (
+                      <h2 className="text-2xl font-bold text-gray-900">{contract.secondChildName}</h2>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {contract.secondChildName ? 'Learners' : 'Learner'}
+                  </p>
                 </div>
               </div>
             </div>

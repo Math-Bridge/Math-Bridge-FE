@@ -52,7 +52,6 @@ const ParentTutorReports: React.FC = () => {
   const [availableTutorsForContract, setAvailableTutorsForContract] = useState<Array<{id: string, name: string, type: string}>>([]);
   const [reportContent, setReportContent] = useState('');
   const [reportUrl, setReportUrl] = useState('');
-  const [reportType, setReportType] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
@@ -210,7 +209,7 @@ const ParentTutorReports: React.FC = () => {
   };
 
   const handleCreateReport = async () => {
-    if (!selectedTutorId || !selectedContractIdForReport || !reportContent.trim()) {
+    if (!selectedTutorId || !selectedContractIdForReport || !reportContent.trim() || !user?.id) {
       showError('Please fill in all required fields');
       return;
     }
@@ -219,10 +218,10 @@ const ParentTutorReports: React.FC = () => {
       setIsCreating(true);
       const reportData: CreateReportRequest = {
         tutorId: selectedTutorId,
+        parentId: user.id,
         contractId: selectedContractIdForReport,
         content: reportContent.trim(),
         url: reportUrl.trim() || undefined,
-        type: reportType.trim() || undefined,
       };
 
       const result = await createReport(reportData);
@@ -235,7 +234,6 @@ const ParentTutorReports: React.FC = () => {
         setAvailableTutorsForContract([]);
         setReportContent('');
         setReportUrl('');
-        setReportType('');
         // Refresh reports list
         fetchReports();
       } else {
@@ -565,7 +563,6 @@ const ParentTutorReports: React.FC = () => {
                       setAvailableTutorsForContract([]);
                       setReportContent('');
                       setReportUrl('');
-                      setReportType('');
                     }}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
@@ -712,19 +709,6 @@ const ParentTutorReports: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Report Type (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., Complaint, Feedback, Issue"
-                    value={reportType}
-                    onChange={(e) => setReportType(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Report Content <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -761,7 +745,6 @@ const ParentTutorReports: React.FC = () => {
                     setAvailableTutorsForContract([]);
                     setReportContent('');
                     setReportUrl('');
-                    setReportType('');
                   }}
                   className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
                   disabled={isCreating}

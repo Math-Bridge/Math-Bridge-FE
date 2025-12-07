@@ -72,7 +72,6 @@ const ContractsManagement: React.FC = () => {
   const [availableTutorsForContract, setAvailableTutorsForContract] = useState<Array<{id: string, name: string, type: string}>>([]);
   const [reportContent, setReportContent] = useState('');
   const [reportUrl, setReportUrl] = useState('');
-  const [reportType, setReportType] = useState('');
   const [isCreatingReport, setIsCreatingReport] = useState(false);
 
   const fetchData = useCallback(async (isInitialLoad = false) => {
@@ -137,14 +136,38 @@ const ContractsManagement: React.FC = () => {
           const centerName = cleanContract.CenterName || cleanContract.centerName || 'Online';
           const offlineAddress = cleanContract.OfflineAddress || cleanContract.offlineAddress || null;
           
+          // Helper function to format schedules array to display string
+          const formatSchedulesToString = (schedules: any[]): string => {
+            if (!schedules || schedules.length === 0) return 'Schedule not set';
+            
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayShortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            
+            return schedules.map((s: any) => {
+              const dayOfWeek = s.dayOfWeek ?? s.DayOfWeek ?? 0;
+              const dayName = dayShortNames[dayOfWeek] || `Day ${dayOfWeek}`;
+              const startTime = (s.startTime ?? s.StartTime ?? '').substring(0, 5);
+              const endTime = (s.endTime ?? s.EndTime ?? '').substring(0, 5);
+              return `${dayName}: ${startTime}-${endTime}`;
+            }).join(', ');
+          };
+          
           const formatTime = (timeStr: string) => timeStr ? timeStr.split(':').slice(0, 2).join(':') : '';
           let schedule = '';
-          if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
+          
+          // New format: Use schedules array if available
+          if (cleanContract.schedules && Array.isArray(cleanContract.schedules) && cleanContract.schedules.length > 0) {
+            schedule = formatSchedulesToString(cleanContract.schedules);
+          }
+          // Legacy format: DaysOfWeeksDisplay
+          else if (cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay) {
             const days = cleanContract.DaysOfWeeksDisplay || cleanContract.daysOfWeeksDisplay;
             const startTime = formatTime(cleanContract.StartTime || cleanContract.startTime);
             const endTime = formatTime(cleanContract.EndTime || cleanContract.endTime);
             schedule = startTime && endTime ? `${days}, ${startTime} - ${endTime}` : `${days}, ${startTime || ''}`;
-          } else {
+          }
+          // Fallback: timeSlot or schedule field
+          else {
             schedule = cleanContract.timeSlot || cleanContract.schedule || 'Schedule not set';
           }
 
@@ -155,6 +178,7 @@ const ContractsManagement: React.FC = () => {
           return {
             id: cleanContract.ContractId || cleanContract.contractId || String(cleanContract.ContractId),
             childId: cleanContract.ChildId || cleanContract.childId || '',
+            secondChildId: cleanContract.SecondChildId || cleanContract.secondChildId || null,
             childName, tutorName, packageName, centerName, offlineAddress,
             subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
             totalSessions, completedSessions, price,
@@ -299,7 +323,7 @@ const ContractsManagement: React.FC = () => {
 
   const filteredContracts = contracts.filter(c => 
     (filter === 'all' || c.status === filter) && 
-    (selectedChildId === 'all' || c.childId === selectedChildId)
+    (selectedChildId === 'all' || c.childId === selectedChildId || (c as any).secondChildId === selectedChildId)
   );
 
   const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
@@ -333,7 +357,6 @@ const ContractsManagement: React.FC = () => {
     setAvailableTutorsForContract([]);
     setReportContent('');
     setReportUrl('');
-    setReportType('');
     
     // Load tutors for this contract - use rawData if available, otherwise try contract object
     const contractData = contract.rawData || contract as any;
@@ -432,7 +455,7 @@ const ContractsManagement: React.FC = () => {
   };
   
   const handleCreateReport = async () => {
-    if (!selectedTutorId || !selectedContractForReport || !reportContent.trim()) {
+    if (!selectedTutorId || !selectedContractForReport || !reportContent.trim() || !user?.id) {
       showError('Please fill in all required fields');
       return;
     }
@@ -441,10 +464,10 @@ const ContractsManagement: React.FC = () => {
       setIsCreatingReport(true);
       const reportData: CreateReportRequest = {
         tutorId: selectedTutorId,
+        parentId: user.id,
         contractId: selectedContractForReport.id,
         content: reportContent.trim(),
         url: reportUrl.trim() || undefined,
-        type: reportType.trim() || undefined,
       };
 
       const result = await createReport(reportData);
@@ -457,7 +480,6 @@ const ContractsManagement: React.FC = () => {
         setAvailableTutorsForContract([]);
         setReportContent('');
         setReportUrl('');
-        setReportType('');
         // Refresh contracts data to reflect any changes (silent refresh, no loading)
         fetchData(false);
       } else {
@@ -578,7 +600,10 @@ const ContractsManagement: React.FC = () => {
                 >
                   <option value="all">All Children ({filteredContracts.length})</option>
                   {children.map(child => {
-                    const count = contracts.filter(c => c.childId === child.childId && (filter === 'all' || c.status === filter)).length;
+                    const count = contracts.filter(c => 
+                      (c.childId === child.childId || (c as any).secondChildId === child.childId) && 
+                      (filter === 'all' || c.status === filter)
+                    ).length;
                     return (
                       <option key={child.childId} value={child.childId}>
                         {child.fullName} ({count})
@@ -852,7 +877,6 @@ const ContractsManagement: React.FC = () => {
                     setAvailableTutorsForContract([]);
                     setReportContent('');
                     setReportUrl('');
-                    setReportType('');
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -901,19 +925,6 @@ const ContractsManagement: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Report Type (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g., Complaint, Feedback, Issue"
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Report Content <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -950,7 +961,6 @@ const ContractsManagement: React.FC = () => {
                   setAvailableTutorsForContract([]);
                   setReportContent('');
                   setReportUrl('');
-                  setReportType('');
                 }}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
                 disabled={isCreatingReport}

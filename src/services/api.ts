@@ -1402,10 +1402,18 @@ export async function searchSchools(request: SchoolSearchRequest) {
 }
 
 // Contract API
+export interface ContractScheduleDto {
+  dayOfWeek: number; // 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+  startTime: string; // Format: "HH:mm"
+  endTime: string; // Format: "HH:mm"
+}
+
 export interface Contract {
   contractId: string;
   childId: string;
   childName?: string | null;
+  secondChildId?: string | null; // New: Second child support
+  secondChildName?: string | null; // New: Second child name
   packageId: string;
   packageName?: string | null;
   mainTutorId?: string | null;
@@ -1414,7 +1422,8 @@ export interface Contract {
   centerName?: string | null;
   startDate: string;
   endDate: string;
-  timeSlot: string;
+  timeSlot?: string; // Legacy field - may still exist for backward compatibility
+  schedules?: ContractScheduleDto[]; // New: Flexible schedules array
   isOnline: boolean;
   status: string;
   offlineAddress?: string | null;
@@ -1425,6 +1434,7 @@ export interface Contract {
 export interface CreateContractRequest {
   parentId: string;
   childId: string;
+  secondChildId?: string; // New: Optional second child
   packageId: string;
   mainTutorId: string;
   substituteTutor1Id?: string; // Optional substitute tutor 1
@@ -1432,9 +1442,12 @@ export interface CreateContractRequest {
   centerId?: string;
   startDate: string;
   endDate: string;
-  daysOfWeeks?: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64 (matches backend C# DayOfWeek enum)
+  // Legacy fields - kept for backward compatibility but will be converted to schedules
+  daysOfWeeks?: number; // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
   startTime?: string; // Format: "HH:mm"
   endTime?: string; // Format: "HH:mm"
+  // New: Flexible schedules (preferred)
+  schedules?: ContractScheduleDto[]; // Array of schedules for different days
   isOnline: boolean;
   offlineAddress?: string;
   offlineLatitude?: number;
@@ -1444,6 +1457,31 @@ export interface CreateContractRequest {
   paymentMethod?: 'wallet' | 'bank_transfer' | 'direct_payment'; // Payment method selection
   status?: string;
 }
+
+// Helper function to convert bitmask to DayOfWeek array
+// Backend DayOfWeek enum: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+const bitmaskToDayOfWeek = (bitmask: number): number[] => {
+  const days: number[] = [];
+  // Bitmask: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64
+  // Backend DayOfWeek: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday
+  const mapping: { bitmask: number; dayOfWeek: number }[] = [
+    { bitmask: 1, dayOfWeek: 0 }, // Sunday
+    { bitmask: 2, dayOfWeek: 1 }, // Monday
+    { bitmask: 4, dayOfWeek: 2 }, // Tuesday
+    { bitmask: 8, dayOfWeek: 3 }, // Wednesday
+    { bitmask: 16, dayOfWeek: 4 }, // Thursday
+    { bitmask: 32, dayOfWeek: 5 }, // Friday
+    { bitmask: 64, dayOfWeek: 6 }  // Saturday
+  ];
+  
+  for (const map of mapping) {
+    if ((bitmask & map.bitmask) !== 0) {
+      days.push(map.dayOfWeek);
+    }
+  }
+  
+  return days;
+};
 
 export async function createContract(data: CreateContractRequest) {
   // Remove reschedule_count if present (field doesn't exist in backend)
@@ -1463,76 +1501,152 @@ export async function createContract(data: CreateContractRequest) {
     // This is a limitation that needs backend fix
   }
   
-  // Validate required fields before building request
-  if (!cleanData.daysOfWeeks || cleanData.daysOfWeeks === 0) {
+  // Build schedules array - prefer schedules if provided, otherwise convert from legacy fields
+  let schedules: ContractScheduleDto[] = [];
+  
+  if (cleanData.schedules && Array.isArray(cleanData.schedules) && cleanData.schedules.length > 0) {
+    // Use provided schedules array
+    schedules = cleanData.schedules;
+  } else if (cleanData.daysOfWeeks && cleanData.startTime && cleanData.endTime) {
+    // Convert legacy format (daysOfWeeks bitmask + startTime/endTime) to schedules array
+    const selectedDays = bitmaskToDayOfWeek(cleanData.daysOfWeeks);
+    
+    if (selectedDays.length === 0) {
+      return Promise.resolve({
+        success: false,
+        error: 'At least one day must be selected',
+        data: null
+      });
+    }
+    
+    // Create one schedule entry for each selected day with the same time
+    schedules = selectedDays.map(dayOfWeek => ({
+      dayOfWeek: dayOfWeek,
+      startTime: cleanData.startTime,
+      endTime: cleanData.endTime
+    }));
+  } else {
     return Promise.resolve({
       success: false,
-      error: 'At least one day must be selected (DaysOfWeeks must be 1-127)',
+      error: 'Either schedules array or (daysOfWeeks + startTime + endTime) must be provided',
       data: null
     });
   }
-
-  if (!cleanData.startTime || !cleanData.endTime || cleanData.startTime === '' || cleanData.endTime === '') {
+  
+  // Validate schedules
+  if (schedules.length === 0) {
     return Promise.resolve({
       success: false,
-      error: 'Start time and End time are required',
+      error: 'At least one schedule must be provided',
       data: null
     });
   }
+  
+  // Check for duplicate days
+  const daySet = new Set(schedules.map(s => s.dayOfWeek));
+  if (daySet.size !== schedules.length) {
+    return Promise.resolve({
+      success: false,
+      error: 'Duplicate day of week is not allowed',
+      data: null
+    });
+  }
+  
+  // Validate each schedule
+  for (const schedule of schedules) {
+    if (!schedule.startTime || !schedule.endTime || schedule.startTime === '' || schedule.endTime === '') {
+      return Promise.resolve({
+        success: false,
+        error: `Start time and End time are required for day ${schedule.dayOfWeek}`,
+        data: null
+      });
+    }
+    
+    // Validate time format (HH:mm)
+    const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(schedule.startTime) || !timeRegex.test(schedule.endTime)) {
+      return Promise.resolve({
+        success: false,
+        error: `Invalid time format for day ${schedule.dayOfWeek}. Expected HH:mm format`,
+        data: null
+      });
+    }
+    
+    // Validate startTime < endTime
+    const [startHours, startMinutes] = schedule.startTime.split(':').map(Number);
+    const [endHours, endMinutes] = schedule.endTime.split(':').map(Number);
+    const startTotalMinutes = startHours * 60 + startMinutes;
+    const endTotalMinutes = endHours * 60 + endMinutes;
+    
+    if (startTotalMinutes >= endTotalMinutes) {
+      return Promise.resolve({
+        success: false,
+        error: `Start time must be earlier than end time for day ${schedule.dayOfWeek}`,
+        data: null
+      });
+    }
+  }
 
-  // Map camelCase to PascalCase for backend
+  // Map camelCase to camelCase for backend (Backend uses JsonPropertyName with camelCase)
   // Backend expects DateOnly (YYYY-MM-DD) and TimeOnly (HH:mm) formats
   const requestData: any = {
-    ParentId: cleanData.parentId,
-    ChildId: cleanData.childId,
-    PackageId: cleanData.packageId,
-    StartDate: cleanData.startDate, // Format: YYYY-MM-DD (DateOnly)
-    EndDate: cleanData.endDate, // Format: YYYY-MM-DD (DateOnly)
-    DaysOfWeeks: cleanData.daysOfWeeks, // Must be 1-127 (at least one day)
-    StartTime: cleanData.startTime, // Format: HH:mm (TimeOnly)
-    EndTime: cleanData.endTime, // Format: HH:mm (TimeOnly)
-    IsOnline: cleanData.isOnline,
-    MaxDistanceKm: cleanData.maxDistanceKm ?? (cleanData.isOnline ? 0 : 10),
-    Status: cleanData.status || 'pending' // Backend requires Status field - default to 'pending' for new contracts
+    parentId: cleanData.parentId,
+    childId: cleanData.childId,
+    packageId: cleanData.packageId,
+    startDate: cleanData.startDate, // Format: YYYY-MM-DD (DateOnly)
+    endDate: cleanData.endDate, // Format: YYYY-MM-DD (DateOnly)
+    schedules: schedules.map(s => ({
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime, // Format: HH:mm (TimeOnly)
+      endTime: s.endTime // Format: HH:mm (TimeOnly)
+    })),
+    isOnline: cleanData.isOnline,
+    maxDistanceKm: cleanData.maxDistanceKm ?? (cleanData.isOnline ? 0 : 15),
+    status: cleanData.status || 'unpaid' // Backend default is "unpaid"
   };
   
-  // MainTutorId - always send, use null if empty/invalid (don't leave field empty)
+  // Add secondChildId if provided
+  if (cleanData.secondChildId) {
+    requestData.secondChildId = cleanData.secondChildId;
+  }
+  
+  // mainTutorId - always send, use null if empty/invalid (don't leave field empty)
   if (cleanData.mainTutorId && 
       cleanData.mainTutorId !== '00000000-0000-0000-0000-000000000000' && 
       cleanData.mainTutorId !== null &&
       typeof cleanData.mainTutorId === 'string' &&
       cleanData.mainTutorId.trim() !== '') {
-    requestData.MainTutorId = cleanData.mainTutorId;
+    requestData.mainTutorId = cleanData.mainTutorId;
   } else {
-    requestData.MainTutorId = null; // Explicitly send null instead of omitting field
+    requestData.mainTutorId = null; // Explicitly send null instead of omitting field
   }
   
-  // SubstituteTutor1Id - always send, use null if not provided
-  requestData.SubstituteTutor1Id = (cleanData.substituteTutor1Id && 
+  // substituteTutor1Id - always send, use null if not provided
+  requestData.substituteTutor1Id = (cleanData.substituteTutor1Id && 
     cleanData.substituteTutor1Id !== '00000000-0000-0000-0000-000000000000' &&
     typeof cleanData.substituteTutor1Id === 'string' &&
     cleanData.substituteTutor1Id.trim() !== '')
     ? cleanData.substituteTutor1Id 
     : null;
   
-  // SubstituteTutor2Id - always send, use null if not provided
-  requestData.SubstituteTutor2Id = (cleanData.substituteTutor2Id && 
+  // substituteTutor2Id - always send, use null if not provided
+  requestData.substituteTutor2Id = (cleanData.substituteTutor2Id && 
     cleanData.substituteTutor2Id !== '00000000-0000-0000-0000-000000000000' &&
     typeof cleanData.substituteTutor2Id === 'string' &&
     cleanData.substituteTutor2Id.trim() !== '')
     ? cleanData.substituteTutor2Id 
     : null;
   if (cleanData.centerId) {
-    requestData.CenterId = cleanData.centerId;
+    requestData.centerId = cleanData.centerId;
   }
   if (cleanData.offlineAddress) {
-    requestData.OfflineAddress = cleanData.offlineAddress;
+    requestData.offlineAddress = cleanData.offlineAddress;
   }
   if (cleanData.offlineLatitude !== undefined) {
-    requestData.OfflineLatitude = cleanData.offlineLatitude;
+    requestData.offlineLatitude = cleanData.offlineLatitude;
   }
   if (cleanData.offlineLongitude !== undefined) {
-    requestData.OfflineLongitude = cleanData.offlineLongitude;
+    requestData.offlineLongitude = cleanData.offlineLongitude;
   }
   // VideoCallPlatform - include if provided and isOnline is true
   // Backend DTO has JsonPropertyName("videoCallPlatform") which expects camelCase in JSON
@@ -1544,20 +1658,13 @@ export async function createContract(data: CreateContractRequest) {
   
   // Payment method is not sent to backend - it's only used in frontend to determine payment flow
   // Backend doesn't need to know payment method as it's handled differently:
-  // - wallet: frontend calls deductWallet after contract creation (contract created with "pending" status)
+  // - wallet: frontend calls deductWallet after contract creation (contract created with "pending" status, then wallet deduction)
   // - direct_payment: frontend calls createContractDirectPayment after contract creation
   //   Backend SePayService will update contract status to "unpaid" when creating payment
   
-  // Set status based on payment method:
-  // - For direct_payment: send "pending" (backend SePayService will change it to "unpaid")
-  // - For wallet: send "pending" (will be activated after wallet deduction)
-  if (cleanData.paymentMethod === 'direct_payment') {
-    // Contract will be created with "pending" status, then SePayService will update it to "unpaid"
-    requestData.Status = 'pending';
-  } else {
-    // Default to "pending" for wallet payment
-    requestData.Status = cleanData.status || 'pending';
-  }
+  // Set status: Backend validation only accepts "pending", "active", "completed", "cancelled" (ContractService.cs line 44)
+  // Default to "pending" for new contracts - backend will handle status updates based on payment flow
+  requestData.status = cleanData.status || 'pending';
   
   // Create contract request
   
@@ -1612,13 +1719,34 @@ export async function getContractById(contractId: string) {
     if (response.success && response.data) {
       const { reschedule_count, ...cleanContract } = response.data;
       
-      // Map timeSlot from various possible field names or construct from startTime/endTime
+      // Helper function to convert schedules array to display string
+      const formatSchedulesToString = (schedules: any[]): string => {
+        if (!schedules || schedules.length === 0) return 'Not set';
+        
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayShortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        return schedules.map((s: any) => {
+          const dayOfWeek = s.dayOfWeek ?? s.DayOfWeek ?? 0;
+          const dayName = dayShortNames[dayOfWeek] || `Day ${dayOfWeek}`;
+          const startTime = (s.startTime ?? s.StartTime ?? '').substring(0, 5);
+          const endTime = (s.endTime ?? s.EndTime ?? '').substring(0, 5);
+          return `${dayName}: ${startTime}-${endTime}`;
+        }).join(', ');
+      };
+      
+      // Map timeSlot from various possible field names or construct from schedules/startTime/endTime
       let timeSlot = cleanContract.timeSlot || 
                      cleanContract.TimeSlot || 
                      cleanContract.time_slot ||
                      cleanContract.Time_Slot;
       
-      // If timeSlot is not available, try to construct from startTime and endTime
+      // If timeSlot is not available, try to construct from schedules array (new format)
+      if (!timeSlot && cleanContract.schedules && Array.isArray(cleanContract.schedules) && cleanContract.schedules.length > 0) {
+        timeSlot = formatSchedulesToString(cleanContract.schedules);
+      }
+      
+      // Fallback: try to construct from startTime and endTime (legacy format)
       if (!timeSlot) {
         const startTime = cleanContract.startTime || cleanContract.StartTime || cleanContract.start_time;
         const endTime = cleanContract.endTime || cleanContract.EndTime || cleanContract.end_time;
@@ -1644,6 +1772,7 @@ export async function getContractById(contractId: string) {
         data: {
           ...cleanContract,
           timeSlot: timeSlot || 'Not set',
+          schedules: cleanContract.schedules || cleanContract.Schedules || [],
           rescheduleCount: response.data.rescheduleCount || response.data.RescheduleCount || 0,
         } as Contract,
         error: null
@@ -5748,10 +5877,10 @@ export interface Report {
 
 export interface CreateReportRequest {
   tutorId: string;
+  parentId: string;
   contractId: string;
   content: string;
   url?: string;
-  type?: string;
 }
 
 // Get reports by parent ID
@@ -5805,26 +5934,23 @@ export async function getReportsByParent(parentId: string) {
 // Create a new report
 export async function createReport(data: CreateReportRequest) {
   try {
-    if (!data.tutorId || !data.contractId || !data.content) {
+    if (!data.tutorId || !data.parentId || !data.contractId || !data.content) {
       return {
         success: false,
         data: null,
-        error: 'Tutor ID, Contract ID, and Content are required',
+        error: 'Tutor ID, Parent ID, Contract ID, and Content are required',
       };
     }
 
     const requestBody: any = {
       tutorId: data.tutorId,
+      parentId: data.parentId,
       contractId: data.contractId,
       content: data.content.trim(),
     };
 
     if (data.url && data.url.trim()) {
       requestBody.url = data.url.trim();
-    }
-
-    if (data.type && data.type.trim()) {
-      requestBody.type = data.type.trim();
     }
 
     const result = await apiService.request<any>(`/reports`, {
