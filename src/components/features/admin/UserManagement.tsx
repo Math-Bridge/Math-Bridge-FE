@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../hooks/useAuth';
 
 interface User {
   userId: string;
@@ -37,6 +38,7 @@ interface User {
 
 const UserManagement: React.FC = () => {
   const { showSuccess, showError } = useToast();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -338,6 +340,23 @@ const UserManagement: React.FC = () => {
       // Validate userId format
       if (!userId || userId.trim() === '') {
         showError('Invalid user ID');
+        setUpdatingStatus(null);
+        return;
+      }
+
+      // Find the user being updated
+      const targetUser = users.find(u => u.userId === userId);
+      
+      // Prevent admin from deactivating themselves
+      if (currentUser && currentUser.id === userId && newStatus === 'banned') {
+        showError('You cannot deactivate your own account');
+        setUpdatingStatus(null);
+        return;
+      }
+      
+      // Prevent admin from deactivating other admins
+      if (targetUser && targetUser.roleId === 1 && newStatus === 'banned') {
+        showError('Cannot deactivate admin accounts. Please contact system administrator.');
         setUpdatingStatus(null);
         return;
       }
@@ -866,22 +885,25 @@ const UserManagement: React.FC = () => {
                                   <span>Edit Profile</span>
                                 </button>
                                 {user.status === 'active' ? (
-                                  <button
-                                    onClick={() => {
-                                      handleUpdateStatus(user.userId, 'banned');
-                                      setOpenDropdownId(null);
-                                      setDropdownPosition(null);
-                                    }}
-                                    disabled={updatingStatus === user.userId}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {updatingStatus === user.userId ? (
-                                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
-                                    ) : (
-                                      <UserX className="w-4 h-4" />
-                                    )}
-                                    <span>Deactivate</span>
-                                  </button>
+                                  // Don't show deactivate button for admin accounts or current user
+                                  !(user.roleId === 1 || (currentUser && currentUser.id === user.userId)) && (
+                                    <button
+                                      onClick={() => {
+                                        handleUpdateStatus(user.userId, 'banned');
+                                        setOpenDropdownId(null);
+                                        setDropdownPosition(null);
+                                      }}
+                                      disabled={updatingStatus === user.userId}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {updatingStatus === user.userId ? (
+                                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                                      ) : (
+                                        <UserX className="w-4 h-4" />
+                                      )}
+                                      <span>Deactivate</span>
+                                    </button>
+                                  )
                                 ) : user.status !== 'deleted' ? (
                                   <button
                                     onClick={() => {

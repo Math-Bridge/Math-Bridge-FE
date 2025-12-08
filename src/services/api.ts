@@ -403,7 +403,7 @@ class ApiService {
     return this.request(`/users/${userId}/wallet`);
   }
 
-  async deductWallet(contractId: string): Promise<ApiResponse<{
+  async deductWallet(contractId: string, price: number): Promise<ApiResponse<{
     transactionId: string;
     amountDeducted: number;
     newWalletBalance: number;
@@ -411,7 +411,7 @@ class ApiService {
     transactionDate: string;
     message: string;
   }>> {
-    return this.request(`/users/${contractId}/wallet/deduct`, {
+    return this.request(`/users/${contractId}/wallet/deduct?price=${price}`, {
       method: 'POST',
     });
   }
@@ -3580,6 +3580,70 @@ export async function createContractDirectPayment(contractId: string) {
   return apiService.request<SePayPaymentResponse>(`/SePay/create-contract-payment?contractId=${contractId}`, {
     method: 'POST',
   });
+}
+
+// Check tutor availability before creating contract
+export interface CheckTutorAvailabilityRequest {
+  packageId: string;
+  childId: string;
+  secondChildId?: string;
+  startDate: string; // Format: "YYYY-MM-DD"
+  endDate: string; // Format: "YYYY-MM-DD"
+  schedules: ContractScheduleDto[];
+  isOnline: boolean;
+  offlineAddress?: string;
+  offlineLatitude?: number;
+  offlineLongitude?: number;
+  maxDistanceKm?: number;
+}
+
+export interface AvailableTutorResponse {
+  userId: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  averageRating: number;
+  feedbackCount: number;
+  distanceKm?: number | null;
+}
+
+export interface CheckTutorAvailabilityResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    totalAvailable?: number;
+    TotalAvailable?: number; // Backend may return PascalCase
+    tutors?: AvailableTutorResponse[];
+    Tutors?: AvailableTutorResponse[]; // Backend may return PascalCase
+  };
+}
+
+export async function checkTutorsAvailability(request: CheckTutorAvailabilityRequest): Promise<CheckTutorAvailabilityResponse> {
+  const result = await apiService.request<any>('/contracts/check-available-tutors', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+  
+  // Normalize response to handle both camelCase and PascalCase from backend
+  if (result.success && result.data) {
+    const data = result.data;
+    // If backend returns PascalCase directly, normalize it
+    if (data.TotalAvailable !== undefined || data.Tutors !== undefined) {
+      result.data = {
+        totalAvailable: data.TotalAvailable ?? data.totalAvailable ?? 0,
+        tutors: data.Tutors ?? data.tutors ?? []
+      };
+    } else if (data.totalAvailable === undefined && data.tutors === undefined) {
+      // If data structure is different, try to extract from nested structure
+      const normalizedData = data.data || data;
+      result.data = {
+        totalAvailable: normalizedData.TotalAvailable ?? normalizedData.totalAvailable ?? 0,
+        tutors: normalizedData.Tutors ?? normalizedData.tutors ?? []
+      };
+    }
+  }
+  
+  return result as CheckTutorAvailabilityResponse;
 }
 
 // Get wallet transactions with filters

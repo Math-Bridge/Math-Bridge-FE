@@ -21,10 +21,11 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
-  MessageSquare
+  MessageSquare,
+  Brain
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId, getSessionsByContractId, Session as ApiSession } from '../../../services/api';
+import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId, getSessionsByContractId, Session as ApiSession, getUnitsByContractId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
@@ -44,7 +45,7 @@ interface Session {
 interface ContractDetail {
   id: string;
   childName: string;
-  secondChildName?: string | null; // For twin contracts
+  secondChildName?: string | null; 
   tutorName: string;
   tutorEmail: string;
   tutorPhone: string;
@@ -75,7 +76,7 @@ const ContractDetail: React.FC = () => {
   const [contractRawData, setContractRawData] = useState<any>(null); // Store raw contract data from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor' | 'curriculum'>('overview');
   
   // Payment states
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
@@ -110,6 +111,11 @@ const ContractDetail: React.FC = () => {
   // Unit progress states
   const [unitProgress, setUnitProgress] = useState<ChildUnitProgress | null>(null);
   const [loadingUnitProgress, setLoadingUnitProgress] = useState(false);
+  
+  // Curriculum states
+  const [units, setUnits] = useState<any[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [expandedUnitId, setExpandedUnitId] = useState<string | null>(null);
   
   // Daily reports states
   const [dailyReports, setDailyReports] = useState<any[]>([]);
@@ -495,6 +501,34 @@ const ContractDetail: React.FC = () => {
       fetchDailyReports();
     }
   }, [contract?.id, activeTab]);
+
+  // Fetch units when curriculum tab is active
+  useEffect(() => {
+    const fetchUnits = async () => {
+      if (!contractId || activeTab !== 'curriculum') return;
+      
+      try {
+        setLoadingUnits(true);
+        // Get raw data directly to preserve MathConcepts if available
+        const rawResult = await apiService.request<any>(`/units/by-contract/${contractId}`, {
+          method: 'GET',
+        });
+        if (rawResult.success && rawResult.data) {
+          const rawData = Array.isArray(rawResult.data) ? rawResult.data : (rawResult.data.data || []);
+          setUnits(rawData);
+        } else {
+          setUnits([]);
+        }
+      } catch (error) {
+        console.error('Error fetching units:', error);
+        setUnits([]);
+      } finally {
+        setLoadingUnits(false);
+      }
+    };
+
+    fetchUnits();
+  }, [contractId, activeTab]);
 
   // Fetch sessions when tutor tab is active (only for counting sessions taught)
   useEffect(() => {
@@ -1121,6 +1155,7 @@ const ContractDetail: React.FC = () => {
             <nav className="flex space-x-4">
               {[
                 { key: 'overview', label: 'Overview', icon: FileText },
+                { key: 'curriculum', label: 'Curriculum', icon: BookOpen },
                 { key: 'dailyReports', label: 'Daily Reports', icon: Calendar },
                 { key: 'tutor', label: 'Tutor Info', icon: User }
               ].map((tab) => (
@@ -1640,6 +1675,165 @@ const ContractDetail: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'curriculum' && (
+          <div className="space-y-8">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">
+                Curriculum
+              </h3>
+              <div className="space-y-4 text-gray-700">
+                {loadingUnits ? (
+                  <div className="bg-gray-50 rounded-xl p-6 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-gray-600">Loading curriculum details...</span>
+                  </div>
+                ) : units.length > 0 ? (
+                  <div className="bg-gray-50 rounded-xl p-6 space-y-4">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Units ({units.length})</h4>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {units.map((unit: any, idx: number) => {
+                        const unitId = unit.unitId || unit.UnitId || idx.toString();
+                        const isExpanded = expandedUnitId === unitId;
+                        const mathConcepts = unit.mathConcepts || unit.MathConcepts || [];
+                        const hasMathConcepts = Array.isArray(mathConcepts) && mathConcepts.length > 0;
+                        
+                        // Find progress for this unit
+                        const unitProgressData = unitProgress?.unitsProgress?.find(
+                          (up: any) => (up.unitId || up.UnitId) === unitId
+                        );
+                        const isCompleted = unitProgressData?.isCompleted || false;
+                        const timesLearned = unitProgressData?.timesLearned || 0;
+                        const hasProgress = timesLearned > 0;
+                        
+                        return (
+                          <div 
+                            key={unitId} 
+                            className={`rounded-lg border overflow-hidden transition-all ${
+                              isCompleted 
+                                ? 'bg-emerald-50 border-emerald-200' 
+                                : hasProgress 
+                                ? 'bg-blue-50 border-blue-200' 
+                                : 'bg-white border-gray-200'
+                            }`}
+                          >
+                            <div 
+                              className={`p-4 cursor-pointer transition-all hover:bg-opacity-80 ${isExpanded ? 'bg-opacity-80' : ''}`}
+                              onClick={() => setExpandedUnitId(isExpanded ? null : unitId)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  isCompleted 
+                                    ? 'bg-emerald-500 text-white' 
+                                    : hasProgress 
+                                    ? 'bg-blue-500 text-white' 
+                                    : 'bg-primary/10 text-primary'
+                                }`}>
+                                  <span className="font-semibold text-sm">{idx + 1}</span>
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-1">
+                                      <p className="font-medium text-gray-900">
+                                        {unit.unitName || unit.UnitName || `Unit ${idx + 1}`}
+                                      </p>
+                                      {isCompleted && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500 text-white">
+                                          <Award className="w-3 h-3 mr-1" />
+                                          Completed
+                                        </span>
+                                      )}
+                                      {hasProgress && !isCompleted && (
+                                        <span className="text-xs text-blue-600 font-medium">
+                                          In Progress
+                                        </span>
+                                      )}
+                                    </div>
+                                    {hasMathConcepts && (
+                                      <span className="text-xs text-primary font-medium">
+                                        {mathConcepts.length} MathConcept{mathConcepts.length !== 1 ? 's' : ''}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {unit.description && (
+                                    <p className="text-sm text-gray-600 mt-1">
+                                      {unit.description || unit.Description || unit.unitDescription || unit.UnitDescription}
+                                    </p>
+                                  )}
+                                  {hasProgress && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Practiced {timesLearned} {timesLearned === 1 ? 'time' : 'times'}
+                                      {unitProgressData?.lastLearnedDate && (
+                                        <span className="ml-2">
+                                          • Last: {new Date(unitProgressData.lastLearnedDate).toLocaleDateString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric' 
+                                          })}
+                                        </span>
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
+                                {hasMathConcepts && (
+                                  <ChevronDown 
+                                    className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'transform rotate-180' : ''}`}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                            
+                            {isExpanded && hasMathConcepts && (
+                              <div className="px-4 pb-4 pt-2 border-t border-gray-200 bg-gray-50">
+                                <h6 className="text-sm font-semibold text-gray-700 mb-3">MathConcepts:</h6>
+                                <div className="space-y-2">
+                                  {mathConcepts.map((concept: any, conceptIdx: number) => (
+                                    <div 
+                                      key={concept.conceptId || concept.ConceptId || conceptIdx}
+                                      className="bg-white rounded-lg p-3 border border-gray-200"
+                                    >
+                                      <div className="flex items-start gap-2">
+                                        <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                        <div className="flex-1">
+                                          <p className="font-medium text-gray-900 text-sm">
+                                            {concept.name || concept.Name || 'Unnamed Concept'}
+                                          </p>
+                                          {concept.category && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              Category: {concept.category || concept.Category}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {isExpanded && !hasMathConcepts && (
+                              <div className="px-4 pb-4 pt-2 border-t border-gray-200 bg-gray-50">
+                                <p className="text-sm text-gray-500 italic">No MathConcepts available for this unit.</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-xl p-6">
+                    <p className="text-gray-500 italic">
+                      Curriculum details are not available for this contract.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

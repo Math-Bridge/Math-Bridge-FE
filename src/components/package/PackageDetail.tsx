@@ -17,6 +17,7 @@ import {
   Star,
   Loader,
   BookMarked,
+  ChevronDown,
 } from "lucide-react";
 import type { Course } from "../../types";
 import { useAuth } from "../../hooks/useAuth";
@@ -43,6 +44,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
   const [curriculum, setCurriculum] = useState<any>(null);
   const [units, setUnits] = useState<any[]>([]);
   const [loadingCurriculum, setLoadingCurriculum] = useState(false);
+  const [expandedUnitId, setExpandedUnitId] = useState<string | null>(null);
   
   // Fetch curriculum when curriculumId is available
   useEffect(() => {
@@ -439,25 +441,83 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                               <div className="mt-6">
                                 <h5 className="font-semibold text-gray-900 mb-3">Units ({units.length})</h5>
                                 <div className="space-y-2">
-                                  {units.map((unit: any, idx: number) => (
-                                    <div key={idx} className="bg-white rounded-lg p-4 border border-gray-200">
-                                      <div className="flex items-start gap-3">
-                                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                          <span className="text-primary font-semibold text-sm">{idx + 1}</span>
+                                  {units.map((unit: any, idx: number) => {
+                                    const unitId = unit.unitId || unit.UnitId || idx.toString();
+                                    const isExpanded = expandedUnitId === unitId;
+                                    const mathConcepts = unit.mathConcepts || unit.MathConcepts || [];
+                                    const hasMathConcepts = Array.isArray(mathConcepts) && mathConcepts.length > 0;
+                                    
+                                    return (
+                                      <div key={unitId} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                        <div 
+                                          className={`p-4 cursor-pointer transition-all hover:bg-gray-50 ${isExpanded ? 'bg-gray-50' : ''}`}
+                                          onClick={() => setExpandedUnitId(isExpanded ? null : unitId)}
+                                        >
+                                          <div className="flex items-start gap-3">
+                                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                              <span className="text-primary font-semibold text-sm">{idx + 1}</span>
+                                            </div>
+                                            <div className="flex-1">
+                                              <div className="flex items-center justify-between">
+                                                <p className="font-medium text-gray-900">
+                                                  {unit.unitName || unit.UnitName || `Unit ${idx + 1}`}
+                                                </p>
+                                                {hasMathConcepts && (
+                                                  <span className="text-xs text-primary font-medium">
+                                                    {mathConcepts.length} MathConcept{mathConcepts.length !== 1 ? 's' : ''}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {unit.description && (
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                  {unit.description || unit.Description}
+                                                </p>
+                                              )}
+                                            </div>
+                                            {hasMathConcepts && (
+                                              <ChevronDown 
+                                                className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'transform rotate-180' : ''}`}
+                                              />
+                                            )}
+                                          </div>
                                         </div>
-                                        <div className="flex-1">
-                                          <p className="font-medium text-gray-900">
-                                            {unit.unitName || unit.UnitName || `Unit ${idx + 1}`}
-                                          </p>
-                                          {unit.description && (
-                                            <p className="text-sm text-gray-600 mt-1">
-                                              {unit.description || unit.Description}
-                                            </p>
-                                          )}
-                                        </div>
+                                        
+                                        {isExpanded && hasMathConcepts && (
+                                          <div className="px-4 pb-4 pt-2 border-t border-gray-200 bg-gray-50">
+                                            <h6 className="text-sm font-semibold text-gray-700 mb-3">MathConcepts:</h6>
+                                            <div className="space-y-2">
+                                              {mathConcepts.map((concept: any, conceptIdx: number) => (
+                                                <div 
+                                                  key={concept.conceptId || concept.ConceptId || conceptIdx}
+                                                  className="bg-white rounded-lg p-3 border border-gray-200"
+                                                >
+                                                  <div className="flex items-start gap-2">
+                                                    <Brain className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                                    <div className="flex-1">
+                                                      <p className="font-medium text-gray-900 text-sm">
+                                                        {concept.name || concept.Name || 'Unnamed Concept'}
+                                                      </p>
+                                                      {concept.category && (
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                          Category: {concept.category || concept.Category}
+                                                        </p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        {isExpanded && !hasMathConcepts && (
+                                          <div className="px-4 pb-4 pt-2 border-t border-gray-200 bg-gray-50">
+                                            <p className="text-sm text-gray-500 italic">No MathConcepts available for this unit.</p>
+                                          </div>
+                                        )}
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

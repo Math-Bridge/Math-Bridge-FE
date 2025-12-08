@@ -18,7 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId } from '../../../services/api';
+import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId, checkTutorsAvailability } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
@@ -148,6 +148,8 @@ const CreateContract: React.FC = () => {
     };
   }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
+  const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const lastSearchedAddressRef = useRef<string>('');
 
@@ -209,6 +211,11 @@ const CreateContract: React.FC = () => {
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schedule.offlineAddress, schedule.offlineLatitude, schedule.offlineLongitude, schedule.isOnline]);
+
+  // Clear availability warning when schedule changes
+  useEffect(() => {
+    setAvailabilityWarning(null);
+  }, [schedule.daysOfWeeks, schedule.startTime, schedule.endTime, schedule.isOnline, schedule.dayTimeSlots, schedule.startDate]);
 
   // Fetch user profile to get address
   const fetchUserProfile = async () => {
@@ -633,14 +640,26 @@ const CreateContract: React.FC = () => {
     }
   };
 
-  // Calculate price based on number of children
-  const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
-    if (numberOfChildren === 1) {
-      return basePrice;
-    } else if (numberOfChildren === 2) {
-      return basePrice * 1.6; // Increase 60%
+  // Calculate price based on number of children, offline mode, and payment method
+  const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false, isDirectPayment: boolean = false): number => {
+    let price = basePrice;
+    
+    // Increase 60% for 2 children
+    if (numberOfChildren === 2) {
+      price = basePrice * 1.6;
     }
-    return basePrice;
+    
+    // Add 2% for offline mode
+    if (isOffline) {
+      price = price * 1.02;
+    }
+    
+    // Add 2% for direct payment
+    if (isDirectPayment) {
+      price = price * 1.02;
+    }
+    
+    return price;
   };
 
   const handleSelectChild = (child: Child) => {
@@ -687,6 +706,25 @@ const CreateContract: React.FC = () => {
         return;
       }
       
+      // Validate group study requirements: same grade and same school
+      if (selectedChildren.length > 0 && numberOfChildren === 2) {
+        const firstChild = selectedChildren[0];
+        
+        // Check if same grade
+        if (firstChild.grade !== child.grade) {
+          showError(`Group study requires students to be in the same grade. Selected student: ${firstChild.grade}, this student: ${child.grade}`);
+          return;
+        }
+        
+        // Check if same school
+        if (firstChild.schoolId !== child.schoolId) {
+          const firstSchoolName = firstChild.schoolName || 'selected school';
+          const currentSchoolName = child.schoolName || 'this school';
+          showError(`Group study requires students to be from the same school. Selected student: ${firstSchoolName}, this student: ${currentSchoolName}`);
+          return;
+        }
+      }
+      
       const updated = [...selectedChildren, child];
       setSelectedChildren(updated);
       
@@ -725,6 +763,26 @@ const CreateContract: React.FC = () => {
       if (selectedChildren.length > 0) {
         // Keep existing selections, but limit to 2
         newSelectedChildren = selectedChildren.slice(0, 2);
+        
+        // Validate group study requirements if 2 children are selected
+        if (newSelectedChildren.length === 2) {
+          const firstChild = newSelectedChildren[0];
+          const secondChild = newSelectedChildren[1];
+          
+          // Check if same grade
+          if (firstChild.grade !== secondChild.grade) {
+            showError(`Group study requires students to be in the same grade. ${firstChild.fullName}: ${firstChild.grade}, ${secondChild.fullName}: ${secondChild.grade}`);
+            return;
+          }
+          
+          // Check if same school
+          if (firstChild.schoolId !== secondChild.schoolId) {
+            const firstSchoolName = firstChild.schoolName || 'selected school';
+            const secondSchoolName = secondChild.schoolName || 'this school';
+            showError(`Group study requires students to be from the same school. ${firstChild.fullName}: ${firstSchoolName}, ${secondChild.fullName}: ${secondSchoolName}`);
+            return;
+          }
+        }
       } else if (selectedChild) {
         // If no selectedChildren but has selectedChild, use it
         newSelectedChildren = [selectedChild];
@@ -763,14 +821,354 @@ const CreateContract: React.FC = () => {
       navigate('/my-children?action=create&returnTo=contract');
   };
 
+  const handleContinueToPayment = async () => {
+    // Validate start date
+    if (!schedule.startDate) {
+      const msg = 'Please select a start date';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
+    // Validate that start date is not in the past
+    const selectedDate = new Date(schedule.startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      const msg = 'Cannot select a start date in the past';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
+    // If selecting today, validate that the time slot is not in the past
+    if (selectedDate.getTime() === today.getTime()) {
+      const now = new Date();
+      
+      if (schedule.useSameTimeForAllDays) {
+        // Validate main time slot
+        if (schedule.startTime) {
+          const [hours, minutes] = schedule.startTime.split(':').map(Number);
+          const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+          
+          if (slotDateTime <= now) {
+            const msg = 'Cannot select a time slot in the past for today';
+            setError(msg);
+            showError(msg);
+            return;
+          }
+        }
+      } else {
+        // Validate first day's time slot
+        const selectedDays = [
+          { label: 'Sunday', value: 1 },
+          { label: 'Monday', value: 2 },
+          { label: 'Tuesday', value: 4 },
+          { label: 'Wednesday', value: 8 },
+          { label: 'Thursday', value: 16 },
+          { label: 'Friday', value: 32 },
+          { label: 'Saturday', value: 64 }
+        ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+        
+        if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
+          const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
+          if (firstDaySlot.startTime) {
+            const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
+            const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+            
+            if (slotDateTime <= now) {
+              const msg = `Cannot select a time slot in the past for today (${selectedDays[0].label})`;
+              setError(msg);
+              showError(msg);
+              return;
+            }
+          }
+        }
+      }
+    }
+    
+    // Validate days of week - exactly 3 days must be selected
+    const selectedDaysCount = [
+      (schedule.daysOfWeeks & 1) !== 0,
+      (schedule.daysOfWeeks & 2) !== 0,
+      (schedule.daysOfWeeks & 4) !== 0,
+      (schedule.daysOfWeeks & 8) !== 0,
+      (schedule.daysOfWeeks & 16) !== 0,
+      (schedule.daysOfWeeks & 32) !== 0,
+      (schedule.daysOfWeeks & 64) !== 0
+    ].filter(Boolean).length;
+    
+    if (selectedDaysCount !== 3) {
+      const msg = selectedDaysCount < 3 
+        ? `Please select exactly 3 days. Currently selected: ${selectedDaysCount} day${selectedDaysCount !== 1 ? 's' : ''}`
+        : `Please select exactly 3 days. Currently selected: ${selectedDaysCount} days`;
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
+    // Validate time slot is selected
+    if (schedule.useSameTimeForAllDays) {
+      // Same time for all days - validate main time slot
+      if (!schedule.startTime || !schedule.endTime) {
+        const msg = 'Please select a time slot';
+        setError(msg);
+        showError(msg);
+        return;
+      }
+      
+      // Validate that selected time slot is one of the available slots (1.5 hours duration)
+      const isValidSlot = TIME_SLOTS.some(
+        slot => slot.from === schedule.startTime && slot.to === schedule.endTime
+      );
+      
+      if (!isValidSlot) {
+        const msg = 'Please select a valid time slot';
+        setError(msg);
+        showError(msg);
+        return;
+      }
+    } else {
+      // Different time per day - validate all selected days have time slots
+      const selectedDays = [
+        { label: 'Sunday', value: 1 },
+        { label: 'Monday', value: 2 },
+        { label: 'Tuesday', value: 4 },
+        { label: 'Wednesday', value: 8 },
+        { label: 'Thursday', value: 16 },
+        { label: 'Friday', value: 32 },
+        { label: 'Saturday', value: 64 }
+      ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
+      
+      const missingDays = selectedDays.filter(day => {
+        const daySlot = schedule.dayTimeSlots?.[day.value];
+        return !daySlot || !daySlot.startTime || !daySlot.endTime;
+      });
+      
+      if (missingDays.length > 0) {
+        const msg = `Please select time slots for: ${missingDays.map(d => d.label).join(', ')}`;
+        setError(msg);
+        showError(msg);
+        return;
+      }
+      
+      // Validate all time slots are valid
+      for (const day of selectedDays) {
+        const daySlot = schedule.dayTimeSlots?.[day.value];
+        if (daySlot) {
+          const isValidSlot = TIME_SLOTS.some(
+            slot => slot.from === daySlot.startTime && slot.to === daySlot.endTime
+          );
+          
+          if (!isValidSlot) {
+            const msg = `Invalid time slot for ${day.label}`;
+            setError(msg);
+            showError(msg);
+            return;
+          }
+        }
+      }
+    }
+    
+    // Validate offline location if offline is selected
+    if (!schedule.isOnline) {
+      if (!schedule.offlineAddress || schedule.offlineAddress.trim() === '') {
+        const msg = 'Please enter a location for offline sessions';
+        setError(msg);
+        showError(msg);
+        return;
+      }
+      
+      // Validate coordinates exist (will be geocoded if missing during submit)
+      // But at least check that address is valid length
+      if (schedule.offlineAddress.trim().length < 5) {
+        const msg = 'Please enter a valid address (at least 5 characters)';
+        setError(msg);
+        showError(msg);
+        return;
+      }
+    }
+    
+    // Validate that there are centers available for the offline location
+    if (!schedule.isOnline && schedule.offlineAddress && nearbyCenters.length === 0 && !loadingCenters) {
+      const msg = 'No centers found within 10km radius from this address. Please enter a different location or choose online mode.';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
+    // Validate video call platform if online is selected
+    if (schedule.isOnline && !schedule.videoCallPlatform) {
+      const msg = 'Please select a video call platform (Google Meet or Zoom)';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
+    // Check tutor availability before proceeding to payment
+    setCheckingAvailability(true);
+    setError(null);
+    setAvailabilityWarning(null);
+    
+    try {
+      // Build schedules array for availability check
+      const schedules: Array<{ dayOfWeek: number; startTime: string; endTime: string }> = [];
+      
+      if (schedule.useSameTimeForAllDays) {
+        // Same time for all days
+        const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+          { bitmask: 1, dayOfWeek: 0 }, // Sunday
+          { bitmask: 2, dayOfWeek: 1 }, // Monday
+          { bitmask: 4, dayOfWeek: 2 }, // Tuesday
+          { bitmask: 8, dayOfWeek: 3 }, // Wednesday
+          { bitmask: 16, dayOfWeek: 4 }, // Thursday
+          { bitmask: 32, dayOfWeek: 5 }, // Friday
+          { bitmask: 64, dayOfWeek: 6 }  // Saturday
+        ];
+        
+        for (const map of dayMapping) {
+          if ((schedule.daysOfWeeks & map.bitmask) !== 0) {
+            schedules.push({
+              dayOfWeek: map.dayOfWeek,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime
+            });
+          }
+        }
+      } else {
+        // Different time per day
+        const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+          { bitmask: 1, dayOfWeek: 0 }, // Sunday
+          { bitmask: 2, dayOfWeek: 1 }, // Monday
+          { bitmask: 4, dayOfWeek: 2 }, // Tuesday
+          { bitmask: 8, dayOfWeek: 3 }, // Wednesday
+          { bitmask: 16, dayOfWeek: 4 }, // Thursday
+          { bitmask: 32, dayOfWeek: 5 }, // Friday
+          { bitmask: 64, dayOfWeek: 6 }  // Saturday
+        ];
+        
+        for (const map of dayMapping) {
+          if ((schedule.daysOfWeeks & map.bitmask) !== 0 && schedule.dayTimeSlots?.[map.bitmask]) {
+            const daySlot = schedule.dayTimeSlots[map.bitmask];
+            schedules.push({
+              dayOfWeek: map.dayOfWeek,
+              startTime: daySlot.startTime,
+              endTime: daySlot.endTime
+            });
+          }
+        }
+      }
+      
+      // Calculate end date
+      const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
+      const startDate = new Date(startDateStr);
+      const endDate = new Date(startDateStr);
+      endDate.setDate(endDate.getDate() + (selectedPackage.durationDays || 90));
+      
+      const formatDate = (date: Date) => {
+        return date.toISOString().split('T')[0];
+      };
+      
+      // Prepare availability check request
+      const availabilityRequest: any = {
+        packageId: selectedPackage.packageId,
+        childId: selectedChild.childId,
+        startDate: formatDate(startDate),
+        endDate: formatDate(endDate),
+        schedules: schedules,
+        isOnline: schedule.isOnline
+      };
+      
+      // Add secondChildId if multiple children selected
+      if (numberOfChildren === 2 && selectedChildren.length >= 2) {
+        availabilityRequest.secondChildId = selectedChildren[1].childId;
+      }
+      
+      // Add offline location info if offline
+      if (!schedule.isOnline) {
+        if (schedule.offlineAddress) {
+          availabilityRequest.offlineAddress = schedule.offlineAddress;
+        }
+        if (schedule.offlineLatitude !== undefined) {
+          availabilityRequest.offlineLatitude = schedule.offlineLatitude;
+        }
+        if (schedule.offlineLongitude !== undefined) {
+          availabilityRequest.offlineLongitude = schedule.offlineLongitude;
+        }
+        // Set maxDistanceKm: use provided value or default to 15 km
+        availabilityRequest.maxDistanceKm = schedule.maxDistanceKm ?? 15;
+      }
+      
+      // Check availability
+      if (import.meta.env.DEV) {
+        console.log('[CreateContract] Checking tutor availability with request:', availabilityRequest);
+      }
+      const availabilityResult = await checkTutorsAvailability(availabilityRequest);
+      
+      if (import.meta.env.DEV) {
+        console.log('[CreateContract] Availability result:', availabilityResult);
+      }
+      
+      if (availabilityResult.success && availabilityResult.data) {
+        // Handle both camelCase and PascalCase from backend
+        const responseData = availabilityResult.data as any;
+        const totalAvailable = responseData.totalAvailable ?? responseData.TotalAvailable ?? 0;
+        
+        if (totalAvailable === 0) {
+          // No tutors available - show warning and prevent proceeding
+          const warningMsg = 'No tutors are currently available for the selected schedule. Please try a different time slot or contact support.';
+          setAvailabilityWarning(warningMsg);
+          setError(warningMsg);
+          showError(warningMsg);
+          setCheckingAvailability(false);
+          return;
+        } else if (!schedule.isOnline && totalAvailable < 3) {
+          // For offline contracts, require at least 3 tutors available
+          const warningMsg = `Only ${totalAvailable} tutor(s) available for offline sessions. At least 3 tutors are required for offline contracts. Please try a different time slot, location, or choose online mode.`;
+          setAvailabilityWarning(warningMsg);
+          setError(warningMsg);
+          showError(warningMsg);
+          setCheckingAvailability(false);
+          return;
+        } else {
+          // Tutors available - show info but allow proceeding
+          const infoMsg = `Found ${totalAvailable} tutor(s) available for your schedule.`;
+          setAvailabilityWarning(null);
+          // Don't show as error, just proceed
+        }
+      } else {
+        // API error - show warning but allow proceeding (backend might have issues)
+        const warningMsg = availabilityResult.message || 'Could not verify tutor availability. You can still proceed, but staff will need to assign a tutor.';
+        setAvailabilityWarning(warningMsg);
+        // Don't block, just warn
+      }
+      
+      // Proceed to payment step
+      setError(null);
+      setCurrentStep('payment');
+    } catch (err) {
+      // Error checking availability - show warning but allow proceeding
+      const errorMsg = err instanceof Error ? err.message : 'Error checking tutor availability';
+      const warningMsg = `${errorMsg}. You can still proceed, but staff will need to assign a tutor.`;
+      setAvailabilityWarning(warningMsg);
+      // Don't block, just warn
+      setError(null);
+      setCurrentStep('payment');
+    } finally {
+      setCheckingAvailability(false);
+    }
+  };
+
   const handlePayment = async () => {
     if (!selectedChild || !selectedPackage || !user?.id) {
       setError('Please select child and package');
       return;
     }
 
-    // Calculate final price based on number of children
-    const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren);
+    // Calculate final price based on number of children, offline mode, and payment method
+    const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment');
 
     // Check wallet balance only if payment method is wallet
     if (paymentMethod === 'wallet' && walletBalance < finalPrice) {
@@ -929,14 +1327,37 @@ const CreateContract: React.FC = () => {
       
       // Add secondChildId if multiple children selected (max 2 children supported)
       if (numberOfChildren === 2 && selectedChildren.length >= 2) {
+        const firstChild = selectedChildren[0];
+        const secondChild = selectedChildren[1];
+        
         // Validate that children are different
-        if (selectedChildren[0].childId === selectedChildren[1].childId) {
+        if (firstChild.childId === secondChild.childId) {
           const errorMsg = 'Cannot select the same child twice. Please select 2 different children.';
           setError(errorMsg);
           showError(errorMsg);
           setIsCreating(false);
           return;
         }
+        
+        // Validate group study requirements: same grade and same school
+        if (firstChild.grade !== secondChild.grade) {
+          const errorMsg = `Group study requires students to be in the same grade. ${firstChild.fullName}: ${firstChild.grade}, ${secondChild.fullName}: ${secondChild.grade}`;
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+        
+        if (firstChild.schoolId !== secondChild.schoolId) {
+          const firstSchoolName = firstChild.schoolName || 'selected school';
+          const secondSchoolName = secondChild.schoolName || 'this school';
+          const errorMsg = `Group study requires students to be from the same school. ${firstChild.fullName}: ${firstSchoolName}, ${secondChild.fullName}: ${secondSchoolName}`;
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+        
         contractData.secondChildId = selectedChildren[1].childId;
       }
 
@@ -949,6 +1370,106 @@ const CreateContract: React.FC = () => {
       // Online-specific fields
       if (schedule.isOnline && schedule.videoCallPlatform) {
         contractData.videoCallPlatform = schedule.videoCallPlatform;
+      }
+
+      // For offline contracts, verify tutor availability again before creating
+      if (!schedule.isOnline) {
+        try {
+          // Build schedules array for availability check
+          const availabilitySchedules: Array<{ dayOfWeek: number; startTime: string; endTime: string }> = [];
+          
+          if (schedule.useSameTimeForAllDays) {
+            const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+              { bitmask: 1, dayOfWeek: 0 }, { bitmask: 2, dayOfWeek: 1 },
+              { bitmask: 4, dayOfWeek: 2 }, { bitmask: 8, dayOfWeek: 3 },
+              { bitmask: 16, dayOfWeek: 4 }, { bitmask: 32, dayOfWeek: 5 },
+              { bitmask: 64, dayOfWeek: 6 }
+            ];
+            
+            for (const map of dayMapping) {
+              if ((schedule.daysOfWeeks & map.bitmask) !== 0) {
+                availabilitySchedules.push({
+                  dayOfWeek: map.dayOfWeek,
+                  startTime: schedule.startTime,
+                  endTime: schedule.endTime
+                });
+              }
+            }
+          } else {
+            const dayMapping: { bitmask: number; dayOfWeek: number }[] = [
+              { bitmask: 1, dayOfWeek: 0 }, { bitmask: 2, dayOfWeek: 1 },
+              { bitmask: 4, dayOfWeek: 2 }, { bitmask: 8, dayOfWeek: 3 },
+              { bitmask: 16, dayOfWeek: 4 }, { bitmask: 32, dayOfWeek: 5 },
+              { bitmask: 64, dayOfWeek: 6 }
+            ];
+            
+            for (const map of dayMapping) {
+              if ((schedule.daysOfWeeks & map.bitmask) !== 0 && schedule.dayTimeSlots?.[map.bitmask]) {
+                const daySlot = schedule.dayTimeSlots[map.bitmask];
+                availabilitySchedules.push({
+                  dayOfWeek: map.dayOfWeek,
+                  startTime: daySlot.startTime,
+                  endTime: daySlot.endTime
+                });
+              }
+            }
+          }
+          
+          const availabilityRequest: any = {
+            packageId: selectedPackage.packageId,
+            childId: selectedChild.childId,
+            startDate: formatDate(startDate),
+            endDate: formatDate(endDate),
+            schedules: availabilitySchedules,
+            isOnline: false
+          };
+          
+          if (numberOfChildren === 2 && selectedChildren.length >= 2) {
+            availabilityRequest.secondChildId = selectedChildren[1].childId;
+          }
+          
+          if (schedule.offlineAddress) {
+            availabilityRequest.offlineAddress = schedule.offlineAddress;
+          }
+          if (schedule.offlineLatitude !== undefined) {
+            availabilityRequest.offlineLatitude = schedule.offlineLatitude;
+          }
+          if (schedule.offlineLongitude !== undefined) {
+            availabilityRequest.offlineLongitude = schedule.offlineLongitude;
+          }
+          // Set maxDistanceKm: use provided value or default to 15 km
+          availabilityRequest.maxDistanceKm = schedule.maxDistanceKm ?? 15;
+          
+          if (import.meta.env.DEV) {
+            console.log('[CreateContract] Final availability check before contract creation:', availabilityRequest);
+          }
+          const availabilityResult = await checkTutorsAvailability(availabilityRequest);
+          
+          if (import.meta.env.DEV) {
+            console.log('[CreateContract] Final availability result:', availabilityResult);
+          }
+          
+          if (availabilityResult.success && availabilityResult.data) {
+            // Handle both camelCase and PascalCase from backend
+            const responseData = availabilityResult.data as any;
+            const totalAvailable = responseData.totalAvailable ?? responseData.TotalAvailable ?? 0;
+            
+            if (totalAvailable < 3) {
+              const errorMsg = `Cannot create offline contract: Only ${totalAvailable} tutor(s) available. At least 3 tutors are required for offline contracts. Please try a different time slot, location, or choose online mode.`;
+              setError(errorMsg);
+              showError(errorMsg);
+              setIsCreating(false);
+              return;
+            }
+          } else {
+            // If availability check fails, still allow but warn
+            console.warn('Availability check failed before contract creation:', availabilityResult);
+          }
+        } catch (availabilityError) {
+          // If availability check throws error, still allow but warn
+          console.error('Error checking availability before contract creation:', availabilityError);
+          showError('Warning: Could not verify tutor availability. Contract will be created but staff will need to assign a tutor.');
+        }
       }
 
       // Offline-specific fields
@@ -1090,9 +1611,11 @@ const CreateContract: React.FC = () => {
         const contractId = result.data?.contractId;
 
         // If payment method is wallet, deduct the wallet balance
-        if (paymentMethod === 'wallet' && contractId) {
+        if (paymentMethod === 'wallet' && contractId && selectedPackage) {
           try {
-            const deductResult = await apiService.deductWallet(contractId);
+            // Calculate final price based on number of children, offline mode, and payment method
+            const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment');
+            const deductResult = await apiService.deductWallet(contractId, finalPrice);
 
             if (deductResult.success && deductResult.data) {
               showSuccess(`Contract created successfully! ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deductResult.data.amountDeducted)} deducted from your wallet. New balance: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(deductResult.data.newWalletBalance)}`);
@@ -1137,7 +1660,7 @@ const CreateContract: React.FC = () => {
                   qrCodeUrl: qrCodeUrl,
                   orderReference: paymentData.orderReference || paymentData.OrderReference || '',
                   walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
-                  amount: paymentData.amount || paymentData.Amount || calculatePrice(selectedPackage.price, numberOfChildren),
+                  amount: paymentData.amount || paymentData.Amount || calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true),
                   bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
                   transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
                 };
@@ -1394,6 +1917,13 @@ const CreateContract: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     {numberOfChildren === 1 ? 'Select Child' : `Select ${numberOfChildren} Children`} <span className="text-red-500">*</span>
                   </label>
+                  {numberOfChildren === 2 && (
+                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> Group study requires students to be in the <strong>same grade</strong> and from the <strong>same school</strong>.
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-3">
                     {children.map((child) => {
                       const isSelected = selectedChildren.some(c => c.childId === child.childId);
@@ -1605,16 +2135,18 @@ const CreateContract: React.FC = () => {
                               }).format(pkg.price)}
                             </p>
                               )}
-                              <p className={`text-2xl font-bold ${numberOfChildren > 1 ? 'text-primary' : 'text-gray-900'}`}>
+                              <p className={`text-2xl font-bold ${numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment' ? 'text-primary' : 'text-gray-900'}`}>
                                 {new Intl.NumberFormat('vi-VN', { 
                                   style: 'currency', 
                                   currency: 'VND' 
-                                }).format(calculatePrice(pkg.price, numberOfChildren))}
+                                }).format(calculatePrice(pkg.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
                               </p>
-                              {numberOfChildren > 1 && (
-                                <p className="text-xs text-primary font-medium">
-                                  +60% for 2 children
-                                </p>
+                              {(numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment') && (
+                                <div className="text-xs text-primary font-medium space-y-0.5">
+                                  {numberOfChildren > 1 && <p>+60% for 2 children</p>}
+                                  {!schedule.isOnline && <p>+2% for offline mode</p>}
+                                  {paymentMethod === 'direct_payment' && <p>+2% for direct payment</p>}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -2612,208 +3144,43 @@ const CreateContract: React.FC = () => {
                 </div>
               )}
 
+              {/* Availability Warning */}
+              {availabilityWarning && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-yellow-800">{availabilityWarning}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex space-x-4 pt-4">
                 <button
                   onClick={handleBack}
                   className="flex-1 px-6 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={checkingAvailability}
                 >
                   Back
                 </button>
                 <button
-                  onClick={() => {
-                    // Validate start date
-                    if (!schedule.startDate) {
-                      const msg = 'Please select a start date';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    // Validate that start date is not in the past
-                    const selectedDate = new Date(schedule.startDate);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    selectedDate.setHours(0, 0, 0, 0);
-                    
-                    if (selectedDate < today) {
-                      const msg = 'Cannot select a start date in the past';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    // If selecting today, validate that the time slot is not in the past
-                    if (selectedDate.getTime() === today.getTime()) {
-                      const now = new Date();
-                      
-                      if (schedule.useSameTimeForAllDays) {
-                        // Validate main time slot
-                        if (schedule.startTime) {
-                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
-                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-                      
-                      if (slotDateTime <= now) {
-                        const msg = 'Cannot select a time slot in the past for today';
-                        setError(msg);
-                        showError(msg);
-                        return;
-                          }
-                        }
-                      } else {
-                        // Validate first day's time slot
-                        const selectedDays = [
-                          { label: 'Sunday', value: 1 },
-                          { label: 'Monday', value: 2 },
-                          { label: 'Tuesday', value: 4 },
-                          { label: 'Wednesday', value: 8 },
-                          { label: 'Thursday', value: 16 },
-                          { label: 'Friday', value: 32 },
-                          { label: 'Saturday', value: 64 }
-                        ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
-                        
-                        if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
-                          const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
-                          if (firstDaySlot.startTime) {
-                            const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
-                            const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-                            
-                            if (slotDateTime <= now) {
-                              const msg = `Cannot select a time slot in the past for today (${selectedDays[0].label})`;
-                              setError(msg);
-                              showError(msg);
-                              return;
-                            }
-                          }
-                        }
-                      }
-                    }
-                    
-                    // Validate days of week - exactly 3 days must be selected
-                    const selectedDaysCount = [
-                      (schedule.daysOfWeeks & 1) !== 0,
-                      (schedule.daysOfWeeks & 2) !== 0,
-                      (schedule.daysOfWeeks & 4) !== 0,
-                      (schedule.daysOfWeeks & 8) !== 0,
-                      (schedule.daysOfWeeks & 16) !== 0,
-                      (schedule.daysOfWeeks & 32) !== 0,
-                      (schedule.daysOfWeeks & 64) !== 0
-                    ].filter(Boolean).length;
-                    
-                    if (selectedDaysCount !== 3) {
-                      const msg = selectedDaysCount < 3 
-                        ? `Please select exactly 3 days. Currently selected: ${selectedDaysCount} day${selectedDaysCount !== 1 ? 's' : ''}`
-                        : `Please select exactly 3 days. Currently selected: ${selectedDaysCount} days`;
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    // Validate time slot is selected
-                    if (schedule.useSameTimeForAllDays) {
-                      // Same time for all days - validate main time slot
-                    if (!schedule.startTime || !schedule.endTime) {
-                      const msg = 'Please select a time slot';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    // Validate that selected time slot is one of the available slots (1.5 hours duration)
-                    const isValidSlot = TIME_SLOTS.some(
-                      slot => slot.from === schedule.startTime && slot.to === schedule.endTime
-                    );
-                    
-                    if (!isValidSlot) {
-                      const msg = 'Please select a valid time slot';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                      }
-                    } else {
-                      // Different time per day - validate all selected days have time slots
-                      const selectedDays = [
-                        { label: 'Sunday', value: 1 },
-                        { label: 'Monday', value: 2 },
-                        { label: 'Tuesday', value: 4 },
-                        { label: 'Wednesday', value: 8 },
-                        { label: 'Thursday', value: 16 },
-                        { label: 'Friday', value: 32 },
-                        { label: 'Saturday', value: 64 }
-                      ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
-                      
-                      const missingDays = selectedDays.filter(day => {
-                        const daySlot = schedule.dayTimeSlots?.[day.value];
-                        return !daySlot || !daySlot.startTime || !daySlot.endTime;
-                      });
-                      
-                      if (missingDays.length > 0) {
-                        const msg = `Please select time slots for: ${missingDays.map(d => d.label).join(', ')}`;
-                        setError(msg);
-                        showError(msg);
-                        return;
-                      }
-                      
-                      // Validate all time slots are valid
-                      for (const day of selectedDays) {
-                        const daySlot = schedule.dayTimeSlots?.[day.value];
-                        if (daySlot) {
-                          const isValidSlot = TIME_SLOTS.some(
-                            slot => slot.from === daySlot.startTime && slot.to === daySlot.endTime
-                          );
-                          
-                          if (!isValidSlot) {
-                            const msg = `Invalid time slot for ${day.label}`;
-                            setError(msg);
-                            showError(msg);
-                            return;
-                          }
-                        }
-                      }
-                    }
-                    
-                    // Validate offline location if offline is selected
-                    if (!schedule.isOnline) {
-                      if (!schedule.offlineAddress || schedule.offlineAddress.trim() === '') {
-                      const msg = 'Please enter a location for offline sessions';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                      }
-                      
-                      // Validate coordinates exist (will be geocoded if missing during submit)
-                      // But at least check that address is valid length
-                      if (schedule.offlineAddress.trim().length < 5) {
-                        const msg = 'Please enter a valid address (at least 5 characters)';
-                        setError(msg);
-                        showError(msg);
-                        return;
-                      }
-                    }
-                    
-                    // Validate that there are centers available for the offline location
-                    if (!schedule.isOnline && schedule.offlineAddress && nearbyCenters.length === 0 && !loadingCenters) {
-                      const msg = 'No centers found within 10km radius from this address. Please enter a different location or choose online mode.';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    // Validate video call platform if online is selected
-                    if (schedule.isOnline && !schedule.videoCallPlatform) {
-                      const msg = 'Please select a video call platform (Google Meet or Zoom)';
-                      setError(msg);
-                      showError(msg);
-                      return;
-                    }
-                    
-                    setError(null);
-                    setCurrentStep('payment');
-                  }}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  onClick={handleContinueToPayment}
+                  disabled={checkingAvailability}
+                  className={`flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 ${
+                    checkingAvailability ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  <span>Continue to Payment</span>
-                  <ArrowRight className="w-5 h-5" />
+                  {checkingAvailability ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <span>Checking Tutor Availability...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue to Payment</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -2889,7 +3256,7 @@ const CreateContract: React.FC = () => {
 
               {/* Wallet Balance Info - Only show if wallet payment is selected */}
               {paymentMethod === 'wallet' && (() => {
-                const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren);
+                const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, false);
                 return (
                 <div className={`p-4 rounded-lg border-2 ${
                     walletBalance >= finalPrice
@@ -2960,10 +3327,24 @@ const CreateContract: React.FC = () => {
                             </span>
                           </div>
                         )}
+                        {!schedule.isOnline && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Offline Mode Fee:</span>
+                            <span className="text-primary font-medium">
+                              +2%
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Direct Payment Fee:</span>
+                          <span className="text-primary font-medium">
+                            +2%
+                          </span>
+                        </div>
                         <div className="flex justify-between pt-2 border-t border-gray-200">
                           <span className="text-gray-600 font-medium">Total Amount:</span>
                           <span className="font-bold text-blue-700 text-lg">
-                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.price, numberOfChildren))}
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true))}
                           </span>
                         </div>
                       </div>
@@ -3092,13 +3473,29 @@ const CreateContract: React.FC = () => {
                           </span>
                         </div>
                       )}
+                      {!schedule.isOnline && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Offline Mode Fee:</span>
+                          <span className="text-primary font-medium">
+                            +2%
+                          </span>
+                        </div>
+                      )}
+                      {paymentMethod === 'direct_payment' && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Direct Payment Fee:</span>
+                          <span className="text-primary font-medium">
+                            +2%
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between pt-2 border-t border-gray-300">
                       <span className="text-lg font-bold text-gray-900">Total:</span>
                       <span className="text-2xl font-bold text-blue-600">
                         {new Intl.NumberFormat('vi-VN', { 
                           style: 'currency', 
                           currency: 'VND' 
-                          }).format(calculatePrice(selectedPackage.price, numberOfChildren))}
+                          }).format(calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
                       </span>
                       </div>
                     </div>
@@ -3117,7 +3514,7 @@ const CreateContract: React.FC = () => {
                 </button>
                 <button
                   onClick={handlePayment}
-                  disabled={isCreating || (paymentMethod === 'wallet' && walletBalance < calculatePrice(selectedPackage.price, numberOfChildren))}
+                  disabled={isCreating || (paymentMethod === 'wallet' && walletBalance < calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, false))}
                   className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                 >
                   {isCreating ? (
