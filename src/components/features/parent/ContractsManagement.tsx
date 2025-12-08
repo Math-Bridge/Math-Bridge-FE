@@ -735,7 +735,8 @@ const ContractsManagement: React.FC = () => {
                   {contract.tutorName && 
                    contract.tutorName !== 'Tutor not assigned' && 
                    contract.status !== 'unpaid' && 
-                   contract.status !== 'pending' && (
+                   contract.status !== 'pending' && 
+                   contract.status !== 'completed' && (
                     <button
                       onClick={() => handleOpenReportModal(contract)}
                       className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
