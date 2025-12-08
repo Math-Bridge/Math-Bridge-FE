@@ -5887,10 +5887,11 @@ export async function getUnitsByContractId(contractId: string) {
       const mappedData: Unit[] = unitsArray.map((item: any) => ({
         unitId: item.unitId || item.UnitId || '',
         unitName: item.unitName || item.UnitName || '',
+        unitDescription: item.unitDescription || item.UnitDescription,
         unitOrder: item.unitOrder || item.UnitOrder || 0,
         curriculumId: item.curriculumId || item.CurriculumId || '',
         curriculumName: item.curriculumName || item.CurriculumName,
-        description: item.description || item.Description,
+        description: item.description || item.Description || item.unitDescription || item.UnitDescription,
         createdDate: item.createdDate || item.CreatedDate,
         updatedDate: item.updatedDate || item.UpdatedDate,
       }));

@@ -502,9 +502,9 @@ const ContractDetail: React.FC = () => {
     }
   }, [contract?.id, activeTab]);
 
-  // Fetch units when curriculum tab is active
+  // Fetch units and unit progress when curriculum tab is active
   useEffect(() => {
-    const fetchUnits = async () => {
+    const fetchCurriculumData = async () => {
       if (!contractId || activeTab !== 'curriculum') return;
       
       try {
@@ -525,10 +525,34 @@ const ContractDetail: React.FC = () => {
       } finally {
         setLoadingUnits(false);
       }
+
+      // Fetch unit progress when curriculum tab is opened (especially for completed contracts)
+      if (contract && (contract.status === 'active' || contract.status === 'completed')) {
+        try {
+          setLoadingUnitProgress(true);
+          const progressResult = await getChildUnitProgress(contractId);
+          if (progressResult.success && progressResult.data) {
+            setUnitProgress(progressResult.data);
+          } else {
+            // If no progress data, set to null (expected for contracts without daily reports)
+            setUnitProgress(null);
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          if (!errorMessage.includes('404') && !errorMessage.includes('Not Found')) {
+            if (import.meta.env.DEV) {
+              console.warn('Error fetching unit progress in curriculum tab:', err);
+            }
+          }
+          setUnitProgress(null);
+        } finally {
+          setLoadingUnitProgress(false);
+        }
+      }
     };
 
-    fetchUnits();
-  }, [contractId, activeTab]);
+    fetchCurriculumData();
+  }, [contractId, activeTab, contract?.status]);
 
   // Fetch sessions when tutor tab is active (only for counting sessions taught)
   useEffect(() => {
@@ -1693,8 +1717,18 @@ const ContractDetail: React.FC = () => {
                   </div>
                 ) : units.length > 0 ? (
                   <div className="bg-gray-50 rounded-xl p-6 space-y-4">
-                    <div>
+                    <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-gray-900 mb-2">Units ({units.length})</h4>
+                      {contract?.status === 'completed' && !unitProgress && !loadingUnitProgress && (
+                        <span className="text-xs text-gray-500 italic">
+                          Progress data not available
+                        </span>
+                      )}
+                      {loadingUnitProgress && (
+                        <span className="text-xs text-gray-500">
+                          Loading progress...
+                        </span>
+                      )}
                     </div>
                     
                     <div className="space-y-2">
@@ -1761,9 +1795,9 @@ const ContractDetail: React.FC = () => {
                                       </span>
                                     )}
                                   </div>
-                                  {unit.description && (
+                                  {(unit.unitDescription || unit.UnitDescription || unit.description || unit.Description) && (
                                     <p className="text-sm text-gray-600 mt-1">
-                                      {unit.description || unit.Description || unit.unitDescription || unit.UnitDescription}
+                                      {unit.unitDescription || unit.UnitDescription || unit.description || unit.Description}
                                     </p>
                                   )}
                                   {hasProgress && (

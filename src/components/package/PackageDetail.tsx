@@ -468,9 +468,9 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                                                   </span>
                                                 )}
                                               </div>
-                                              {unit.description && (
+                                              {(unit.unitDescription || unit.UnitDescription || unit.description || unit.Description) && (
                                                 <p className="text-sm text-gray-600 mt-1">
-                                                  {unit.description || unit.Description}
+                                                  {unit.unitDescription || unit.UnitDescription || unit.description || unit.Description}
                                                 </p>
                                               )}
                                             </div>
