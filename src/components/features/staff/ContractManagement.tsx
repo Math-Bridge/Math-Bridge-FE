@@ -25,7 +25,7 @@ import {
   Navigation,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllContracts, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
+import { getAllContracts, getContractsByParentPhone, Contract, assignTutorToContract, getAvailableTutors, Tutor, apiService, updateContractStatus } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface ContractManagementProps {
@@ -39,6 +39,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
   const [filteredContracts, setFilteredContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [phoneSearch, setPhoneSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [showTutorModal, setShowTutorModal] = useState(false);
@@ -73,7 +74,88 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, phoneSearch, statusFilter]);
+
+  // Auto-search by phone when phoneSearch changes
+  useEffect(() => {
+    const trimmedPhone = phoneSearch.trim();
+    
+    if (trimmedPhone) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          setLoading(true);
+          const result = await getContractsByParentPhone(trimmedPhone);
+          if (result.success && result.data) {
+            const mappedContracts = await Promise.all(
+              result.data.map(async (contract: any) => {
+                let mainTutorName = contract.mainTutorName || contract.MainTutorName || '';
+                const mainTutorId = contract.mainTutorId || contract.MainTutorId;
+                
+                if (mainTutorId && !mainTutorName) {
+                  const fetchedName = await fetchTutorName(mainTutorId);
+                  if (fetchedName) {
+                    mainTutorName = fetchedName;
+                  }
+                }
+                
+                let rawStatus = contract.Status || contract.status;
+                if (!rawStatus || rawStatus === null || rawStatus === undefined) {
+                  rawStatus = 'pending';
+                }
+                const normalizedStatus = String(rawStatus).toLowerCase().trim();
+                const validStatuses: Array<'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'> = 
+                  ['pending', 'active', 'completed', 'cancelled', 'unpaid'];
+                let contractStatus: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
+                if (validStatuses.includes(normalizedStatus as any)) {
+                  contractStatus = normalizedStatus as 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
+                } else {
+                  contractStatus = 'pending';
+                }
+                
+                return {
+                  contractId: contract.contractId || contract.ContractId,
+                  childId: contract.childId || contract.ChildId,
+                  childName: contract.childName || contract.ChildName,
+                  packageId: contract.packageId || contract.PackageId,
+                  packageName: contract.packageName || contract.PackageName,
+                  mainTutorId: mainTutorId || null,
+                  mainTutorName: mainTutorName || null,
+                  centerId: contract.centerId || contract.CenterId,
+                  centerName: contract.centerName || contract.CenterName,
+                  startDate: contract.startDate || contract.StartDate,
+                  endDate: contract.endDate || contract.EndDate,
+                  timeSlot: contract.timeSlot || (contract.StartTime && contract.EndTime 
+                    ? `${contract.StartTime} - ${contract.EndTime}` 
+                    : contract.startTime && contract.endTime 
+                    ? `${contract.startTime} - ${contract.endTime}` 
+                    : ''),
+                  isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
+                  status: contractStatus,
+                  offlineAddress: contract.offlineAddress || contract.OfflineAddress || contract.offline_address || null,
+                };
+              })
+            );
+            setContracts(mappedContracts);
+            setFilteredContracts(mappedContracts);
+            setCurrentPage(1);
+          } else {
+            setContracts([]);
+            setFilteredContracts([]);
+          }
+        } catch (error) {
+          console.error('Error searching contracts by phone:', error);
+          showError('Failed to search contracts by phone');
+        } finally {
+          setLoading(false);
+        }
+      }, 500); // Debounce 500ms
+      
+      return () => clearTimeout(timeoutId);
+    } else if (!trimmedPhone && phoneSearch === '') {
+      // When phone search is cleared, fetch all contracts
+      fetchContracts();
+    }
+  }, [phoneSearch]);
 
   // Close dropdown when clicking outside or scrolling
   useEffect(() => {
@@ -529,17 +611,42 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Normal Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by child name, package, tutor..."
+                placeholder="Search by child, package, tutor..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  // Clear phone search when using normal search
+                  if (e.target.value && phoneSearch) {
+                    setPhoneSearch('');
+                  }
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+            {/* Phone Search */}
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="tel"
+                placeholder="Search by parent phone number"
+                value={phoneSearch}
+                onChange={(e) => {
+                  setPhoneSearch(e.target.value);
+                  // Clear normal search when using phone search
+                  if (e.target.value && searchTerm) {
+                    setSearchTerm('');
+                  }
+                }}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            {/* Status Filter */}
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <select

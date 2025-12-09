@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Wallet, 
   Plus, 
@@ -26,9 +26,15 @@ interface Transaction {
   method?: string;
 }
 
+type TransactionWithBalance = Transaction & {
+  balanceBefore: number;
+  balanceAfter: number;
+  signedAmount: number;
+};
+
 interface WalletData {
   balance: number;
-  recentTransactions: Transaction[];
+  recentTransactions: TransactionWithBalance[];
 }
 
 const WalletComponent: React.FC = () => {
@@ -48,6 +54,48 @@ const WalletComponent: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  const mapTransactionsWithBalances = (
+    rawTxs: any[],
+    currentBalance: number
+  ): TransactionWithBalance[] => {
+    const normalized = (rawTxs || [])
+      .filter((tx: any) => (tx.status || '').toLowerCase() === 'completed')
+      .map((tx: any) => {
+        let type = (tx.type || tx.transactionType || '').toLowerCase();
+        const desc = (tx.description || tx.note || '').toLowerCase();
+
+        if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
+          type = 'payment';
+        } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
+          type = 'deposit';
+        } else if (type.includes('refund')) {
+          type = 'refund';
+        } else {
+          type = desc.includes('deposit') || desc.includes('topup') ? 'deposit' : 'payment';
+        }
+
+        return {
+          id: tx.id || tx.transactionId || String(Date.now() + Math.random()),
+          type: type as 'deposit' | 'payment' | 'refund' | 'withdrawal',
+          amount: Math.abs(tx.amount || 0),
+          description: tx.description || tx.note || 'Wallet Transaction',
+          date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+          status: 'completed' as const,
+          method: tx.method || tx.paymentMethod
+        };
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let runningAfter = currentBalance || 0;
+    return normalized.map((tx) => {
+      const signedAmount = ['deposit', 'refund'].includes(tx.type) ? tx.amount : -tx.amount;
+      const balanceBefore = runningAfter - signedAmount;
+      const result = { ...tx, balanceBefore, balanceAfter: runningAfter, signedAmount };
+      runningAfter = balanceBefore;
+      return result;
+    });
+  };
+
   // Fetch wallet data function
   const fetchWalletData = async () => {
     try {
@@ -62,36 +110,12 @@ const WalletComponent: React.FC = () => {
       const response = await apiService.getUserWallet(userId);
       if (response.success && response.data) {
         const walletResponse = response.data;
+        const walletBalance = walletResponse.walletBalance ?? walletResponse.balance ?? 0;
 
-        const transactions = (walletResponse.transactions || [])
-          .filter((tx: any) => (tx.status || '').toLowerCase() === 'completed')
-          .map((tx: any) => {
-            let type = (tx.type || tx.transactionType || '').toLowerCase();
-            const desc = (tx.description || tx.note || '').toLowerCase();
-
-            if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
-              type = 'payment';
-            } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
-              type = 'deposit';
-            } else if (type.includes('refund')) {
-              type = 'refund';
-            } else {
-              type = desc.includes('deposit') || desc.includes('topup') ? 'deposit' : 'payment';
-            }
-
-            return {
-              id: tx.id || tx.transactionId || String(Date.now() + Math.random()),
-              type: type as 'deposit' | 'payment' | 'refund' | 'withdrawal',
-              amount: Math.abs(tx.amount || 0),
-              description: tx.description || tx.note || 'Wallet Transaction',
-              date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-              status: 'completed' as const,
-              method: tx.method || tx.paymentMethod
-            };
-          });
+        const transactions = mapTransactionsWithBalances(walletResponse.transactions || [], walletBalance);
 
         setWalletData({
-          balance: walletResponse.walletBalance || 0,
+          balance: walletBalance,
           recentTransactions: transactions
         });
       }
@@ -304,6 +328,7 @@ const WalletComponent: React.FC = () => {
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Method</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Balance</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -331,6 +356,10 @@ const WalletComponent: React.FC = () => {
                         }`}>
                           {['deposit', 'refund'].includes(tx.type) ? '+' : '-'}
                           {formatCurrency(tx.amount)}
+                        </td>
+                        <td className="px-6 py-5 text-right text-sm text-gray-600 leading-tight">
+                          <div>Before: {formatCurrency(tx.balanceBefore)}</div>
+                          <div>After: {formatCurrency(tx.balanceAfter)}</div>
                         </td>
                       </tr>
                     ))}
@@ -361,6 +390,8 @@ const WalletComponent: React.FC = () => {
                       <div className="text-sm text-gray-500 space-y-1">
                         <p className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(tx.date).toLocaleString()}</p>
                         {tx.method && <p>Method: {tx.method}</p>}
+                        <p>Before: {formatCurrency(tx.balanceBefore)}</p>
+                        <p>After: {formatCurrency(tx.balanceAfter)}</p>
                       </div>
                     </div>
                   ))}

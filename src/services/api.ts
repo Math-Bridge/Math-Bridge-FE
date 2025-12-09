@@ -2768,6 +2768,10 @@ export async function getAllContracts(status?: string) {
   return apiService.request<Contract[]>(`/contracts${query}`);
 }
 
+export async function getContractsByParentPhone(phoneNumber: string) {
+  return apiService.request<Contract[]>(`/contracts/by-phone/${encodeURIComponent(phoneNumber)}`);
+}
+
 export async function assignTutorToContract(
   contractId: string, 
   mainTutorId: string, 

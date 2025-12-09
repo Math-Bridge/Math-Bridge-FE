@@ -365,41 +365,6 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
           </div>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <User className="w-6 h-6" />
-              </div>
-              <Building className="w-8 h-8 opacity-80" />
-            </div>
-            <p className="text-blue-100 text-sm font-medium mb-1">Unassigned Tutors</p>
-            <p className="text-3xl font-bold">{tutors.length}</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <MapPin className="w-6 h-6" />
-              </div>
-              <Navigation className="w-8 h-8 opacity-80" />
-            </div>
-            <p className="text-green-100 text-sm font-medium mb-1">Search Radius</p>
-            <p className="text-3xl font-bold">10 km</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <Building className="w-6 h-6" />
-              </div>
-              <CheckCircle className="w-8 h-8 opacity-80" />
-            </div>
-            <p className="text-purple-100 text-sm font-medium mb-1">Suggested Centers</p>
-            <p className="text-3xl font-bold">{suggestedCenters.length}</p>
-          </div>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Tutors List */}

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Wallet, RefreshCw, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Wallet, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
@@ -7,13 +7,68 @@ import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 const ParentWallet: React.FC = () => {
   const navigate = useNavigate();
   const [balance, setBalance] = useState<number>(0);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [transactions, setTransactions] = useState<
+    (WalletTransaction & { balanceBefore: number; balanceAfter: number; signedAmount: number })[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showBalance, setShowBalance] = useState(true);
   const [page, setPage] = useState(1);
   const pageSize = 5; // 5 transactions per page
   const isInitialLoadRef = useRef(true);
+
+  const mapAndAnnotateTransactions = (
+    txs: any[],
+    currentBalance: number
+  ): (WalletTransaction & { balanceBefore: number; balanceAfter: number; signedAmount: number })[] => {
+    // Normalize, sort by date desc, then compute running balances so each item knows before/after values
+    const normalized = (txs || []).map((tx: any) => {
+      let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
+      const desc = (tx.description || tx.note || '').toLowerCase();
+      
+      if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
+        transactionType = 'payment';
+      } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
+        transactionType = 'deposit';
+      } else if (transactionType === 'refund') {
+        transactionType = 'refund';
+      } else if (transactionType === 'payment') {
+        transactionType = 'payment';
+      } else {
+        if (desc.includes('payment for contract') || desc.includes('contract payment')) {
+          transactionType = 'payment';
+        } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
+          transactionType = 'deposit';
+        } else {
+          transactionType = 'payment';
+        }
+      }
+
+      return {
+        id: tx.id || tx.transactionId || String(Date.now()),
+        transactionId: tx.transactionId || tx.id,
+        type: transactionType,
+        amount: Math.abs(tx.amount || 0),
+        description: tx.description || tx.note || '',
+        date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
+        status: tx.status?.toLowerCase() || 'completed',
+        method: tx.method || tx.paymentMethod,
+      };
+    });
+
+    const completed = normalized
+      .filter(t => t.status?.toLowerCase() === 'completed')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    let runningAfter = currentBalance || 0;
+    return completed.map((tx) => {
+      const signedAmount = ['deposit', 'refund'].includes(tx.type) ? tx.amount : -tx.amount;
+      const balanceBefore = runningAfter - signedAmount;
+      const result = { ...tx, balanceBefore, balanceAfter: runningAfter, signedAmount };
+      runningAfter = balanceBefore;
+      return result;
+    });
+  };
 
   // Fetch wallet data function
   const fetchWallet = async () => {
@@ -36,49 +91,9 @@ const ParentWallet: React.FC = () => {
     try {
       const res = await apiService.getUserWallet(userId);
       if (res.success && res.data) {
-        setBalance(res.data.walletBalance);
-        // Map transactions with correct type handling
-        const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
-          // Determine transaction type - handle both camelCase and PascalCase from backend
-          let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
-          const desc = (tx.description || tx.note || '').toLowerCase();
-          
-          // Map backend transaction types to frontend types
-          // Backend uses "withdrawal" for contract payments - map to "payment" (deduction)
-          if (transactionType === 'withdrawal' || transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
-            transactionType = 'payment'; // Contract payments (withdrawal/deduct) should be treated as payment (deduction)
-          } else if (transactionType === 'deposit' || transactionType.includes('deposit') || transactionType.includes('top')) {
-            transactionType = 'deposit';
-          } else if (transactionType === 'refund') {
-            transactionType = 'refund';
-          } else if (transactionType === 'payment') {
-            transactionType = 'payment'; // Keep as payment
-          } else {
-            // If type is not set or unknown, try to infer from description
-            if (desc.includes('payment for contract') || desc.includes('contract payment')) {
-              transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
-            } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup') || desc.includes('sepay deposit') || desc.includes('bupay deposit')) {
-              transactionType = 'deposit';
-            } else {
-              transactionType = 'payment'; // Default to payment for contract payments
-            }
-          }
-          
-          return {
-            id: tx.id || tx.transactionId || String(Date.now()),
-            transactionId: tx.transactionId || tx.id,
-            type: transactionType,
-            amount: tx.amount || 0,
-            description: tx.description || tx.note || '',
-            date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-            status: tx.status?.toLowerCase() || 'completed',
-            method: tx.method || tx.paymentMethod,
-          };
-        });
-        // Filter out pending transactions - only show completed
-        const completedTransactions = mappedTransactions.filter(t => 
-          t.status?.toLowerCase() === 'completed'
-        );
+        const walletBalance = res.data.walletBalance ?? res.data.balance ?? 0;
+        setBalance(walletBalance);
+        const completedTransactions = mapAndAnnotateTransactions(res.data.transactions || [], walletBalance);
         setTransactions(completedTransactions);
         setError(null);
       } else {
@@ -160,51 +175,9 @@ const ParentWallet: React.FC = () => {
 
     const res = await apiService.getUserWallet(userId);
     if (res.success && res.data) {
-      setBalance(res.data.walletBalance);
-      // Map transactions with correct type handling
-      const mappedTransactions = (res.data.transactions || []).map((tx: any) => {
-        // Determine transaction type - handle both camelCase and PascalCase from backend
-        let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
-        
-        // If type is not set, try to infer from description
-        if (!transactionType) {
-          const desc = (tx.description || tx.note || '').toLowerCase();
-          if (desc.includes('payment for contract') || desc.includes('contract payment')) {
-            transactionType = 'payment'; // Contract payment should be treated as payment (deduction)
-          } else if (desc.includes('deposit') || desc.includes('top-up') || desc.includes('topup')) {
-            transactionType = 'deposit';
-          } else {
-            transactionType = 'payment'; // Default to payment
-          }
-        }
-        
-        // Ensure type is one of: deposit, withdrawal, payment, refund
-        if (!['deposit', 'withdrawal', 'payment', 'refund'].includes(transactionType)) {
-          // Map backend types to frontend types
-          if (transactionType.includes('withdrawal') || transactionType.includes('deduct')) {
-            transactionType = 'payment'; // Treat withdrawal/deduct as payment (deduction)
-          } else if (transactionType.includes('deposit') || transactionType.includes('top')) {
-            transactionType = 'deposit';
-          } else {
-            transactionType = 'payment'; // Default to payment for contract payments
-          }
-        }
-        
-        return {
-          id: tx.id || tx.transactionId || String(Date.now()),
-          transactionId: tx.transactionId || tx.id,
-          type: transactionType,
-          amount: tx.amount || 0,
-          description: tx.description || tx.note || '',
-          date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
-          status: tx.status?.toLowerCase() || 'completed',
-          method: tx.method || tx.paymentMethod,
-        };
-      });
-      // Filter out pending transactions - only show completed
-      const completedTransactions = mappedTransactions.filter(t => 
-        t.status?.toLowerCase() === 'completed'
-      );
+      const walletBalance = res.data.walletBalance ?? res.data.balance ?? 0;
+      setBalance(walletBalance);
+      const completedTransactions = mapAndAnnotateTransactions(res.data.transactions || [], walletBalance);
       setTransactions(completedTransactions);
     } else {
       setError(res.error || 'Failed to refresh wallet');
@@ -342,12 +315,15 @@ const ParentWallet: React.FC = () => {
                 {transactions
                   .slice((page - 1) * pageSize, page * pageSize)
                   .map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div key={transaction.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg gap-3">
                       <div className="flex items-center space-x-3">
                         {getTransactionIcon(transaction.type)}
                         <div>
                           <p className="font-medium text-gray-900">{transaction.description}</p>
                           <p className="text-sm text-gray-500">{formatDate(transaction.date)}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Before: {formatCurrency(transaction.balanceBefore)} • After: {formatCurrency(transaction.balanceAfter)}
+                          </p>
                         </div>
                       </div>
                       <div className={`font-semibold ${getTransactionColor(transaction.type)}`}>

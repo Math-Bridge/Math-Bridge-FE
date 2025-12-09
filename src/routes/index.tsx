@@ -214,15 +214,15 @@ export const appRoutes = [
       </ProtectedRoute>
     }
   />,
-  <Route
-    key="centers-tutors"
-    path="centers/:centerId/tutors"
-    element={
-      <ProtectedRoute>
-        <TutorsByCenter />
-      </ProtectedRoute>
-    }
-  />,
+  // <Route
+  //   key="centers-tutors"
+  //   path="centers/:centerId/tutors"
+  //   element={
+  //     <ProtectedRoute>
+  //       <TutorsByCenter />
+  //     </ProtectedRoute>
+  //   }
+  // />,
 
   // Package Routes
   <Route
