@@ -991,6 +991,13 @@ export async function assignTutorToCenter(centerId: string, tutorId: string) {
   });
 }
 
+// Remove tutor from center
+export async function removeTutorFromCenter(centerId: string, tutorId: string) {
+  return apiService.request<{ message: string }>(`/centers/${centerId}/remove-tutor/${tutorId}`, {
+    method: 'DELETE',
+  });
+}
+
 // Test Result API functions
 export interface TestResult {
   resultId: string;

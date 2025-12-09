@@ -14,9 +14,12 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  Users,
+  UserMinus,
+  UserPlus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getAllCenters, createCenter, updateCenter, deleteCenter, Center, CreateCenterRequest, UpdateCenterRequest } from '../../../services/api';
+import { getAllCenters, createCenter, updateCenter, deleteCenter, Center, CreateCenterRequest, UpdateCenterRequest, getTutorsByCenter, removeTutorFromCenter, assignTutorToCenter } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { apiService } from '../../../services/api';
 
@@ -40,7 +43,18 @@ const CenterManagement: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showTutorManagementModal, setShowTutorManagementModal] = useState(false);
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
+  const [tutors, setTutors] = useState<any[]>([]);
+  const [loadingTutors, setLoadingTutors] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [selectedTutorForReassign, setSelectedTutorForReassign] = useState<any | null>(null);
+  const [availableCenters, setAvailableCenters] = useState<Center[]>([]);
+  const [selectedReassignCenter, setSelectedReassignCenter] = useState<string>('');
+  const [reassigning, setReassigning] = useState(false);
+  const [showDeleteTutorModal, setShowDeleteTutorModal] = useState(false);
+  const [selectedTutorForDelete, setSelectedTutorForDelete] = useState<any | null>(null);
+  const [deletingTutor, setDeletingTutor] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -353,7 +367,117 @@ const CenterManagement: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  if (loading) {
+  const openTutorManagementModal = async (center: Center) => {
+    setSelectedCenter(center);
+    setShowTutorManagementModal(true);
+    await fetchTutorsForCenter(center.centerId);
+  };
+
+  const fetchTutorsForCenter = async (centerId: string) => {
+    try {
+      setLoadingTutors(true);
+      const result = await getTutorsByCenter(centerId);
+      if (result.success && result.data) {
+        const tutorsData = Array.isArray(result.data) ? result.data : [];
+        setTutors(tutorsData);
+      } else {
+        setTutors([]);
+      }
+    } catch (error) {
+      console.error('Error fetching tutors:', error);
+      showError('Failed to load tutors');
+      setTutors([]);
+    } finally {
+      setLoadingTutors(false);
+    }
+  };
+
+  const openDeleteTutorModal = (tutor: any) => {
+    setSelectedTutorForDelete(tutor);
+    setShowDeleteTutorModal(true);
+  };
+
+  const handleDeleteTutor = async () => {
+    if (!selectedCenter || !selectedTutorForDelete) return;
+    
+    const tutorId = selectedTutorForDelete.tutorId || selectedTutorForDelete.TutorId || selectedTutorForDelete.userId || selectedTutorForDelete.UserId;
+    if (!tutorId) {
+      showError('Invalid tutor ID');
+      setShowDeleteTutorModal(false);
+      setSelectedTutorForDelete(null);
+      return;
+    }
+
+    try {
+      setDeletingTutor(true);
+      const result = await removeTutorFromCenter(selectedCenter.centerId, tutorId);
+      if (result.success) {
+        showSuccess('Tutor removed from center successfully');
+        setShowDeleteTutorModal(false);
+        setSelectedTutorForDelete(null);
+        await fetchTutorsForCenter(selectedCenter.centerId);
+      } else {
+        showError(result.error || 'Failed to remove tutor from center');
+      }
+    } catch (error: any) {
+      console.error('Error removing tutor:', error);
+      showError(error?.message || 'Failed to remove tutor from center');
+    } finally {
+      setDeletingTutor(false);
+    }
+  };
+
+  const openReassignModal = async (tutor: any) => {
+    setSelectedTutorForReassign(tutor);
+    // Fetch all centers except the current one
+    const allCenters = await getAllCenters();
+    if (allCenters.success && allCenters.data) {
+      const centersData = Array.isArray(allCenters.data) ? allCenters.data : allCenters.data.data || [];
+      const filteredCenters = centersData.filter((c: Center) => c.centerId !== selectedCenter?.centerId);
+      setAvailableCenters(filteredCenters);
+    }
+    setShowReassignModal(true);
+  };
+
+  const handleReassignTutor = async () => {
+    if (!selectedCenter || !selectedTutorForReassign || !selectedReassignCenter) return;
+
+    const tutorId = selectedTutorForReassign.tutorId || selectedTutorForReassign.TutorId || selectedTutorForReassign.userId || selectedTutorForReassign.UserId;
+    if (!tutorId) {
+      showError('Invalid tutor ID');
+      return;
+    }
+
+    try {
+      setReassigning(true);
+      // First remove from current center
+      const removeResult = await removeTutorFromCenter(selectedCenter.centerId, tutorId);
+      if (!removeResult.success) {
+        showError(removeResult.error || 'Failed to remove tutor from current center');
+        return;
+      }
+
+      // Then assign to new center
+      const assignResult = await assignTutorToCenter(selectedReassignCenter, tutorId);
+      if (assignResult.success) {
+        const newCenter = availableCenters.find(c => c.centerId === selectedReassignCenter);
+        showSuccess(`Tutor reassigned to ${newCenter?.name || 'new center'} successfully`);
+        setShowReassignModal(false);
+        setSelectedTutorForReassign(null);
+        setSelectedReassignCenter('');
+        await fetchTutorsForCenter(selectedCenter.centerId);
+      } else {
+        showError(assignResult.error || 'Failed to assign tutor to new center');
+      }
+    } catch (error: any) {
+      console.error('Error reassigning tutor:', error);
+      showError(error?.message || 'Failed to reassign tutor');
+    } finally {
+      setReassigning(false);
+    }
+  };
+
+    if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -507,6 +631,17 @@ const CenterManagement: React.FC = () => {
                               >
                                 <Edit className="w-4 h-4" />
                                 <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  openTutorManagementModal(center);
+                                  setOpenDropdownId(null);
+                                  setDropdownPosition(null);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                              >
+                                <Users className="w-4 h-4" />
+                                <span>Manage Tutors</span>
                               </button>
                               <button
                                 onClick={() => {
@@ -840,6 +975,221 @@ const CenterManagement: React.FC = () => {
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tutor Management Modal */}
+      {showTutorManagementModal && selectedCenter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Manage Tutors</h2>
+                  <p className="text-gray-600 mt-1">Center: {selectedCenter.name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowTutorManagementModal(false);
+                    setSelectedCenter(null);
+                    setTutors([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1">
+              {loadingTutors ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : tutors.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500 text-lg">No tutors assigned to this center</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {tutors.map((tutor) => (
+                    <div
+                      key={tutor.tutorId || tutor.userId}
+                      className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <Users className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900">
+                                {tutor.fullName || tutor.FullName || 'N/A'}
+                              </h3>
+                              <div className="mt-1 space-y-1 text-sm text-gray-600">
+                                {tutor.email || tutor.Email ? (
+                                  <p className="flex items-center space-x-2">
+                                    <span>Email: {tutor.email || tutor.Email}</span>
+                                  </p>
+                                ) : null}
+                                {tutor.phoneNumber || tutor.PhoneNumber ? (
+                                  <p className="flex items-center space-x-2">
+                                    <Phone className="w-4 h-4" />
+                                    <span>{tutor.phoneNumber || tutor.PhoneNumber}</span>
+                                  </p>
+                                ) : null}
+                                {tutor.hourlyRate !== undefined && tutor.hourlyRate > 0 ? (
+                                  <p>Hourly Rate: {tutor.hourlyRate || tutor.HourlyRate}</p>
+                                ) : null}
+                                {tutor.verificationStatus ? (
+                                  <p>
+                                    Status:{' '}
+                                    <span
+                                      className={`inline-block px-2 py-1 rounded text-xs ${
+                                        tutor.verificationStatus === 'approved'
+                                          ? 'bg-green-100 text-green-800'
+                                          : tutor.verificationStatus === 'pending'
+                                          ? 'bg-yellow-100 text-yellow-800'
+                                          : 'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      {tutor.verificationStatus}
+                                    </span>
+                                  </p>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => openReassignModal(tutor)}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                            title="Reassign to another center"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                            <span>Reassign</span>
+                          </button>
+                          <button
+                            onClick={() => openDeleteTutorModal(tutor)}
+                            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2 text-sm"
+                            title="Remove from center"
+                          >
+                            <UserMinus className="w-4 h-4" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Tutor Modal */}
+      {showReassignModal && selectedTutorForReassign && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Reassign Tutor</h2>
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setSelectedTutorForReassign(null);
+                    setSelectedReassignCenter('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Tutor: <strong>{selectedTutorForReassign.fullName || selectedTutorForReassign.FullName}</strong>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Current Center: <strong>{selectedCenter?.name}</strong>
+                </p>
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select New Center *
+                </label>
+                <select
+                  value={selectedReassignCenter}
+                  onChange={(e) => setSelectedReassignCenter(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">-- Select a center --</option>
+                  {availableCenters.map((center) => (
+                    <option key={center.centerId} value={center.centerId}>
+                      {center.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setSelectedTutorForReassign(null);
+                    setSelectedReassignCenter('');
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={reassigning}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReassignTutor}
+                  disabled={!selectedReassignCenter || reassigning}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reassigning ? 'Reassigning...' : 'Reassign'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Tutor Confirmation Modal */}
+      {showDeleteTutorModal && selectedTutorForDelete && selectedCenter && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Remove Tutor</h2>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to remove <strong>{selectedTutorForDelete.fullName || selectedTutorForDelete.FullName || 'this tutor'}</strong> from <strong>{selectedCenter.name}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteTutorModal(false);
+                    setSelectedTutorForDelete(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={deletingTutor}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteTutor}
+                  disabled={deletingTutor}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deletingTutor ? 'Removing...' : 'Remove'}
                 </button>
               </div>
             </div>
