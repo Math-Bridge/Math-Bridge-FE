@@ -42,6 +42,8 @@ import {
   ParentDailyReportsPage,
   ParentTestResultsPage,
   ParentTutorReportsPage,
+  WithdrawalRequestPage,
+  WithdrawalHistoryPage,
   AdminDashboardPage,
   UserManagementPage,
   CurriculumManagementPage,
@@ -162,6 +164,24 @@ export const appRoutes = [
     element={
       <ProtectedRoute>
         <TransactionHistoryPage />
+      </ProtectedRoute>
+    }
+  />,
+  <Route
+    key="wallet-withdrawal-request"
+    path="wallet/withdrawal/request"
+    element={
+      <ProtectedRoute requiredRole="parent">
+        <WithdrawalRequestPage />
+      </ProtectedRoute>
+    }
+  />,
+  <Route
+    key="wallet-withdrawal-history"
+    path="wallet/withdrawal/history"
+    element={
+      <ProtectedRoute requiredRole="parent">
+        <WithdrawalHistoryPage />
       </ProtectedRoute>
     }
   />,

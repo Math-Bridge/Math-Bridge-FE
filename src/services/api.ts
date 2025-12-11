@@ -152,17 +152,70 @@ class ApiService {
       let response: Response;
       try {
         response = await fetch(url, config);
+      } catch (fetchError: any) {
+        // Restore original console.error
+        if (originalConsoleError) {
+          console.error = originalConsoleError;
+        }
+        // Check if it's a network error that might indicate incomplete chunked encoding
+        const errorMessage = fetchError?.message || '';
+        if (errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
+            errorMessage.includes('chunked') ||
+            errorMessage.includes('incomplete') ||
+            errorMessage.includes('Failed to fetch')) {
+          // Return special error flag for incomplete responses
+          return {
+            success: false,
+            error: 'INCOMPLETE_RESPONSE',
+            errorDetails: { networkError: true, message: errorMessage }
+          };
+        }
+        throw fetchError; // Re-throw if not a chunked encoding error
       } finally {
         // Restore original console.error
         if (originalConsoleError) {
           console.error = originalConsoleError;
         }
       }
-      const text = await response.text();
+      
+      let text: string;
+      try {
+        text = await response.text();
+      } catch (textError: any) {
+        // If reading response text fails, it might be incomplete chunked encoding
+        const errorMessage = textError?.message || '';
+        if (errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
+            errorMessage.includes('chunked') ||
+            errorMessage.includes('incomplete')) {
+          return {
+            success: false,
+            error: 'INCOMPLETE_RESPONSE',
+            errorDetails: { networkError: true, message: errorMessage }
+          };
+        }
+        return {
+          success: false,
+          error: errorMessage || 'Failed to read response',
+        };
+      }
+      
       let data: any = undefined;
       try {
         data = text ? JSON.parse(text) : undefined;
       } catch (jsonError) {
+        // If response is not valid JSON, check if it might be incomplete
+        // If status is 200 but JSON is invalid, it might be incomplete chunked encoding
+        if (response.ok && response.status === 200 && text && text.length > 0) {
+          // Try to detect if response was cut off
+          const isLikelyIncomplete = !text.trim().endsWith('}') && !text.trim().endsWith(']');
+          if (isLikelyIncomplete) {
+            return {
+              success: false,
+              error: 'INCOMPLETE_RESPONSE',
+              errorDetails: { jsonParseError: true, partialText: text.substring(0, 100) }
+            };
+          }
+        }
         // If response is not valid JSON, keep data as undefined
       }
 
@@ -399,7 +452,7 @@ class ApiService {
     return response;
   }
 
-  async getUserWallet(userId: string): Promise<ApiResponse<{ balance: number; transactions: any[] }>> {
+  async getUserWallet(userId: string): Promise<ApiResponse<{ balance?: number; walletBalance?: number; transactions: any[] }>> {
     return this.request(`/users/${userId}/wallet`);
   }
 
@@ -611,6 +664,52 @@ class ApiService {
     }
     
     return response;
+  }
+
+  async uploadPackageImage(packageId: string, file: File): Promise<ApiResponse<{ imageUrl: string }>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('authToken');
+    const headers: HeadersInit = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/packages/${packageId}/image`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const text = await response.text();
+      let data: any = undefined;
+      try {
+        data = text ? JSON.parse(text) : undefined;
+      } catch {
+        // Response is not JSON
+      }
+
+      if (!response.ok) {
+        const errorMessage = data?.error || `HTTP error! status: ${response.status}`;
+        return {
+          success: false,
+          error: errorMessage,
+          errorDetails: data,
+        };
+      }
+
+      return {
+        success: true,
+        data: data || { imageUrl: data?.imageUrl || '' },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to upload package image',
+      };
+    }
   }
 
   // Admin endpoints
@@ -870,6 +969,9 @@ export interface Center {
   address: string;
   phone?: string;
   status?: string;
+  latitude?: number;
+  longitude?: number;
+  distanceKm?: number; // Distance in kilometers (calculated when needed)
 }
 
 export interface CreateCenterRequest {
@@ -5952,8 +6054,8 @@ export interface Report {
 }
 
 export interface CreateReportRequest {
-  tutorId: string;
-  parentId: string;
+  tutorId?: string; // Required for parent reports, not needed for tutor reports
+  parentId?: string; // Required for parent reports, not needed for tutor reports
   contractId: string;
   content: string;
   url?: string;
@@ -6010,20 +6112,26 @@ export async function getReportsByParent(parentId: string) {
 // Create a new report
 export async function createReport(data: CreateReportRequest) {
   try {
-    if (!data.tutorId || !data.parentId || !data.contractId || !data.content) {
+    if (!data.contractId || !data.content) {
       return {
         success: false,
         data: null,
-        error: 'Tutor ID, Parent ID, Contract ID, and Content are required',
+        error: 'Contract ID and Content are required',
       };
     }
 
     const requestBody: any = {
-      tutorId: data.tutorId,
-      parentId: data.parentId,
       contractId: data.contractId,
       content: data.content.trim(),
     };
+
+    // Only include tutorId and parentId if provided (for parent reports)
+    if (data.tutorId) {
+      requestBody.tutorId = data.tutorId;
+    }
+    if (data.parentId) {
+      requestBody.parentId = data.parentId;
+    }
 
     if (data.url && data.url.trim()) {
       requestBody.url = data.url.trim();
@@ -6071,6 +6179,54 @@ export async function createReport(data: CreateReportRequest) {
     return {
       success: false,
       data: null,
+      error: errorMessage,
+    };
+  }
+}
+
+// Get reports by tutor ID
+export async function getReportsByTutor(tutorId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/reports/tutor/${tutorId}`, {
+      method: 'GET',
+    });
+
+    if (result.success && result.data) {
+      const mappedData: Report[] = result.data.map((item: any) => ({
+        reportId: item.reportId || item.ReportId || '',
+        parentId: item.parentId || item.ParentId || '',
+        tutorId: item.tutorId || item.TutorId || '',
+        content: item.content || item.Content || '',
+        url: item.url || item.Url,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'denied',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        type: item.type || item.Type,
+        contractId: item.contractId || item.ContractId,
+        parent: item.parent || item.Parent ? {
+          id: item.parent?.id || item.parent?.Id || item.Parent?.id || item.Parent?.Id || '',
+          fullName: item.parent?.fullName || item.parent?.FullName || item.Parent?.fullName || item.Parent?.FullName || '',
+          email: item.parent?.email || item.parent?.Email || item.Parent?.email || item.Parent?.Email || '',
+        } : undefined,
+        tutor: item.tutor || item.Tutor ? {
+          id: item.tutor?.id || item.tutor?.Id || item.Tutor?.id || item.Tutor?.Id || '',
+          fullName: item.tutor?.fullName || item.tutor?.FullName || item.Tutor?.fullName || item.Tutor?.FullName || '',
+          email: item.tutor?.email || item.tutor?.Email || item.Tutor?.email || item.Tutor?.Email || '',
+        } : undefined,
+      }));
+
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    const errorMessage = error?.response?.data?.error || error?.message || 'Failed to fetch reports';
+    return {
+      success: false,
+      data: [],
       error: errorMessage,
     };
   }
@@ -6178,6 +6334,127 @@ export async function updateReportStatus(reportId: string, status: 'approved' | 
       success: false,
       data: null,
       error: error?.response?.data?.error || error?.message || 'Failed to update report status',
+    };
+  }
+}
+
+// ============================================
+// WITHDRAWAL API FUNCTIONS
+// ============================================
+
+export interface WithdrawalRequest {
+  id: string;
+  parentId: string;
+  staffId?: string;
+  amount: number;
+  bankName: string;
+  bankAccountNumber: string;
+  bankHolderName: string;
+  status: 'Pending' | 'Processed' | 'Rejected';
+  createdDate: string;
+  processedDate?: string;
+}
+
+export interface WithdrawalRequestCreateDto {
+  amount: number;
+  bankName: string;
+  bankAccountNumber: string;
+  bankHolderName: string;
+}
+
+// Request withdrawal
+export async function requestWithdrawal(data: WithdrawalRequestCreateDto): Promise<ApiResponse<WithdrawalRequest>> {
+  try {
+    const result = await apiService.request<WithdrawalRequest>('/withdrawals/request', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (result.success && result.data) {
+      // Map backend response to frontend interface
+      const mappedData: WithdrawalRequest = {
+        id: result.data.id || (result.data as any).Id || '',
+        parentId: result.data.parentId || (result.data as any).ParentId || '',
+        staffId: result.data.staffId || (result.data as any).StaffId || undefined,
+        amount: result.data.amount || (result.data as any).Amount || 0,
+        bankName: result.data.bankName || (result.data as any).BankName || '',
+        bankAccountNumber: result.data.bankAccountNumber || (result.data as any).BankAccountNumber || '',
+        bankHolderName: result.data.bankHolderName || (result.data as any).BankHolderName || '',
+        status: (result.data.status || (result.data as any).Status || 'Pending') as 'Pending' | 'Processed' | 'Rejected',
+        createdDate: result.data.createdDate || (result.data as any).CreatedDate || new Date().toISOString(),
+        processedDate: result.data.processedDate || (result.data as any).ProcessedDate || undefined,
+      };
+
+      return {
+        success: true,
+        data: mappedData,
+        error: undefined,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error requesting withdrawal:', error);
+    
+    // Check if it's an incomplete chunked encoding error
+    const errorMessage = error?.message || '';
+    const isIncompleteChunked = errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
+                                 errorMessage.includes('chunked') ||
+                                 errorMessage.includes('incomplete');
+    
+    // If it's incomplete chunked encoding, return special flag
+    if (isIncompleteChunked) {
+      return {
+        success: false,
+        data: undefined,
+        error: 'INCOMPLETE_RESPONSE', // Special flag to indicate incomplete response
+      };
+    }
+    
+    return {
+      success: false,
+      data: undefined,
+      error: error?.response?.data?.error || errorMessage || 'Failed to request withdrawal',
+    };
+  }
+}
+
+// Get my withdrawal requests
+export async function getMyWithdrawalRequests(): Promise<ApiResponse<WithdrawalRequest[]>> {
+  try {
+    const result = await apiService.request<WithdrawalRequest[]>('/withdrawals/my-requests', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data) {
+      // Map backend response array to frontend interface
+      const mappedData: WithdrawalRequest[] = result.data.map((item: any) => ({
+        id: item.id || item.Id || '',
+        parentId: item.parentId || item.ParentId || '',
+        staffId: item.staffId || item.StaffId || undefined,
+        amount: item.amount || item.Amount || 0,
+        bankName: item.bankName || item.BankName || '',
+        bankAccountNumber: item.bankAccountNumber || item.BankAccountNumber || '',
+        bankHolderName: item.bankHolderName || item.BankHolderName || '',
+        status: (item.status || item.Status || 'Pending') as 'Pending' | 'Processed' | 'Rejected',
+        createdDate: item.createdDate || item.CreatedDate || new Date().toISOString(),
+        processedDate: item.processedDate || item.ProcessedDate || undefined,
+      }));
+
+      return {
+        success: true,
+        data: mappedData,
+        error: undefined,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error getting withdrawal requests:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.response?.data?.error || error?.message || 'Failed to get withdrawal requests',
     };
   }
 }

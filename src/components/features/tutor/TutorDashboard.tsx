@@ -6,12 +6,11 @@ import {
   Menu,
   X,
   LogOut,
-  GraduationCap,
   FileText,
   XCircle
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult } from '.';
+import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult, TutorParentReports } from '.';
 import { useAuth } from '../../../hooks/useAuth';
 
 const TutorDashboard: React.FC = () => {
@@ -21,51 +20,15 @@ const TutorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [profileComplete, setProfileComplete] = useState(false);
 
-  type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results';
+  type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results' | 'parent-reports';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
-
-  // Check profile completion status
-  useEffect(() => {
-    const isComplete = !!(user?.placeId && user?.phone && user?.phone !== 'N/A');
-    setProfileComplete(isComplete);
-    console.log('Profile completion check:', { placeId: user?.placeId, phone: user?.phone, isComplete });
-  }, [user?.placeId, user?.phone]);
-
-  // Listen for custom profile update event
-  useEffect(() => {
-    const handleProfileUpdate = () => {
-      console.log('Profile update event received, updating user state...');
-      // Force a re-check by reading from localStorage
-      const savedUser = localStorage.getItem('user');
-      if (savedUser) {
-        try {
-          const userData = JSON.parse(savedUser);
-          console.log('Updated user data from localStorage:', userData);
-          // Update profile completion status
-          const isComplete = !!(userData.placeId && userData.phone && userData.phone !== 'N/A');
-          setProfileComplete(isComplete);
-        } catch (error) {
-          console.error('Error parsing user data:', error);
-        }
-      }
-    };
-
-    window.addEventListener('profileUpdated', handleProfileUpdate);
-    return () => window.removeEventListener('profileUpdated', handleProfileUpdate);
-  }, []);
 
   useEffect(() => {
     setLoading(false);
-    
-    // Check if user needs to update location or phone
     const needsLocationUpdate = !user?.placeId || user?.phone === 'N/A';
-    
-    // Check if user was redirected here to update profile
     const state = location.state as { needsLocation?: boolean; needsPhone?: boolean; needsVerification?: boolean } | null;
     if (needsLocationUpdate || state?.needsLocation || state?.needsPhone || state?.needsVerification) {
-      // Force profile tab if needs update
       setSelectedAction('profile');
     }
   }, [location.state, user]);
@@ -74,6 +37,7 @@ const TutorDashboard: React.FC = () => {
     { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },
     { key: 'reports' as ActionKey, name: 'Daily Reports', icon: BarChart3, description: 'Create and manage daily reports' },
     { key: 'test-results' as ActionKey, name: 'Test Results', icon: FileText, description: 'Create and manage test results' },
+    { key: 'parent-reports' as ActionKey, name: 'Parent Reports', icon: FileText, description: 'Report issues or concerns about parents' },
     { key: 'profile' as ActionKey, name: 'Profile Settings', icon: User, description: 'Update your profile and qualifications' },
   ];
 
@@ -83,8 +47,8 @@ const TutorDashboard: React.FC = () => {
   };
 
   const getUserInitials = () => {
-    if (user?.fullName || user?.name) {
-      const name = user.fullName || user.name || '';
+    if (user?.name) {
+      const name = user.name || '';
       const parts = name.split(' ');
       if (parts.length >= 2) {
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -103,10 +67,8 @@ const TutorDashboard: React.FC = () => {
   };
 
   function renderContentView() {
-    // Check if user needs to complete profile first
     const needsLocationUpdate = !user?.placeId || user?.phone === 'N/A';
     
-    // If trying to access anything other than profile and location is not set, show warning
     if (needsLocationUpdate && selectedAction !== 'profile') {
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
@@ -143,6 +105,8 @@ const TutorDashboard: React.FC = () => {
         return <TutorDailyReport />;
       case 'test-results':
         return <TutorTestResult />;
+      case 'parent-reports':
+        return <TutorParentReports />;
       default:
         return null;
     }
@@ -158,13 +122,11 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Hover hotspot to reveal sidebar */}
       <div
         className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"
         onMouseEnter={() => setIsSidebarVisible(true)}
       />
 
-      {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-300 ease-out ${
           showSidebar ? 'translate-x-0' : '-translate-x-full'
@@ -172,14 +134,13 @@ const TutorDashboard: React.FC = () => {
         onMouseEnter={() => setIsSidebarVisible(true)}
         onMouseLeave={handleMouseLeaveSidebar}
       >
-        {/* User Profile Section */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center text-white font-semibold overflow-hidden relative">
               {user?.avatarUrl ? (
                 <img 
                   src={user.avatarUrl} 
-                  alt={user?.fullName || user?.name || 'Tutor'} 
+                  alt={user?.name || 'Tutor'} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
@@ -192,7 +153,7 @@ const TutorDashboard: React.FC = () => {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user?.fullName || user?.name || 'Tutor'}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{user?.name || 'Tutor'}</p>
               <p className="text-xs text-green-600 flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
                 Online
@@ -210,7 +171,6 @@ const TutorDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           {navigationItems.map((item) => {
             const Icon = item.icon;
@@ -247,7 +207,6 @@ const TutorDashboard: React.FC = () => {
           })}
         </nav>
 
-        {/* Logout Button */}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
@@ -259,13 +218,11 @@ const TutorDashboard: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main
         className={`transition-all duration-300 ease-out ${
           showSidebar ? 'lg:ml-64' : 'lg:ml-0'
         }`}
       >
-        {/* Mobile Menu Button */}
         <div className="lg:hidden fixed top-4 left-4 z-30">
           <button
             onClick={() => setMobileMenuOpen(true)}
@@ -276,7 +233,6 @@ const TutorDashboard: React.FC = () => {
         </div>
 
         <div className="p-6 lg:p-8">
-          {/* Profile Incomplete Warning Banner */}
           {(!user?.placeId || user?.phone === 'N/A') && (
             <div className="mb-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500 rounded-lg p-4 shadow-sm">
               <div className="flex items-center space-x-3">
@@ -303,18 +259,15 @@ const TutorDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Dashboard Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
           </div>
 
-          {/* Content */}
           {renderContentView()}
         </div>
       </main>
 
-      {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"

@@ -23,6 +23,23 @@ import { getAllCenters, createCenter, updateCenter, deleteCenter, Center, Create
 import { useToast } from '../../../contexts/ToastContext';
 import { apiService } from '../../../services/api';
 
+// Utility function to calculate distance using Haversine formula
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 100) / 100; // Round to 2 decimal places
+};
+
+const toRadians = (degrees: number): number => {
+  return degrees * (Math.PI / 180);
+};
+
 interface LocationPrediction {
   placeId: string;
   place_id?: string;
@@ -155,6 +172,8 @@ const CenterManagement: React.FC = () => {
           address: center.address || center.Address || center.FormattedAddress || center.formattedAddress || '',
           phone: center.phone || center.Phone || center.PhoneNumber || center.phoneNumber || '',
           status: center.status || center.Status || 'active',
+          latitude: center.latitude ?? center.Latitude ?? undefined,
+          longitude: center.longitude ?? center.Longitude ?? undefined,
           // Keep PascalCase fields for compatibility
           FormattedAddress: center.FormattedAddress || center.formattedAddress || center.address || center.Address || '',
           City: center.City || center.city || '',
@@ -429,12 +448,95 @@ const CenterManagement: React.FC = () => {
 
   const openReassignModal = async (tutor: any) => {
     setSelectedTutorForReassign(tutor);
+    
+    // Get tutor's location (latitude, longitude)
+    let tutorLat: number | undefined;
+    let tutorLon: number | undefined;
+    
+    // Get userId from various possible fields
+    const tutorUserId = tutor.userId || tutor.UserId || tutor.tutorId || tutor.TutorId;
+    
+    // Try to get from tutor object first
+    tutorLat = tutor.latitude ?? tutor.Latitude;
+    tutorLon = tutor.longitude ?? tutor.Longitude;
+    
+    // Always try to fetch from API to ensure we have the latest location data
+    if (tutorUserId) {
+      try {
+        const tutorResponse = await apiService.request<any>(`/Tutors/${tutorUserId}`, {
+          method: 'GET',
+        });
+        if (tutorResponse.success && tutorResponse.data) {
+          const tutorData = tutorResponse.data;
+          tutorLat = tutorData.latitude ?? tutorData.Latitude ?? tutorLat;
+          tutorLon = tutorData.longitude ?? tutorData.Longitude ?? tutorLon;
+        }
+      } catch (error) {
+        console.error('Error fetching tutor location:', error);
+      }
+    }
+    
     // Fetch all centers except the current one
     const allCenters = await getAllCenters();
     if (allCenters.success && allCenters.data) {
       const centersData = Array.isArray(allCenters.data) ? allCenters.data : allCenters.data.data || [];
       const filteredCenters = centersData.filter((c: Center) => c.centerId !== selectedCenter?.centerId);
-      setAvailableCenters(filteredCenters);
+      
+      const MIN_DISTANCE_KM = 10;
+      const MAX_DISTANCE_KM = 15;
+      const hasTutorLocation = tutorLat !== undefined && tutorLon !== undefined;
+      
+      // Calculate distance for each center
+      const centersWithDistance: Center[] = filteredCenters.map((center: any) => {
+        const centerLat = center.latitude ?? center.Latitude;
+        const centerLon = center.longitude ?? center.Longitude;
+        
+        let distanceKm: number | undefined;
+        if (hasTutorLocation && centerLat !== undefined && centerLon !== undefined) {
+          distanceKm = calculateDistance(tutorLat!, tutorLon!, centerLat, centerLon);
+        }
+        
+        return {
+          ...center,
+          centerId: center.centerId || center.CenterId || '',
+          name: center.name || center.Name || '',
+          address: center.address || center.Address || center.FormattedAddress || center.formattedAddress || '',
+          phone: center.phone || center.Phone || '',
+          status: center.status || center.Status || 'active',
+          latitude: centerLat,
+          longitude: centerLon,
+          distanceKm
+        };
+      });
+      
+      // Filter by distance range (10-15 km) only if tutor has location
+      let finalCenters: Center[];
+      if (hasTutorLocation) {
+        finalCenters = centersWithDistance.filter((center: Center) => {
+          // Only include centers with distance between 10-15 km
+          return center.distanceKm !== undefined && 
+                 center.distanceKm >= MIN_DISTANCE_KM && 
+                 center.distanceKm <= MAX_DISTANCE_KM;
+        });
+        
+        // Sort by distance
+        finalCenters.sort((a, b) => {
+          if (a.distanceKm === undefined && b.distanceKm === undefined) return 0;
+          if (a.distanceKm === undefined) return 1;
+          if (b.distanceKm === undefined) return -1;
+          return a.distanceKm - b.distanceKm;
+        });
+        
+        if (finalCenters.length === 0) {
+          showError(`No centers found within ${MIN_DISTANCE_KM}-${MAX_DISTANCE_KM} km of tutor's location.`);
+        }
+      } else {
+        // If tutor doesn't have location, show all centers but with warning
+        finalCenters = centersWithDistance;
+        showError('Tutor location is not available. Showing all centers (distance filtering disabled).');
+      }
+      
+      setAvailableCenters(finalCenters);
     }
     setShowReassignModal(true);
   };
@@ -450,18 +552,61 @@ const CenterManagement: React.FC = () => {
 
     try {
       setReassigning(true);
-      // First remove from current center
-      const removeResult = await removeTutorFromCenter(selectedCenter.centerId, tutorId);
-      if (!removeResult.success) {
-        showError(removeResult.error || 'Failed to remove tutor from current center');
+      
+      // First, get all centers that tutor is currently assigned to
+      let tutorCenters: any[] = [];
+      try {
+        const tutorResponse = await apiService.request<any>(`/Tutors/${tutorId}`, {
+          method: 'GET',
+        });
+        if (tutorResponse.success && tutorResponse.data) {
+          tutorCenters = tutorResponse.data.tutorCenters || tutorResponse.data.TutorCenters || [];
+        }
+      } catch (error) {
+        console.error('Error fetching tutor centers:', error);
+        // Continue anyway, will try to remove from current center
+      }
+      
+      // Remove tutor from ALL existing centers (thay thế hoàn toàn)
+      const removePromises: Promise<any>[] = [];
+      
+      // If we have tutor centers data, remove from all of them
+      if (tutorCenters.length > 0) {
+        for (const tutorCenter of tutorCenters) {
+          const centerId = tutorCenter.centerId || tutorCenter.CenterId || tutorCenter.center?.centerId || tutorCenter.Center?.CenterId;
+          if (centerId) {
+            removePromises.push(removeTutorFromCenter(centerId, tutorId));
+          }
+        }
+      } else {
+        // Fallback: at least remove from current center
+        removePromises.push(removeTutorFromCenter(selectedCenter.centerId, tutorId));
+      }
+      
+      // Wait for all removals to complete
+      const removeResults = await Promise.allSettled(removePromises);
+      const failedRemovals = removeResults.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
+      
+      if (failedRemovals.length > 0 && failedRemovals.length === removePromises.length) {
+        // All removals failed
+        const firstError = failedRemovals[0];
+        const errorMsg = firstError.status === 'rejected' 
+          ? firstError.reason?.message || 'Failed to remove tutor from centers'
+          : (firstError as PromiseFulfilledResult<any>).value.error || 'Failed to remove tutor from centers';
+        showError(errorMsg);
         return;
       }
+      
+      // If some removals failed but at least one succeeded, continue with assignment
+      if (failedRemovals.length > 0) {
+        console.warn('Some center removals failed, but continuing with reassignment');
+      }
 
-      // Then assign to new center
+      // Then assign to new center (thay thế)
       const assignResult = await assignTutorToCenter(selectedReassignCenter, tutorId);
       if (assignResult.success) {
         const newCenter = availableCenters.find(c => c.centerId === selectedReassignCenter);
-        showSuccess(`Tutor reassigned to ${newCenter?.name || 'new center'} successfully`);
+        showSuccess(`Tutor reassigned to ${newCenter?.name || 'new center'} successfully (replaced all previous center assignments)`);
         setShowReassignModal(false);
         setSelectedTutorForReassign(null);
         setSelectedReassignCenter('');
@@ -1135,9 +1280,28 @@ const CenterManagement: React.FC = () => {
                   {availableCenters.map((center) => (
                     <option key={center.centerId} value={center.centerId}>
                       {center.name}
+                      {center.distanceKm !== undefined ? ` (${center.distanceKm.toFixed(2)} km)` : ''}
                     </option>
                   ))}
                 </select>
+                {availableCenters.length > 0 && availableCenters.some(c => c.distanceKm !== undefined) && (
+                  <p className="mt-2 text-xs text-gray-500 flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    Only showing centers within 10-15 km, sorted by distance
+                  </p>
+                )}
+                {availableCenters.length > 0 && availableCenters.every(c => c.distanceKm === undefined) && (
+                  <p className="mt-2 text-xs text-amber-600 flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    Tutor location unavailable - showing all centers (distance filtering disabled)
+                  </p>
+                )}
+                {availableCenters.length === 0 && (
+                  <p className="mt-2 text-xs text-amber-600 flex items-center">
+                    <MapPin className="w-3 h-3 mr-1" />
+                    No centers found within 10-15 km of tutor's location
+                  </p>
+                )}
               </div>
               <div className="flex items-center justify-end space-x-3">
                 <button

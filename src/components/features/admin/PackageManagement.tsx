@@ -15,6 +15,8 @@ import {
   CheckCircle,
   XCircle,
   MoreVertical,
+  Upload,
+  Loader,
 } from 'lucide-react';
 import { apiService, getAllCurriculums } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -55,6 +57,11 @@ const PackageManagement: React.FC = () => {
   const [curricula, setCurricula] = useState<any[]>([]);
   const [loadingCurricula, setLoadingCurricula] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     packageName: '',
     grade: 'grade 9',
@@ -65,7 +72,8 @@ const PackageManagement: React.FC = () => {
     durationDays: 0,
     description: '',
     curriculumId: '',
-    status: 'active'
+    status: 'active',
+    imageUrl: ''
   });
 
   // Auto-calculate session count based on duration and sessions per week
@@ -249,8 +257,13 @@ const PackageManagement: React.FC = () => {
       durationDays: 0,
       description: '',
       curriculumId: '',
-      status: 'active'
+      status: 'active',
+      imageUrl: ''
     });
+    setImagePreview(null);
+    setSelectedImageFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
 
   const openCreateModal = () => {
@@ -299,8 +312,12 @@ const PackageManagement: React.FC = () => {
       durationDays: pkg.durationDays || 0,
       description: pkg.description || '',
       curriculumId: curriculumId,
-      status: pkg.status || 'active'
+      status: pkg.status || 'active',
+      imageUrl: (pkg as any).ImageUrl || (pkg as any).imageUrl || (pkg as any).image_url || ''
     });
+    // Set image preview if package has image
+    const imageUrl = (pkg as any).ImageUrl || (pkg as any).imageUrl || (pkg as any).image_url;
+    setImagePreview(imageUrl || null);
   };
 
   const closeModals = () => {
@@ -309,6 +326,61 @@ const PackageManagement: React.FC = () => {
     setShowDeleteModal(false);
     setSelectedPackage(null);
     resetForm();
+  };
+
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Image size must be less than 2MB');
+      return;
+    }
+
+    // Validate file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      showError('Invalid file type. Only JPG, PNG and WebP are allowed.');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // If editing existing package, upload immediately
+    if (isEdit && selectedPackage?.packageId) {
+      setUploadingImage(true);
+      try {
+        const response = await apiService.uploadPackageImage(selectedPackage.packageId, file);
+        if (response.success && response.data?.imageUrl) {
+          setFormData(prev => ({ ...prev, imageUrl: response.data.imageUrl }));
+          showSuccess('Image uploaded successfully!');
+        } else {
+          showError(response.error || 'Failed to upload image');
+          setImagePreview(null);
+        }
+      } catch (error) {
+        showError('Failed to upload image');
+        setImagePreview(null);
+      } finally {
+        setUploadingImage(false);
+      }
+    } else {
+      // For new packages, save file for later upload after package creation
+      setSelectedImageFile(file);
+    }
   };
 
   const validateForm = (): boolean => {
@@ -368,7 +440,25 @@ const PackageManagement: React.FC = () => {
       // Backend returns { packageId } on success (200 OK)
       // Check if response is successful (status 200-299) or has packageId
       const responseData = result.data as any;
-      if (result.success || responseData?.packageId) {
+      const newPackageId = responseData?.packageId;
+      
+      if (result.success || newPackageId) {
+        // Upload image if file was selected for new package
+        if (selectedImageFile && newPackageId) {
+          setUploadingImage(true);
+          try {
+            const uploadResponse = await apiService.uploadPackageImage(newPackageId, selectedImageFile);
+            if (uploadResponse.success && uploadResponse.data?.imageUrl) {
+              setFormData(prev => ({ ...prev, imageUrl: uploadResponse.data.imageUrl }));
+            }
+          } catch (error) {
+            console.error('Error uploading image:', error);
+          } finally {
+            setUploadingImage(false);
+            setSelectedImageFile(null);
+          }
+        }
+        
         showSuccess('Package created successfully');
         closeModals();
         await fetchPackages();
@@ -1193,6 +1283,72 @@ const PackageManagement: React.FC = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Package Image
+                  </label>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mb-4 relative">
+                      <img
+                        src={imagePreview}
+                        alt="Package preview"
+                        className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          setFormData(prev => ({ ...prev, imageUrl: '' }));
+                          setSelectedImageFile(null);
+                          if (editFileInputRef.current) {
+                            editFileInputRef.current.value = '';
+                          }
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* File Upload */}
+                  <div className="mb-4">
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={(e) => handleImageFileSelect(e, true)}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin text-blue-600" />
+                          <span className="text-gray-700">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 text-blue-600" />
+                          <span className="text-gray-700 font-medium">
+                            {imagePreview ? 'Change Image' : 'Upload Image'}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      JPG, PNG, WebP (max 2MB)
+                    </p>
+                  </div>
                 </div>
               </div>
 

@@ -121,8 +121,8 @@ const StaffDashboard: React.FC = () => {
     { name: 'Reschedule Management', icon: RefreshCw, path: '/staff/reschedules', view: 'reschedules' as const },
     { name: 'Daily Reports Management', icon: BarChart3, path: '/staff/daily-reports', view: 'daily-reports' as const },
     { name: 'Final Feedback Management', icon: Star, path: '/staff/final-feedback', view: 'final-feedback' as const },
-    { name: 'Tutor Reports', icon: AlertTriangle, path: '/staff/tutor-reports', view: 'tutor-reports' as const },
-    { name: 'Chat Support', icon: MessageSquare, path: '/staff/chat', view: 'chat' as const },
+    { name: 'Reports', icon: AlertTriangle, path: '/staff/tutor-reports', view: 'tutor-reports' as const },
+   
   ];
 
   const getCurrentDate = () => {

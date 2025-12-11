@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Loader } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, Loader, Upload, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
+import { apiService } from '../../services/api';
 import type { Course } from '../../types';
 
 interface PackageFormProps {
@@ -13,7 +14,11 @@ interface PackageFormProps {
 const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onCancel }) => {
   const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [centers, setCenters] = useState<any[]>([]);
+  const [imagePreview, setImagePreview] = useState<string | null>(course?.image_url || null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     center_id: course?.center_id || centerId || '',
     name: course?.name || '',
@@ -109,10 +114,22 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
         }
 
         const result = await response.json();
+        const newPackageId = result.packageId || result.courseId;
+
+        // Upload image if file was selected for new package
+        let finalImageUrl = formData.image_url;
+        if (selectedImageFile && newPackageId) {
+          const uploadedImageUrl = await handleImageUpload(newPackageId, selectedImageFile);
+          if (uploadedImageUrl) {
+            finalImageUrl = uploadedImageUrl;
+          }
+          setSelectedImageFile(null);
+        }
+
         showSuccess('Package created successfully!');
 
         const newCourse: Course = {
-          course_id: result.courseId,
+          course_id: newPackageId,
           name: formData.name,
           description: formData.description,
           category: formData.category,
@@ -123,7 +140,7 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
           end_date: formData.end_date,
           schedule: formData.schedule,
           status: formData.status,
-          image_url: formData.image_url,
+          image_url: finalImageUrl,
           center_id: formData.center_id,
         };
 
@@ -146,6 +163,85 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
         ? Number(value)
         : value
     }));
+    // Update preview if image_url changes
+    if (name === 'image_url') {
+      setImagePreview(value || null);
+    }
+  };
+
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      showError('Image size must be less than 2MB');
+      return;
+    }
+
+    // Validate file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (!allowedExtensions.includes(fileExtension)) {
+      showError('Invalid file type. Only JPG, PNG and WebP are allowed.');
+      return;
+    }
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    // If editing existing package, upload immediately
+    if (course?.course_id) {
+      setUploadingImage(true);
+      try {
+        const response = await apiService.uploadPackageImage(course.course_id, file);
+        if (response.success && response.data?.imageUrl) {
+          setFormData(prev => ({ ...prev, image_url: response.data.imageUrl }));
+          showSuccess('Image uploaded successfully!');
+        } else {
+          showError(response.error || 'Failed to upload image');
+          setImagePreview(course.image_url || null);
+        }
+      } catch (error) {
+        showError('Failed to upload image');
+        setImagePreview(course.image_url || null);
+      } finally {
+        setUploadingImage(false);
+      }
+    } else {
+      // For new packages, save file for later upload after package creation
+      setSelectedImageFile(file);
+    }
+  };
+
+  const handleImageUpload = async (packageId: string, file: File) => {
+    setUploadingImage(true);
+    try {
+      const response = await apiService.uploadPackageImage(packageId, file);
+      if (response.success && response.data?.imageUrl) {
+        setFormData(prev => ({ ...prev, image_url: response.data.imageUrl }));
+        showSuccess('Image uploaded successfully!');
+        return response.data.imageUrl;
+      } else {
+        showError(response.error || 'Failed to upload image');
+        return null;
+      }
+    } catch (error) {
+      showError('Failed to upload image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   return (
@@ -335,16 +431,68 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
 
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Image URL
+                Package Image
               </label>
-              <input
-                type="url"
-                name="image_url"
-                value={formData.image_url}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                placeholder="https://example.com/image.jpg"
-              />
+              
+              {/* Image Preview */}
+              {imagePreview && (
+                <div className="mb-4 relative">
+                  <img
+                    src={imagePreview}
+                    alt="Package preview"
+                    className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImagePreview(null);
+                      setFormData(prev => ({ ...prev, image_url: '' }));
+                      setSelectedImageFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* File Upload */}
+              <div className="mb-4">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleImageFileSelect}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploadingImage ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-gray-700">Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-5 h-5 text-primary" />
+                      <span className="text-gray-700 font-medium">
+                        {imagePreview ? 'Change Image' : 'Upload Image'}
+                      </span>
+                    </>
+                  )}
+                </button>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      JPG, PNG, WebP (max 2MB)
+                    </p>
+                  </div>
             </div>
           </div>
 

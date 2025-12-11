@@ -17,3 +17,5 @@ export { default as ParentTestResultsPage } from './ParentTestResultsPage';
 export { default as ParentTutorReportsPage } from './ParentTutorReportsPage';
 export { default as FinalFeedbackPage } from './FinalFeedbackPage';
 export { default as HomeworkHelperPage } from './HomeworkHelperPage';
+export { default as WithdrawalRequestPage } from './WithdrawalRequestPage';
+export { default as WithdrawalHistoryPage } from './WithdrawalHistoryPage';

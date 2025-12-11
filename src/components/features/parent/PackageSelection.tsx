@@ -50,21 +50,24 @@ const PackageSelection: React.FC = () => {
         if (response.success && response.data) {
           // Map API response to component interface
           const mappedPackages = response.data.map((pkg: any) => ({
-            id: pkg.packageId || pkg.id || String(pkg.packageId),
-            name: pkg.name || pkg.packageName || '',
-            description: pkg.description || '',
-            subject: pkg.subject || pkg.category || 'General',
+            id: pkg.packageId || pkg.id || pkg.PackageId || String(pkg.packageId || pkg.PackageId),
+            name: pkg.name || pkg.packageName || pkg.PackageName || '',
+            description: pkg.description || pkg.Description || '',
+            subject: pkg.subject || pkg.category || pkg.Grade || 'General',
             level: pkg.level || 'Intermediate',
-            duration: pkg.duration || pkg.durationWeeks || 0,
-            sessions: pkg.sessions || pkg.totalSessions || 0,
-            price: pkg.price || 0,
+            duration: pkg.duration || pkg.durationWeeks || pkg.DurationDays ? Math.ceil(pkg.DurationDays / 7) : 0,
+            sessions: pkg.sessions || pkg.totalSessions || pkg.SessionCount || pkg.sessionCount || 0,
+            price: pkg.price || pkg.Price || 0,
             originalPrice: pkg.originalPrice,
             discount: pkg.discount,
             rating: pkg.rating || 0,
             reviews: pkg.reviews || pkg.reviewCount || 0,
             features: pkg.features || [],
             isPopular: pkg.isPopular || false,
-            isRecommended: pkg.isRecommended || false
+            isRecommended: pkg.isRecommended || false,
+            imageUrl: pkg.ImageUrl || pkg.imageUrl || pkg.image_url || '',
+            image_url: pkg.ImageUrl || pkg.imageUrl || pkg.image_url || '',
+            ImageUrl: pkg.ImageUrl || pkg.imageUrl || pkg.image_url || ''
           }));
           setPackages(mappedPackages);
         } else {
@@ -207,10 +210,28 @@ const PackageSelection: React.FC = () => {
 
         {/* Packages Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedPackages.map((pkg) => (
+          {sortedPackages.map((pkg) => {
+            const packageImageUrl = (pkg as any).imageUrl || (pkg as any).image_url || (pkg as any).ImageUrl || '';
+            return (
             <div key={pkg.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
-              {/* Badges */}
-              <div className="relative">
+              {/* Package Image or Placeholder */}
+              <div className="relative h-48 bg-gradient-to-br from-blue-100 to-blue-50 overflow-hidden">
+                {packageImageUrl ? (
+                  <img
+                    src={packageImageUrl}
+                    alt={pkg.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Hide image on error, show gradient background
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Package className="w-16 h-16 text-blue-400" />
+                  </div>
+                )}
+                {/* Badges */}
                 {pkg.isPopular && (
                   <div className="absolute top-4 left-4 z-10">
                     <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
@@ -314,7 +335,8 @@ const PackageSelection: React.FC = () => {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Empty State */}

@@ -108,7 +108,7 @@ const PackageList: React.FC<PackageListProps> = ({
           start_date: "",
           end_date: "",
           schedule: "",
-          image_url: "",
+          image_url: pkg.ImageUrl || pkg.imageUrl || pkg.image_url || "",
           center_id: pkg.CenterId || pkg.centerId || "",
           center_name: pkg.CenterName || pkg.centerName || "",
           packageId: pkg.PackageId || pkg.packageId || "",

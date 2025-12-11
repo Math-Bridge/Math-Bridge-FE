@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Search,
   X,
-  Calendar
+  Calendar,
+  ArrowDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../../../services/api';
@@ -222,6 +223,7 @@ const WalletComponent: React.FC = () => {
                   <RefreshCw className="w-4 h-4" /> Updated in real-time
                 </p>
               </div>
+              <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={() => navigate('/wallet/topup')}
                 className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-primary-dark px-8 py-5 text-white font-bold text-lg shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl"
@@ -231,6 +233,16 @@ const WalletComponent: React.FC = () => {
                   Add Funds
                 </span>
               </button>
+                <button
+                  onClick={() => navigate('/wallet/withdrawal/request')}
+                  className="group relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-5 text-white font-bold text-lg shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl"
+                >
+                  <span className="relative z-10 flex items-center gap-3">
+                    <ArrowDown className="w-6 h-6 group-hover:translate-y-1 transition-transform" />
+                    Withdraw
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

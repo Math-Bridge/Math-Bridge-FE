@@ -245,7 +245,7 @@ const ParentWallet: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <button
             onClick={() => navigate('/wallet/topup')}
             className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
@@ -262,7 +262,22 @@ const ParentWallet: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/wallet/history')}
+            onClick={() => navigate('/wallet/withdrawal/request')}
+            className="p-6 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl border border-orange-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
+          >
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <TrendingDown className="h-6 w-6 text-white" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-orange-900">Rút tiền</h3>
+                <p className="text-sm text-orange-700">Withdraw to bank account</p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate('/wallet/withdrawal/history')}
             className="p-6 bg-gradient-to-r from-primary/10 to-primary/20 rounded-xl border-2 border-primary/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
           >
             <div className="flex items-center space-x-3 mb-3">
@@ -270,14 +285,14 @@ const ParentWallet: React.FC = () => {
                 <Wallet className="h-6 w-6 text-white" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-primary-dark">Transaction History</h3>
-                <p className="text-sm text-primary-dark">View all transactions</p>
+                <h3 className="font-semibold text-primary-dark">Lịch sử rút tiền</h3>
+                <p className="text-sm text-primary-dark">Withdrawal history</p>
               </div>
             </div>
           </button>
 
           <button
-            onClick={() => navigate('/contracts')}
+            onClick={() => navigate('/wallet/history')}
             className="p-6 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl border border-purple-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
           >
             <div className="flex items-center space-x-3 mb-3">
@@ -285,8 +300,8 @@ const ParentWallet: React.FC = () => {
                 <Wallet className="h-6 w-6 text-white" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-purple-900">My Contracts</h3>
-                <p className="text-sm text-purple-700">Manage learning contracts</p>
+                <h3 className="font-semibold text-purple-900">Transaction History</h3>
+                <p className="text-sm text-purple-700">View all transactions</p>
               </div>
             </div>
           </button>

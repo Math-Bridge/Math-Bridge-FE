@@ -5,4 +5,5 @@ export { default as TutorSessions } from './TutorSessions';
 export { default as TutorProfile } from './TutorProfile';
 export { default as TutorDailyReport } from './TutorDailyReport';
 export { default as TutorTestResult } from './TutorTestResult';
+export { default as TutorParentReports } from './TutorParentReports';
 

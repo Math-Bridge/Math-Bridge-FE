@@ -42,7 +42,21 @@ const PackageDetailPage: React.FC = () => {
         // Use packageId to fetch package
         const response = await getPackageById(packageId);
         if (response.success && response.data) {
-          setCourse(response.data);
+          // Map ImageUrl from API to image_url for Course type
+          const packageData = response.data as any;
+          const mappedCourse: Course = {
+            ...packageData,
+            course_id: packageData.PackageId || packageData.packageId || packageData.course_id || packageId,
+            name: packageData.PackageName || packageData.packageName || packageData.name,
+            description: packageData.Description || packageData.description,
+            category: packageData.Grade || packageData.grade || packageData.category,
+            price: packageData.Price || packageData.price,
+            image_url: packageData.ImageUrl || packageData.imageUrl || packageData.image_url,
+            center_id: packageData.CenterId || packageData.centerId || packageData.center_id,
+            center_name: packageData.CenterName || packageData.centerName || packageData.center_name,
+            duration_weeks: packageData.DurationDays ? Math.ceil(packageData.DurationDays / 7) : packageData.duration_weeks,
+          };
+          setCourse(mappedCourse);
         } else {
           setError(response.error || 'Failed to fetch package details.');
         }

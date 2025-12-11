@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Brain, 
   Calculator, 
@@ -23,6 +23,7 @@ interface PackageCardProps {
 const PackageCard: React.FC<PackageCardProps> = ({ course, onView, onEdit }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [imageError, setImageError] = useState(false);
 
   // Gán icon theo tên gói học (có thể mở rộng thêm)
   const getPackageIcon = (name: string) => {
@@ -52,22 +53,42 @@ const PackageCard: React.FC<PackageCardProps> = ({ course, onView, onEdit }) => 
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-gray-200 hover:shadow-math-lg transition-all duration-300 cursor-pointer group h-full flex flex-col min-h-[400px]">
-      {/* Header với icon lớn - chiếm ~40% chiều cao */}
+      {/* Header với hình ảnh hoặc icon - chiếm ~40% chiều cao */}
       <div 
-        className={`relative flex-shrink-0 ${bgColor} flex items-center justify-center min-h-[160px]`}
+        className={`relative flex-shrink-0 min-h-[160px] overflow-hidden`}
         onClick={() => onView && (course.course_id || (course as any).packageId) && onView(course.course_id || (course as any).packageId)}
       >
-        <div className="relative z-10">
-          <div className="w-24 h-24 bg-white rounded-xl shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <IconComponent className={`w-14 h-14 ${gradient.icon}`} />
-          </div>
-        </div>
-
-        {/* Status badge nếu không active */}
-        {course.status && course.status !== 'active' && (
-          <div className="absolute top-3 right-3 px-3 py-1 bg-white/95 backdrop-blur rounded-full text-xs font-semibold text-gray-700 shadow-lg">
-            {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
-          </div>
+        {course.image_url && !imageError ? (
+          <>
+            <img
+              src={course.image_url}
+              alt={course.name || 'Package image'}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              onError={() => setImageError(true)}
+            />
+            {/* Status badge nếu không active */}
+            {course.status && course.status !== 'active' && (
+              <div className="absolute top-3 right-3 px-3 py-1 bg-white/95 backdrop-blur rounded-full text-xs font-semibold text-gray-700 shadow-lg">
+                {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className={`relative w-full h-full ${bgColor} flex items-center justify-center`}>
+              <div className="relative z-10">
+                <div className="w-24 h-24 bg-white rounded-xl shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <IconComponent className={`w-14 h-14 ${gradient.icon}`} />
+                </div>
+              </div>
+            </div>
+            {/* Status badge nếu không active */}
+            {course.status && course.status !== 'active' && (
+              <div className="absolute top-3 right-3 px-3 py-1 bg-white/95 backdrop-blur rounded-full text-xs font-semibold text-gray-700 shadow-lg">
+                {course.status.charAt(0).toUpperCase() + course.status.slice(1)}
+              </div>
+            )}
+          </>
         )}
       </div>
 

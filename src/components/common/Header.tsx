@@ -205,7 +205,7 @@ const Header: React.FC = () => {
   }
 
   return (
-    <header className="bg-gradient-to-r from-blue-50 to-white border-b border-blue-100 shadow-md sticky top-0 z-50">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -222,7 +222,7 @@ const Header: React.FC = () => {
                   className="h-10 w-10 object-contain transition-transform duration-200 group-hover:scale-110" 
                 />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent hidden sm:block">
+              <span className="text-xl font-bold text-primary hidden sm:block">
                 MathBridge
               </span>
             </button>
@@ -230,21 +230,20 @@ const Header: React.FC = () => {
 
           {/* Desktop Navigation */}
           {isAuthenticated && navigationItems.length > 0 && (
-            <nav className="hidden md:flex items-center space-x-1" role="navigation" aria-label="Main navigation">
+            <nav className="hidden md:flex items-center space-x-8" role="navigation" aria-label="Main navigation">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
                 return (
                   <Link
                     key={item.name}
                     to={item.href}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    className={`text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                        ? 'text-primary'
+                        : 'text-gray-700 hover:text-primary'
                     }`}
                     aria-current={isActive ? 'page' : undefined}
                   >
-                    <item.icon className={`h-4 w-4 ${isActive ? 'text-white' : ''}`} aria-hidden="true" />
                     <span>{item.name}</span>
                   </Link>
                 );
@@ -289,12 +288,12 @@ const Header: React.FC = () => {
                     onClick={() => {
                       setIsUserDropdownOpen(!isUserDropdownOpen);
                     }}
-                    className="flex items-center space-x-2 p-1.5 text-gray-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
+                    className="flex items-center space-x-2 p-1.5 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200"
                     aria-expanded={isUserDropdownOpen}
                     aria-haspopup="true"
                     aria-label="User menu"
                   >
-                    <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden">
+                    <div className="w-9 h-9 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center shadow-md overflow-hidden">
                       {user?.avatarUrl && !avatarError ? (
                         <img 
                           src={user.avatarUrl} 
@@ -321,9 +320,9 @@ const Header: React.FC = () => {
                       role="menu"
                       aria-orientation="vertical"
                     >
-                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100">
+                      <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-gray-100">
                         <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
                             {user?.avatarUrl && !avatarError ? (
                               <img 
                                 src={user.avatarUrl} 
@@ -338,45 +337,45 @@ const Header: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-gray-900 truncate">{user?.name || 'User'}</div>
                             <div className="text-sm text-gray-600 truncate">{user?.email}</div>
-                            <div className="text-xs text-blue-600 mt-1 capitalize font-medium">{user?.role || 'Parent'}</div>
+                            <div className="text-xs text-primary mt-1 capitalize font-medium">{user?.role || 'Parent'}</div>
                           </div>
                         </div>
                       </div>
                       <div className="py-2">
                             <button
-                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors group"
+                              className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 transition-colors group"
                               onClick={() => { 
                                 closeAllDropdowns(); 
                                 navigate('/user-profile'); 
                               }}
                               role="menuitem"
                             >
-                              <User className="h-4 w-4 mr-3 text-gray-500 group-hover:text-blue-600" aria-hidden="true" />
+                              <User className="h-4 w-4 mr-3 text-gray-500 group-hover:text-primary" aria-hidden="true" />
                               <span className="font-medium">{t('profile')}</span>
                             </button>
                             {user?.role === 'parent' && (
                               <button
-                                className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors group"
+                                className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 transition-colors group"
                                 onClick={() => { 
                                   closeAllDropdowns(); 
                                   navigate('/tutor-reports'); 
                                 }}
                                 role="menuitem"
                               >
-                                <FileText className="h-4 w-4 mr-3 text-gray-500 group-hover:text-blue-600" aria-hidden="true" />
+                                <FileText className="h-4 w-4 mr-3 text-gray-500 group-hover:text-primary" aria-hidden="true" />
                                 <span className="font-medium">Tutor Reports</span>
                               </button>
                             )}
                         {user?.role !== 'parent' && (
                           <button
-                            className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-colors group"
+                            className="w-full flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 transition-colors group"
                             onClick={() => { 
                               closeAllDropdowns(); 
                               setShowSettings(true); 
                             }}
                             role="menuitem"
                           >
-                            <Settings className="h-4 w-4 mr-3 text-gray-500 group-hover:text-blue-600" aria-hidden="true" />
+                            <Settings className="h-4 w-4 mr-3 text-gray-500 group-hover:text-primary" aria-hidden="true" />
                             <span className="font-medium">{t('settings')}</span>
                           </button>
                         )}
@@ -400,7 +399,7 @@ const Header: React.FC = () => {
                     setIsMobileMenuOpen(!isMobileMenuOpen);
                     setIsUserDropdownOpen(false);
                   }}
-                  className="md:hidden p-2 text-gray-600 hover:text-blue-900 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                  className="md:hidden p-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-all duration-200"
                   aria-expanded={isMobileMenuOpen}
                   aria-label="Toggle mobile menu"
                 >
@@ -415,13 +414,13 @@ const Header: React.FC = () => {
               <div className="flex items-center space-x-4">
                 <Link
                   to="/login"
-                  className="text-gray-600 hover:text-blue-900 font-medium transition-colors"
+                  className="text-gray-700 hover:text-primary font-medium transition-colors"
                 >
-                  Sign In
+                  Login
                 </Link>
                 <Link
                   to="/signup"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  className="bg-primary text-white px-6 py-2 rounded-lg font-medium hover:bg-primary-dark transition-colors"
                 >
                   Sign Up
                 </Link>
@@ -432,7 +431,7 @@ const Header: React.FC = () => {
 
         {/* Mobile Navigation */}
         {isAuthenticated && isMobileMenuOpen && (
-          <div className="md:hidden border-t border-blue-100 bg-white py-4">
+          <div className="md:hidden border-t border-gray-200 bg-white py-4">
             <nav className="space-y-1" role="navigation" aria-label="Mobile navigation">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
@@ -443,8 +442,8 @@ const Header: React.FC = () => {
                     onClick={closeAllDropdowns}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                        ? 'bg-primary text-white shadow-md'
+                        : 'text-gray-700 hover:text-primary hover:bg-gray-50'
                     }`}
                     aria-current={isActive ? 'page' : undefined}
                   >

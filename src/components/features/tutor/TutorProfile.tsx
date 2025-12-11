@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  User,
   Mail,
-  Phone,
   GraduationCap,
-  FileText,
   CheckCircle,
   XCircle,
   Clock,
@@ -16,6 +13,7 @@ import {
   MapPin,
   Building,
   Camera,
+  AlertCircle,
 } from 'lucide-react';
 import { apiService, getTutorVerificationByUserId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
@@ -74,8 +72,7 @@ const TutorProfile: React.FC = () => {
   const [loadingCenters, setLoadingCenters] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  
-  // Location autocomplete state
+
   const [locationInput, setLocationInput] = useState('');
   const [locationPredictions, setLocationPredictions] = useState<LocationPrediction[]>([]);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
@@ -83,16 +80,14 @@ const TutorProfile: React.FC = () => {
   const [selectedPlaceId, setSelectedPlaceId] = useState('');
   const locationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Form state
+
   const [formData, setFormData] = useState({
     university: '',
     major: '',
     hourlyRate: 0,
     bio: '',
   });
-  
-  // User location state
+
   const [userLocation, setUserLocation] = useState({
     formattedAddress: '',
     city: '',
@@ -108,7 +103,6 @@ const TutorProfile: React.FC = () => {
     }
   }, [user]);
 
-  // Close location dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
@@ -124,7 +118,7 @@ const TutorProfile: React.FC = () => {
 
   const fetchProfile = async () => {
     if (!user?.id) return;
-    
+
     try {
       setLoading(true);
       const result = await getTutorVerificationByUserId(user.id);
@@ -137,7 +131,6 @@ const TutorProfile: React.FC = () => {
           bio: result.data.bio || '',
         });
       } else {
-        // If no verification exists, initialize empty form
         setFormData({
           university: '',
           major: '',
@@ -155,18 +148,16 @@ const TutorProfile: React.FC = () => {
 
   const fetchTutorCenters = async () => {
     if (!user?.id) return;
-    
+
     try {
       setLoadingCenters(true);
       const result = await apiService.request<any>(`/Tutors/${user.id}`);
       if (result.success && result.data) {
-        // Backend returns tutor with tutorCenters array
         const centers = result.data.tutorCenters || result.data.TutorCenters || [];
         setTutorCenters(centers);
       }
     } catch (error) {
       console.error('Error fetching tutor centers:', error);
-      // Don't show error, just log it - centers are optional
     } finally {
       setLoadingCenters(false);
     }
@@ -174,7 +165,7 @@ const TutorProfile: React.FC = () => {
 
   const fetchUserLocation = async () => {
     if (!user?.id) return;
-    
+
     try {
       const result = await apiService.request<any>(`/Tutors/${user.id}`);
       if (result.success && result.data) {
@@ -193,21 +184,18 @@ const TutorProfile: React.FC = () => {
 
   const fetchUserData = async () => {
     if (!user?.id) return;
-    
+
     try {
       const response = await apiService.getUserById(user.id);
       if (response.success && response.data) {
         const userData = response.data;
-        // Set avatar URL if available (with cache busting if version exists)
         let userAvatarUrl = userData.avatarUrl || userData.AvatarUrl || null;
         if (userAvatarUrl && userData.avatarVersion) {
-          // Add version query parameter for cache busting
           const separator = userAvatarUrl.includes('?') ? '&' : '?';
           userAvatarUrl = `${userAvatarUrl}${separator}v=${userData.avatarVersion}`;
         }
         setAvatarUrl(userAvatarUrl);
-        
-        // Update user in localStorage with avatarUrl
+
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           try {
@@ -236,13 +224,11 @@ const TutorProfile: React.FC = () => {
       return;
     }
 
-    // Backend accepts max 2MB
     if (file.size > 2 * 1024 * 1024) {
       showError('Image size must be less than 2MB');
       return;
     }
 
-    // Check file extension
     const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
     const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
     if (!allowedExtensions.includes(fileExtension)) {
@@ -258,8 +244,7 @@ const TutorProfile: React.FC = () => {
       if (response.success && response.data) {
         const newAvatarUrl = response.data.avatarUrl;
         setAvatarUrl(newAvatarUrl);
-        
-        // Update user in localStorage
+
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           try {
@@ -274,7 +259,6 @@ const TutorProfile: React.FC = () => {
           }
         }
 
-        // Refresh user data to get updated avatar
         await fetchUserData();
         showSuccess('Profile picture uploaded successfully!');
       } else {
@@ -285,12 +269,10 @@ const TutorProfile: React.FC = () => {
       showError(error?.message || 'Failed to upload profile picture. Please try again.');
     } finally {
       setIsUploadingAvatar(false);
-      // Reset file input
       event.target.value = '';
     }
   };
 
-  // Location autocomplete handler
   const handleLocationInputChange = async (value: string) => {
     setLocationInput(value);
     setSelectedPlaceId('');
@@ -364,17 +346,13 @@ const TutorProfile: React.FC = () => {
 
     try {
       setSaving(true);
-      
-      // Validate location if changed
+
       if (locationInput && locationInput !== userLocation.formattedAddress && !selectedPlaceId) {
         showError('Please select a location from the dropdown');
         setSaving(false);
         return;
       }
-      
-      let locationUpdateSuccess = false;
-      
-      // Step 1: Update location if changed
+
       if (selectedPlaceId && locationInput !== userLocation.formattedAddress) {
         const locationResponse = await apiService.saveAddress(selectedPlaceId);
         if (!locationResponse.success) {
@@ -382,10 +360,7 @@ const TutorProfile: React.FC = () => {
           setSaving(false);
           return;
         }
-        
-        locationUpdateSuccess = true;
-        
-        // Update localStorage user object with new placeId
+
         const savedUser = localStorage.getItem('user');
         if (savedUser) {
           try {
@@ -397,63 +372,53 @@ const TutorProfile: React.FC = () => {
             console.error('Error updating user in localStorage:', error);
           }
         }
-        
-        // Refresh user location after save
+
         await fetchUserLocation();
       }
-      
-      // Step 2: Update verification (university, major, bio only - NOT hourlyRate)
+
       const verificationResult = await getTutorVerificationByUserId(user.id);
       let verificationId: string | null = null;
-      
+
       if (verificationResult.success && verificationResult.data) {
         verificationId = verificationResult.data.verificationId;
       }
 
       if (verificationId) {
-        // Update existing verification
-        // IMPORTANT: We must include the existing HourlyRate to pass backend validation,
-        // but we send back the same value from verificationResult so tutors can't change their own rate
-        const existingHourlyRate = verificationResult.data.hourlyRate || 0.01; // Use 0.01 as minimum if not set
-        
+        const existingHourlyRate = verificationResult.data.hourlyRate || 0.01;
+
         const updateResult = await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
           method: 'PUT',
           body: JSON.stringify({
             University: formData.university,
             Major: formData.major,
-            HourlyRate: existingHourlyRate, // Send existing rate back to satisfy backend validation
+            HourlyRate: existingHourlyRate,
             Bio: formData.bio,
           }),
         });
 
         if (updateResult.success) {
-          // Check if this was a forced update and validate all required fields
           const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
           const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
-          
-          // For tutor, validate all required fields: location, university, major, bio
+
           if (wasForcedUpdate) {
             const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
             const verificationComplete = !state?.needsVerification || (
-              formData.university && 
-              formData.major && 
+              formData.university &&
+              formData.major &&
               formData.bio
             );
-            
+
             if (locationComplete && verificationComplete) {
-              // Refresh user context from localStorage to update the auth state
               await refreshUser();
-              
+
               showSuccess('Profile updated successfully!');
-              
-              // Dispatch event to notify dashboard
+
               window.dispatchEvent(new Event('profileUpdated'));
-              
+
               setIsEditing(false);
               await fetchProfile();
-              return; // Exit early
+              return;
             } else {
-              // Show error if not all required fields are filled
               const missingFields = [];
               if (!locationComplete) missingFields.push('location');
               if (!verificationComplete) {
@@ -466,56 +431,48 @@ const TutorProfile: React.FC = () => {
               return;
             }
           }
-          
-          // Normal profile update (not forced)
-          // Refresh user context from localStorage to update the auth state
+
           await refreshUser();
-          
+
           showSuccess('Profile updated successfully!');
           setIsEditing(false);
           await fetchProfile();
-          
-          // Dispatch event to notify dashboard
+
           window.dispatchEvent(new Event('profileUpdated'));
         } else {
           showError(updateResult.error || 'Failed to update profile');
         }
       } else {
-        // Create new verification if doesn't exist
-        // Set HourlyRate to 0.01 (minimum valid value) - admin will set the actual rate later
         const createResult = await apiService.request<any>(`/tutor-verifications`, {
           method: 'POST',
           body: JSON.stringify({
             UserId: user.id,
             University: formData.university,
             Major: formData.major,
-            HourlyRate: 0.01, // Minimum valid value to pass backend validation
+            HourlyRate: 0.01,
             Bio: formData.bio,
           }),
         });
 
         if (createResult.success) {
-          // Check if this was a forced update
           const state = location.state as { needsLocation?: boolean; needsVerification?: boolean } | null;
           const wasForcedUpdate = state?.needsLocation || state?.needsVerification;
-          
+
           if (wasForcedUpdate) {
             const locationComplete = !state?.needsLocation || selectedPlaceId || userLocation.formattedAddress;
             const verificationComplete = !state?.needsVerification || (
-              formData.university && 
-              formData.major && 
+              formData.university &&
+              formData.major &&
               formData.bio
             );
-            
+
             if (locationComplete && verificationComplete) {
-              // Refresh user context
               await refreshUser();
-              
+
               showSuccess('Profile created successfully!');
-              
-              // Dispatch event to notify dashboard
+
               window.dispatchEvent(new Event('profileUpdated'));
-              
+
               setIsEditing(false);
               await fetchProfile();
               return;
@@ -532,16 +489,13 @@ const TutorProfile: React.FC = () => {
               return;
             }
           }
-          
-          // Normal profile creation (not forced)
-          // Refresh user context
+
           await refreshUser();
-          
+
           showSuccess('Profile created successfully!');
           setIsEditing(false);
           await fetchProfile();
-          
-          // Dispatch event to notify dashboard
+
           window.dispatchEvent(new Event('profileUpdated'));
         } else {
           showError(createResult.error || 'Failed to create profile');
@@ -558,34 +512,34 @@ const TutorProfile: React.FC = () => {
   const getStatusBadge = (status?: string) => {
     if (!status) {
       return (
-        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-gray-100 text-gray-800 flex items-center space-x-2">
-          <Clock className="w-4 h-4" />
-          <span>Not Verified</span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 shadow-sm">
+          <Clock className="w-3.5 h-3.5" />
+          Not Verified
         </span>
       );
     }
-    
+
     const normalized = status.toLowerCase();
     if (normalized === 'approved' || normalized === 'active') {
       return (
-        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800 flex items-center space-x-2">
-          <CheckCircle className="w-4 h-4" />
-          <span>Approved</span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 shadow-sm">
+          <CheckCircle className="w-3.5 h-3.5" />
+          Approved
         </span>
       );
     }
     if (normalized === 'rejected') {
       return (
-        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-red-100 text-red-800 flex items-center space-x-2">
-          <XCircle className="w-4 h-4" />
-          <span>Rejected</span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-red-100 to-rose-100 text-red-700 shadow-sm">
+          <XCircle className="w-3.5 h-3.5" />
+          Rejected
         </span>
       );
     }
     return (
-      <span className="px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800 flex items-center space-x-2">
-        <Clock className="w-4 h-4" />
-        <span>Pending</span>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 shadow-sm">
+        <Clock className="w-3.5 h-3.5" />
+        Pending
       </span>
     );
   };
@@ -608,424 +562,439 @@ const TutorProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-3 border-blue-200 border-t-blue-600"></div>
+          <p className="text-sm text-gray-500">Loading profile...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
-            <p className="text-gray-600 mt-1">Manage your tutor profile and verification information</p>
-          </div>
-          <div className="flex items-center space-x-3">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto">
+        {/* Banner Section */}
+        <div className="relative bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-48 rounded-t-lg overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-purple-600/80 to-pink-600/70"></div>
+          <div className="absolute top-4 right-4">
             {verificationDetail && getStatusBadge(verificationDetail.verificationStatus)}
-            {!isEditing ? (
+          </div>
+          {isEditing && (
+            <div className="absolute top-4 right-4">
               <button
-                onClick={handleEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                onClick={handleCancel}
+                className="px-4 py-2 bg-white/90 text-gray-700 rounded-lg hover:bg-white transition-all shadow-md flex items-center gap-2 text-sm font-medium"
               >
-                <Edit className="w-4 h-4" />
-                <span>Edit Profile</span>
+                <X className="w-4 h-4" />
+                Cancel
               </button>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center space-x-2"
-                >
-                  <X className="w-4 h-4" />
-                  <span>Cancel</span>
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Personal Information */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-          <User className="w-5 h-5" />
-          <span>Personal Information</span>
-        </h3>
-        <div className="flex items-start space-x-6 mb-6 pb-6 border-b border-gray-200">
-          <div className="relative">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt="Profile"
-                className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
-                onError={(e) => {
-                  // Fallback to initial if image fails to load
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const fallback = target.nextElementSibling as HTMLElement;
-                  if (fallback) {
-                    fallback.style.display = 'flex';
-                    setAvatarUrl(null); // Clear invalid URL
-                  }
-                }}
-                onLoad={() => {
-                  // Hide fallback when image loads successfully
-                  const fallback = document.querySelector('.tutor-avatar-fallback') as HTMLElement;
-                  if (fallback) fallback.style.display = 'none';
-                }}
-              />
-            ) : null}
-            <div 
-              className={`tutor-avatar-fallback w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold ${avatarUrl ? 'hidden' : ''}`}
-            >
-              {(user?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
-            </div>
-            {isEditing && (
-              <label className={`absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                {isUploadingAvatar ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp"
-                  onChange={handleAvatarUpload}
-                  disabled={isUploadingAvatar}
-                  className="hidden"
-                />
-              </label>
-            )}
-          </div>
-          <div className="flex-1">
-            <h4 className="text-xl font-bold text-gray-900 mb-1">{user?.fullName || user?.name || 'N/A'}</h4>
-            <p className="text-gray-600">{user?.email || 'N/A'}</p>
-            {user?.phoneNumber && (
-              <p className="text-gray-600 mt-1 flex items-center space-x-1">
-                <Phone className="w-4 h-4" />
-                <span>{user.phoneNumber}</span>
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium text-gray-500">Full Name</label>
-            <p className="text-gray-900 mt-1">{user?.fullName || user?.name || 'N/A'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
-              <Mail className="w-4 h-4" />
-              <span>Email</span>
-            </label>
-            <p className="text-gray-900 mt-1">{user?.email || 'N/A'}</p>
-          </div>
-          {user?.phoneNumber && (
-            <div>
-              <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
-                <Phone className="w-4 h-4" />
-                <span>Phone</span>
-              </label>
-              <p className="text-gray-900 mt-1">{user.phoneNumber}</p>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Academic Information */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-          <GraduationCap className="w-5 h-5" />
-          <span>Academic Information</span>
-        </h3>
-        {isEditing ? (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                University <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.university}
-                onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your university"
-                required
-              />
+        {/* Profile Header Card */}
+        <div className="bg-white rounded-b-lg shadow-lg border border-gray-200 -mt-20 mb-6">
+          <div className="px-6 pt-20 pb-6">
+            {/* Profile Picture */}
+            <div className="relative inline-block mb-4">
+              <div className="relative">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) {
+                        fallback.style.display = 'flex';
+                        setAvatarUrl(null);
+                      }
+                    }}
+                  />
+                ) : null}
+                <div
+                  className={`w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-xl ${avatarUrl ? 'hidden' : ''}`}
+                >
+                  {((user as any)?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
+                </div>
+                {isEditing && (
+                  <label className={`absolute bottom-2 right-2 bg-white text-blue-600 p-2.5 rounded-full cursor-pointer hover:bg-blue-50 transition-all shadow-lg border-2 border-gray-200 ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    {isUploadingAvatar ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    ) : (
+                      <Camera className="w-5 h-5" />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handleAvatarUpload}
+                      disabled={isUploadingAvatar}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Major <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.major}
-                onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter your major"
-                required
-              />
+
+            {/* Name and Title */}
+            <div className="mb-4">
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">
+                {(user as any)?.fullName || user?.name || 'My Profile'}
+              </h1>
+              <p className="text-gray-600 text-lg mb-2">
+                {verificationDetail?.major ? `${verificationDetail.major} • ` : ''}
+                {verificationDetail?.university || 'Tutor'}
+              </p>
+              <div className="flex items-center gap-4 text-sm text-gray-500">
+                {userLocation.formattedAddress && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    <span>{userLocation.city || userLocation.formattedAddress}</span>
+                  </div>
+                )}
+                {user?.email && (
+                  <div className="flex items-center gap-1">
+                    <Mail className="w-4 h-4" />
+                    <span>{user.email}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
+              {!isEditing ? (
+                <button
+                  onClick={handleEdit}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
+                >
+                  <Edit className="w-4 h-4" />
+                  Edit Profile
+                </button>
+              ) : (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-6 py-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </div>
+
+        {/* About Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900">About</h2>
+          </div>
+          {isEditing ? (
             <div>
-              <label className="text-sm font-medium text-gray-500">University</label>
-              <p className="text-gray-900 mt-1">{verificationDetail?.university || 'Not provided'}</p>
+              <textarea
+                value={formData.bio}
+                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                rows={6}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none text-gray-700"
+                placeholder="Write a brief biography about your teaching experience, qualifications, and teaching style..."
+              />
+              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Maximum 5000 characters
+              </p>
             </div>
+          ) : (
             <div>
-              <label className="text-sm font-medium text-gray-500">Major</label>
-              <p className="text-gray-900 mt-1">{verificationDetail?.major || 'Not provided'}</p>
+              {verificationDetail?.bio ? (
+                <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{verificationDetail.bio}</p>
+              ) : (
+                <p className="text-gray-500 italic">No biography provided yet.</p>
+              )}
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-500 flex items-center space-x-1">
-                <span>Hourly Rate</span>
-                <span className="text-xs text-gray-400 ml-1">(Set by Admin)</span>
-              </label>
-              <p className="text-gray-900 mt-1">
-                {verificationDetail?.hourlyRate ? (
-                  <span>
+          )}
+        </div>
+
+        {/* Academic Information */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-blue-600" />
+              Education
+            </h2>
+          </div>
+          {isEditing ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  University <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.university}
+                  onChange={(e) => setFormData({ ...formData, university: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Enter your university"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Major <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.major}
+                  onChange={(e) => setFormData({ ...formData, major: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="Enter your major"
+                  required
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {verificationDetail?.university && (
+                <div>
+                  <p className="text-gray-900 font-semibold">{verificationDetail.university}</p>
+                  {verificationDetail.major && (
+                    <p className="text-gray-600 text-sm">{verificationDetail.major}</p>
+                  )}
+                </div>
+              )}
+              {verificationDetail?.hourlyRate && (
+                <div className="pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Hourly Rate</span>
+                    <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">Set by Admin</span>
+                  </div>
+                  <p className="text-gray-900 font-bold text-lg mt-1">
                     {new Intl.NumberFormat('vi-VN', {
                       style: 'currency',
                       currency: 'VND',
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0,
-                    }).format(verificationDetail.hourlyRate * 25000)}
-                    /hour
-                  </span>
-                ) : (
-                  'Not set by admin yet'
-                )}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Location */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-          <MapPin className="w-5 h-5" />
-          <span>Location</span>
-        </h3>
-        {isEditing ? (
-          <div className="space-y-4">
-            <div className="relative" ref={locationDropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={locationInput}
-                onChange={(e) => handleLocationInputChange(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Start typing your address..."
-                required
-              />
-              {isLoadingLocation && (
-                <div className="absolute right-3 top-10">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                </div>
-              )}
-              {showLocationDropdown && locationPredictions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {locationPredictions.map((prediction, index) => (
-                    <div
-                      key={prediction.placeId || index}
-                      onClick={() => handleLocationSelect(prediction)}
-                      className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="font-medium text-gray-900">{prediction.mainText}</div>
-                      <div className="text-sm text-gray-500">{prediction.secondaryText}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {locationInput && !selectedPlaceId && locationInput !== userLocation.formattedAddress && (
-                <p className="text-xs text-amber-600 mt-1">Please select a location from the dropdown</p>
-              )}
-            </div>
-            {(userLocation.city || userLocation.district) && (
-              <div className="text-sm text-gray-600">
-                <p><strong>City:</strong> {userLocation.city || 'N/A'}</p>
-                <p><strong>District:</strong> {userLocation.district || 'N/A'}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {userLocation.formattedAddress ? (
-              <div>
-                <div className="flex items-start space-x-2">
-                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-gray-900">{userLocation.formattedAddress}</p>
-                </div>
-                {(userLocation.city || userLocation.district) && (
-                  <p className="text-sm text-gray-600 ml-7">
-                    {userLocation.district && `${userLocation.district}, `}
-                    {userLocation.city}
+                    }).format(verificationDetail.hourlyRate * 25000)}/hour
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Location Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-blue-600" />
+              Location
+            </h2>
+          </div>
+          {isEditing ? (
+            <div className="space-y-4">
+              <div className="relative" ref={locationDropdownRef}>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Address <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={locationInput}
+                    onChange={(e) => handleLocationInputChange(e.target.value)}
+                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Start typing your address..."
+                    required
+                  />
+                  {isLoadingLocation && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                    </div>
+                  )}
+                </div>
+                {showLocationDropdown && locationPredictions.length > 0 && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    {locationPredictions.map((prediction, index) => (
+                      <div
+                        key={prediction.placeId || index}
+                        onClick={() => handleLocationSelect(prediction)}
+                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                      >
+                        <div className="font-semibold text-gray-900">{prediction.mainText}</div>
+                        <div className="text-sm text-gray-500 mt-0.5">{prediction.secondaryText}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {locationInput && !selectedPlaceId && locationInput !== userLocation.formattedAddress && (
+                  <div className="flex items-center gap-2 mt-2 p-3 bg-amber-50 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <p className="text-xs text-amber-700">Please select a location from the dropdown</p>
+                  </div>
                 )}
               </div>
-            ) : (
-              <p className="text-gray-500 italic">No location set</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Biography */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-          <FileText className="w-5 h-5" />
-          <span>Biography</span>
-        </h3>
-        {isEditing ? (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tell us about yourself
-            </label>
-            <textarea
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              rows={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Write a brief biography about your teaching experience, qualifications, and teaching style..."
-            />
-            <p className="text-xs text-gray-500 mt-2">Maximum 5000 characters</p>
-          </div>
-        ) : (
-          <div>
-            {verificationDetail?.bio ? (
-              <p className="text-gray-700 whitespace-pre-wrap">{verificationDetail.bio}</p>
-            ) : (
-              <p className="text-gray-500 italic">No biography provided</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Center Assignment */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-          <Building className="w-5 h-5" />
-          <span>Center Assignment</span>
-        </h3>
-        {loadingCenters ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          </div>
-        ) : tutorCenters.length === 0 ? (
-          <div className="text-center py-8">
-            <Building className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-600 font-medium">No Center Assigned</p>
-            <p className="text-sm text-gray-500 mt-2">
-              You have not been assigned to any center yet. Staff will assign you to a center based on your location.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {tutorCenters.map((tutorCenter) => {
-              const center = tutorCenter.center || tutorCenter.Center;
-              if (!center) return null;
-              
-              return (
-                <div
-                  key={tutorCenter.tutorCenterId || tutorCenter.TutorCenterId}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Building className="w-5 h-5 text-blue-600" />
-                        <h4 className="font-semibold text-gray-900">{center.name || center.Name}</h4>
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
-                          Assigned
-                        </span>
-                      </div>
-                      {center.formattedAddress || center.FormattedAddress ? (
-                        <div className="flex items-start space-x-1 mb-2">
-                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-gray-600">
-                            {center.formattedAddress || center.FormattedAddress}
-                          </p>
-                        </div>
-                      ) : null}
-                      {(center.city || center.City) && (
-                        <p className="text-sm text-gray-500">
-                          {center.city || center.City}
-                          {center.district || center.District ? `, ${center.district || center.District}` : ''}
-                        </p>
-                      )}
-                      {tutorCenter.createdDate && (
-                        <p className="text-xs text-gray-400 mt-2">
-                          Assigned on: {formatDate(tutorCenter.createdDate)}
-                        </p>
-                      )}
-                    </div>
+              {(userLocation.city || userLocation.district) && (
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-xs font-medium text-gray-500 mb-2">Current Location Details</p>
+                  <div className="space-y-1 text-sm text-gray-700">
+                    {userLocation.city && <p><strong>City:</strong> {userLocation.city}</p>}
+                    {userLocation.district && <p><strong>District:</strong> {userLocation.district}</p>}
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
+          ) : (
+            <div>
+              {userLocation.formattedAddress ? (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-gray-900 font-medium">{userLocation.formattedAddress}</p>
+                    {(userLocation.city || userLocation.district) && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        {userLocation.district && `${userLocation.district}, `}
+                        {userLocation.city}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No location set</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Center Assignment */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Building className="w-5 h-5 text-blue-600" />
+              Center Assignment
+            </h2>
+          </div>
+          {loadingCenters ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-3 border-blue-200 border-t-blue-600"></div>
+                <p className="text-sm text-gray-500">Loading centers...</p>
+              </div>
+            </div>
+          ) : tutorCenters.length === 0 ? (
+            <div className="text-center py-8">
+              <Building className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-700 font-semibold mb-2">No Center Assigned</p>
+              <p className="text-sm text-gray-500 max-w-md mx-auto">
+                You have not been assigned to any center yet. Staff will assign you to a center based on your location.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tutorCenters.map((tutorCenter) => {
+                const center = tutorCenter.center || (tutorCenter as any).Center;
+                if (!center) return null;
+
+                return (
+                  <div
+                    key={tutorCenter.tutorCenterId || (tutorCenter as any).TutorCenterId}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all bg-gray-50"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-white rounded-lg">
+                        <Building className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-bold text-gray-900">{center.name || center.Name}</h4>
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                            Assigned
+                          </span>
+                        </div>
+                        {center.formattedAddress || center.FormattedAddress ? (
+                          <div className="flex items-start gap-2 mb-2">
+                            <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-gray-600">
+                              {center.formattedAddress || center.FormattedAddress}
+                            </p>
+                          </div>
+                        ) : null}
+                        {(center.city || center.City) && (
+                          <p className="text-sm text-gray-500 mb-2">
+                            {center.city || center.City}
+                            {center.district || center.District ? `, ${center.district || center.District}` : ''}
+                          </p>
+                        )}
+                        {tutorCenter.createdDate && (
+                          <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <p className="text-xs text-gray-500">
+                              Assigned on: <span className="font-medium">{formatDate(tutorCenter.createdDate)}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Verification Timeline */}
+        {verificationDetail && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                Verification Timeline
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Created Date</p>
+                <p className="text-gray-900 font-semibold">{formatDate(verificationDetail.createdDate)}</p>
+              </div>
+              {verificationDetail.verificationDate && (
+                <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Verification Date</p>
+                  <p className="text-gray-900 font-semibold">{formatDate(verificationDetail.verificationDate)}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Alert for Pending Status */}
+        {verificationDetail && verificationDetail.verificationStatus &&
+         verificationDetail.verificationStatus.toLowerCase() !== 'approved' &&
+         verificationDetail.verificationStatus.toLowerCase() !== 'active' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-yellow-900 mb-1">Profile Under Review</p>
+                <p className="text-sm text-yellow-800">
+                  Your profile changes will be reviewed by staff. Once approved, your updated information will be visible to parents.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Verification Timeline */}
-      {verificationDetail && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-            <Calendar className="w-5 h-5" />
-            <span>Verification Timeline</span>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-gray-500">Created Date</label>
-              <p className="text-gray-900 mt-1">{formatDate(verificationDetail.createdDate)}</p>
-            </div>
-            {verificationDetail.verificationDate && (
-              <div>
-                <label className="text-sm font-medium text-gray-500">Verification Date</label>
-                <p className="text-gray-900 mt-1">{formatDate(verificationDetail.verificationDate)}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Info Message */}
-      {verificationDetail && verificationDetail.verificationStatus && 
-       verificationDetail.verificationStatus.toLowerCase() !== 'approved' && 
-       verificationDetail.verificationStatus.toLowerCase() !== 'active' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Note:</strong> Your profile changes will be reviewed by staff. Once approved, your updated information will be visible to parents.
-          </p>
-        </div>
-      )}
     </div>
   );
 };
 
 export default TutorProfile;
-
-
-
-
-
-
-
-
-
-

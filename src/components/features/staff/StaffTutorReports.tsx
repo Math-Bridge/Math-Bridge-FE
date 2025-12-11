@@ -28,7 +28,7 @@ const StaffTutorReports: React.FC = () => {
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
-  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'parent' | 'tutor'>('all');
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -138,26 +138,16 @@ const StaffTutorReports: React.FC = () => {
       report.content?.toLowerCase().includes(term) ||
       report.tutor?.fullName?.toLowerCase().includes(term) ||
       report.parent?.fullName?.toLowerCase().includes(term) ||
-      report.type?.toLowerCase().includes(term) ||
       report.contractId?.toLowerCase().includes(term);
 
     const matchesStatus =
       filterStatus === 'all' || (report.status || '').toLowerCase() === filterStatus.toLowerCase();
 
-    const matchesContract =
-      !selectedContractId || (report.contractId || '').toLowerCase() === selectedContractId.toLowerCase();
+    const matchesType =
+      filterType === 'all' || (report.type || '').toLowerCase() === filterType.toLowerCase();
 
-    return matchesSearch && matchesStatus && matchesContract;
+    return matchesSearch && matchesStatus && matchesType;
   });
-
-  // Build contract options from reports (unique contract IDs)
-  const contractOptions = Array.from(
-    new Map(
-      reports
-        .filter((r) => r.contractId)
-        .map((r) => [r.contractId, r.contractId]) // key, value
-    ).entries()
-  ).map(([id]) => id as string);
 
   if (loading) {
     return (
@@ -182,10 +172,10 @@ const StaffTutorReports: React.FC = () => {
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  Tutor Reports Management
+                  Reports Management
                 </h1>
                 <p className="text-sm sm:text-base lg:text-lg text-gray-600 mt-1">
-                  Review and manage reports submitted by parents about tutors
+                  Review and manage reports submitted by parents and tutors
                 </p>
               </div>
             </div>
@@ -203,11 +193,23 @@ const StaffTutorReports: React.FC = () => {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by content, tutor, parent, type, contract..."
+                placeholder="Search by content, tutor, parent..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
               />
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as any)}
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
+              >
+                <option value="all">All Types</option>
+                <option value="parent">Parent Reports</option>
+                <option value="tutor">Tutor Reports</option>
+              </select>
             </div>
             <div className="relative">
               <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -220,21 +222,6 @@ const StaffTutorReports: React.FC = () => {
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="denied">Denied</option>
-              </select>
-            </div>
-            <div className="relative">
-              <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={selectedContractId || ''}
-                onChange={(e) => setSelectedContractId(e.target.value || null)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
-              >
-                <option value="">All Contracts</option>
-                {contractOptions.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
               </select>
             </div>
           </div>
@@ -280,8 +267,12 @@ const StaffTutorReports: React.FC = () => {
                         </div>
                         {getStatusBadge(report.status)}
                         {report.type && (
-                          <span className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-full text-xs font-semibold">
-                            {report.type}
+                          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                            (report.type || '').toLowerCase() === 'parent'
+                              ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                              : 'bg-orange-50 text-orange-800 border border-orange-200'
+                          }`}>
+                            {(report.type || '').toLowerCase() === 'parent' ? 'Parent Report' : 'Tutor Report'}
                           </span>
                         )}
                         {report.contractId && (
@@ -292,21 +283,44 @@ const StaffTutorReports: React.FC = () => {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-gray-700 ml-0 sm:ml-1">
-                        {report.parent && (
-                          <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-green-50 rounded-lg border border-green-100">
-                            <User className="w-4 h-4 text-green-600" />
-                            <span className="font-medium">
-                              Parent: {report.parent.fullName || report.parent.id}
-                            </span>
-                          </div>
-                        )}
-                        {report.tutor && (
-                          <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
-                            <User className="w-4 h-4 text-indigo-600" />
-                            <span className="font-medium">
-                              Tutor: {report.tutor.fullName || report.tutor.id}
-                            </span>
-                          </div>
+                        {(report.type || '').toLowerCase() === 'parent' ? (
+                          <>
+                            {report.parent && (
+                              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-green-50 rounded-lg border border-green-100">
+                                <User className="w-4 h-4 text-green-600" />
+                                <span className="font-medium">
+                                  Reporter (Parent): {report.parent.fullName || report.parent.id}
+                                </span>
+                              </div>
+                            )}
+                            {report.tutor && (
+                              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-red-50 rounded-lg border border-red-100">
+                                <User className="w-4 h-4 text-red-600" />
+                                <span className="font-medium">
+                                  Reported (Tutor): {report.tutor.fullName || report.tutor.id}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {report.tutor && (
+                              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-green-50 rounded-lg border border-green-100">
+                                <User className="w-4 h-4 text-green-600" />
+                                <span className="font-medium">
+                                  Reporter (Tutor): {report.tutor.fullName || report.tutor.id}
+                                </span>
+                              </div>
+                            )}
+                            {report.parent && (
+                              <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-red-50 rounded-lg border border-red-100">
+                                <User className="w-4 h-4 text-red-600" />
+                                <span className="font-medium">
+                                  Reported (Parent): {report.parent.fullName || report.parent.id}
+                                </span>
+                              </div>
+                            )}
+                          </>
                         )}
                         {report.url && (
                           <div className="flex items-center space-x-2 px-2 sm:px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100">
@@ -348,37 +362,76 @@ const StaffTutorReports: React.FC = () => {
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {report.parent && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                            Parent
-                          </p>
-                          <p className="text-sm text-gray-900 font-medium">
-                            {report.parent.fullName || report.parent.id}
-                          </p>
-                          {report.parent.email && (
-                            <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
-                              <Mail className="w-3 h-3 text-gray-400" />
-                              <span>{report.parent.email}</span>
-                            </p>
+                      {(report.type || '').toLowerCase() === 'parent' ? (
+                        <>
+                          {report.parent && (
+                            <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                              <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">
+                                Reporter (Parent)
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium">
+                                {report.parent.fullName || report.parent.id}
+                              </p>
+                              {report.parent.email && (
+                                <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
+                                  <Mail className="w-3 h-3 text-gray-400" />
+                                  <span>{report.parent.email}</span>
+                                </p>
+                              )}
+                            </div>
                           )}
-                        </div>
-                      )}
-                      {report.tutor && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-                            Tutor
-                          </p>
-                          <p className="text-sm text-gray-900 font-medium">
-                            {report.tutor.fullName || report.tutor.id}
-                          </p>
-                          {report.tutor.email && (
-                            <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
-                              <Mail className="w-3 h-3 text-gray-400" />
-                              <span>{report.tutor.email}</span>
-                            </p>
+                          {report.tutor && (
+                            <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
+                              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">
+                                Reported (Tutor)
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium">
+                                {report.tutor.fullName || report.tutor.id}
+                              </p>
+                              {report.tutor.email && (
+                                <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
+                                  <Mail className="w-3 h-3 text-gray-400" />
+                                  <span>{report.tutor.email}</span>
+                                </p>
+                              )}
+                            </div>
                           )}
-                        </div>
+                        </>
+                      ) : (
+                        <>
+                          {report.tutor && (
+                            <div className="bg-white rounded-xl p-4 border border-green-200 shadow-sm">
+                              <p className="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">
+                                Reporter (Tutor)
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium">
+                                {report.tutor.fullName || report.tutor.id}
+                              </p>
+                              {report.tutor.email && (
+                                <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
+                                  <Mail className="w-3 h-3 text-gray-400" />
+                                  <span>{report.tutor.email}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {report.parent && (
+                            <div className="bg-white rounded-xl p-4 border border-red-200 shadow-sm">
+                              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">
+                                Reported (Parent)
+                              </p>
+                              <p className="text-sm text-gray-900 font-medium">
+                                {report.parent.fullName || report.parent.id}
+                              </p>
+                              {report.parent.email && (
+                                <p className="text-xs text-gray-600 mt-1 flex items-center space-x-1">
+                                  <Mail className="w-3 h-3 text-gray-400" />
+                                  <span>{report.parent.email}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </>
                       )}
                       {report.createdDate && (
                         <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
