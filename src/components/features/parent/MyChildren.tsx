@@ -8,6 +8,7 @@ import ConfirmDialog from "../../common/ConfirmDialog";
 // ĐÃ IMPORT ĐẦY ĐỦ 
 import { Child, getChildById, softDeleteChild, restoreChild } from "../../../services/api";
 import { useToast } from "../../../contexts/ToastContext";
+import FallingLatexSymbols from "../../common/FallingLatexSymbols";
 
 const MyChildren: React.FC = () => {
   const navigate = useNavigate();
@@ -125,7 +126,10 @@ const MyChildren: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="w-full">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
       {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -146,7 +150,7 @@ const MyChildren: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 pb-8">
         <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
           {/* Hero Header */}
           <div className="mb-12 sm:mb-16">
@@ -244,7 +248,7 @@ const MyChildren: React.FC = () => {
         }
           .animate-float { animation: float 25s linear infinite; }
       `}} />
-    </>
+    </div>
   );
 };
 

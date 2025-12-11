@@ -134,7 +134,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
         </div>
       </div>
 
-      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
       {/* Back Button */}
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-6">
         <button

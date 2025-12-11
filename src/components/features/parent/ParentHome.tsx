@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import { usePackages } from '../../../hooks/usePackages';
 import { useTutors } from '../../../hooks/useTutors';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
+// Import hero image - replace with your actual image path
+// import HeroMathSymbolsImage from '../../../assets/images/hero-math-symbols.png';
 
 const ParentHome: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -70,7 +73,10 @@ const ParentHome: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="w-full">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
       {/* Hero Section */}
       <div className="relative bg-gradient-to-b from-background-cream via-background-light to-white overflow-hidden">
         {/* Animated Background Pattern */}
@@ -108,31 +114,22 @@ const ParentHome: React.FC = () => {
                 {/* Right Visual */}
                 <div className="hidden lg:block relative">
                   <div className="relative">
-                    {/* Floating Elements */}
-                    <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-accent-orange/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-
-                    {/* Main Card */}
-                    <div className="relative bg-white rounded-3xl p-8 shadow-math-lg transform hover:scale-105 transition-transform duration-500">
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        <div className="w-3 h-3 bg-accent-red rounded-full"></div>
-                        <div className="w-3 h-3 bg-accent-yellow rounded-full"></div>
-                        <div className="w-3 h-3 bg-accent-green rounded-full"></div>
+                    {/* Main Card - Window-like container with image */}
+                    <div className="relative bg-gradient-to-b from-orange-50 via-background-cream to-white rounded-3xl p-6 shadow-math-lg border border-primary/10">
+                      {/* Window controls */}
+                      <div className="absolute top-4 left-4 flex gap-2 z-10">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                       </div>
 
-                      <div className="relative aspect-square rounded-2xl bg-gradient-to-br from-orange-50 via-background-cream to-amber-50 flex items-center justify-center overflow-hidden">
-                        {/* Math Symbols Grid */}
-                        <div className="grid grid-cols-3 gap-8 text-center">
-                          <div className="text-5xl font-light text-primary opacity-60 transform hover:scale-125 transition-transform">∫</div>
-                          <div className="text-5xl font-light text-accent-orange opacity-60 transform hover:scale-125 transition-transform">∑</div>
-                          <div className="text-5xl font-light text-primary-dark opacity-60 transform hover:scale-125 transition-transform">π</div>
-                          <div className="text-5xl font-light text-accent-orange opacity-60 transform hover:scale-125 transition-transform">√</div>
-                          <div className="text-7xl font-bold text-primary transform hover:scale-125 transition-transform">Δ</div>
-                          <div className="text-5xl font-light text-primary-dark opacity-60 transform hover:scale-125 transition-transform">∞</div>
-                          <div className="text-5xl font-light text-primary opacity-60 transform hover:scale-125 transition-transform">α</div>
-                          <div className="text-5xl font-light text-accent-orange opacity-60 transform hover:scale-125 transition-transform">θ</div>
-                          <div className="text-5xl font-light text-primary-dark opacity-60 transform hover:scale-125 transition-transform">β</div>
-                        </div>
+                      <div className="relative aspect-square rounded-2xl bg-gradient-to-b from-orange-50 via-background-cream to-white overflow-hidden mt-4">
+                        {/* Image - Replace with your actual hero image path */}
+                        <img 
+                          src="/src/assets/images/hero-image.png" 
+                          alt="Hero image"
+                          className="w-full h-full object-cover object-center rounded-2xl"
+                        />
                       </div>
                     </div>
                   </div>
@@ -184,67 +181,53 @@ const ParentHome: React.FC = () => {
             </section>
 
           {/* About Us Section */}
-          <section className="py-24 bg-gradient-to-b from-white to-background-cream relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent-orange/5 rounded-full blur-3xl"></div>
-
+          <section className="py-24 bg-white relative overflow-hidden">
               <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid lg:grid-cols-2 gap-20 items-center">
+                <div className="grid lg:grid-cols-2 gap-16 items-center">
                   {/* Left Content */}
                   <div className="space-y-8">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
                       <BookOpen className="h-4 w-4 text-primary" />
                       <span className="text-sm font-semibold text-primary">About MathBridge</span>
                     </div>
 
                     <h2 className="text-5xl font-bold text-gray-900 leading-tight">
                       Transforming Math Education
-                      <span className="block mt-2 text-primary">Since 2016</span>
+                    </h2>
+                    <h2 className="text-4xl font-bold text-primary leading-tight -mt-2">
+                      Since 2016
                     </h2>
 
                     <p className="text-lg text-gray-600 leading-relaxed">
                       MathBridge is a trusted platform dedicated to creating breakthroughs in mathematics education. We've helped thousands of students master complex concepts through personalized tutoring and innovative teaching methods.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-4">
                       {[
                         { label: 'Students Helped', value: '25K+', icon: Users },
                         { label: 'Expert Tutors', value: '1000+', icon: GraduationCap },
                         { label: 'Success Rate', value: '98%', icon: Award },
                         { label: 'Years Experience', value: '8+', icon: CheckCircle }
                       ].map((stat) => (
-                        <div key={stat.label} className="bg-white rounded-xl p-4 border border-gray-100">
-                          <stat.icon className="h-6 w-6 text-primary mb-2" />
-                          <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                        <div key={stat.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+                          <stat.icon className="h-6 w-6 text-primary mb-3" />
+                          <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>
                           <div className="text-sm text-gray-500">{stat.label}</div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Right Visual */}
+                  {/* Right Visual - Branding Card */}
                   <div className="relative">
-                    <div className="relative bg-white rounded-3xl p-6 shadow-math-lg">
-                      <div className="aspect-square rounded-2xl bg-gradient-to-br from-orange-50 via-background-cream to-amber-50 flex flex-col items-center justify-center p-8 overflow-hidden">
-                        <div className="text-center space-y-6 relative z-10">
-                          <div className="text-6xl font-light text-primary/80 animate-bounce-slow">∫</div>
-                          <div className="text-7xl font-bold text-primary">
-                            Math<span className="text-primary-dark">Bridge</span>
-                          </div>
-                          <div className="flex gap-4 justify-center">
-                            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-md">
-                              <span className="text-2xl font-light text-primary">π</span>
-                            </div>
-                            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-md">
-                              <span className="text-2xl font-light text-primary">∑</span>
-                            </div>
-                            <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center shadow-md">
-                              <span className="text-2xl font-light text-primary">√</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="absolute top-4 left-4 w-20 h-20 border-2 border-primary/20 rounded-full"></div>
-                        <div className="absolute bottom-4 right-4 w-16 h-16 border-2 border-primary/20 rounded-full"></div>
+                    <div className="relative bg-background-cream rounded-3xl p-8 shadow-math-lg">
+                      <div className="aspect-square rounded-2xl bg-background-cream overflow-hidden relative">
+                        {/* Image - Replace with your actual branding card image path */}
+                        <img 
+                          src="/src/assets/images/about-image.png" 
+                          alt="About MathBridge"
+                          className="w-full h-full object-cover object-center rounded-2xl"
+                        />
                       </div>
                     </div>
                   </div>
@@ -724,7 +707,7 @@ const ParentHome: React.FC = () => {
           animation-play-state: paused;
         }
       `}} />
-    </>
+    </div>
   );
 };
 

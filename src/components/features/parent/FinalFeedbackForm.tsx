@@ -220,7 +220,7 @@ const FinalFeedbackForm: React.FC = () => {
   }
 
   return (
-      <div className="min-h-screen bg-gray-50 py-12 sm:py-16 px-2 sm:px-3 lg:px-4">
+      <div className="w-full bg-gray-50 py-12 sm:py-16 px-2 sm:px-3 lg:px-4">
       <div className="max-w-[95%] mx-auto">
         {/* Header */}
         <div className="mb-6">

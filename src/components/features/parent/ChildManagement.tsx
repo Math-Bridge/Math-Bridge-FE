@@ -22,6 +22,7 @@ import { useTranslation } from '../../../hooks/useTranslation';
 import { useToast } from '../../../contexts/ToastContext';
 import ConfirmDialog from '../../common/ConfirmDialog';
 import { getChildrenByParent, softDeleteChild, updateChild } from '../../../services/api';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 interface Child {
   id: string;
@@ -198,8 +199,12 @@ const ChildManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+    <div className="w-full">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
+      <div className="w-full bg-gray-50 py-8">
+        <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -458,7 +463,8 @@ const ChildManagement: React.FC = () => {
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
         type="danger"
-      />
+        />
+      </div>
     </div>
   );
 };

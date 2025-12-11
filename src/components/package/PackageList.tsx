@@ -184,7 +184,7 @@ const PackageList: React.FC<PackageListProps> = ({
   // Loading State
   if (loading) {
     return (
-      <>
+      <div className="w-full">
         {/* Subtle Animated Background */}
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -204,7 +204,7 @@ const PackageList: React.FC<PackageListProps> = ({
             ))}
           </div>
         </div>
-        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
         <div className="text-center">
           <div className="relative mb-8">
               <div className="relative w-32 h-32 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-math-lg animate-bounce">
@@ -226,18 +226,18 @@ const PackageList: React.FC<PackageListProps> = ({
           }
           .animate-float { animation: float 25s linear infinite; }
         `}} />
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
+      <div className="w-full">
         {/* Subtle Animated Background */}
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
         </div>
-        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
           <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12 max-w-md text-center">
           <div className="w-24 h-24 bg-gradient-to-br from-accent-red to-accent-orange rounded-full flex items-center justify-center mx-auto mb-6">
             <X className="w-12 h-12 text-white" />
@@ -252,12 +252,12 @@ const PackageList: React.FC<PackageListProps> = ({
           </button>
         </div>
       </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="w-full">
       {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -278,7 +278,7 @@ const PackageList: React.FC<PackageListProps> = ({
         </div>
       </div>
 
-      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
         <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
       {/* Hero Header */}
           <div className="mb-12">
@@ -494,7 +494,7 @@ const PackageList: React.FC<PackageListProps> = ({
         }
         .animate-float { animation: float 25s linear infinite; }
       `}} />
-    </>
+    </div>
   );
 };
 

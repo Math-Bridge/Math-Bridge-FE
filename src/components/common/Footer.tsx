@@ -24,7 +24,7 @@ const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gradient-to-br from-footer-brown via-primary-dark to-footer-brown relative overflow-hidden">
+    <footer className="bg-gradient-to-br from-footer-brown via-primary-dark to-footer-brown relative overflow-hidden w-full" style={{ zIndex: 20 }}>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{

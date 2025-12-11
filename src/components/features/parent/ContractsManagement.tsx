@@ -26,6 +26,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 interface Contract {
   id: string;
@@ -528,7 +529,7 @@ const ContractsManagement: React.FC = () => {
   }
 
   return (
-      <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50">
+      <div className="w-full bg-gradient-to-br from-background-cream via-white to-gray-50">
         <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
 
         {/* GỘP HEADER + FILTER – 1 KHỐI DUY NHẤT */}

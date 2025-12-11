@@ -16,6 +16,7 @@ import {
 import { apiService } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 interface LocationPrediction {
   placeId: string;
@@ -589,8 +590,11 @@ const ParentProfile: React.FC = () => {
   }, [user?.id, location.state, fetchUserData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background-cream via-white to-gray-50">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+    <div className="w-full bg-gradient-to-br from-background-cream via-white to-gray-50 relative">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
         {/* Profile Setup Banner */}
         {showLocationBanner && (
           <div className="mb-6 bg-primary/10 border-l-4 border-primary p-4 rounded-lg shadow-sm animate-fade-in">

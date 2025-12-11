@@ -22,6 +22,7 @@ interface ChildRaw {
 import { useToast } from '../../../contexts/ToastContext';
 import RescheduleRequestPopup from './RescheduleRequestPopup';
 import { useAuth } from '../../../hooks/useAuth';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 const StudySchedule: React.FC = () => {
   const { showError } = useToast();
@@ -495,7 +496,7 @@ const StudySchedule: React.FC = () => {
 
   if (loading || loadingSessions) {
     return (
-      <>
+      <div className="w-full">
         {/* Subtle Animated Background */}
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -515,7 +516,7 @@ const StudySchedule: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
           <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-12">
         <div className="flex flex-col items-center justify-center py-12">
           <div className="relative">
@@ -533,18 +534,18 @@ const StudySchedule: React.FC = () => {
           }
           .animate-float { animation: float 25s linear infinite; }
         `}} />
-      </>
+      </div>
     );
   }
 
   if (error && sessions.length === 0) {
     return (
-      <>
+      <div className="w-full">
         {/* Subtle Animated Background */}
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
         </div>
-        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 flex items-center justify-center p-8">
           <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-8 max-w-md">
         <div className="flex items-center space-x-3 text-red-700">
           <div className="p-2 bg-red-100 rounded-lg">
@@ -557,12 +558,15 @@ const StudySchedule: React.FC = () => {
         </div>
       </div>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="w-full">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
       {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -583,7 +587,7 @@ const StudySchedule: React.FC = () => {
         </div>
       </div>
 
-      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
         <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
             {/* Header */}
           <div className="mb-12">
@@ -1046,7 +1050,7 @@ const StudySchedule: React.FC = () => {
           background: #94a3b8;
         }
       `}} />
-    </>
+    </div>
   );
 };
 

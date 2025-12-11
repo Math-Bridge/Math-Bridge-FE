@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileText,
   Calendar,
@@ -32,6 +32,10 @@ import {
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
+import LatexKeyboard from '../../common/LatexKeyboard';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
+import { Eye } from 'lucide-react';
 
 interface Unit {
   unitId: string;
@@ -67,6 +71,13 @@ const TutorDailyReport: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
   const [childId, setChildId] = useState<string | null>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showPreview, setShowPreview] = useState(true);
+  
+  // Check if notes contain LaTeX
+  const hasLatex = (text: string): boolean => {
+    return /(\$[^$]+\$|\$\$[^$]+\$\$|\\[a-zA-Z]+|\\[\(\)\[\]])/.test(text);
+  };
 
   useEffect(() => {
     if (!user?.id) {
@@ -339,6 +350,31 @@ const TutorDailyReport: React.FC = () => {
     setSelectedReport(null);
     setSelectedSession(null);
     resetForm();
+  };
+
+  const handleInsertLatex = (latexText: string) => {
+    const textarea = notesTextareaRef.current;
+    if (!textarea) {
+      // If no ref, just append to notes
+      setNotes((prev) => prev + latexText);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = notes;
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    const newText = before + latexText + after;
+    
+    setNotes(newText);
+    
+    // Restore cursor position after insertion
+    setTimeout(() => {
+      const newCursorPos = start + latexText.length;
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -785,17 +821,63 @@ const TutorDailyReport: React.FC = () => {
 
                   {/* Notes */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Notes (Optional)
-                    </label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      rows={6}
-                      maxLength={1000}
-                      placeholder="Add notes about the session, student progress, areas of improvement, etc."
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Notes (Optional)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {notes.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setShowPreview(!showPreview)}
+                            className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                            title="Toggle LaTeX Preview"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{showPreview ? 'Hide' : 'Show'} Preview</span>
+                          </button>
+                        )}
+                        <LatexKeyboard onInsert={handleInsertLatex} textareaRef={notesTextareaRef} />
+                      </div>
+                    </div>
+                    <div className={`space-y-2 ${showPreview && notes.trim() ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}`}>
+                      <div>
+                        <textarea
+                          ref={notesTextareaRef}
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          rows={6}
+                          maxLength={1000}
+                          placeholder="Add notes about the session, student progress, areas of improvement, etc. Use LaTeX keyboard for math symbols."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      {showPreview && notes.trim() && (
+                        <div className="bg-gradient-to-br from-blue-50 to-gray-50 rounded-lg p-4 border-2 border-blue-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-1">
+                              <Eye className="w-3 h-3" />
+                              LaTeX Preview
+                            </div>
+                            {hasLatex(notes) && (
+                              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                Math Detected
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-700 whitespace-pre-wrap min-h-[100px] bg-white rounded p-3 border border-gray-200">
+                            <Latex delimiters={[
+                              { left: '$$', right: '$$', display: true },
+                              { left: '$', right: '$', display: false },
+                              { left: '\\(', right: '\\)', display: false },
+                              { left: '\\[', right: '\\]', display: true },
+                            ]}>
+                              {notes}
+                            </Latex>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">{notes.length}/1000 characters</p>
                   </div>
 
@@ -1071,7 +1153,16 @@ const TutorDailyReport: React.FC = () => {
                   <div className="border-t border-gray-200 pt-6">
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">Notes</h4>
                     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedReport.notes}</p>
+                      <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                        <Latex delimiters={[
+                          { left: '$$', right: '$$', display: true },
+                          { left: '$', right: '$', display: false },
+                          { left: '\\(', right: '\\)', display: false },
+                          { left: '\\[', right: '\\]', display: true },
+                        ]}>
+                          {selectedReport.notes}
+                        </Latex>
+                      </div>
                     </div>
                   </div>
                 )}

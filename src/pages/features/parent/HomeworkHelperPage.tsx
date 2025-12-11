@@ -231,7 +231,7 @@ const HomeworkHelperPage: React.FC = () => {
   // Khi robot bị tắt thủ công (ấn nút X)
   if (!showRobot) {
     return (
-      <>
+      <div className="w-full">
         {/* Subtle Animated Background */}
         <div className="fixed inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -251,7 +251,7 @@ const HomeworkHelperPage: React.FC = () => {
             ))}
           </div>
         </div>
-        <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
           <button
             onClick={() => {
               setShowRobot(true);
@@ -262,7 +262,7 @@ const HomeworkHelperPage: React.FC = () => {
             <img src={RobotImage} alt="Wake robot" className="w-14 h-14 rounded-full" />
           </button>
 
-          <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+          <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
             <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
               <div className="mb-12">
                 <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
@@ -296,12 +296,12 @@ const HomeworkHelperPage: React.FC = () => {
           }
           .animate-float { animation: float 25s linear infinite; }
         `}} />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="w-full">
       {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />
@@ -321,7 +321,7 @@ const HomeworkHelperPage: React.FC = () => {
           ))}
         </div>
       </div>
-      <div className="min-h-screen bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
+      <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 relative">
 
       <div
         ref={dragRef}
@@ -395,7 +395,7 @@ const HomeworkHelperPage: React.FC = () => {
       </div>
 
         {/* Nội dung trang chính */}
-        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50 min-h-screen">
+        <div className="w-full bg-gradient-to-b from-background-cream via-white to-gray-50">
           <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
             <div className="mb-12">
               <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 overflow-hidden">
@@ -433,7 +433,7 @@ const HomeworkHelperPage: React.FC = () => {
         }
         .animate-float { animation: float 25s linear infinite; }
       `}} />
-    </>
+    </div>
   );
 };
 

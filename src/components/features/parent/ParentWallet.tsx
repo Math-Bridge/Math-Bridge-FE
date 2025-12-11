@@ -3,6 +3,7 @@ import { Wallet, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 const ParentWallet: React.FC = () => {
   const navigate = useNavigate();
@@ -214,9 +215,11 @@ const ParentWallet: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="w-full bg-gray-50 relative">
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
 
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
+      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
         {/* Page Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>

@@ -1745,7 +1745,11 @@ const CreateContract: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <>
+      {/* Falling LaTeX Symbols Background Animation */}
+      <FallingLatexSymbols />
+      
+      <div className="w-full bg-gray-50 py-8">
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}
         <div className="mb-8">
@@ -3817,6 +3821,7 @@ const CreateContract: React.FC = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 
