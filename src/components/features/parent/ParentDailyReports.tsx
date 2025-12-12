@@ -35,6 +35,8 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
 import FallingLatexSymbols from '../../common/FallingLatexSymbols';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
 
 const ParentDailyReports: React.FC = () => {
   const { user } = useAuth();
@@ -580,7 +582,16 @@ const ParentDailyReports: React.FC = () => {
                               <h4 className="text-base font-bold text-gray-900">Notes</h4>
                             </div>
                             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{report.notes}</p>
+                              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                <Latex delimiters={[
+                                  { left: '$$', right: '$$', display: true },
+                                  { left: '$', right: '$', display: false },
+                                  { left: '\\(', right: '\\)', display: false },
+                                  { left: '\\[', right: '\\]', display: true },
+                                ]}>
+                                  {report.notes}
+                                </Latex>
+                              </div>
                             </div>
                           </div>
                         )}

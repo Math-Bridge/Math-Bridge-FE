@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  MoreVertical,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -38,6 +39,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [requestTypeFilter, setRequestTypeFilter] = useState<'all' | 'tutor' | 'parent'>('all');
   const [selectedRequest, setSelectedRequest] = useState<RescheduleRequest | null>(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -54,6 +56,9 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   // Cancel session states
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  
+  // Dropdown state for actions
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Helper functions for formatting
   const formatDate = (dateStr: string | undefined): string => {
@@ -99,17 +104,63 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
     return `${start} - ${end}`;
   };
 
+  // Helper function to check if session is within 4 hours
+  const isSessionWithin4Hours = (request: RescheduleRequest): boolean => {
+    if (!request.originalSessionDate || !request.originalStartTime) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse the date and time
+      const sessionDate = new Date(request.originalSessionDate);
+      
+      // Parse start time (could be HH:mm:ss or HH:mm or ISO string)
+      let startTimeStr = request.originalStartTime;
+      if (startTimeStr.includes('T')) {
+        // It's an ISO string, parse directly
+        const sessionDateTime = new Date(startTimeStr);
+        if (!isNaN(sessionDateTime.getTime())) {
+          const now = new Date();
+          const diffMs = sessionDateTime.getTime() - now.getTime();
+          const diffHours = diffMs / (1000 * 60 * 60);
+          return diffHours <= 4;
+        }
+      } else {
+        // It's a time string (HH:mm:ss or HH:mm)
+        const timeParts = startTimeStr.split(':');
+        if (timeParts.length >= 2) {
+          const hours = parseInt(timeParts[0], 10);
+          const minutes = parseInt(timeParts[1], 10);
+          
+          // Set the time on the session date
+          sessionDate.setHours(hours, minutes, 0, 0);
+          
+          const now = new Date();
+          const diffMs = sessionDate.getTime() - now.getTime();
+          const diffHours = diffMs / (1000 * 60 * 60);
+          
+          return diffHours <= 4;
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     fetchRequests();
   }, []);
 
   useEffect(() => {
     filterRequests();
-  }, [requests, searchTerm, statusFilter]);
+  }, [requests, searchTerm, statusFilter, requestTypeFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, requestTypeFilter]);
 
   const fetchRequests = async () => {
     try {
@@ -138,6 +189,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
     }
   };
 
+  // Helper function to determine if request is from tutor
+  const isTutorRequest = (request: RescheduleRequest): boolean => {
+    // Backend marks tutor replacement requests with "[CHANGE TUTOR]" prefix in Reason
+    return request.reason?.startsWith('[CHANGE TUTOR]') || false;
+  };
+
   const filterRequests = () => {
     let filtered = [...requests];
 
@@ -146,12 +203,22 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
       filtered = filtered.filter(r => r.status === statusFilter);
     }
 
+    // Filter by request type (tutor vs parent)
+    if (requestTypeFilter !== 'all') {
+      if (requestTypeFilter === 'tutor') {
+        filtered = filtered.filter(r => isTutorRequest(r));
+      } else if (requestTypeFilter === 'parent') {
+        filtered = filtered.filter(r => !isTutorRequest(r));
+      }
+    }
+
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(r =>
         r.parentName?.toLowerCase().includes(term) ||
         r.childName?.toLowerCase().includes(term) ||
+        r.tutorName?.toLowerCase().includes(term) ||
         r.requestId.toLowerCase().includes(term)
       );
     }
@@ -166,6 +233,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
 
   const handleOpenApproveModal = async (request: RescheduleRequest) => {
+    // Check if session is within 4 hours
+    if (isSessionWithin4Hours(request)) {
+      showError('Cannot reschedule session when it is 4 hours or less before the session starts');
+      return;
+    }
+
     setSelectedRequest(request);
     setShowApproveModal(true);
     setSelectedTutorId('');
@@ -191,6 +264,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
+    
+    // Double check if session is within 4 hours (safety check)
+    if (isSessionWithin4Hours(selectedRequest)) {
+      showError('Cannot reschedule session when it is 4 hours or less before the session starts');
+      return;
+    }
     
     try {
       const data: ApproveRescheduleRequest = {
@@ -328,12 +407,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by parent name, child name..."
+                placeholder="Search by parent name, child name, tutor name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -350,6 +429,18 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={requestTypeFilter}
+                onChange={(e) => setRequestTypeFilter(e.target.value as any)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+              >
+                <option value="all">All Request Types</option>
+                <option value="tutor">Tutor Requests</option>
+                <option value="parent">Parent Requests</option>
               </select>
             </div>
           </div>
@@ -369,103 +460,159 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
           ) : (
           <>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+              <div className="w-full">
+                <table className="w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Type
+                      </th>
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         Parent
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         Child
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Requested Date
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                        Date
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Requested Time
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                        Time
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
                         Tutor
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Reason
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
                         Created
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                         Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedRequests.map((request) => (
+                    {paginatedRequests.map((request) => {
+                      const isTutorReq = isTutorRequest(request);
+                      
+                      return (
                       <tr key={request.requestId} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{request.parentName}</div>
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {isTutorReq ? (
+                              <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
+                                Tutor
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                                Parent
+                              </span>
+                            )}
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{request.childName}</div>
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]" title={request.parentName}>
+                            {request.parentName}
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 truncate max-w-[120px]" title={request.childName}>
+                            {request.childName}
+                          </div>
+                        </td>
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {formatDate(request.requestedDate)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {request.startTime && request.endTime 
                               ? formatTimeRange(request.startTime, request.endTime)
                               : request.requestedTimeSlot || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{request.requestedTutorName || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900 max-w-xs truncate" title={request.reason}>
-                            {request.reason}
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 truncate max-w-[120px]" title={request.requestedTutorName || 'N/A'}>
+                            {request.requestedTutorName || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3">
+                          <div className="text-sm text-gray-900 truncate max-w-[200px]" title={request.reason?.startsWith('[CHANGE TUTOR]') 
+                              ? request.reason.replace(/^\[CHANGE TUTOR\]\s*/i, '')
+                              : request.reason}>
+                            {request.reason?.startsWith('[CHANGE TUTOR]') 
+                              ? request.reason.replace(/^\[CHANGE TUTOR\]\s*/i, '')
+                              : request.reason}
+                          </div>
+                        </td>
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {formatDate(request.createdDate)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
                             {request.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium">
                           {request.status === 'pending' && (
-                            <div className="flex items-center justify-end space-x-2">
+                            <div className="relative inline-block text-left">
                               <button
-                                onClick={() => handleOpenApproveModal(request)}
-                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-xs flex items-center space-x-1"
-                              >
-                                <CheckCircle className="w-3 h-3" />
-                                <span>Approve</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setShowRejectModal(true);
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenDropdownId(openDropdownId === request.requestId ? null : request.requestId);
                                 }}
-                                className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs flex items-center space-x-1"
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                               >
-                                <XCircle className="w-3 h-3" />
-                                <span>Reject</span>
+                                <MoreVertical className="w-5 h-5" />
                               </button>
+                              
+                              {openDropdownId === request.requestId && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-10"
+                                    onClick={() => setOpenDropdownId(null)}
+                                  />
+                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenDropdownId(null);
+                                        handleOpenApproveModal(request);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
+                                    >
+                                      <CheckCircle className="w-4 h-4 text-green-600" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenDropdownId(null);
+                                        setSelectedRequest(request);
+                                        setShowRejectModal(true);
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
+                                    >
+                                      <XCircle className="w-4 h-4 text-red-600" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -599,7 +746,11 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                         <FileText className="w-4 h-4 text-blue-400 mt-0.5" />
                         <div>
                           <strong>Reason:</strong>
-                          <p className="mt-1 text-gray-700">{selectedRequest.reason}</p>
+                          <p className="mt-1 text-gray-700">
+                            {selectedRequest.reason.startsWith('[CHANGE TUTOR]')
+                              ? selectedRequest.reason.replace(/^\[CHANGE TUTOR\]\s*/i, '')
+                              : selectedRequest.reason}
+                          </p>
                         </div>
                       </div>
                     </div>

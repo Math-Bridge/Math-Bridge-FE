@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar } from 'lucide-react';
-import { getParentSessions, Session } from '../../../services/api';
+import { getParentSessions, Session, getContractsByParent, Contract } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import RescheduleRequestPopup from './RescheduleRequestPopup';
@@ -14,11 +14,32 @@ const ParentScheduleCalendar: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isReschedulePopupOpen, setIsReschedulePopupOpen] = useState(false);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+
+  useEffect(() => {
+    fetchContracts();
+// eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     fetchSessions();
 // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, contracts]);
+
+  // Fetch contracts for filtering
+  const fetchContracts = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const contractsRes = await getContractsByParent(user.id);
+      if (contractsRes.success && contractsRes.data) {
+        setContracts(contractsRes.data);
+      }
+    } catch (err) {
+      console.error('Error fetching contracts:', err);
+      // Don't show error - just continue without contract filtering
+    }
+  };
 
   const fetchSessions = async () => {
     if (!user?.id) return;
@@ -28,7 +49,20 @@ const ParentScheduleCalendar: React.FC = () => {
       // BE gets parentId from JWT token, no need to pass it
       const result = await getParentSessions();
       if (result.success && result.data) {
-        setSessions(result.data);
+        // Filter out sessions from completed contracts
+        const completedContractIds = contracts
+          .filter(contract => {
+            const status = (contract.status || '').toLowerCase();
+            return status === 'completed' || status === 'cancelled';
+          })
+          .map(contract => contract.contractId);
+        
+        const filteredSessions = result.data.filter(session => {
+          // Keep session if its contract is not in completed/cancelled list
+          return !completedContractIds.includes(session.contractId);
+        });
+        
+        setSessions(filteredSessions);
       } else {
         showError(result.error || 'Failed to load sessions');
       }

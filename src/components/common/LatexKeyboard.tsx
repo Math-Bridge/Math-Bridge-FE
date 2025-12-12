@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Calculator, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calculator, X, ChevronDown, ChevronUp, Move } from 'lucide-react';
 
 interface LatexKeyboardProps {
   onInsert: (text: string) => void;
@@ -11,6 +11,10 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
   const [activeCategory, setActiveCategory] = useState<string>('basic');
   const keyboardRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const categories = {
     basic: {
@@ -149,6 +153,79 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
     }
   };
 
+  // Load saved position from localStorage
+  useEffect(() => {
+    const savedPosition = localStorage.getItem('latexKeyboardPosition');
+    if (savedPosition) {
+      try {
+        const pos = JSON.parse(savedPosition);
+        setPosition(pos);
+      } catch (e) {
+        // Invalid saved position, ignore
+      }
+    }
+  }, []);
+
+  // Handle drag start
+  const handleDragStart = (e: React.MouseEvent) => {
+    if (!keyboardRef.current) return;
+    
+    const keyboard = keyboardRef.current;
+    const rect = keyboard.getBoundingClientRect();
+    
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    
+    e.preventDefault();
+  };
+
+  // Handle drag
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !keyboardRef.current) return;
+      
+      const keyboard = keyboardRef.current;
+      const keyboardWidth = keyboard.offsetWidth;
+      const keyboardHeight = keyboard.offsetHeight;
+      
+      let newX = e.clientX - dragOffset.x;
+      let newY = e.clientY - dragOffset.y;
+      
+      // Keep keyboard within viewport
+      newX = Math.max(0, Math.min(newX, window.innerWidth - keyboardWidth));
+      newY = Math.max(0, Math.min(newY, window.innerHeight - keyboardHeight));
+      
+      keyboard.style.left = `${newX}px`;
+      keyboard.style.top = `${newY}px`;
+      keyboard.style.transform = 'none';
+      
+      const newPosition = { x: newX, y: newY };
+      setPosition(newPosition);
+      
+      // Save position to localStorage while dragging
+      localStorage.setItem('latexKeyboardPosition', JSON.stringify(newPosition));
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragOffset]);
+
   // Handle click outside to close and position keyboard
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -156,6 +233,7 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
         isOpen &&
         keyboardRef.current &&
         buttonRef.current &&
+        headerRef.current &&
         !keyboardRef.current.contains(event.target as Node) &&
         !buttonRef.current.contains(event.target as Node)
       ) {
@@ -163,47 +241,55 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
       }
     };
 
-    if (isOpen && buttonRef.current && keyboardRef.current) {
-      // Calculate position relative to button
-      const buttonRect = buttonRef.current.getBoundingClientRect();
+    if (isOpen && keyboardRef.current) {
       const keyboard = keyboardRef.current;
       
-      // Position above button, or below if not enough space
-      const spaceAbove = buttonRect.top;
-      const spaceBelow = window.innerHeight - buttonRect.bottom;
-      const keyboardHeight = 500; // approximate height
-      
-      if (spaceAbove > keyboardHeight || spaceAbove > spaceBelow) {
-        // Position above
-        keyboard.style.top = `${buttonRect.top - keyboardHeight - 8}px`;
-        keyboard.style.bottom = 'auto';
-      } else {
-        // Position below
-        keyboard.style.top = `${buttonRect.bottom + 8}px`;
-        keyboard.style.bottom = 'auto';
+      // If there's a saved position, use it
+      if (position) {
+        keyboard.style.left = `${position.x}px`;
+        keyboard.style.top = `${position.y}px`;
+        keyboard.style.transform = 'none';
+      } else if (buttonRef.current) {
+        // Otherwise, calculate position relative to button
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        
+        // Position above button, or below if not enough space
+        const spaceAbove = buttonRect.top;
+        const spaceBelow = window.innerHeight - buttonRect.bottom;
+        const keyboardHeight = 500; // approximate height
+        
+        let topPos: number;
+        if (spaceAbove > keyboardHeight || spaceAbove > spaceBelow) {
+          // Position above
+          topPos = buttonRect.top - keyboardHeight - 8;
+        } else {
+          // Position below
+          topPos = buttonRect.bottom + 8;
+        }
+        
+        // Position horizontally - try to align with button, but keep in viewport
+        const keyboardWidth = 600;
+        let leftPos = buttonRect.left;
+        
+        // Ensure it doesn't go off screen
+        if (leftPos + keyboardWidth > window.innerWidth) {
+          leftPos = window.innerWidth - keyboardWidth - 16;
+        }
+        if (leftPos < 16) {
+          leftPos = 16;
+        }
+        
+        keyboard.style.left = `${leftPos}px`;
+        keyboard.style.top = `${topPos}px`;
+        keyboard.style.transform = 'none';
       }
-      
-      // Position horizontally - try to align with button, but keep in viewport
-      const keyboardWidth = 600;
-      let leftPos = buttonRect.left;
-      
-      // Ensure it doesn't go off screen
-      if (leftPos + keyboardWidth > window.innerWidth) {
-        leftPos = window.innerWidth - keyboardWidth - 16;
-      }
-      if (leftPos < 16) {
-        leftPos = 16;
-      }
-      
-      keyboard.style.left = `${leftPos}px`;
-      keyboard.style.transform = 'none';
       
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, position]);
 
   return (
     <div className="relative">
@@ -240,20 +326,33 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
               maxHeight: 'min(500px, 80vh)',
             }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
-              <h3 className="text-sm font-semibold text-gray-900">LaTeX Keyboard</h3>
+            {/* Header - Draggable */}
+            <div 
+              ref={headerRef}
+              onMouseDown={handleDragStart}
+              className={`flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 rounded-t-lg ${
+                isDragging ? 'cursor-grabbing' : 'cursor-grab'
+              } select-none`}
+            >
+              <div className="flex items-center space-x-2">
+                <Move className="w-4 h-4 text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-900">LaTeX Keyboard</h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Category Tabs */}
-            <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto">
+            <div 
+              className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50 overflow-x-auto"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               {Object.keys(categories).map((key) => (
                 <button
                   key={key}
@@ -271,7 +370,10 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
             </div>
 
             {/* Symbols Grid */}
-            <div className="flex-1 overflow-y-auto p-3">
+            <div 
+              className="flex-1 overflow-y-auto p-3"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                 {categories[activeCategory as keyof typeof categories].symbols.map((symbol, index) => (
                   <button
@@ -297,7 +399,10 @@ const LatexKeyboard: React.FC<LatexKeyboardProps> = ({ onInsert, textareaRef }) 
             </div>
 
             {/* Footer Help */}
-            <div className="p-2 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+            <div 
+              className="p-2 border-t border-gray-200 bg-gray-50 rounded-b-lg"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <p className="text-xs text-gray-500 text-center">
                 Click a symbol to insert LaTeX code. Use $...$ for inline math or $$...$$ for display math.
               </p>

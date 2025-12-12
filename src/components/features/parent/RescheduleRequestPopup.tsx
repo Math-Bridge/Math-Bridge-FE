@@ -264,9 +264,67 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     t('other')
   ];
 
+  // Helper function to check if session is within 4 hours
+  const isSessionWithin4Hours = (): boolean => {
+    if (!currentSession.date || !currentSession.time) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse the date - could be ISO string or YYYY-MM-DD format
+      let sessionDate: Date;
+      if (currentSession.date.includes('T')) {
+        // ISO string format
+        sessionDate = new Date(currentSession.date);
+      } else {
+        // YYYY-MM-DD format
+        const [year, month, day] = currentSession.date.split('-').map(Number);
+        sessionDate = new Date(year, month - 1, day);
+      }
+      
+      if (isNaN(sessionDate.getTime())) {
+        console.error('Invalid date format:', currentSession.date);
+        return false;
+      }
+      
+      // Parse start time (format: HH:mm from toLocaleTimeString)
+      const timeParts = currentSession.time.split(':');
+      if (timeParts.length >= 2) {
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          console.error('Invalid time format:', currentSession.time);
+          return false;
+        }
+        
+        // Set the time on the session date
+        sessionDate.setHours(hours, minutes, 0, 0);
+        
+        const now = new Date();
+        const diffMs = sessionDate.getTime() - now.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        
+        // Return true if session is within 4 hours and hasn't started yet
+        return diffHours > 0 && diffHours <= 4;
+      }
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
+
+    return false;
+  };
+
   const handleConfirm = async () => {
     if (!currentSession.bookingId) {
       showError('Session booking ID is required');
+      return;
+    }
+
+    // Check if session is within 4 hours
+    if (isSessionWithin4Hours()) {
+      showError('Cannot reschedule session when it is 4 hours or less before the session starts');
       return;
     }
 
@@ -333,17 +391,23 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           onSuccess();
         }
       } else {
-        // Improve error message for reschedule count limit
+        // Improve error message handling
         const errorMsg = result.error || 'Failed to submit reschedule request';
-        if (errorMsg.includes('No reschedule attempts left') || errorMsg.includes('reschedule attempts')) {
+        
+        // Handle specific backend errors
+        if (errorMsg.includes('Contract is no longer active') || errorMsg.includes('no longer active')) {
+          showError('Cannot reschedule: Contract is no longer active');
+        } else if (errorMsg.includes('No reschedule attempts left') || errorMsg.includes('reschedule attempts')) {
           showError(errorMsg);
+        } else if (errorMsg.includes('4 hours') || errorMsg.includes('4 tiếng')) {
+          showError('Cannot reschedule session when it is 4 hours or less before the session starts');
         } else {
           showError(errorMsg);
         }
       }
-} catch (error: unknown) {
+    } catch (error: unknown) {
       console.error('Error creating reschedule request:', error);
-const errorMessage = error instanceof Error ? error.message : 'Failed to submit reschedule request';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit reschedule request';
       showError(errorMessage);
     } finally {
       setIsSubmitting(false);

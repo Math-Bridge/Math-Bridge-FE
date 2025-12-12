@@ -77,12 +77,12 @@ const Layout: React.FC = () => {
       
       {!shouldHideHeader && <Header />}
       
-      <main className="flex-1 relative w-full" style={{ zIndex: 1, position: 'relative' }}>
+      <main className="flex-1 relative w-full">
         <Outlet />
       </main>
       
       {!shouldHideHeader && (
-        <div className="mt-auto w-full relative" style={{ zIndex: 20 }}>
+        <div className="mt-auto w-full relative">
           <Footer />
         </div>
       )}

@@ -825,22 +825,19 @@ const TutorDailyReport: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700">
                         Notes (Optional)
                       </label>
-                      <div className="flex items-center gap-2">
-                        {notes.trim() && (
-                          <button
-                            type="button"
-                            onClick={() => setShowPreview(!showPreview)}
-                            className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-                            title="Toggle LaTeX Preview"
-                          >
-                            <Eye className="w-3 h-3" />
-                            <span>{showPreview ? 'Hide' : 'Show'} Preview</span>
-                          </button>
-                        )}
-                        <LatexKeyboard onInsert={handleInsertLatex} textareaRef={notesTextareaRef} />
-                      </div>
+                      {notes.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPreview(!showPreview)}
+                          className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                          title="Toggle LaTeX Preview"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>{showPreview ? 'Hide' : 'Show'} Preview</span>
+                        </button>
+                      )}
                     </div>
-                    <div className={`space-y-2 ${showPreview && notes.trim() ? 'grid grid-cols-1 lg:grid-cols-2 gap-4' : ''}`}>
+                    <div className="space-y-3">
                       <div>
                         <textarea
                           ref={notesTextareaRef}
@@ -852,6 +849,20 @@ const TutorDailyReport: React.FC = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
+                      
+                      {/* LaTeX Keyboard Section */}
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-medium text-gray-700">
+                            LaTeX Keyboard
+                          </label>
+                        </div>
+                        <div className="flex justify-start">
+                          <LatexKeyboard onInsert={handleInsertLatex} textareaRef={notesTextareaRef} />
+                        </div>
+                      </div>
+
+                      {/* LaTeX Preview */}
                       {showPreview && notes.trim() && (
                         <div className="bg-gradient-to-br from-blue-50 to-gray-50 rounded-lg p-4 border-2 border-blue-200">
                           <div className="flex items-center justify-between mb-2">

@@ -37,20 +37,26 @@ const FallingLatexSymbols: React.FC = () => {
 
   useEffect(() => {
     setMounted(true);
-    console.log('🎯 FallingLatexSymbols: Component mounted');
+    console.log('FallingLatexSymbols: Component mounted');
     
     const createSymbol = (): Symbol => {
-      const drift = (Math.random() - 0.5) * 300;
+      const drift = (Math.random() - 0.5) * 100; // Giảm drift để ít di chuyển ngang
       const rotation = Math.random() * 1080;
       const id = `sym-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const now = Date.now();
       
+      // Chỉ spawn ở 2 bên: bên trái (0-15%) hoặc bên phải (85-100%)
+      const side = Math.random() < 0.5 ? 'left' : 'right';
+      const left = side === 'left' 
+        ? Math.random() * 15  // 0-15%
+        : 85 + Math.random() * 15; // 85-100%
+      
       return {
         id: id,
         symbol: mathSymbols[Math.floor(Math.random() * mathSymbols.length)],
-        left: Math.random() * 100,
+        left: left,
         top: -150,
-        duration: 6 + Math.random() * 6, // 6-12s
+        duration: 15 + Math.random() * 10, // 15-25s (rơi chậm hơn)
         size: 45 + Math.random() * 35, // 45-80px
         opacity: 0.3 + Math.random() * 0.2, // 0.3-0.5 (mờ hơn nữa)
         drift: drift,
@@ -70,14 +76,14 @@ const FallingLatexSymbols: React.FC = () => {
     symbolsRef.current = initialSymbols;
     setSymbols(initialSymbols);
     lastSpawnTimeRef.current = Date.now();
-    console.log('✅ FallingLatexSymbols: Generated', initialSymbols.length, 'initial symbols');
+    console.log('FallingLatexSymbols: Generated', initialSymbols.length, 'initial symbols');
 
     // Animate using requestAnimationFrame
     const animate = () => {
       const now = Date.now();
       
-      // Spawn new symbols continuously (every 300-600ms)
-      if (now - lastSpawnTimeRef.current > 300 + Math.random() * 300) {
+      // Spawn new symbols continuously (every 500-800ms) - chậm hơn một chút
+      if (now - lastSpawnTimeRef.current > 500 + Math.random() * 300) {
         const newSymbol = createSymbol();
         symbolsRef.current = [...symbolsRef.current, newSymbol];
         lastSpawnTimeRef.current = now;

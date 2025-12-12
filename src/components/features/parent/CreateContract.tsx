@@ -22,6 +22,7 @@ import { getChildrenByParent, createContract, apiService, getSchoolById, createC
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
+import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 interface Package {
   packageId: string;

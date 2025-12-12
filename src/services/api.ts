@@ -2462,6 +2462,8 @@ export interface RescheduleRequest {
   originalEndTime?: string;
   originalTutorId?: string;
   originalTutorName?: string;
+  tutorId?: string; // ID of tutor who created this request (null if created by parent)
+  tutorName?: string; // Name of tutor who created this request
 }
 
 export interface CreateRescheduleRequest {
@@ -2529,6 +2531,8 @@ export async function getRescheduleRequests(_status?: 'pending' | 'approved' | '
         originalEndTime: item.originalEndTime || item.OriginalEndTime,
         originalTutorId: item.originalTutorId || item.OriginalTutorId,
         originalTutorName: item.originalTutorName || item.OriginalTutorName,
+        tutorId: item.tutorId || item.TutorId,
+        tutorName: item.tutorName || item.TutorName,
       }));
       
       return {
@@ -2616,6 +2620,8 @@ export async function getRescheduleRequestById(requestId: string) {
         originalEndTime: item.originalEndTime || item.OriginalEndTime,
         originalTutorId: item.originalTutorId || item.OriginalTutorId,
         originalTutorName: item.originalTutorName || item.OriginalTutorName,
+        tutorId: item.tutorId || item.TutorId,
+        tutorName: item.tutorName || item.TutorName,
       };
       
       return {
@@ -2743,6 +2749,46 @@ export async function cancelRescheduleSession(bookingId: string, rescheduleReque
       success: false,
       data: null,
       error: error?.message || 'Failed to cancel session',
+    };
+  }
+}
+
+// Tutor request replacement (change teacher for a session)
+export interface TutorReplacementRequest {
+  bookingId: string;
+  reason?: string;
+}
+
+export interface TutorReplacementResponse {
+  requestId: string;
+  bookingId: string;
+  sessionDate: string;
+  originalTutor: string;
+  message: string;
+}
+
+export async function requestTutorReplacement(data: TutorReplacementRequest) {
+  try {
+    const requestBody: any = {
+      bookingId: data.bookingId,
+    };
+    
+    // Optional reason
+    if (data.reason && data.reason.trim() !== '') {
+      requestBody.reason = data.reason;
+    }
+    
+    const result = await apiService.request<TutorReplacementResponse>(`/reschedule/tutor-replacement`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to request tutor replacement',
     };
   }
 }

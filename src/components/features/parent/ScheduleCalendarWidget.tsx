@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, ChevronDown, User } from 'lucide-react';
-import { getParentSessions, getSessionsByChildId, Session, getChildrenByParent, Child } from '../../../services/api';
+import { getParentSessions, getSessionsByChildId, Session, getChildrenByParent, Child, getContractsByParent, Contract } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -17,6 +17,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
   const [loading, setLoading] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [contracts, setContracts] = useState<Contract[]>([]);
 
   useEffect(() => {
     fetchChildren();
@@ -72,7 +73,20 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
       const sessionsRes = await getSessionsByChildId(childId);
       
       if (sessionsRes.success && sessionsRes.data) {
-        setSessions(sessionsRes.data);
+        // Filter out sessions from completed contracts
+        const completedContractIds = contracts
+          .filter(contract => {
+            const status = (contract.status || '').toLowerCase();
+            return status === 'completed' || status === 'cancelled';
+          })
+          .map(contract => contract.contractId);
+        
+        const filteredSessions = sessionsRes.data.filter(session => {
+          // Keep session if its contract is not in completed/cancelled list
+          return !completedContractIds.includes(session.contractId);
+        });
+        
+        setSessions(filteredSessions);
       } else {
         // Don't show error for widget
         if (import.meta.env.DEV) {
@@ -94,7 +108,7 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
     fetchChildren();
   }, [user?.id]);
 
-  // Fetch sessions when child is selected
+  // Fetch sessions when child is selected or contracts change
   useEffect(() => {
     if (selectedChildId) {
       fetchSessionsForChild(selectedChildId);
@@ -108,7 +122,8 @@ const ScheduleCalendarWidget: React.FC<ScheduleCalendarWidgetProps> = ({ compact
     } else {
       setSessions([]);
     }
-  }, [selectedChildId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChildId, contracts]);
 
   const formatDate = (date: Date): string => {
     const year = date.getFullYear();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, X, User, BookOpen, CheckCircle, XCircle, ExternalLink, Link as LinkIcon, Plus, Monitor, Copy, Check, Play } from 'lucide-react';
-import { getTutorSessions, getSessionById, updateSessionStatus, createVideoConference, CreateVideoConferenceRequest, Session } from '../../../services/api';
+import { ChevronLeft, ChevronRight, Clock, Video, MapPin, Calendar, X, User, BookOpen, CheckCircle, XCircle, ExternalLink, Link as LinkIcon, Plus, Monitor, Copy, Check, Play, UserX, AlertCircle } from 'lucide-react';
+import { getTutorSessions, getSessionById, updateSessionStatus, createVideoConference, CreateVideoConferenceRequest, Session, requestTutorReplacement, TutorReplacementRequest } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 
@@ -16,6 +16,19 @@ const TutorSessions: React.FC = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [creatingVideoConference, setCreatingVideoConference] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showReplacementModal, setShowReplacementModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [customReason, setCustomReason] = useState('');
+  const [requestingReplacement, setRequestingReplacement] = useState(false);
+
+  const replacementReasons = [
+    'Personal Emergency',
+    'Family Commitment',
+    'Health Issue',
+    'Work Conflict',
+    'Transportation Issue',
+    'Other'
+  ];
 
   useEffect(() => {
     fetchSessions();
@@ -229,6 +242,152 @@ const TutorSessions: React.FC = () => {
       showError('Failed to update session status');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleOpenReplacementModal = () => {
+    setShowReplacementModal(true);
+    setSelectedReason('');
+    setCustomReason('');
+  };
+
+  const handleCloseReplacementModal = () => {
+    setShowReplacementModal(false);
+    setSelectedReason('');
+    setCustomReason('');
+  };
+
+  // Helper function to check if session is within 4 hours
+  const isSessionWithin4Hours = (session: Session | null): boolean => {
+    if (!session?.sessionDate || !session?.startTime) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse start time (could be HH:mm:ss or HH:mm or ISO string)
+      let sessionDateTime: Date;
+      let startTimeStr = session.startTime;
+      
+      if (startTimeStr.includes('T')) {
+        // It's an ISO string, parse directly
+        sessionDateTime = new Date(startTimeStr);
+        if (isNaN(sessionDateTime.getTime())) {
+          console.error('Invalid ISO date format:', startTimeStr);
+          return false;
+        }
+      } else {
+        // Parse the date - could be ISO string or YYYY-MM-DD format
+        let sessionDate: Date;
+        if (session.sessionDate.includes('T')) {
+          // ISO string format
+          sessionDate = new Date(session.sessionDate);
+        } else {
+          // YYYY-MM-DD format
+          const [year, month, day] = session.sessionDate.split('-').map(Number);
+          sessionDate = new Date(year, month - 1, day);
+        }
+        
+        if (isNaN(sessionDate.getTime())) {
+          console.error('Invalid date format:', session.sessionDate);
+          return false;
+        }
+        
+        // It's a time string (HH:mm:ss or HH:mm)
+        const timeParts = startTimeStr.split(':');
+        if (timeParts.length >= 2) {
+          const hours = parseInt(timeParts[0], 10);
+          const minutes = parseInt(timeParts[1], 10);
+          
+          if (isNaN(hours) || isNaN(minutes)) {
+            console.error('Invalid time format:', startTimeStr);
+            return false;
+          }
+          
+          // Set the time on the session date
+          sessionDate.setHours(hours, minutes, 0, 0);
+          sessionDateTime = sessionDate;
+        } else {
+          console.error('Invalid time format:', startTimeStr);
+          return false;
+        }
+      }
+      
+      const now = new Date();
+      const diffMs = sessionDateTime.getTime() - now.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      
+      // Return true if session is within 4 hours and hasn't started yet
+      return diffHours > 0 && diffHours <= 4;
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
+  };
+
+  const handleRequestReplacement = async () => {
+    if (!sessionDetail?.bookingId) return;
+
+    // Check if session is within 4 hours
+    if (isSessionWithin4Hours(sessionDetail)) {
+      showError('Cannot reschedule session when it is 4 hours or less before the session starts');
+      return;
+    }
+
+    // Validate reason selection
+    if (!selectedReason) {
+      showError('Please select a reason for requesting a tutor replacement');
+      return;
+    }
+
+    // If "Other" is selected, require custom reason
+    if (selectedReason === 'Other' && !customReason.trim()) {
+      showError('Please provide a reason in the text field');
+      return;
+    }
+
+    try {
+      setRequestingReplacement(true);
+      
+      // Determine final reason: use custom reason if "Other", otherwise use selected reason
+      const finalReason = selectedReason === 'Other' ? customReason.trim() : selectedReason;
+      
+      const request: TutorReplacementRequest = {
+        bookingId: sessionDetail.bookingId,
+        reason: finalReason,
+      };
+
+      const result = await requestTutorReplacement(request);
+      if (result.success) {
+        showSuccess(result.data?.message || 'Tutor replacement request submitted successfully. Staff will review and select a replacement tutor.');
+        handleCloseReplacementModal();
+        // Refresh sessions
+        await fetchSessions();
+        if (sessionDetail.bookingId) {
+          await fetchSessionDetail(sessionDetail.bookingId, false);
+        }
+      } else {
+        // Improve error message handling
+        const errorMsg = result.error || 'Failed to submit tutor replacement request';
+        
+        // Handle specific backend errors
+        if (errorMsg.includes('Contract is no longer active') || errorMsg.includes('no longer active')) {
+          showError('Cannot reschedule: Contract is no longer active');
+        } else if (errorMsg.includes('4 hours') || errorMsg.includes('4 tiếng')) {
+          showError('Cannot reschedule session when it is 4 hours or less before the session starts');
+        } else {
+          showError(errorMsg);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error requesting tutor replacement:', error);
+      const errorMsg = error?.message || 'Failed to submit tutor replacement request';
+      if (errorMsg.includes('Contract is no longer active') || errorMsg.includes('no longer active')) {
+        showError('Cannot reschedule: Contract is no longer active');
+      } else {
+        showError(errorMsg);
+      }
+    } finally {
+      setRequestingReplacement(false);
     }
   };
 
@@ -589,6 +748,30 @@ const TutorSessions: React.FC = () => {
                 )}
               </div>
 
+              {/* Request Tutor Replacement Button */}
+              {sessionDetail.status === 'scheduled' && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="bg-white p-4 rounded-xl border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <UserX className="w-5 h-5 text-orange-500 mt-1" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wide">Request Change Teacher</p>
+                        <p className="text-sm text-gray-600 mb-3">
+                          If you cannot teach this session, you can request staff to select a replacement teacher.
+                        </p>
+                        <button
+                          onClick={handleOpenReplacementModal}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium"
+                        >
+                          <UserX className="w-4 h-4" />
+                          Request Change Teacher
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Video Conference Link (Online Learning Link) */}
               {sessionDetail.isOnline && 
                sessionDetail.status !== 'completed' && 
@@ -689,6 +872,119 @@ const TutorSessions: React.FC = () => {
               <p className="text-gray-600">Failed to load session details</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tutor Replacement Request Modal */}
+      {showReplacementModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <UserX className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Request Change Teacher</h3>
+                  <p className="text-sm text-gray-600">Request staff to select a replacement teacher</p>
+                </div>
+              </div>
+              <button
+                onClick={handleCloseReplacementModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Why do you need to reschedule?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please provide a reason for rescheduling this session. Our staff will review and arrange a new schedule for you.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {replacementReasons.map((reason) => (
+                  <button
+                    key={reason}
+                    onClick={() => {
+                      setSelectedReason(reason);
+                      if (reason !== 'Other') {
+                        setCustomReason('');
+                      }
+                    }}
+                    className={`px-4 py-3 border-2 rounded-lg text-sm font-medium transition-all ${
+                      selectedReason === reason
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
+              {selectedReason === 'Other' && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Please specify your reason
+                  </label>
+                  <textarea
+                    value={customReason}
+                    onChange={(e) => setCustomReason(e.target.value)}
+                    placeholder="Enter your reason here..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
+                    rows={3}
+                  />
+                </div>
+              )}
+            </div>
+
+            {sessionDetail && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm font-semibold text-gray-700 mb-2">Session Information:</p>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p><span className="font-medium">Date:</span> {sessionDetail.sessionDate}</p>
+                  <p><span className="font-medium">Time:</span> {formatTime(sessionDetail.startTime)} - {formatTime(sessionDetail.endTime)}</p>
+                  <p><span className="font-medium">Student:</span> {sessionDetail.childName || sessionDetail.studentName || 'N/A'}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg mb-4">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <p className="text-sm text-blue-800">
+                Your request will be sent to staff. Staff will review and select a suitable replacement tutor.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleCloseReplacementModal}
+                disabled={requestingReplacement}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRequestReplacement}
+                disabled={requestingReplacement}
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {requestingReplacement ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserX className="w-4 h-4" />
+                    <span>Submit Request</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

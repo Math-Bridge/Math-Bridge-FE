@@ -32,6 +32,8 @@ import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
 import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
+import Latex from 'react-latex-next';
+import 'katex/dist/katex.min.css';
 
 interface Session {
   id: string;
@@ -1680,7 +1682,16 @@ const ContractDetail: React.FC = () => {
                               {(report.notes || report.Notes) && (
                                 <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                                   <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
-                                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{report.notes || report.Notes}</p>
+                                  <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                                    <Latex delimiters={[
+                                      { left: '$$', right: '$$', display: true },
+                                      { left: '$', right: '$', display: false },
+                                      { left: '\\(', right: '\\)', display: false },
+                                      { left: '\\[', right: '\\]', display: true },
+                                    ]}>
+                                      {report.notes || report.Notes}
+                                    </Latex>
+                                  </div>
                                 </div>
                               )}
                               {(report.url || report.Url) && (

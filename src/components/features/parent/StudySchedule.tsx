@@ -8,6 +8,8 @@ import {
   getSessionById,
   createVideoConference,
   CreateVideoConferenceRequest,
+  getContractsByParent,
+  Contract,
 } from '../../../services/api';
 
 // Lightweight representation of raw child coming from API mapping with varied casing
@@ -33,6 +35,7 @@ const StudySchedule: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingSessions, setLoadingSessions] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
@@ -93,6 +96,21 @@ const StudySchedule: React.FC = () => {
     }
   };
 
+  // Fetch contracts for filtering
+  const fetchContracts = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const contractsRes = await getContractsByParent(user.id);
+      if (contractsRes.success && contractsRes.data) {
+        setContracts(contractsRes.data);
+      }
+    } catch (err) {
+      console.error('Error fetching contracts:', err);
+      // Don't show error - just continue without contract filtering
+    }
+  };
+
   // Fetch sessions when child is selected
   const fetchSessionsForChild = async (childId: string) => {
     if (!childId) {
@@ -105,7 +123,20 @@ const StudySchedule: React.FC = () => {
       const sessionsRes = await getSessionsByChildId(childId);
       
       if (sessionsRes.success && sessionsRes.data) {
-        setSessions(sessionsRes.data);
+        // Filter out sessions from completed contracts
+        const completedContractIds = contracts
+          .filter(contract => {
+            const status = (contract.status || '').toLowerCase();
+            return status === 'completed' || status === 'cancelled';
+          })
+          .map(contract => contract.contractId);
+        
+        const filteredSessions = sessionsRes.data.filter(session => {
+          // Keep session if its contract is not in completed/cancelled list
+          return !completedContractIds.includes(session.contractId);
+        });
+        
+        setSessions(filteredSessions);
       } else {
         const errorMsg = sessionsRes.error || 'Failed to load sessions';
         setError(errorMsg);
@@ -122,10 +153,11 @@ const StudySchedule: React.FC = () => {
 
   useEffect(() => {
     fetchChildren();
+    fetchContracts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Fetch sessions when child is selected
+  // Fetch sessions when child is selected or contracts change
   useEffect(() => {
     // Clear selected session and session detail when child changes
     setSelectedSession(null);
@@ -143,7 +175,8 @@ const StudySchedule: React.FC = () => {
     } else {
       setSessions([]);
     }
-  }, [selectedChildId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChildId, contracts]);
 
   const fetchSessionDetail = async (bookingId: string, autoCreateLink: boolean = false) => {
     try {
