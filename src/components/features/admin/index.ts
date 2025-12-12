@@ -6,4 +6,5 @@ export { default as CenterManagement } from './CenterManagement';
 export { default as PackageManagement } from './PackageManagement';
 export { default as CurriculumManagement } from './CurriculumManagement';
 export { default as UnitManagement } from './UnitManagement';
+export { default as MathConceptManagement } from './MathConceptManagement';
 

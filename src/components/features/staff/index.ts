@@ -9,3 +9,4 @@ export { default as StaffDailyReports } from './StaffDailyReports';
 export { default as FinalFeedbackManagement } from './FinalFeedbackManagement';
 export { default as TutorCenterAssignment } from './TutorCenterAssignment';
 export { default as StaffTutorReports } from './StaffTutorReports';
+export { default as WithdrawalManagement } from './WithdrawalManagement';

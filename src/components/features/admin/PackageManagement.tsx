@@ -836,8 +836,8 @@ const PackageManagement: React.FC = () => {
       {/* Create Package Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Create New Package</h2>
                 <button
@@ -848,7 +848,8 @@ const PackageManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleCreatePackage} className="p-6 space-y-6">
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+              <form onSubmit={handleCreatePackage} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1070,7 +1071,8 @@ const PackageManagement: React.FC = () => {
                   )}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -1078,8 +1080,8 @@ const PackageManagement: React.FC = () => {
       {/* Edit Package Modal */}
       {showEditModal && selectedPackage && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-cyan-500 p-6 rounded-t-3xl border-b border-blue-600 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Edit Package</h2>
                 <button
@@ -1090,7 +1092,8 @@ const PackageManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleUpdatePackage} className="p-6 space-y-6">
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+              <form onSubmit={handleUpdatePackage} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1378,7 +1381,8 @@ const PackageManagement: React.FC = () => {
                   )}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

@@ -5988,6 +5988,7 @@ export async function createUnit(request: {
   Credit?: number;
   LearningObjectives?: string;
   IsActive?: boolean;
+  ConceptIds?: string[];
 }) {
   return apiService.request<any>('/units', {
     method: 'POST',
@@ -5999,6 +6000,7 @@ export async function createUnit(request: {
       Credit: request.Credit,
       LearningObjectives: request.LearningObjectives,
       IsActive: request.IsActive,
+      ConceptIds: request.ConceptIds,
     }),
   });
 }
@@ -6010,6 +6012,7 @@ export async function updateUnit(unitId: string, request: {
   Credit?: number;
   LearningObjectives?: string;
   IsActive?: boolean;
+  ConceptIds?: string[];
 }) {
   // Note: CurriculumId is not included as it cannot be changed when updating a unit
   return apiService.request<any>(`/units/${unitId}`, {
@@ -6021,6 +6024,7 @@ export async function updateUnit(unitId: string, request: {
       Credit: request.Credit,
       LearningObjectives: request.LearningObjectives,
       IsActive: request.IsActive,
+      ConceptIds: request.ConceptIds,
     }),
   });
 }
@@ -6028,6 +6032,89 @@ export async function updateUnit(unitId: string, request: {
 export async function deleteUnit(unitId: string) {
   return apiService.request<any>(`/units/${unitId}`, {
     method: 'DELETE',
+  });
+}
+
+// Math Concepts API
+export async function createMathConcept(request: {
+  Name: string;
+  Category?: string;
+  UnitIds?: string[];
+}) {
+  return apiService.request<any>('/math-concepts', {
+    method: 'POST',
+    body: JSON.stringify({
+      Name: request.Name,
+      Category: request.Category,
+      UnitIds: request.UnitIds,
+    }),
+  });
+}
+
+export async function updateMathConcept(conceptId: string, request: {
+  Name: string;
+  Category?: string;
+}) {
+  return apiService.request<any>(`/math-concepts/${conceptId}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      Name: request.Name,
+      Category: request.Category,
+    }),
+  });
+}
+
+export async function deleteMathConcept(conceptId: string) {
+  return apiService.request<any>(`/math-concepts/${conceptId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getMathConceptById(conceptId: string) {
+  return apiService.request<any>(`/math-concepts/${conceptId}`, {
+    method: 'GET',
+  });
+}
+
+export async function getAllMathConcepts() {
+  return apiService.request<any>('/math-concepts', {
+    method: 'GET',
+  });
+}
+
+export async function getMathConceptsByUnitId(unitId: string) {
+  return apiService.request<any>(`/math-concepts/by-unit/${unitId}`, {
+    method: 'GET',
+  });
+}
+
+export async function getMathConceptByName(name: string) {
+  return apiService.request<any>(`/math-concepts/by-name/${encodeURIComponent(name)}`, {
+    method: 'GET',
+  });
+}
+
+export async function getMathConceptsByCategory(category: string) {
+  return apiService.request<any>(`/math-concepts/by-category/${encodeURIComponent(category)}`, {
+    method: 'GET',
+  });
+}
+
+export async function linkMathConceptToUnits(conceptId: string, unitIds: string[]) {
+  return apiService.request<any>(`/math-concepts/${conceptId}/link-units`, {
+    method: 'POST',
+    body: JSON.stringify({
+      UnitIds: unitIds,
+    }),
+  });
+}
+
+export async function unlinkMathConceptFromUnits(conceptId: string, unitIds: string[]) {
+  return apiService.request<any>(`/math-concepts/${conceptId}/unlink-units`, {
+    method: 'POST',
+    body: JSON.stringify({
+      UnitIds: unitIds,
+    }),
   });
 }
 
@@ -6501,6 +6588,86 @@ export async function getMyWithdrawalRequests(): Promise<ApiResponse<WithdrawalR
       success: false,
       data: undefined,
       error: error?.response?.data?.error || error?.message || 'Failed to get withdrawal requests',
+    };
+  }
+}
+
+// Get pending withdrawal requests (for staff/admin)
+export async function getPendingWithdrawalRequests(): Promise<ApiResponse<WithdrawalRequest[]>> {
+  try {
+    const result = await apiService.request<WithdrawalRequest[]>('/withdrawals/pending', {
+      method: 'GET',
+    });
+
+    if (result.success && result.data) {
+      // Map backend response array to frontend interface
+      const mappedData: WithdrawalRequest[] = result.data.map((item: any) => ({
+        id: item.id || item.Id || '',
+        parentId: item.parentId || (item as any).ParentId || '',
+        staffId: item.staffId || (item as any).StaffId || undefined,
+        amount: item.amount || (item as any).Amount || 0,
+        bankName: item.bankName || (item as any).BankName || '',
+        bankAccountNumber: item.bankAccountNumber || (item as any).BankAccountNumber || '',
+        bankHolderName: item.bankHolderName || (item as any).BankHolderName || '',
+        status: (item.status || (item as any).Status || 'Pending') as 'Pending' | 'Processed' | 'Rejected',
+        createdDate: item.createdDate || (item as any).CreatedDate || new Date().toISOString(),
+        processedDate: item.processedDate || (item as any).ProcessedDate || undefined,
+      }));
+
+      return {
+        success: true,
+        data: mappedData,
+        error: undefined,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error getting pending withdrawal requests:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.response?.data?.error || error?.message || 'Failed to get pending withdrawal requests',
+    };
+  }
+}
+
+// Process withdrawal request (for staff/admin)
+export async function processWithdrawalRequest(withdrawalId: string): Promise<ApiResponse<WithdrawalRequest>> {
+  try {
+    const result = await apiService.request<WithdrawalRequest>(`/withdrawals/process/${withdrawalId}`, {
+      method: 'PUT',
+    });
+
+    if (result.success && result.data) {
+      // Map backend response to frontend interface
+      const mappedData: WithdrawalRequest = {
+        id: result.data.id || (result.data as any).Id || '',
+        parentId: result.data.parentId || (result.data as any).ParentId || '',
+        staffId: result.data.staffId || (result.data as any).StaffId || undefined,
+        amount: result.data.amount || (result.data as any).Amount || 0,
+        bankName: result.data.bankName || (result.data as any).BankName || '',
+        bankAccountNumber: result.data.bankAccountNumber || (result.data as any).BankAccountNumber || '',
+        bankHolderName: result.data.bankHolderName || (result.data as any).BankHolderName || '',
+        status: (result.data.status || (result.data as any).Status || 'Processed') as 'Pending' | 'Processed' | 'Rejected',
+        createdDate: result.data.createdDate || (result.data as any).CreatedDate || new Date().toISOString(),
+        processedDate: result.data.processedDate || (result.data as any).ProcessedDate || undefined,
+      };
+
+      return {
+        success: true,
+        data: mappedData,
+        error: undefined,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error processing withdrawal request:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.response?.data?.error || error?.message || 'Failed to process withdrawal request',
     };
   }
 }

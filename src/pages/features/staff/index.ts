@@ -7,6 +7,7 @@ export { default as RescheduleManagementPage } from './RescheduleManagementPage'
 export { default as StaffDailyReportsPage } from './StaffDailyReportsPage';
 export { default as FinalFeedbackManagementPage } from './FinalFeedbackManagementPage';
 export { default as StaffTutorReportsPage } from './StaffTutorReportsPage';
+export { default as WithdrawalManagementPage } from './WithdrawalManagementPage';
 
 
 

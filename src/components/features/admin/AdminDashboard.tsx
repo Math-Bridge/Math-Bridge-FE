@@ -9,7 +9,8 @@ import {
   X,
   LogOut,
   Shield,
-  Menu
+  Menu,
+  Brain
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
@@ -37,6 +38,7 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: '/admin/users', label: 'User Management', icon: Users },
     { path: '/admin/curricula', label: 'Curriculum Management', icon: FileText },
     { path: '/admin/units', label: 'Units Management', icon: FileText },
+    { path: '/admin/math-concepts', label: 'Math Concepts', icon: Brain },
     { path: '/admin/centers', label: 'Center Management', icon: Building },
     { path: '/admin/packages', label: 'Payment Packages', icon: CreditCard },
     { path: '/admin/finance', label: 'Finance & Reports', icon: BarChart3 },

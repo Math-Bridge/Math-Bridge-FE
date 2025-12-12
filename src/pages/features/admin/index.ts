@@ -9,6 +9,7 @@ export { default as LogsPage } from './LogsPage';
 export { default as SettingsPage } from './SettingsPage';
 export { default as CurriculumManagementPage } from './CurriculumManagementPage';
 export { default as UnitManagementPage } from './UnitManagementPage';
+export { default as MathConceptManagementPage } from './MathConceptManagementPage';
 
 
 

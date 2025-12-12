@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   ChevronRight,
+  ChevronLeft,
   Star,
   PlayCircle,
   Award,
@@ -21,6 +22,8 @@ import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 const ParentHome: React.FC = () => {
   const [email, setEmail] = useState('');
   const navigate = useNavigate();
+  const tutorsScrollRef = useRef<HTMLDivElement>(null);
+  const packagesScrollRef = useRef<HTMLDivElement>(null);
 
   const { packages: allPackages, loading: packagesLoading, error: packagesError } = usePackages(true, 60000);
   const { tutors: allTutors, loading: tutorsLoading, error: tutorsError } = useTutors(true, 60000);
@@ -35,6 +38,34 @@ const ParentHome: React.FC = () => {
 
   const handlePackageClick = (packageId: string) => {
     navigate(`/packages/${packageId}`);
+  };
+
+  const scrollTutors = (direction: 'left' | 'right') => {
+    if (tutorsScrollRef.current) {
+      const scrollAmount = 400; // Scroll by 400px
+      const currentScroll = tutorsScrollRef.current.scrollLeft;
+      const newScroll = direction === 'left' 
+        ? currentScroll - scrollAmount 
+        : currentScroll + scrollAmount;
+      tutorsScrollRef.current.scrollTo({
+        left: newScroll,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollPackages = (direction: 'left' | 'right') => {
+    if (packagesScrollRef.current) {
+      const scrollAmount = 400; // Scroll by 400px
+      const currentScroll = packagesScrollRef.current.scrollLeft;
+      const newScroll = direction === 'left' 
+        ? currentScroll - scrollAmount 
+        : currentScroll + scrollAmount;
+      packagesScrollRef.current.scrollTo({
+        left: newScroll,
+        behavior: 'smooth'
+      });
+    }
   };
 
   // Get initials from tutor name
@@ -91,9 +122,9 @@ const ParentHome: React.FC = () => {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-32 lg:pb-32">
           <section>
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="grid lg:grid-cols-5 gap-16 items-center">
                 {/* Left Content */}
-                <div className="relative z-10 space-y-8">
+                <div className="relative z-10 space-y-8 lg:col-span-2">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
                     <Award className="h-4 w-4 text-primary" />
                     <span className="text-sm font-semibold text-primary">Trusted by 25,000+ Students</span>
@@ -112,23 +143,16 @@ const ParentHome: React.FC = () => {
                 </div>
 
                 {/* Right Visual */}
-                <div className="hidden lg:block relative">
+                <div className="hidden lg:block relative lg:col-span-3">
                   <div className="relative">
-                    {/* Main Card - Window-like container with image */}
-                    <div className="relative bg-gradient-to-b from-orange-50 via-background-cream to-white rounded-3xl p-6 shadow-math-lg border border-primary/10">
-                      {/* Window controls */}
-                      <div className="absolute top-4 left-4 flex gap-2 z-10">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      </div>
-
-                      <div className="relative aspect-square rounded-2xl bg-gradient-to-b from-orange-50 via-background-cream to-white overflow-hidden mt-4">
+                    {/* Main Card - Simple container with image */}
+                    <div className="relative rounded-3xl overflow-hidden shadow-math-lg">
+                      <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
                         {/* Image - Replace with your actual hero image path */}
                         <img 
                           src="/src/assets/images/hero-image.png" 
                           alt="Hero image"
-                          className="w-full h-full object-cover object-center rounded-2xl"
+                          className="w-full h-full object-cover object-center"
                         />
                       </div>
                     </div>
@@ -183,9 +207,9 @@ const ParentHome: React.FC = () => {
           {/* About Us Section */}
           <section className="py-24 bg-white relative overflow-hidden">
               <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid lg:grid-cols-2 gap-16 items-center">
+                <div className="grid lg:grid-cols-5 gap-16 items-center">
                   {/* Left Content */}
-                  <div className="space-y-8">
+                  <div className="space-y-8 lg:col-span-2">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
                       <BookOpen className="h-4 w-4 text-primary" />
                       <span className="text-sm font-semibold text-primary">About MathBridge</span>
@@ -219,14 +243,14 @@ const ParentHome: React.FC = () => {
                   </div>
 
                   {/* Right Visual - Branding Card */}
-                  <div className="relative">
-                    <div className="relative bg-background-cream rounded-3xl p-8 shadow-math-lg">
-                      <div className="aspect-square rounded-2xl bg-background-cream overflow-hidden relative">
+                  <div className="relative lg:col-span-3">
+                    <div className="relative rounded-3xl overflow-hidden shadow-math-lg">
+                      <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
                         {/* Image - Replace with your actual branding card image path */}
                         <img 
                           src="/src/assets/images/about-image.png" 
                           alt="About MathBridge"
-                          className="w-full h-full object-cover object-center rounded-2xl"
+                          className="w-full h-full object-cover object-center"
                         />
                       </div>
                     </div>
@@ -436,9 +460,14 @@ const ParentHome: React.FC = () => {
                     <p className="text-gray-500 text-lg">No tutors available at the moment</p>
                   </div>
                 ) : (
-                  <div className="relative overflow-hidden scroll-container">
-                    <div className="flex gap-6 animate-scroll-horizontal">
-                      {duplicatedTutors.map((tutor, index) => (
+                  <div className="relative">
+                    <div 
+                      ref={tutorsScrollRef}
+                      className="relative overflow-x-auto scroll-container scrollbar-hide"
+                      style={{ scrollBehavior: 'smooth' }}
+                    >
+                      <div className="flex gap-6 animate-scroll-horizontal">
+                        {duplicatedTutors.map((tutor, index) => (
                         <div
                           key={`${tutor.id}-${index}`}
                           onClick={() => handleTutorClick(tutor.id)}
@@ -511,7 +540,25 @@ const ParentHome: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        ))}
+                      </div>
+                    </div>
+                    {/* Navigation Buttons */}
+                    <div className="flex items-center justify-center gap-4 mt-8">
+                      <button
+                        onClick={() => scrollTutors('left')}
+                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
+                        aria-label="Previous tutors"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button
+                        onClick={() => scrollTutors('right')}
+                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
+                        aria-label="Next tutors"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -547,9 +594,14 @@ const ParentHome: React.FC = () => {
                     <p className="text-gray-500 text-lg">No packages available at the moment</p>
                   </div>
                 ) : (
-                  <div className="relative overflow-hidden scroll-container">
-                    <div className="flex gap-8 animate-scroll-horizontal-reverse">
-                      {duplicatedPackages.map((pkg, index) => {
+                  <div className="relative">
+                    <div 
+                      ref={packagesScrollRef}
+                      className="relative overflow-x-auto scroll-container scrollbar-hide"
+                      style={{ scrollBehavior: 'smooth' }}
+                    >
+                      <div className="flex gap-8 animate-scroll-horizontal-reverse">
+                        {duplicatedPackages.map((pkg, index) => {
                         const sessionCount = pkg.duration && pkg.duration.includes('week') ? parseInt(pkg.duration) * 3 : 32;
 
                         return (
@@ -608,7 +660,25 @@ const ParentHome: React.FC = () => {
                             </div>
                           </div>
                         );
-                      })}
+                        })}
+                      </div>
+                    </div>
+                    {/* Navigation Buttons */}
+                    <div className="flex items-center justify-center gap-4 mt-8">
+                      <button
+                        onClick={() => scrollPackages('left')}
+                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
+                        aria-label="Previous packages"
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </button>
+                      <button
+                        onClick={() => scrollPackages('right')}
+                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
+                        aria-label="Next packages"
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </button>
                     </div>
                   </div>
                 )}

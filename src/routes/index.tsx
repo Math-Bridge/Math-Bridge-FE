@@ -48,6 +48,7 @@ import {
   UserManagementPage,
   CurriculumManagementPage,
   UnitManagementPage,
+  MathConceptManagementPage,
   CenterManagementPage,
   PackageManagementPage,
   FinancePage,
@@ -60,6 +61,7 @@ import {
   FinalFeedbackManagementPage,
   TutorDailyReportPage,
   StaffTutorReportsPage,
+  WithdrawalManagementPage,
   HomeworkHelperPage,
 } from '../pages/features';
 
@@ -430,6 +432,15 @@ export const appRoutes = [
     }
   />,
   <Route
+    key="admin-math-concepts"
+    path="admin/math-concepts"
+    element={
+      <ProtectedRoute requiredRole="admin">
+        <MathConceptManagementPage />
+      </ProtectedRoute>
+    }
+  />,
+  <Route
     key="admin-finance"
     path="admin/finance"
     element={
@@ -509,6 +520,15 @@ export const appRoutes = [
     element={
       <ProtectedRoute>
         <StaffTutorReportsPage />
+      </ProtectedRoute>
+    }
+  />,
+  <Route
+    key="staff-withdrawals"
+    path="staff/withdrawals"
+    element={
+      <ProtectedRoute requiredRole="staff,admin">
+        <WithdrawalManagementPage />
       </ProtectedRoute>
     }
   />,

@@ -24,6 +24,7 @@ import {
   Filter,
   LogOut,
   AlertTriangle,
+  Wallet,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getStaffStats, StaffStats } from '../../../services/api';
@@ -37,6 +38,7 @@ import StaffDailyReports from './StaffDailyReports';
 import FinalFeedbackManagement from './FinalFeedbackManagement';
 import TutorCenterAssignment from './TutorCenterAssignment';
 import StaffTutorReports from './StaffTutorReports';
+import WithdrawalManagement from './WithdrawalManagement';
 import NotificationBell from '../../common/NotificationBell';
 import { NotificationProvider } from '../../../contexts/NotificationContext';
 interface RecentActivity {
@@ -65,7 +67,7 @@ const StaffDashboard: React.FC = () => {
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'tutor-verification' | 'daily-reports' | 'final-feedback' | 'tutor-center-assignment' | 'tutor-reports'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'contracts' | 'reschedules' | 'chat' | 'tutor-verification' | 'daily-reports' | 'final-feedback' | 'tutor-center-assignment' | 'tutor-reports' | 'withdrawals'>('dashboard');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ const StaffDashboard: React.FC = () => {
   // Sync currentView with location state (for navigation from detail pages)
   useEffect(() => {
     const state = location.state as { view?: string } | null;
-    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'tutor-verification', 'daily-reports', 'final-feedback', 'tutor-center-assignment', 'tutor-reports'].includes(state.view)) {
+    if (state?.view && ['dashboard', 'contracts', 'reschedules', 'chat', 'tutor-verification', 'daily-reports', 'final-feedback', 'tutor-center-assignment', 'tutor-reports', 'withdrawals'].includes(state.view)) {
       setCurrentView(state.view as typeof currentView);
     }
   }, [location.state]);
@@ -123,6 +125,7 @@ const StaffDashboard: React.FC = () => {
     { name: 'Daily Reports Management', icon: BarChart3, path: '/staff/daily-reports', view: 'daily-reports' as const },
     { name: 'Final Feedback Management', icon: Star, path: '/staff/final-feedback', view: 'final-feedback' as const },
     { name: 'Reports', icon: AlertTriangle, path: '/staff/tutor-reports', view: 'tutor-reports' as const },
+    { name: 'Withdrawal Management', icon: Wallet, path: '/staff/withdrawals', view: 'withdrawals' as const },
    
   ];
 
@@ -178,6 +181,8 @@ const StaffDashboard: React.FC = () => {
         return <TutorCenterAssignment hideBackButton />;
       case 'tutor-reports':
         return <StaffTutorReports />;
+      case 'withdrawals':
+        return <WithdrawalManagement hideBackButton />;
       case 'chat':
     return (
           <div className="p-6 bg-white rounded-xl border border-gray-200 shadow-sm">

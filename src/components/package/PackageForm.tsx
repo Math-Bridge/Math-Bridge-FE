@@ -246,8 +246,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-light p-6 rounded-t-3xl border-b-2 border-primary">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div className="sticky top-0 bg-gradient-to-r from-primary to-primary-light p-6 rounded-t-3xl border-b-2 border-primary z-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white">
               {course ? 'Edit Package' : 'Create New Package'}
@@ -260,8 +260,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
             </button>
           </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <div className="overflow-y-auto flex-1">
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {!centerId && (
               <div className="md:col-span-2">
@@ -522,7 +522,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ course, centerId, onSave, onC
               )}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

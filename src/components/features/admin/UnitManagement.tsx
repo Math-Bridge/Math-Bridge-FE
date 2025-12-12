@@ -8,6 +8,7 @@ import {
   updateUnit,
   deleteUnit,
   getAllCurriculums,
+  getAllMathConcepts,
 } from '../../../services/api';
 import {
   FileText,
@@ -37,6 +38,13 @@ interface Unit {
   isActive?: boolean;
   createdDate?: string;
   updatedDate?: string;
+  mathConcepts?: Array<{ conceptId: string; name?: string; category?: string }>;
+}
+
+interface MathConcept {
+  conceptId: string;
+  name?: string;
+  category?: string;
 }
 
 const UnitManagement: React.FC = () => {
@@ -47,6 +55,8 @@ const UnitManagement: React.FC = () => {
   const [units, setUnits] = useState<Unit[]>([]);
   const [filteredUnits, setFilteredUnits] = useState<Unit[]>([]);
   const [curriculums, setCurriculums] = useState<any[]>([]);
+  const [mathConcepts, setMathConcepts] = useState<MathConcept[]>([]);
+  const [selectedConceptIds, setSelectedConceptIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [curriculumFilter, setCurriculumFilter] = useState<string>('');
@@ -74,7 +84,39 @@ const UnitManagement: React.FC = () => {
   useEffect(() => {
     fetchUnits();
     fetchCurriculums();
+    fetchMathConcepts();
   }, []);
+
+  // Fetch math concepts when modals open
+  useEffect(() => {
+    if ((showCreateModal || showEditModal) && mathConcepts.length === 0) {
+      fetchMathConcepts();
+    }
+  }, [showCreateModal, showEditModal]);
+
+  const fetchMathConcepts = async () => {
+    try {
+      const res = await getAllMathConcepts();
+      if (res.success && res.data) {
+        // Backend returns { data: [...], totalCount: ... }
+        // So res.data is the whole object, we need res.data.data
+        const conceptsArray = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data.data || res.data);
+        
+        if (Array.isArray(conceptsArray)) {
+          const mapped = conceptsArray.map((item: any) => ({
+            conceptId: item.conceptId || item.ConceptId || '',
+            name: item.name || item.Name || '',
+            category: item.category || item.Category || '',
+          }));
+          setMathConcepts(mapped);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load math concepts:', err);
+    }
+  };
 
   useEffect(() => {
     filterAndSortUnits();
@@ -146,6 +188,7 @@ const UnitManagement: React.FC = () => {
           isActive: item.isActive !== undefined ? item.isActive : (item.IsActive !== undefined ? item.IsActive : true),
           createdDate: item.createdDate || item.CreatedDate,
           updatedDate: item.updatedDate || item.UpdatedDate,
+          mathConcepts: item.mathConcepts || item.MathConcepts || [],
         }));
         setUnits(mapped);
       } else {
@@ -260,6 +303,11 @@ const UnitManagement: React.FC = () => {
         requestBody.Credit = creditValue;
       }
       
+      // Include ConceptIds if any are selected
+      if (selectedConceptIds.length > 0) {
+        requestBody.ConceptIds = selectedConceptIds;
+      }
+      
       const res = await createUnit(requestBody);
       
       if (res.success) {
@@ -313,6 +361,9 @@ const UnitManagement: React.FC = () => {
         requestBody.Credit = creditValue;
       }
       
+      // Include ConceptIds (even if empty array to clear existing concepts)
+      requestBody.ConceptIds = selectedConceptIds;
+      
       const res = await updateUnit(selectedUnit.unitId, requestBody);
       
         if (res.success) {
@@ -361,6 +412,7 @@ const UnitManagement: React.FC = () => {
       learningObjectives: '',
       isActive: true,
     });
+    setSelectedConceptIds([]);
   };
 
   const openEditModal = (unit: Unit) => {
@@ -374,6 +426,11 @@ const UnitManagement: React.FC = () => {
       learningObjectives: unit.learningObjectives || '',
       isActive: unit.isActive !== undefined ? unit.isActive : true,
     });
+    // Load existing math-concepts
+    const existingConceptIds = (unit.mathConcepts || []).map((mc: any) => 
+      mc.conceptId || mc.ConceptId || ''
+    ).filter((id: string) => id);
+    setSelectedConceptIds(existingConceptIds);
     setShowEditModal(true);
   };
 
@@ -706,8 +763,8 @@ const UnitManagement: React.FC = () => {
       {/* Create Unit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-xl border-b border-purple-600">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-xl border-b border-purple-600 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Create New Unit</h2>
                 <button
@@ -721,7 +778,8 @@ const UnitManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleCreateUnit} className="p-6 space-y-6">
+            <div className="overflow-y-auto flex-1">
+              <form onSubmit={handleCreateUnit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -824,6 +882,51 @@ const UnitManagement: React.FC = () => {
                 </div>
 
                 <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Math Concepts
+                  </label>
+                  <div className="border-2 border-gray-200 rounded-xl p-4 max-h-60 overflow-y-auto">
+                    {mathConcepts.length === 0 ? (
+                      <p className="text-sm text-gray-500">No math concepts available</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {mathConcepts.map((concept) => {
+                          const isSelected = selectedConceptIds.includes(concept.conceptId);
+                          return (
+                            <label
+                              key={concept.conceptId}
+                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedConceptIds([...selectedConceptIds, concept.conceptId]);
+                                  } else {
+                                    setSelectedConceptIds(selectedConceptIds.filter(id => id !== concept.conceptId));
+                                  }
+                                }}
+                                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                              />
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
+                                {concept.category && (
+                                  <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select math concepts to associate with this unit ({selectedConceptIds.length} selected)
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -865,7 +968,8 @@ const UnitManagement: React.FC = () => {
                   )}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -873,8 +977,8 @@ const UnitManagement: React.FC = () => {
       {/* Edit Unit Modal */}
       {showEditModal && selectedUnit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-xl border-b border-purple-600">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            <div className="sticky top-0 bg-gradient-to-r from-purple-500 to-pink-500 p-6 rounded-t-xl border-b border-purple-600 z-10">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-white">Edit Unit</h2>
                 <button
@@ -889,7 +993,8 @@ const UnitManagement: React.FC = () => {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleUpdateUnit} className="p-6 space-y-6">
+            <div className="overflow-y-auto flex-1">
+              <form onSubmit={handleUpdateUnit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -975,6 +1080,51 @@ const UnitManagement: React.FC = () => {
                 </div>
 
                 <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Math Concepts
+                  </label>
+                  <div className="border-2 border-gray-200 rounded-xl p-4 max-h-60 overflow-y-auto">
+                    {mathConcepts.length === 0 ? (
+                      <p className="text-sm text-gray-500">No math concepts available</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {mathConcepts.map((concept) => {
+                          const isSelected = selectedConceptIds.includes(concept.conceptId);
+                          return (
+                            <label
+                              key={concept.conceptId}
+                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedConceptIds([...selectedConceptIds, concept.conceptId]);
+                                  } else {
+                                    setSelectedConceptIds(selectedConceptIds.filter(id => id !== concept.conceptId));
+                                  }
+                                }}
+                                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                              />
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
+                                {concept.category && (
+                                  <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select math concepts to associate with this unit ({selectedConceptIds.length} selected)
+                  </p>
+                </div>
+
+                <div className="md:col-span-2">
                   <label className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -1017,7 +1167,8 @@ const UnitManagement: React.FC = () => {
                   )}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
