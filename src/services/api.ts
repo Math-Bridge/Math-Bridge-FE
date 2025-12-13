@@ -243,8 +243,24 @@ class ApiService {
         // If response is not valid JSON, check if it might be incomplete
         // If status is 200 but JSON is invalid, it might be incomplete chunked encoding
         if (response.ok && response.status === 200 && text && text.length > 0) {
-          // Try to detect if response was cut off
-          const isLikelyIncomplete = !text.trim().endsWith('}') && !text.trim().endsWith(']');
+          // Check if it looks like a complete plain text response (not cut-off JSON)
+          const trimmedText = text.trim();
+          const looksLikeCompleteText = (
+            // Plain text messages that are complete sentences
+            (trimmedText.endsWith('.') || trimmedText.endsWith('!') || trimmedText.endsWith('?')) &&
+            !trimmedText.includes('{') && !trimmedText.includes('[')
+          );
+          
+          if (looksLikeCompleteText) {
+            // This is a valid plain text response, return it as success with message
+            return {
+              success: true,
+              data: { message: text }
+            };
+          }
+          
+          // Try to detect if response was cut off (incomplete JSON)
+          const isLikelyIncomplete = !trimmedText.endsWith('}') && !trimmedText.endsWith(']');
           if (isLikelyIncomplete) {
             return {
               success: false,
