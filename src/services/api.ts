@@ -159,6 +159,43 @@ class ApiService {
         }
         // Check if it's a network error that might indicate incomplete chunked encoding
         const errorMessage = fetchError?.message || '';
+        const errorName = fetchError?.name || '';
+        
+        // Handle HTTP/2 protocol errors
+        if (errorMessage.includes('ERR_HTTP2_PROTOCOL_ERROR') || 
+            errorMessage.includes('HTTP2_PROTOCOL_ERROR') ||
+            errorName === 'TypeError' && errorMessage.includes('Failed to fetch')) {
+          console.error('HTTP/2 Protocol Error:', {
+            url,
+            error: errorMessage,
+            suggestion: 'This may be a server-side HTTP/2 issue. The request may have succeeded on the server.'
+          });
+          
+          // For withdrawal requests, return special error to allow verification
+          if (url.includes('/withdrawals/request')) {
+            return {
+              success: false,
+              error: 'INCOMPLETE_RESPONSE',
+              errorDetails: { 
+                networkError: true, 
+                http2Error: true,
+                message: 'HTTP/2 protocol error occurred. Please verify if the request was processed.',
+                originalError: errorMessage
+              }
+            };
+          }
+          
+          return {
+            success: false,
+            error: 'Network protocol error occurred. Please try again or contact support if the issue persists.',
+            errorDetails: { 
+              networkError: true, 
+              http2Error: true,
+              message: errorMessage
+            }
+          };
+        }
+        
         if (errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
             errorMessage.includes('chunked') ||
             errorMessage.includes('incomplete') ||

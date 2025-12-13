@@ -150,7 +150,7 @@ const ParentHome: React.FC = () => {
                       <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
                         {/* Image - Replace with your actual hero image path */}
                         <img 
-                          src="/src/assets/images/hero-image.png" 
+                          src="/images/hero-image.png" 
                           alt="Hero image"
                           className="w-full h-full object-cover object-center"
                         />
@@ -248,7 +248,7 @@ const ParentHome: React.FC = () => {
                       <div className="relative aspect-[4/3] rounded-2xl overflow-hidden">
                         {/* Image - Replace with your actual branding card image path */}
                         <img 
-                          src="/src/assets/images/about-image.png" 
+                          src="/images/about-image.png" 
                           alt="About MathBridge"
                           className="w-full h-full object-cover object-center"
                         />

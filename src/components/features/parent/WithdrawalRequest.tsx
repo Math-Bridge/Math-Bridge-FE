@@ -243,6 +243,8 @@ const WithdrawalRequest: React.FC = () => {
       // Check if it's a network error that might indicate incomplete response
       const errorMessage = error?.message || '';
       if (errorMessage.includes('ERR_INCOMPLETE_CHUNKED_ENCODING') || 
+          errorMessage.includes('ERR_HTTP2_PROTOCOL_ERROR') ||
+          errorMessage.includes('HTTP2_PROTOCOL_ERROR') ||
           errorMessage.includes('chunked') ||
           errorMessage.includes('incomplete')) {
         // Try to verify request
