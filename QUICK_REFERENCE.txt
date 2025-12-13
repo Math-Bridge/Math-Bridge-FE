@@ -1,2 +1,0 @@
-  1. Make sure you restarted: npm run dev
-
