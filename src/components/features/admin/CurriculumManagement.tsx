@@ -188,11 +188,27 @@ const CurriculumManagement: React.FC = () => {
     setFilteredCurriculums(filtered);
   };
 
+  const validateGrades = (grades: string): boolean => {
+    if (!grades.trim()) return true; // Optional field, empty is valid
+    
+    const validGrades = ['9', '10', '11', '12'];
+    const gradesArray = grades.split(',').map(g => g.trim());
+    
+    // Check if all grades are valid
+    return gradesArray.every(grade => validGrades.includes(grade));
+  };
+
   const handleCreateCurriculum = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.curriculumName.trim()) {
       showError('Curriculum name is required');
+      return;
+    }
+
+    // Validate grades if provided
+    if (formData.grades.trim() && !validateGrades(formData.grades)) {
+      showError('Invalid grades. Only grades 9, 10, 11, and 12 are allowed. Format: e.g., "9,10,11" or "10,11,12"');
       return;
     }
 
@@ -229,6 +245,12 @@ const CurriculumManagement: React.FC = () => {
 
     if (!formData.curriculumName.trim()) {
       showError('Curriculum name is required');
+      return;
+    }
+
+    // Validate grades if provided
+    if (formData.grades.trim() && !validateGrades(formData.grades)) {
+      showError('Invalid grades. Only grades 9, 10, 11, and 12 are allowed. Format: e.g., "9,10,11" or "10,11,12"');
       return;
     }
 
@@ -690,8 +712,11 @@ const CurriculumManagement: React.FC = () => {
                     value={formData.grades}
                     onChange={(e) => setFormData({ ...formData, grades: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                    placeholder="e.g., 10,11,12"
+                    placeholder="e.g., 9,10,11,12 (only grades 9-12 allowed)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only grades 9, 10, 11, and 12 are allowed. Separate multiple grades with commas.
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -809,7 +834,11 @@ const CurriculumManagement: React.FC = () => {
                     value={formData.grades}
                     onChange={(e) => setFormData({ ...formData, grades: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
+                    placeholder="e.g., 9,10,11,12 (only grades 9-12 allowed)"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only grades 9, 10, 11, and 12 are allowed. Separate multiple grades with commas.
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">

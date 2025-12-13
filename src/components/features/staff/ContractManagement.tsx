@@ -112,10 +112,28 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                   contractStatus = 'pending';
                 }
                 
+                // Format timeSlot from schedules array (new format) or legacy fields
+                let timeSlot = '';
+                if (contract.schedules && Array.isArray(contract.schedules) && contract.schedules.length > 0) {
+                  timeSlot = formatSchedulesToString(contract.schedules);
+                } else if (contract.Schedules && Array.isArray(contract.Schedules) && contract.Schedules.length > 0) {
+                  timeSlot = formatSchedulesToString(contract.Schedules);
+                } else if (contract.timeSlot || contract.TimeSlot) {
+                  timeSlot = contract.timeSlot || contract.TimeSlot;
+                } else if (contract.StartTime && contract.EndTime) {
+                  timeSlot = `${contract.StartTime.substring(0, 5)} - ${contract.EndTime.substring(0, 5)}`;
+                } else if (contract.startTime && contract.endTime) {
+                  timeSlot = `${contract.startTime.substring(0, 5)} - ${contract.endTime.substring(0, 5)}`;
+                } else {
+                  timeSlot = 'Not set';
+                }
+                
                 return {
                   contractId: contract.contractId || contract.ContractId,
                   childId: contract.childId || contract.ChildId,
                   childName: contract.childName || contract.ChildName,
+                  secondChildId: contract.secondChildId || contract.SecondChildId || null,
+                  secondChildName: contract.secondChildName || contract.SecondChildName || null,
                   packageId: contract.packageId || contract.PackageId,
                   packageName: contract.packageName || contract.PackageName,
                   mainTutorId: mainTutorId || null,
@@ -124,11 +142,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                   centerName: contract.centerName || contract.CenterName,
                   startDate: contract.startDate || contract.StartDate,
                   endDate: contract.endDate || contract.EndDate,
-                  timeSlot: contract.timeSlot || (contract.StartTime && contract.EndTime 
-                    ? `${contract.StartTime} - ${contract.EndTime}` 
-                    : contract.startTime && contract.endTime 
-                    ? `${contract.startTime} - ${contract.endTime}` 
-                    : ''),
+                  timeSlot: timeSlot,
                   isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
                   status: contractStatus,
                   offlineAddress: contract.offlineAddress || contract.OfflineAddress || contract.offline_address || null,
@@ -219,6 +233,21 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
     return null;
   };
 
+  // Helper function to format schedules array to display string
+  const formatSchedulesToString = (schedules: any[]): string => {
+    if (!schedules || schedules.length === 0) return 'Not set';
+    
+    const dayShortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    return schedules.map((s: any) => {
+      const dayOfWeek = s.dayOfWeek ?? s.DayOfWeek ?? 0;
+      const dayName = dayShortNames[dayOfWeek] || `Day ${dayOfWeek}`;
+      const startTime = (s.startTime ?? s.StartTime ?? '').substring(0, 5);
+      const endTime = (s.endTime ?? s.EndTime ?? '').substring(0, 5);
+      return `${dayName}: ${startTime}-${endTime}`;
+    }).join(', ');
+  };
+
   const fetchContracts = async () => {
     try {
       setLoading(true);
@@ -280,10 +309,28 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
               console.log(`Contract ${contract.contractId || contract.ContractId}: Status - Raw: "${rawStatus}", Normalized: "${normalizedStatus}", Final: "${contractStatus}"`);
             }
             
+            // Format timeSlot from schedules array (new format) or legacy fields
+            let timeSlot = '';
+            if (contract.schedules && Array.isArray(contract.schedules) && contract.schedules.length > 0) {
+              timeSlot = formatSchedulesToString(contract.schedules);
+            } else if (contract.Schedules && Array.isArray(contract.Schedules) && contract.Schedules.length > 0) {
+              timeSlot = formatSchedulesToString(contract.Schedules);
+            } else if (contract.timeSlot || contract.TimeSlot) {
+              timeSlot = contract.timeSlot || contract.TimeSlot;
+            } else if (contract.StartTime && contract.EndTime) {
+              timeSlot = `${contract.StartTime.substring(0, 5)} - ${contract.EndTime.substring(0, 5)}`;
+            } else if (contract.startTime && contract.endTime) {
+              timeSlot = `${contract.startTime.substring(0, 5)} - ${contract.endTime.substring(0, 5)}`;
+            } else {
+              timeSlot = 'Not set';
+            }
+            
             return {
               contractId: contract.contractId || contract.ContractId,
               childId: contract.childId || contract.ChildId,
               childName: contract.childName || contract.ChildName,
+              secondChildId: contract.secondChildId || contract.SecondChildId || null,
+              secondChildName: contract.secondChildName || contract.SecondChildName || null,
               packageId: contract.packageId || contract.PackageId,
               packageName: contract.packageName || contract.PackageName,
               mainTutorId: mainTutorId || null,
@@ -292,11 +339,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
               centerName: contract.centerName || contract.CenterName,
               startDate: contract.startDate || contract.StartDate,
               endDate: contract.endDate || contract.EndDate,
-              timeSlot: contract.timeSlot || (contract.StartTime && contract.EndTime 
-                ? `${contract.StartTime} - ${contract.EndTime}` 
-                : contract.startTime && contract.endTime 
-                ? `${contract.startTime} - ${contract.endTime}` 
-                : ''),
+              timeSlot: timeSlot,
               isOnline: contract.isOnline !== undefined ? contract.isOnline : contract.IsOnline,
               status: contractStatus,
               offlineAddress: contract.offlineAddress || contract.OfflineAddress || contract.offline_address || null,
@@ -333,6 +376,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(c =>
         c.childName?.toLowerCase().includes(term) ||
+        c.secondChildName?.toLowerCase().includes(term) ||
         c.packageName?.toLowerCase().includes(term) ||
         c.mainTutorName?.toLowerCase().includes(term) ||
         c.contractId.toLowerCase().includes(term)
@@ -715,7 +759,16 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                         <div className="text-sm font-medium text-gray-900 truncate" title={contract.packageName || ''}>{contract.packageName}</div>
                       </td>
                       <td className="px-4 py-4">
-                        <div className="text-sm text-gray-900 truncate" title={contract.childName || ''}>{contract.childName}</div>
+                        <div className="text-sm text-gray-900">
+                          {contract.secondChildName ? (
+                            <div className="space-y-1">
+                              <div className="truncate" title={contract.childName || ''}>{contract.childName}</div>
+                              <div className="truncate" title={contract.secondChildName || ''}>{contract.secondChildName}</div>
+                            </div>
+                          ) : (
+                            <div className="truncate" title={contract.childName || ''}>{contract.childName}</div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-4">
                         <div className="text-sm text-gray-900">
@@ -955,6 +1008,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                   </h2>
                   <p className="text-gray-600 mt-1 text-sm">
                     Contract: {selectedContract.packageName} - {selectedContract.childName}
+                    {selectedContract.secondChildName && `, ${selectedContract.secondChildName}`}
                   </p>
                   <p className="text-red-600 mt-2 text-sm font-medium">
                     * Please select 1 main tutor and 2 substitute tutors (all must be different)

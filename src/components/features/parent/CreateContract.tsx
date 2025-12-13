@@ -741,6 +741,11 @@ const CreateContract: React.FC = () => {
     // Backend only supports max 2 children per contract
     if (count < 1 || count > 2) return;
     
+    // Reset selected package when number of children changes to ensure price is recalculated correctly
+    if (selectedPackage && count !== numberOfChildren) {
+      setSelectedPackage(null);
+    }
+    
     if (count === 1) {
       // If only 1 child, use selectedChild or first from selectedChildren
       let newSelectedChildren: Child[] = [];
@@ -823,88 +828,17 @@ const CreateContract: React.FC = () => {
   };
 
   const handleContinueToPayment = async () => {
+    // Validate required fields
+    if (!selectedChild || !selectedPackage) {
+      const msg = 'Please select child and package';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    
     // Validate start date
     if (!schedule.startDate) {
       const msg = 'Please select a start date';
-      setError(msg);
-      showError(msg);
-      return;
-    }
-    
-    // Validate that start date is not in the past
-    const selectedDate = new Date(schedule.startDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    selectedDate.setHours(0, 0, 0, 0);
-    
-    if (selectedDate < today) {
-      const msg = 'Cannot select a start date in the past';
-      setError(msg);
-      showError(msg);
-      return;
-    }
-    
-    // If selecting today, validate that the time slot is not in the past
-    if (selectedDate.getTime() === today.getTime()) {
-      const now = new Date();
-      
-      if (schedule.useSameTimeForAllDays) {
-        // Validate main time slot
-        if (schedule.startTime) {
-          const [hours, minutes] = schedule.startTime.split(':').map(Number);
-          const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-          
-          if (slotDateTime <= now) {
-            const msg = 'Cannot select a time slot in the past for today';
-            setError(msg);
-            showError(msg);
-            return;
-          }
-        }
-      } else {
-        // Validate first day's time slot
-        const selectedDays = [
-          { label: 'Sunday', value: 1 },
-          { label: 'Monday', value: 2 },
-          { label: 'Tuesday', value: 4 },
-          { label: 'Wednesday', value: 8 },
-          { label: 'Thursday', value: 16 },
-          { label: 'Friday', value: 32 },
-          { label: 'Saturday', value: 64 }
-        ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
-        
-        if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
-          const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
-          if (firstDaySlot.startTime) {
-            const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
-            const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-            
-            if (slotDateTime <= now) {
-              const msg = `Cannot select a time slot in the past for today (${selectedDays[0].label})`;
-              setError(msg);
-              showError(msg);
-              return;
-            }
-          }
-        }
-      }
-    }
-    
-    // Validate days of week - exactly 3 days must be selected
-    const selectedDaysCount = [
-      (schedule.daysOfWeeks & 1) !== 0,
-      (schedule.daysOfWeeks & 2) !== 0,
-      (schedule.daysOfWeeks & 4) !== 0,
-      (schedule.daysOfWeeks & 8) !== 0,
-      (schedule.daysOfWeeks & 16) !== 0,
-      (schedule.daysOfWeeks & 32) !== 0,
-      (schedule.daysOfWeeks & 64) !== 0
-    ].filter(Boolean).length;
-    
-    if (selectedDaysCount !== 3) {
-      const msg = selectedDaysCount < 3 
-        ? `Please select exactly 3 days. Currently selected: ${selectedDaysCount} day${selectedDaysCount !== 1 ? 's' : ''}`
-        : `Please select exactly 3 days. Currently selected: ${selectedDaysCount} days`;
       setError(msg);
       showError(msg);
       return;
@@ -915,18 +849,6 @@ const CreateContract: React.FC = () => {
       // Same time for all days - validate main time slot
       if (!schedule.startTime || !schedule.endTime) {
         const msg = 'Please select a time slot';
-        setError(msg);
-        showError(msg);
-        return;
-      }
-      
-      // Validate that selected time slot is one of the available slots (1.5 hours duration)
-      const isValidSlot = TIME_SLOTS.some(
-        slot => slot.from === schedule.startTime && slot.to === schedule.endTime
-      );
-      
-      if (!isValidSlot) {
-        const msg = 'Please select a valid time slot';
         setError(msg);
         showError(msg);
         return;
@@ -953,23 +875,6 @@ const CreateContract: React.FC = () => {
         setError(msg);
         showError(msg);
         return;
-      }
-      
-      // Validate all time slots are valid
-      for (const day of selectedDays) {
-        const daySlot = schedule.dayTimeSlots?.[day.value];
-        if (daySlot) {
-          const isValidSlot = TIME_SLOTS.some(
-            slot => slot.from === daySlot.startTime && slot.to === daySlot.endTime
-          );
-          
-          if (!isValidSlot) {
-            const msg = `Invalid time slot for ${day.label}`;
-            setError(msg);
-            showError(msg);
-            return;
-          }
-        }
       }
     }
     
@@ -1135,7 +1040,6 @@ const CreateContract: React.FC = () => {
           return;
         } else {
           // Tutors available - show info but allow proceeding
-          const infoMsg = `Found ${totalAvailable} tutor(s) available for your schedule.`;
           setAvailabilityWarning(null);
           // Don't show as error, just proceed
         }
@@ -1187,68 +1091,6 @@ const CreateContract: React.FC = () => {
       // Use selected start date or default to today
       const startDateStr = schedule.startDate || new Date().toISOString().split('T')[0];
       const startDate = new Date(startDateStr);
-      
-      // Validate that start date is not in the past
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const selectedDate = new Date(startDate);
-      selectedDate.setHours(0, 0, 0, 0);
-      
-      if (selectedDate < today) {
-        const errorMsg = 'Cannot create contract with a start date in the past';
-        setError(errorMsg);
-        showError(errorMsg);
-        setIsCreating(false);
-        return;
-      }
-      
-      // If selecting today, validate that the time slot is not in the past
-      if (selectedDate.getTime() === today.getTime()) {
-        const now = new Date();
-        
-        if (schedule.useSameTimeForAllDays) {
-          // Validate main time slot
-          if (schedule.startTime) {
-        const [hours, minutes] = schedule.startTime.split(':').map(Number);
-        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-        
-        if (slotDateTime <= now) {
-          const errorMsg = 'Cannot create contract with a time slot in the past for today';
-          setError(errorMsg);
-          showError(errorMsg);
-          setIsCreating(false);
-          return;
-            }
-          }
-        } else {
-          // Validate first day's time slot (will be used for backend)
-          const selectedDays = [
-            { label: 'Sunday', value: 1 },
-            { label: 'Monday', value: 2 },
-            { label: 'Tuesday', value: 4 },
-            { label: 'Wednesday', value: 8 },
-            { label: 'Thursday', value: 16 },
-            { label: 'Friday', value: 32 },
-            { label: 'Saturday', value: 64 }
-          ].filter(day => (schedule.daysOfWeeks & day.value) !== 0);
-          
-          if (selectedDays.length > 0 && schedule.dayTimeSlots?.[selectedDays[0].value]) {
-            const firstDaySlot = schedule.dayTimeSlots[selectedDays[0].value];
-            if (firstDaySlot.startTime) {
-              const [hours, minutes] = firstDaySlot.startTime.split(':').map(Number);
-              const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-              
-              if (slotDateTime <= now) {
-                const errorMsg = `Cannot create contract with a time slot in the past for today (${selectedDays[0].label})`;
-                setError(errorMsg);
-                showError(errorMsg);
-                setIsCreating(false);
-                return;
-              }
-            }
-          }
-        }
-      }
       
       // Calculate end date based on package duration_days
       const endDate = new Date(startDateStr);
@@ -1615,7 +1457,7 @@ const CreateContract: React.FC = () => {
         if (paymentMethod === 'wallet' && contractId && selectedPackage) {
           try {
             // Calculate final price based on number of children, offline mode, and payment method
-            const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment');
+            const finalPrice = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, false);
             const deductResult = await apiService.deductWallet(contractId, finalPrice);
 
             if (deductResult.success && deductResult.data) {
@@ -2050,27 +1892,37 @@ const CreateContract: React.FC = () => {
 
             {selectedChild && (
               <div className="mb-6 space-y-3">
-                <div className="p-4 bg-primary/10 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-2">Selected {numberOfChildren === 1 ? 'Child' : 'Children'}:</p>
-                  {numberOfChildren === 1 ? (
+                {numberOfChildren === 1 ? (
+                  <div className="p-4 bg-primary/10 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-2">Selected Child:</p>
                     <p className="font-semibold text-gray-900">
                       {selectedChild.fullName}
                     </p>
-                  ) : (
-                    <div className="space-y-1">
-                      {selectedChildren.map((c, index) => (
-                        <p key={c.childId} className="font-semibold text-gray-900">
-                          {index + 1}. {c.fullName}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {numberOfChildren > 1 && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      {numberOfChildren} children selected
-                    </p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedChildren.map((c) => (
+                      <div key={c.childId} className="bg-white rounded-lg border-2 border-gray-200 p-4 shadow-sm">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <User className="w-6 h-6 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-500 uppercase mb-1">CHILDREN</p>
+                            <p className="font-bold text-gray-900 text-lg truncate">{c.fullName}</p>
+                            <p className="text-xs text-gray-500 mt-1">Learner</p>
+                            {c.schoolName && (
+                              <p className="text-xs text-gray-400 mt-1 truncate">{c.schoolName}</p>
+                            )}
+                            {c.grade && (
+                              <p className="text-xs text-gray-400 truncate">Grade: {c.grade}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {numberOfChildren > 1 && (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-sm font-medium text-yellow-800">
@@ -2208,46 +2060,11 @@ const CreateContract: React.FC = () => {
                   value={schedule.startDate || new Date().toISOString().split('T')[0]}
                   onChange={(e) => {
                     const selectedDate = e.target.value;
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const dateToCheck = new Date(selectedDate);
-                    dateToCheck.setHours(0, 0, 0, 0);
-                    
-                    if (dateToCheck < today) {
-                      showError('Cannot select a date in the past');
-                      return;
-                    }
-                    
-                    // If selecting today, check if current time slot is in the past
-                    if (dateToCheck.getTime() === today.getTime() && schedule.startTime) {
-                      const now = new Date();
-                      const [hours, minutes] = schedule.startTime.split(':').map(Number);
-                      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-                      
-                      if (slotDateTime <= now) {
-                        // Clear the time slot if it's in the past
-                        setSchedule(prev => ({ 
-                          ...prev, 
-                          startDate: selectedDate,
-                          startTime: '',
-                          endTime: ''
-                        }));
-                        showError('Selected time slot is in the past. Please select a new time slot.');
-                        return;
-                      }
-                    }
-                    
                     setSchedule(prev => ({ ...prev, startDate: selectedDate }));
                   }}
-                  min={new Date().toISOString().split('T')[0]}
-                  max={(() => {
-                    const maxDate = new Date();
-                    maxDate.setDate(maxDate.getDate() + 7);
-                    return maxDate.toISOString().split('T')[0];
-                  })()}
                   className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 />
-                <p className="mt-1 text-xs text-gray-500">Select when the contract should start (max 1 week from now)</p>
+                <p className="mt-1 text-xs text-gray-500">Select when the contract should start</p>
               </div>
 
               {/* Calculated End Date Display */}
@@ -2280,7 +2097,6 @@ const CreateContract: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Select Days of Week <span className="text-red-500">*</span>
-                  <span className="ml-2 text-xs text-gray-500">(Exactly 3 days required)</span>
                 </label>
                 <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
                   {[
@@ -2294,18 +2110,6 @@ const CreateContract: React.FC = () => {
                     { label: 'Sat', value: 64, day: 'Saturday' }
                   ].map((day) => {
                     const isSelected = (schedule.daysOfWeeks & day.value) === day.value;
-                    // Count selected days
-                    const selectedDaysCount = [
-                      (schedule.daysOfWeeks & 1) !== 0,  // Sun
-                      (schedule.daysOfWeeks & 2) !== 0,  // Mon
-                      (schedule.daysOfWeeks & 4) !== 0,  // Tue
-                      (schedule.daysOfWeeks & 8) !== 0,  // Wed
-                      (schedule.daysOfWeeks & 16) !== 0, // Thu
-                      (schedule.daysOfWeeks & 32) !== 0, // Fri
-                      (schedule.daysOfWeeks & 64) !== 0  // Sat
-                    ].filter(Boolean).length;
-                    
-                    const isDisabled = !isSelected && selectedDaysCount >= 3;
                     
                     return (
                       <button
@@ -2318,7 +2122,7 @@ const CreateContract: React.FC = () => {
                               ...prev,
                               daysOfWeeks: prev.daysOfWeeks & ~day.value
                             }));
-                          } else if (selectedDaysCount < 3) {
+                          } else {
                             // Select day
                             setSchedule(prev => ({
                               ...prev,
@@ -2327,12 +2131,9 @@ const CreateContract: React.FC = () => {
                           }
                           setError(null);
                         }}
-                        disabled={isDisabled}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           isSelected
                             ? 'border-primary bg-primary/20 text-primary-dark font-semibold hover:bg-primary/30'
-                            : isDisabled
-                            ? 'border-gray-200 bg-gray-100 text-gray-300 cursor-not-allowed'
                             : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
                         }`}
                       >
@@ -2353,20 +2154,6 @@ const CreateContract: React.FC = () => {
                     (schedule.daysOfWeeks & 32) !== 0 && 'Friday',
                     (schedule.daysOfWeeks & 64) !== 0 && 'Saturday'
                   ].filter(Boolean).join(', ') || 'No days selected'}
-                  {(() => {
-                    const count = [
-                      (schedule.daysOfWeeks & 1) !== 0,
-                      (schedule.daysOfWeeks & 2) !== 0,
-                      (schedule.daysOfWeeks & 4) !== 0,
-                      (schedule.daysOfWeeks & 8) !== 0,
-                      (schedule.daysOfWeeks & 16) !== 0,
-                      (schedule.daysOfWeeks & 32) !== 0,
-                      (schedule.daysOfWeeks & 64) !== 0
-                    ].filter(Boolean).length;
-                    if (count === 3) return ' (3 days selected - Required)';
-                    if (count < 3) return ` (${3 - count} more day${3 - count > 1 ? 's' : ''} required)`;
-                    return '';
-                  })()}
                 </p>
               </div>
 
@@ -2432,33 +2219,11 @@ const CreateContract: React.FC = () => {
                   {TIME_SLOTS.map((slot) => {
                     const isSelected = schedule.startTime === slot.from && schedule.endTime === slot.to;
                     
-                    // Check if this slot is in the past (if start date is today)
-                    const isPast = (() => {
-                      if (!schedule.startDate) return false;
-                      const selectedDate = new Date(schedule.startDate);
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      selectedDate.setHours(0, 0, 0, 0);
-                      
-                      // Only check if start date is today
-                      if (selectedDate.getTime() === today.getTime()) {
-                        const now = new Date();
-                        const [hours, minutes] = slot.from.split(':').map(Number);
-                        const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-                        return slotDateTime <= now;
-                      }
-                      return false;
-                    })();
-                    
                     return (
                       <button
                         key={slot.id}
                         type="button"
                         onClick={() => {
-                          if (isPast) {
-                            showError('Cannot select a time slot in the past');
-                            return;
-                          }
                           setSchedule(prev => ({
                             ...prev,
                             startTime: slot.from,
@@ -2466,15 +2231,11 @@ const CreateContract: React.FC = () => {
                           }));
                           setError(null);
                         }}
-                        disabled={isPast}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           isSelected
                             ? 'border-primary bg-primary/10 text-primary-dark font-semibold shadow-sm'
-                            : isPast
-                            ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                             : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
                         }`}
-                        title={isPast ? 'This time slot is in the past' : ''}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{slot.label}</span>
@@ -2516,14 +2277,6 @@ const CreateContract: React.FC = () => {
                       </p>
                       {selectedDays.map((day) => {
                         const daySlot = schedule.dayTimeSlots?.[day.value] || { startTime: '', endTime: '' };
-                        const isPast = (() => {
-                          if (!schedule.startDate) return false;
-                          const selectedDate = new Date(schedule.startDate);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          selectedDate.setHours(0, 0, 0, 0);
-                          return selectedDate.getTime() === today.getTime();
-                        })();
 
                         return (
                           <div key={day.value} className="p-4 border-2 border-gray-200 rounded-lg">
@@ -2534,22 +2287,11 @@ const CreateContract: React.FC = () => {
                               {TIME_SLOTS.map((slot) => {
                                 const isSelected = daySlot.startTime === slot.from && daySlot.endTime === slot.to;
                                 
-                                const slotIsPast = isPast && (() => {
-                                  const now = new Date();
-                                  const [hours, minutes] = slot.from.split(':').map(Number);
-                                  const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-                                  return slotDateTime <= now;
-                                })();
-                                
                                 return (
                                   <button
                                     key={slot.id}
                                     type="button"
                                     onClick={() => {
-                                      if (slotIsPast) {
-                                        showError(`Cannot select a time slot in the past for ${day.label}`);
-                                        return;
-                                      }
                                       setSchedule(prev => ({
                                         ...prev,
                                         dayTimeSlots: {
@@ -2562,15 +2304,11 @@ const CreateContract: React.FC = () => {
                                       }));
                                       setError(null);
                                     }}
-                                    disabled={slotIsPast}
                                     className={`p-3 rounded-lg border-2 transition-all text-left ${
                                       isSelected
                                         ? 'border-primary bg-primary/10 text-primary-dark font-semibold shadow-sm'
-                                        : slotIsPast
-                                        ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                                         : 'border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/10'
                                     }`}
-                                    title={slotIsPast ? `This time slot is in the past for ${day.label}` : ''}
                                   >
                                     <div className="flex items-center justify-between">
                                       <span className="text-sm font-semibold">{slot.label}</span>
@@ -3362,19 +3100,34 @@ const CreateContract: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="font-bold text-gray-900 mb-4">Contract Summary</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{numberOfChildren === 1 ? 'Child' : 'Children'}:</span>
-                    <span className="font-medium">
-                      {numberOfChildren === 1 
-                        ? selectedChild.fullName
-                        : selectedChildren.map(c => c.fullName).join(', ')
-                      }
-                    </span>
-                  </div>
-                  {numberOfChildren > 1 && (
+                  {numberOfChildren === 1 ? (
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Number of Children:</span>
-                      <span className="font-medium">{numberOfChildren} (+60% price)</span>
+                      <span className="text-gray-600">Child:</span>
+                      <span className="font-medium">{selectedChild.fullName}</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-gray-600 block mb-2">Children:</span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {selectedChildren.map((c) => (
+                          <div key={c.childId} className="bg-white rounded-lg border-2 border-gray-200 p-3 shadow-sm">
+                            <div className="flex items-start space-x-2">
+                              <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <User className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-gray-500 uppercase mb-0.5">CHILDREN</p>
+                                <p className="font-bold text-gray-900 text-sm truncate">{c.fullName}</p>
+                                <p className="text-xs text-gray-500">Learner</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-gray-600">Number of Children:</span>
+                        <span className="font-medium">{numberOfChildren} (+60% price)</span>
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center justify-between">

@@ -32,12 +32,15 @@ interface Contract {
   id: string;
   childId: string;
   childName: string;
+  secondChildId?: string | null;
+  secondChildName?: string | null;
   tutorName: string;
   subject: string;
   packageName: string;
   totalSessions: number;
   completedSessions: number;
   price: number;
+  basePackagePrice?: number; // Base price from package (for 2 children calculation)
   status: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
   startDate: string;
   endDate: string;
@@ -49,6 +52,14 @@ interface Contract {
   // Raw contract data for accessing tutor IDs
   rawData?: any;
 }
+
+// Calculate price based on number of children
+const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
+  if (numberOfChildren === 2) {
+    return basePrice * 1.6; // Increase 60% for 2 children
+  }
+  return basePrice;
+};
 
 const ContractsManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -175,14 +186,36 @@ const ContractsManagement: React.FC = () => {
           const totalSessions = cleanContract.TotalSessions || cleanContract.totalSessions || 0;
           const price = cleanContract.Price || cleanContract.price || cleanContract.Amount || 0;
           const completedSessions = cleanContract.CompletedSessions || cleanContract.completedSessions || 0;
+          const secondChildId = cleanContract.SecondChildId || cleanContract.secondChildId || null;
+          const secondChildName = cleanContract.SecondChildName || cleanContract.secondChildName || null;
+          
+          // Fetch package to get base price (needed for 2 children calculation)
+          let basePackagePrice: number | undefined = undefined;
+          if (cleanContract.PackageId || cleanContract.packageId) {
+            try {
+              const packageId = cleanContract.PackageId || cleanContract.packageId;
+              const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
+              if (packageResponse.success && packageResponse.data) {
+                const pkg = packageResponse.data;
+                basePackagePrice = pkg.Price || pkg.price || 0;
+              }
+            } catch (error) {
+              // Silently fail - base price is optional
+              if (import.meta.env.DEV) {
+                console.warn('Error fetching package for base price:', error);
+              }
+            }
+          }
 
           return {
             id: cleanContract.ContractId || cleanContract.contractId || String(cleanContract.ContractId),
             childId: cleanContract.ChildId || cleanContract.childId || '',
-            secondChildId: cleanContract.SecondChildId || cleanContract.secondChildId || null,
+            secondChildId,
+            secondChildName,
             childName, tutorName, packageName, centerName, offlineAddress,
             subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
             totalSessions, completedSessions, price,
+            basePackagePrice,
             status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
             startDate: cleanContract.StartDate || cleanContract.startDate || '',
             endDate: cleanContract.EndDate || cleanContract.endDate || '',
@@ -647,6 +680,7 @@ const ContractsManagement: React.FC = () => {
                       <h3 className="text-2xl font-black text-gray-900 mb-1">{contract.packageName}</h3>
                       <p className="text-base text-gray-600 font-medium">
                         {contract.subject} • {contract.childName}
+                        {contract.secondChildName && `, ${contract.secondChildName}`}
                       </p>
                       <p className="text-sm text-gray-500 mt-1">
                         Tutor: <span className="font-semibold text-gray-700">{contract.tutorName}</span>
@@ -703,10 +737,19 @@ const ContractsManagement: React.FC = () => {
                         <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Price</p>
                         <p className="text-lg font-bold text-gray-900">
                           {contract.price > 0 
-                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)
+                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                contract.secondChildName && contract.basePackagePrice
+                                  ? calculatePrice(contract.basePackagePrice, 2)
+                                  : contract.price
+                              )
                             : 'Free'
                           }
                         </p>
+                        {contract.secondChildName && contract.basePackagePrice && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            (Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.basePackagePrice)} + 60%)
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -737,7 +780,8 @@ const ContractsManagement: React.FC = () => {
                    contract.tutorName !== 'Tutor not assigned' && 
                    contract.status !== 'unpaid' && 
                    contract.status !== 'pending' && 
-                   contract.status !== 'completed' && (
+                   contract.status !== 'completed' && 
+                   contract.status !== 'cancelled' && (
                     <button
                       onClick={() => handleOpenReportModal(contract)}
                       className="group px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-2xl hover:from-orange-600 hover:to-red-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"

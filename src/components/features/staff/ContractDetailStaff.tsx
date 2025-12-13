@@ -23,7 +23,7 @@ import {
   Monitor,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session, getMainTutorReplacementPlan, replaceMainTutor } from '../../../services/api';
+import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session, getMainTutorReplacementPlan, replaceMainTutor, getAvailableTutorsForContract } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
@@ -89,6 +89,14 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [loadingReplacementPlan, setLoadingReplacementPlan] = useState(false);
   const [executingReplacement, setExecutingReplacement] = useState(false);
   const [mainTutorStatus, setMainTutorStatus] = useState<string | null>(null);
+  
+  // Manual tutor selection states
+  const [showChangeMainTutorModal, setShowChangeMainTutorModal] = useState(false);
+  const [availableTutorsForContract, setAvailableTutorsForContract] = useState<Tutor[]>([]);
+  const [loadingAvailableTutors, setLoadingAvailableTutors] = useState(false);
+  const [selectedNewMainTutorId, setSelectedNewMainTutorId] = useState<string>('');
+  const [selectedNewSubstituteTutor1Id, setSelectedNewSubstituteTutor1Id] = useState<string>('');
+  const [selectedNewSubstituteTutor2Id, setSelectedNewSubstituteTutor2Id] = useState<string>('');
 
   useEffect(() => {
     if (contractId) {
@@ -570,42 +578,109 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const handleReassignMainTutor = async () => {
     if (!contractId || !contract) return;
 
+    // Open modal to select tutor manually
+    setShowChangeMainTutorModal(true);
+    setSelectedNewMainTutorId('');
+    setSelectedNewSubstituteTutor1Id('');
+    setSelectedNewSubstituteTutor2Id('');
+    
+    // Fetch available tutors for this contract
     try {
-      setLoadingReplacementPlan(true);
-      const result = await getMainTutorReplacementPlan(contractId);
+      setLoadingAvailableTutors(true);
+      const result = await getAvailableTutorsForContract(contractId, true);
       if (result.success && result.data) {
-        setReplacementPlan(result.data);
-        setShowReplacementPlanModal(true);
+        // Filter out current main tutor
+        const filtered = result.data.filter(t => t.userId !== contract.mainTutorId);
+        setAvailableTutorsForContract(filtered);
       } else {
-        showError(result.error || 'Failed to fetch replacement plan');
+        showError(result.error || 'Failed to fetch available tutors');
       }
     } catch (error: any) {
-      console.error('Error fetching replacement plan:', error);
-      showError(error?.message || 'Failed to fetch replacement plan');
+      console.error('Error fetching available tutors:', error);
+      showError(error?.message || 'Failed to fetch available tutors');
     } finally {
-      setLoadingReplacementPlan(false);
+      setLoadingAvailableTutors(false);
     }
   };
 
   const handleConfirmMainTutorReplacement = async () => {
-    if (!contractId || !replacementPlan || !replacementPlan.recommendedPlan) {
-      showError('Replacement plan is not available');
+    if (!contractId) {
+      showError('Contract ID is required');
       return;
     }
 
-    const { newMainTutorId, newSubstituteTutorId } = replacementPlan.recommendedPlan;
-    if (!newMainTutorId || !newSubstituteTutorId) {
-      showError('Invalid replacement plan');
+    // Use manually selected tutors if available, otherwise use recommended plan
+    let newMainTutorId: string;
+    let newSubstituteTutor1Id: string;
+    let newSubstituteTutor2Id: string;
+
+    if (selectedNewMainTutorId && selectedNewSubstituteTutor1Id && selectedNewSubstituteTutor2Id) {
+      // Manual selection - all 3 tutors selected
+      newMainTutorId = selectedNewMainTutorId;
+      newSubstituteTutor1Id = selectedNewSubstituteTutor1Id;
+      newSubstituteTutor2Id = selectedNewSubstituteTutor2Id;
+    } else if (replacementPlan && replacementPlan.recommendedPlan) {
+      // Recommended plan - use replaceMainTutor API (only needs 1 substitute)
+      newMainTutorId = replacementPlan.recommendedPlan.newMainTutorId;
+      const newSubstituteTutorId = replacementPlan.recommendedPlan.newSubstituteTutorId;
+      
+      try {
+        setExecutingReplacement(true);
+        const result = await replaceMainTutor(contractId, newMainTutorId, newSubstituteTutorId);
+        if (result.success) {
+          showSuccess('Main tutor replaced successfully');
+          setShowReplacementPlanModal(false);
+          setReplacementPlan(null);
+          await fetchContractDetails();
+          if (activeTab === 'sessions' && contractId) {
+            const sessionsResult = await getSessionsByContractId(contractId);
+            if (sessionsResult.success && sessionsResult.data) {
+              const sorted = [...sessionsResult.data].sort((a, b) => {
+                const dateA = new Date(`${a.sessionDate}T${a.startTime}`).getTime();
+                const dateB = new Date(`${b.sessionDate}T${b.startTime}`).getTime();
+                return dateA - dateB;
+              });
+              setSessions(sorted);
+            }
+          }
+        } else {
+          showError(result.error || 'Failed to replace main tutor');
+        }
+      } catch (error: any) {
+        console.error('Error replacing main tutor:', error);
+        showError(error?.message || 'Failed to replace main tutor');
+      } finally {
+        setExecutingReplacement(false);
+      }
+      return;
+    } else {
+      showError('Please select a new main tutor and both substitute tutors');
+      return;
+    }
+
+    // Validate all tutors are different
+    if (newMainTutorId === newSubstituteTutor1Id || 
+        newMainTutorId === newSubstituteTutor2Id || 
+        newSubstituteTutor1Id === newSubstituteTutor2Id) {
+      showError('All tutors must be different');
       return;
     }
 
     try {
       setExecutingReplacement(true);
-      const result = await replaceMainTutor(contractId, newMainTutorId, newSubstituteTutorId);
+      // Use assignTutorToContract to assign all 3 tutors
+      const result = await assignTutorToContract(
+        contractId,
+        newMainTutorId,
+        newSubstituteTutor1Id,
+        newSubstituteTutor2Id
+      );
       if (result.success) {
-        showSuccess('Main tutor replaced successfully');
-        setShowReplacementPlanModal(false);
-        setReplacementPlan(null);
+        showSuccess('Main tutor and substitute tutors assigned successfully');
+        setShowChangeMainTutorModal(false);
+        setSelectedNewMainTutorId('');
+        setSelectedNewSubstituteTutor1Id('');
+        setSelectedNewSubstituteTutor2Id('');
         // Refresh contract details
         await fetchContractDetails();
         // Refresh sessions if on sessions tab
@@ -621,11 +696,11 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
           }
         }
       } else {
-        showError(result.error || 'Failed to replace main tutor');
+        showError(result.error || 'Failed to assign tutors');
       }
     } catch (error: any) {
-      console.error('Error replacing main tutor:', error);
-      showError(error?.message || 'Failed to replace main tutor');
+      console.error('Error assigning tutors:', error);
+      showError(error?.message || 'Failed to assign tutors');
     } finally {
       setExecutingReplacement(false);
     }
@@ -1187,15 +1262,19 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         </div>
                       )}
                     </div>
-                    {mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive') && (
+                    {contract.mainTutorId && (
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={handleReassignMainTutor}
-                          disabled={loadingReplacementPlan}
-                          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={loadingAvailableTutors}
+                          className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                            mainTutorStatus && (mainTutorStatus === 'banned' || mainTutorStatus === 'inactive')
+                              ? 'bg-orange-600 hover:bg-orange-700'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
                         >
-                          <RefreshCw className="w-4 h-4" />
-                          <span>Re-assign Main Tutor</span>
+                          <RefreshCw className={`w-4 h-4 ${loadingAvailableTutors ? 'animate-spin' : ''}`} />
+                          <span>Change Main Tutor</span>
                         </button>
                       </div>
                     )}
@@ -2001,6 +2080,258 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         )}
                       </button>
                     )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Main Tutor Modal - Manual Selection */}
+      {showChangeMainTutorModal && contract && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Change Main Tutor</h2>
+                  <p className="text-gray-600 mt-1 text-sm">
+                    Contract: {contract.packageName} - {contract.childName}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowChangeMainTutorModal(false);
+                    setSelectedNewMainTutorId('');
+                    setSelectedNewSubstituteTutorId('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                  disabled={executingReplacement}
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {loadingAvailableTutors ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading available tutors...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Current Main Tutor Info */}
+                  {contract.mainTutorId && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <AlertCircle className="w-5 h-5 text-gray-600" />
+                        <h3 className="font-semibold text-gray-900">Current Main Tutor</h3>
+                      </div>
+                      <p className="text-sm text-gray-700">
+                        {contract.mainTutorName || 
+                         mainTutorInfo?.fullName || 
+                         mainTutorInfo?.FullName || 
+                         mainTutorInfo?.name ||
+                         'Not Assigned'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Select New Main Tutor */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select New Main Tutor *
+                    </label>
+                    {availableTutorsForContract.length === 0 ? (
+                      <p className="text-sm text-gray-500">No available tutors found</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                        {availableTutorsForContract.map((tutor) => (
+                          <label
+                            key={tutor.userId}
+                            className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer border-2 transition-colors ${
+                              selectedNewMainTutorId === tutor.userId
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="newMainTutor"
+                              value={tutor.userId}
+                              checked={selectedNewMainTutorId === tutor.userId}
+                              onChange={(e) => {
+                                setSelectedNewMainTutorId(e.target.value);
+                                // Auto-select substitute tutors if not already selected
+                                const remainingTutors = availableTutorsForContract.filter(t => t.userId !== e.target.value);
+                                if (remainingTutors.length >= 2) {
+                                  if (!selectedNewSubstituteTutor1Id || selectedNewSubstituteTutor1Id === e.target.value) {
+                                    setSelectedNewSubstituteTutor1Id(remainingTutors[0].userId);
+                                  }
+                                  if (!selectedNewSubstituteTutor2Id || selectedNewSubstituteTutor2Id === e.target.value) {
+                                    setSelectedNewSubstituteTutor2Id(remainingTutors[1].userId);
+                                  }
+                                } else if (remainingTutors.length === 1) {
+                                  if (!selectedNewSubstituteTutor1Id || selectedNewSubstituteTutor1Id === e.target.value) {
+                                    setSelectedNewSubstituteTutor1Id(remainingTutors[0].userId);
+                                  }
+                                  setSelectedNewSubstituteTutor2Id('');
+                                } else {
+                                  setSelectedNewSubstituteTutor1Id('');
+                                  setSelectedNewSubstituteTutor2Id('');
+                                }
+                              }}
+                              className="w-4 h-4 text-blue-600"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900">{tutor.fullName}</span>
+                                {tutor.averageRating > 0 && (
+                                  <div className="flex items-center space-x-1">
+                                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                    <span className="text-sm text-gray-600">{tutor.averageRating.toFixed(1)}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {tutor.email && (
+                                <p className="text-xs text-gray-500 mt-1">{tutor.email}</p>
+                              )}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Select New Substitute Tutor 1 */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select New Substitute Tutor 1 *
+                    </label>
+                    {availableTutorsForContract.length === 0 ? (
+                      <p className="text-sm text-gray-500">No available tutors found</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                        {availableTutorsForContract
+                          .filter(t => t.userId !== selectedNewMainTutorId && t.userId !== selectedNewSubstituteTutor2Id)
+                          .map((tutor) => (
+                            <label
+                              key={tutor.userId}
+                              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer border-2 transition-colors ${
+                                selectedNewSubstituteTutor1Id === tutor.userId
+                                  ? 'border-green-500 bg-green-50'
+                                  : 'border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="newSubstituteTutor1"
+                                value={tutor.userId}
+                                checked={selectedNewSubstituteTutor1Id === tutor.userId}
+                                onChange={(e) => setSelectedNewSubstituteTutor1Id(e.target.value)}
+                                className="w-4 h-4 text-green-600"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-gray-900">{tutor.fullName}</span>
+                                  {tutor.averageRating > 0 && (
+                                    <div className="flex items-center space-x-1">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                      <span className="text-sm text-gray-600">{tutor.averageRating.toFixed(1)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {tutor.email && (
+                                  <p className="text-xs text-gray-500 mt-1">{tutor.email}</p>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Select New Substitute Tutor 2 */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select New Substitute Tutor 2 *
+                    </label>
+                    {availableTutorsForContract.length === 0 ? (
+                      <p className="text-sm text-gray-500">No available tutors found</p>
+                    ) : (
+                      <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                        {availableTutorsForContract
+                          .filter(t => t.userId !== selectedNewMainTutorId && t.userId !== selectedNewSubstituteTutor1Id)
+                          .map((tutor) => (
+                            <label
+                              key={tutor.userId}
+                              className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer border-2 transition-colors ${
+                                selectedNewSubstituteTutor2Id === tutor.userId
+                                  ? 'border-green-500 bg-green-50'
+                                  : 'border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="newSubstituteTutor2"
+                                value={tutor.userId}
+                                checked={selectedNewSubstituteTutor2Id === tutor.userId}
+                                onChange={(e) => setSelectedNewSubstituteTutor2Id(e.target.value)}
+                                className="w-4 h-4 text-green-600"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium text-gray-900">{tutor.fullName}</span>
+                                  {tutor.averageRating > 0 && (
+                                    <div className="flex items-center space-x-1">
+                                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                                      <span className="text-sm text-gray-600">{tutor.averageRating.toFixed(1)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {tutor.email && (
+                                  <p className="text-xs text-gray-500 mt-1">{tutor.email}</p>
+                                )}
+                              </div>
+                            </label>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <button
+                      onClick={() => {
+                        setShowChangeMainTutorModal(false);
+                        setSelectedNewMainTutorId('');
+                        setSelectedNewSubstituteTutor1Id('');
+                        setSelectedNewSubstituteTutor2Id('');
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                      disabled={executingReplacement}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmMainTutorReplacement}
+                      disabled={executingReplacement || !selectedNewMainTutorId || !selectedNewSubstituteTutor1Id || !selectedNewSubstituteTutor2Id}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+                    >
+                      {executingReplacement ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Confirm Change</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               )}

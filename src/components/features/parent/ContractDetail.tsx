@@ -69,6 +69,14 @@ interface ContractDetail {
   tutorRating: number;
 }
 
+// Calculate price based on number of children
+const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
+  if (numberOfChildren === 2) {
+    return basePrice * 1.6; // Increase 60% for 2 children
+  }
+  return basePrice;
+};
+
 const ContractDetail: React.FC = () => {
   const navigate = useNavigate();
   const { id: contractId } = useParams<{ id: string }>();
@@ -77,6 +85,7 @@ const ContractDetail: React.FC = () => {
   useHideIdInUrl(); // Hide ID in URL bar
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [contractRawData, setContractRawData] = useState<any>(null); // Store raw contract data from API
+  const [basePackagePrice, setBasePackagePrice] = useState<number | null>(null); // Store base price from package
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor' | 'curriculum'>('overview');
@@ -168,21 +177,26 @@ const ContractDetail: React.FC = () => {
         }
 
         // Map backend data to frontend format
-        // Fetch package details if needed
+        // Fetch package details to get base price
         let totalSessions = contractData.TotalSessions || contractData.totalSessions || 0;
         let price = contractData.Price || contractData.price || contractData.Amount || contractData.amount || 0;
+        let basePrice = 0;
         
-        if ((!totalSessions || !price) && (contractData.PackageId || contractData.packageId)) {
+        // Always fetch package to get base price (needed for 2 children calculation)
+        if (contractData.PackageId || contractData.packageId) {
           try {
             const packageId = contractData.PackageId || contractData.packageId;
             const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
             if (packageResponse.success && packageResponse.data) {
               const pkg = packageResponse.data;
+              basePrice = pkg.Price || pkg.price || 0;
+              setBasePackagePrice(basePrice);
+              
               if (!totalSessions) {
                 totalSessions = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0;
               }
               if (!price) {
-                price = pkg.Price || pkg.price || 0;
+                price = basePrice;
               }
             }
           } catch (error) {
@@ -1011,29 +1025,59 @@ const ContractDetail: React.FC = () => {
           </div>
 
           {/* Children and Tutor Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {/* Children Card */}
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
-                  <User className="w-8 h-8 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
-                    {contract.secondChildName ? 'Children' : 'Child'}
-                  </p>
-                  <div className="space-y-1">
-                    <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
-                    {contract.secondChildName && (
-                      <h2 className="text-2xl font-bold text-gray-900">{contract.secondChildName}</h2>
-                    )}
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${contract.secondChildName ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6 mb-8`}>
+            {/* Children Cards */}
+            {contract.secondChildName ? (
+              // 2 Children - Display as 2 separate cards side by side
+              <>
+                {/* First Child Card */}
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
+                      <User className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
+                        CHILDREN
+                      </p>
+                      <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
+                      <p className="text-sm text-gray-600 mt-1">Learner</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {contract.secondChildName ? 'Learners' : 'Learner'}
-                  </p>
+                </div>
+                {/* Second Child Card */}
+                <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
+                      <User className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
+                        CHILDREN
+                      </p>
+                      <h2 className="text-2xl font-bold text-gray-900">{contract.secondChildName}</h2>
+                      <p className="text-sm text-gray-600 mt-1">Learner</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // 1 Child - Display as single card
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-3xl flex items-center justify-center shadow-lg">
+                    <User className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-primary-dark uppercase tracking-wide mb-1">
+                      CHILDREN
+                    </p>
+                    <h2 className="text-2xl font-bold text-gray-900">{contract.childName}</h2>
+                    <p className="text-sm text-gray-600 mt-1">Learner</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Main Tutor Card */}
             <div className={`rounded-3xl shadow-xl border border-white/50 p-6 hover-lift transition-all duration-300 ${
@@ -1240,8 +1284,17 @@ const ContractDetail: React.FC = () => {
                     <div>
                       <p className="text-sm text-gray-600">Total Price</p>
                       <p className="font-medium">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.price)}
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                          contract.secondChildName && basePackagePrice
+                            ? calculatePrice(basePackagePrice, 2)
+                            : contract.price
+                        )}
                       </p>
+                      {contract.secondChildName && basePackagePrice && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          (Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(basePackagePrice)} + 60% for 2 children)
+                        </p>
+                      )}
                     </div>
                   </div>
                   {contract.centerAddress && (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   RefreshCw,
   Wallet,
@@ -12,6 +13,8 @@ import {
   CreditCard,
   Clock,
   ArrowLeft,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -36,6 +39,8 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRequests();
@@ -97,19 +102,24 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
     setCurrentPage(1); // Reset to first page when filtering
   };
 
-  const handleProcess = async (requestId: string) => {
-    if (!confirm('Are you sure you want to process this withdrawal request? This action cannot be undone.')) {
-      return;
-    }
+  const handleProcessClick = (requestId: string) => {
+    setSelectedRequestId(requestId);
+    setShowConfirmModal(true);
+  };
 
+  const handleConfirmProcess = async () => {
+    if (!selectedRequestId) return;
+
+    setShowConfirmModal(false);
+    
     try {
-      setProcessingId(requestId);
-      const result = await processWithdrawalRequest(requestId);
+      setProcessingId(selectedRequestId);
+      const result = await processWithdrawalRequest(selectedRequestId);
       if (result.success && result.data) {
         showSuccess('Withdrawal request processed successfully');
         // Update the request in the list
         setRequests((prev) =>
-          prev.map((req) => (req.id === requestId ? result.data! : req))
+          prev.map((req) => (req.id === selectedRequestId ? result.data! : req))
         );
       } else {
         showError(result.error || 'Failed to process withdrawal request');
@@ -119,7 +129,13 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
       showError(error?.message || 'Failed to process withdrawal request');
     } finally {
       setProcessingId(null);
+      setSelectedRequestId(null);
     }
+  };
+
+  const handleCancelProcess = () => {
+    setShowConfirmModal(false);
+    setSelectedRequestId(null);
   };
 
   const formatDate = (dateStr: string | undefined): string => {
@@ -369,7 +385,7 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
                         <td className="px-6 py-4">
                           {request.status === 'Pending' && (
                             <button
-                              onClick={() => handleProcess(request.id)}
+                              onClick={() => handleProcessClick(request.id)}
                               disabled={processingId === request.id}
                               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                             >
@@ -432,6 +448,57 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && createPortal(
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          onClick={handleCancelProcess}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <AlertTriangle className="w-6 h-6 text-yellow-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">Confirm Processing</h3>
+                </div>
+                <button
+                  onClick={handleCancelProcess}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Are you sure you want to process this withdrawal request? This action cannot be undone.
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={handleCancelProcess}
+                  className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmProcess}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center space-x-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>OK</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
