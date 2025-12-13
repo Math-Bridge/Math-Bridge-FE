@@ -63,7 +63,7 @@ const TutorDailyReport: React.FC = () => {
   const [dateFilter, setDateFilter] = useState<string>('');
   const [reportSearchTerm, setReportSearchTerm] = useState('');
 
-  // Form state
+  // Form state for main child
   const [unitId, setUnitId] = useState('');
   const [units, setUnits] = useState<Unit[]>([]);
   const [onTrack, setOnTrack] = useState(true);
@@ -73,6 +73,23 @@ const TutorDailyReport: React.FC = () => {
   const [childId, setChildId] = useState<string | null>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [showPreview, setShowPreview] = useState(true);
+
+  // Contract info for 2 children support
+  const [contractInfo, setContractInfo] = useState<{
+    childId: string;
+    childName?: string;
+    secondChildId?: string;
+    secondChildName?: string;
+  } | null>(null);
+
+  // Form state for second child (if contract has 2 children)
+  const [secondChildUnitId, setSecondChildUnitId] = useState('');
+  const [secondChildOnTrack, setSecondChildOnTrack] = useState(true);
+  const [secondChildHaveHomework, setSecondChildHaveHomework] = useState(false);
+  const [secondChildNotes, setSecondChildNotes] = useState('');
+  const [secondChildUrl, setSecondChildUrl] = useState('');
+  const secondChildNotesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showSecondChildPreview, setShowSecondChildPreview] = useState(true);
   
   // Check if notes contain LaTeX
   const hasLatex = (text: string): boolean => {
@@ -241,19 +258,43 @@ const TutorDailyReport: React.FC = () => {
   const fetchChildIdFromContract = async () => {
     if (!selectedSession?.contractId) {
       setChildId(null);
+      setContractInfo(null);
       return;
     }
 
     try {
       const result = await getContractById(selectedSession.contractId);
       if (result.success && result.data) {
-        setChildId(result.data.childId || null);
+        const contract = result.data;
+        const mainChildId = contract.childId || contract.ChildId || null;
+        const secondChildId = contract.secondChildId || contract.SecondChildId || null;
+        const mainChildName = contract.childName || contract.ChildName || null;
+        const secondChildName = contract.secondChildName || contract.SecondChildName || null;
+
+        setChildId(mainChildId);
+        setContractInfo({
+          childId: mainChildId || '',
+          childName: mainChildName,
+          secondChildId: secondChildId || undefined,
+          secondChildName: secondChildName || undefined,
+        });
+
+        // Reset second child form if no second child
+        if (!secondChildId) {
+          setSecondChildUnitId('');
+          setSecondChildOnTrack(true);
+          setSecondChildHaveHomework(false);
+          setSecondChildNotes('');
+          setSecondChildUrl('');
+        }
       } else {
         setChildId(null);
+        setContractInfo(null);
       }
     } catch (error) {
       console.error('Error fetching contract to get childId:', error);
       setChildId(null);
+      setContractInfo(null);
     }
   };
 
@@ -331,6 +372,11 @@ const TutorDailyReport: React.FC = () => {
     setHaveHomework(false);
     setNotes('');
     setUrl('');
+    setSecondChildUnitId('');
+    setSecondChildOnTrack(true);
+    setSecondChildHaveHomework(false);
+    setSecondChildNotes('');
+    setSecondChildUrl('');
     // Don't reset units here - they will be reloaded when fetchUnits is called
   };
 
@@ -377,6 +423,31 @@ const TutorDailyReport: React.FC = () => {
     }, 0);
   };
 
+  const handleInsertLatexSecondChild = (latexText: string) => {
+    const textarea = secondChildNotesTextareaRef.current;
+    if (!textarea) {
+      // If no ref, just append to notes
+      setSecondChildNotes((prev) => prev + latexText);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = secondChildNotes;
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    const newText = before + latexText + after;
+    
+    setSecondChildNotes(newText);
+    
+    // Restore cursor position after insertion
+    setTimeout(() => {
+      const newCursorPos = start + latexText.length;
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -392,19 +463,32 @@ const TutorDailyReport: React.FC = () => {
     }
 
     if (!unitId || unitId.trim() === '') {
-      showError('Please select a unit');
+      showError('Please select a unit for the main child');
       return;
     }
 
-    if (!childId || !selectedSession.bookingId) {
+    if (!childId || !selectedSession.bookingId || !contractInfo) {
       showError('Session information is incomplete. Please wait for contract information to load.');
       return;
     }
 
-    // Validate notes length
+    // Validate notes length for main child
     if (notes && notes.length > 1000) {
-      showError('Notes cannot exceed 1000 characters');
+      showError('Main child notes cannot exceed 1000 characters');
       return;
+    }
+
+    // If contract has 2 children, validate second child form
+    if (contractInfo.secondChildId) {
+      if (!secondChildUnitId || secondChildUnitId.trim() === '') {
+        showError('Please select a unit for the second child');
+        return;
+      }
+
+      if (secondChildNotes && secondChildNotes.length > 1000) {
+        showError('Second child notes cannot exceed 1000 characters');
+        return;
+      }
     }
 
     try {
@@ -432,18 +516,34 @@ const TutorDailyReport: React.FC = () => {
       } else {
         // Create new report
         const createData: CreateDailyReportRequest = {
-          childId: childId,
           bookingId: selectedSession.bookingId,
-          unitId,
-          onTrack,
-          haveHomework,
-          notes: notes.trim() || undefined,
-          url: url.trim() || undefined,
+          mainChild: {
+            childId: childId,
+            unitId,
+            onTrack,
+            haveHomework,
+            notes: notes.trim() || undefined,
+            url: url.trim() || undefined,
+          },
         };
+
+        // Add second child data if contract has 2 children
+        if (contractInfo.secondChildId) {
+          createData.secondChild = {
+            childId: contractInfo.secondChildId,
+            unitId: secondChildUnitId,
+            onTrack: secondChildOnTrack,
+            haveHomework: secondChildHaveHomework,
+            notes: secondChildNotes.trim() || undefined,
+            url: secondChildUrl.trim() || undefined,
+          };
+        }
 
         const result = await createDailyReport(createData);
         if (result.success) {
-          showSuccess('Daily report created successfully');
+          showSuccess(contractInfo.secondChildId 
+            ? 'Daily reports created successfully for both children' 
+            : 'Daily report created successfully');
           await fetchExistingReport();
           // Refresh sessions list to show updated status
           await fetchSessions();
@@ -686,10 +786,17 @@ const TutorDailyReport: React.FC = () => {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Student</div>
+                      <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Student(s)</div>
                       <div className="flex items-center space-x-2 text-gray-900">
                         <User className="w-5 h-5 text-purple-500" />
-                        <div className="text-sm font-medium">{selectedSession.childName || 'N/A'}</div>
+                        <div className="text-sm font-medium">
+                          {contractInfo?.childName || selectedSession.childName || 'N/A'}
+                          {contractInfo?.secondChildName && (
+                            <span className="ml-2 text-gray-600">
+                              & {contractInfo.secondChildName}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
@@ -736,15 +843,30 @@ const TutorDailyReport: React.FC = () => {
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
                       {existingReport ? 'Update Daily Report' : 'Create Daily Report'}
                     </h2>
-                    <p className="text-gray-600">Fill in the details about this session</p>
+                    <p className="text-gray-600">
+                      {contractInfo?.secondChildId 
+                        ? 'Fill in the details for both children in this session' 
+                        : 'Fill in the details about this session'}
+                    </p>
                   </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Unit Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Unit <span className="text-red-500">*</span>
-                    </label>
+                  {/* Main Child Form */}
+                  <div className="bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-xl p-6 space-y-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {contractInfo?.childName || 'Main Child'}
+                      </h3>
+                      {contractInfo?.secondChildId && (
+                        <p className="text-sm text-gray-600 mt-1">First student in the contract</p>
+                      )}
+                    </div>
+
+                    {/* Unit Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Unit <span className="text-red-500">*</span>
+                      </label>
                     {units.length > 0 ? (
                       <select
                         value={unitId}
@@ -806,37 +928,37 @@ const TutorDailyReport: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Homework */}
-                  <div>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={haveHomework}
-                        onChange={(e) => setHaveHomework(e.target.checked)}
-                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm font-medium text-gray-700">Student has homework</span>
-                    </label>
-                  </div>
-
-                  {/* Notes */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Notes (Optional)
+                    {/* Homework */}
+                    <div>
+                      <label className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={haveHomework}
+                          onChange={(e) => setHaveHomework(e.target.checked)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Student has homework</span>
                       </label>
-                      {notes.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPreview(!showPreview)}
-                          className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-                          title="Toggle LaTeX Preview"
-                        >
-                          <Eye className="w-3 h-3" />
-                          <span>{showPreview ? 'Hide' : 'Show'} Preview</span>
-                        </button>
-                      )}
                     </div>
+
+                    {/* Notes */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Notes (Optional)
+                        </label>
+                        {notes.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setShowPreview(!showPreview)}
+                            className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                            title="Toggle LaTeX Preview"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{showPreview ? 'Hide' : 'Show'} Preview</span>
+                          </button>
+                        )}
+                      </div>
                     <div className="space-y-3">
                       <div>
                         <textarea
@@ -892,20 +1014,200 @@ const TutorDailyReport: React.FC = () => {
                     <p className="text-xs text-gray-500 mt-1">{notes.length}/1000 characters</p>
                   </div>
 
-                  {/* URL */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      URL (Optional)
-                    </label>
-                    <input
-                      type="url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Link to any relevant documents or resources</p>
+                    {/* URL */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        URL (Optional)
+                      </label>
+                      <input
+                        type="url"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        placeholder="https://example.com"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Link to any relevant documents or resources</p>
+                    </div>
                   </div>
+
+                  {/* Second Child Form - Only show if contract has 2 children */}
+                  {contractInfo?.secondChildId && (
+                    <div className="bg-gradient-to-br from-purple-50 to-white border-2 border-purple-200 rounded-xl p-6 space-y-6">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-bold text-gray-900">
+                          {contractInfo.secondChildName || 'Second Child'}
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">Second student in the contract</p>
+                      </div>
+
+                      {/* Unit Selection for Second Child */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Unit <span className="text-red-500">*</span>
+                        </label>
+                        {units.length > 0 ? (
+                          <select
+                            value={secondChildUnitId}
+                            onChange={(e) => setSecondChildUnitId(e.target.value)}
+                            required
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          >
+                            <option value="">-- Select a unit --</option>
+                            {units
+                              .sort((a, b) => a.unitOrder - b.unitOrder)
+                              .map((unit) => (
+                                <option key={unit.unitId} value={unit.unitId}>
+                                  {unit.unitName} (Unit {unit.unitOrder})
+                                </option>
+                              ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={secondChildUnitId}
+                            onChange={(e) => setSecondChildUnitId(e.target.value)}
+                            placeholder="Enter unit ID"
+                            required
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                        )}
+                      </div>
+
+                      {/* On Track for Second Child */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Learning Progress
+                        </label>
+                        <div className="flex space-x-4">
+                          <button
+                            type="button"
+                            onClick={() => setSecondChildOnTrack(true)}
+                            className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
+                              secondChildOnTrack
+                                ? 'bg-green-50 border-green-500 text-green-700'
+                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <CheckCircle className="w-6 h-6 mx-auto mb-2" />
+                            <span className="font-semibold">On Track</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSecondChildOnTrack(false)}
+                            className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
+                              !secondChildOnTrack
+                                ? 'bg-red-50 border-red-500 text-red-700'
+                                : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            <XCircle className="w-6 h-6 mx-auto mb-2" />
+                            <span className="font-semibold">Off Track</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Homework for Second Child */}
+                      <div>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={secondChildHaveHomework}
+                            onChange={(e) => setSecondChildHaveHomework(e.target.checked)}
+                            className="w-5 h-5 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          />
+                          <span className="text-sm font-medium text-gray-700">Student has homework</span>
+                        </label>
+                      </div>
+
+                      {/* Notes for Second Child */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Notes (Optional)
+                          </label>
+                          {secondChildNotes.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => setShowSecondChildPreview(!showSecondChildPreview)}
+                              className="flex items-center space-x-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                              title="Toggle LaTeX Preview"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>{showSecondChildPreview ? 'Hide' : 'Show'} Preview</span>
+                            </button>
+                          )}
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <textarea
+                              ref={secondChildNotesTextareaRef}
+                              value={secondChildNotes}
+                              onChange={(e) => setSecondChildNotes(e.target.value)}
+                              rows={6}
+                              maxLength={1000}
+                              placeholder="Add notes about the session, student progress, areas of improvement, etc. Use LaTeX keyboard for math symbols."
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            />
+                          </div>
+                          
+                          {/* LaTeX Keyboard Section for Second Child */}
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="text-xs font-medium text-gray-700">
+                                LaTeX Keyboard
+                              </label>
+                            </div>
+                            <div className="flex justify-start">
+                              <LatexKeyboard onInsert={handleInsertLatexSecondChild} textareaRef={secondChildNotesTextareaRef} />
+                            </div>
+                          </div>
+
+                          {/* LaTeX Preview for Second Child */}
+                          {showSecondChildPreview && secondChildNotes.trim() && (
+                            <div className="bg-gradient-to-br from-purple-50 to-gray-50 rounded-lg p-4 border-2 border-purple-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-xs font-semibold text-purple-700 uppercase tracking-wide flex items-center gap-1">
+                                  <Eye className="w-3 h-3" />
+                                  LaTeX Preview
+                                </div>
+                                {hasLatex(secondChildNotes) && (
+                                  <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                                    Math Detected
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-700 whitespace-pre-wrap min-h-[100px] bg-white rounded p-3 border border-gray-200">
+                                <Latex delimiters={[
+                                  { left: '$$', right: '$$', display: true },
+                                  { left: '$', right: '$', display: false },
+                                  { left: '\\(', right: '\\)', display: false },
+                                  { left: '\\[', right: '\\]', display: true },
+                                ]}>
+                                  {secondChildNotes}
+                                </Latex>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">{secondChildNotes.length}/1000 characters</p>
+                      </div>
+
+                      {/* URL for Second Child */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          URL (Optional)
+                        </label>
+                        <input
+                          type="url"
+                          value={secondChildUrl}
+                          onChange={(e) => setSecondChildUrl(e.target.value)}
+                          placeholder="https://example.com"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Link to any relevant documents or resources</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Submit Button */}
                   <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
@@ -921,7 +1223,7 @@ const TutorDailyReport: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={submitting || !unitId}
+                      disabled={submitting || !unitId || (contractInfo?.secondChildId && !secondChildUnitId)}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                     >
                       {submitting ? (
@@ -932,7 +1234,7 @@ const TutorDailyReport: React.FC = () => {
                       ) : (
                         <>
                           <Save className="w-4 h-4" />
-                          <span>{existingReport ? 'Update Report' : 'Create Report'}</span>
+                          <span>{existingReport ? 'Update Report' : (contractInfo?.secondChildId ? 'Create Reports' : 'Create Report')}</span>
                         </>
                       )}
                     </button>

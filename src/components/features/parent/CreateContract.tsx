@@ -23,6 +23,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
 import FallingLatexSymbols from '../../common/FallingLatexSymbols';
+import ConfirmDialog from '../../common/ConfirmDialog';
 
 interface Package {
   packageId: string;
@@ -153,6 +154,7 @@ const CreateContract: React.FC = () => {
   const [availabilityWarning, setAvailabilityWarning] = useState<string | null>(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const lastSearchedAddressRef = useRef<string>('');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -724,6 +726,37 @@ const CreateContract: React.FC = () => {
           showError(`Group study requires students to be from the same school. Selected student: ${firstSchoolName}, this student: ${currentSchoolName}`);
           return;
         }
+        
+        // Check if same date of birth (year, month, day must match)
+        const firstDateOfBirth = firstChild.dateOfBirth;
+        const currentDateOfBirth = child.dateOfBirth;
+        
+        if (firstDateOfBirth && currentDateOfBirth) {
+          // Normalize dates to YYYY-MM-DD format for comparison (ignore time if present)
+          const normalizeDate = (dateStr: string): string => {
+            // If date includes time, extract just the date part
+            if (dateStr.includes('T')) {
+              return dateStr.split('T')[0];
+            }
+            // If date includes space, extract just the date part
+            if (dateStr.includes(' ')) {
+              return dateStr.split(' ')[0];
+            }
+            return dateStr;
+          };
+          
+          const normalizedFirstDate = normalizeDate(firstDateOfBirth);
+          const normalizedCurrentDate = normalizeDate(currentDateOfBirth);
+          
+          if (normalizedFirstDate !== normalizedCurrentDate) {
+            showError(`Group study requires students to have the same date of birth. Selected student: ${normalizedFirstDate}, this student: ${normalizedCurrentDate}`);
+            return;
+          }
+        } else if (firstDateOfBirth || currentDateOfBirth) {
+          // One child has dateOfBirth but the other doesn't
+          showError(`Both students must have date of birth information. Please update the missing date of birth.`);
+          return;
+        }
       }
       
       const updated = [...selectedChildren, child];
@@ -788,6 +821,37 @@ const CreateContract: React.FC = () => {
             showError(`Group study requires students to be from the same school. ${firstChild.fullName}: ${firstSchoolName}, ${secondChild.fullName}: ${secondSchoolName}`);
             return;
           }
+          
+          // Check if same date of birth (year, month, day must match)
+          const firstDateOfBirth = firstChild.dateOfBirth;
+          const secondDateOfBirth = secondChild.dateOfBirth;
+          
+          if (firstDateOfBirth && secondDateOfBirth) {
+            // Normalize dates to YYYY-MM-DD format for comparison (ignore time if present)
+            const normalizeDate = (dateStr: string): string => {
+              // If date includes time, extract just the date part
+              if (dateStr.includes('T')) {
+                return dateStr.split('T')[0];
+              }
+              // If date includes space, extract just the date part
+              if (dateStr.includes(' ')) {
+                return dateStr.split(' ')[0];
+              }
+              return dateStr;
+            };
+            
+            const normalizedFirstDate = normalizeDate(firstDateOfBirth);
+            const normalizedSecondDate = normalizeDate(secondDateOfBirth);
+            
+            if (normalizedFirstDate !== normalizedSecondDate) {
+              showError(`Group study requires students to have the same date of birth. ${firstChild.fullName}: ${normalizedFirstDate}, ${secondChild.fullName}: ${normalizedSecondDate}`);
+              return;
+            }
+          } else if (firstDateOfBirth || secondDateOfBirth) {
+            // One child has dateOfBirth but the other doesn't
+            showError(`Both students must have date of birth information. Please update the missing date of birth.`);
+            return;
+          }
         }
       } else if (selectedChild) {
         // If no selectedChildren but has selectedChild, use it
@@ -827,6 +891,12 @@ const CreateContract: React.FC = () => {
       navigate('/my-children?action=create&returnTo=contract');
   };
 
+  // Helper function to count number of selected days from bitmask
+  const countSelectedDays = (daysOfWeeks: number): number => {
+    const dayValues = [1, 2, 4, 8, 16, 32, 64]; // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+    return dayValues.filter(dayValue => (daysOfWeeks & dayValue) !== 0).length;
+  };
+
   const handleContinueToPayment = async () => {
     // Validate required fields
     if (!selectedChild || !selectedPackage) {
@@ -839,6 +909,21 @@ const CreateContract: React.FC = () => {
     // Validate start date
     if (!schedule.startDate) {
       const msg = 'Please select a start date';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+
+    // Validate maximum 3 days selected
+    const selectedDaysCount = countSelectedDays(schedule.daysOfWeeks);
+    if (selectedDaysCount === 0) {
+      const msg = 'Please select at least one day of the week';
+      setError(msg);
+      showError(msg);
+      return;
+    }
+    if (selectedDaysCount > 3) {
+      const msg = 'You can only select a maximum of 3 days per week. Please deselect some days.';
       setError(msg);
       showError(msg);
       return;
@@ -1066,7 +1151,7 @@ const CreateContract: React.FC = () => {
     }
   };
 
-  const handlePayment = async () => {
+  const handlePayment = () => {
     if (!selectedChild || !selectedPackage || !user?.id) {
       setError('Please select child and package');
       return;
@@ -1081,6 +1166,16 @@ const CreateContract: React.FC = () => {
       const errorMsg = `Insufficient wallet balance. You need ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(insufficientAmount)} more. Please top up your wallet first or choose bank transfer.`;
       setError(errorMsg);
       showError(errorMsg);
+      return;
+    }
+
+    // Show confirmation dialog before creating contract
+    setShowConfirmDialog(true);
+  };
+
+  const createContractInternal = async () => {
+    if (!selectedChild || !selectedPackage || !user?.id) {
+      setError('Please select child and package');
       return;
     }
 
@@ -1195,6 +1290,43 @@ const CreateContract: React.FC = () => {
           const firstSchoolName = firstChild.schoolName || 'selected school';
           const secondSchoolName = secondChild.schoolName || 'this school';
           const errorMsg = `Group study requires students to be from the same school. ${firstChild.fullName}: ${firstSchoolName}, ${secondChild.fullName}: ${secondSchoolName}`;
+          setError(errorMsg);
+          showError(errorMsg);
+          setIsCreating(false);
+          return;
+        }
+        
+        // Validate same date of birth (year, month, day must match)
+        const firstDateOfBirth = firstChild.dateOfBirth;
+        const secondDateOfBirth = secondChild.dateOfBirth;
+        
+        if (firstDateOfBirth && secondDateOfBirth) {
+          // Normalize dates to YYYY-MM-DD format for comparison (ignore time if present)
+          const normalizeDate = (dateStr: string): string => {
+            // If date includes time, extract just the date part
+            if (dateStr.includes('T')) {
+              return dateStr.split('T')[0];
+            }
+            // If date includes space, extract just the date part
+            if (dateStr.includes(' ')) {
+              return dateStr.split(' ')[0];
+            }
+            return dateStr;
+          };
+          
+          const normalizedFirstDate = normalizeDate(firstDateOfBirth);
+          const normalizedSecondDate = normalizeDate(secondDateOfBirth);
+          
+          if (normalizedFirstDate !== normalizedSecondDate) {
+            const errorMsg = `Group study requires students to have the same date of birth. ${firstChild.fullName}: ${normalizedFirstDate}, ${secondChild.fullName}: ${normalizedSecondDate}`;
+            setError(errorMsg);
+            showError(errorMsg);
+            setIsCreating(false);
+            return;
+          }
+        } else if (firstDateOfBirth || secondDateOfBirth) {
+          // One child has dateOfBirth but the other doesn't
+          const errorMsg = `Both students must have date of birth information. Please update the missing date of birth.`;
           setError(errorMsg);
           showError(errorMsg);
           setIsCreating(false);
@@ -1431,6 +1563,15 @@ const CreateContract: React.FC = () => {
       // Validate schedules array before submitting
       if (!schedules || schedules.length === 0) {
         const errorMsg = 'No schedules selected. Please select at least one day with time slot.';
+        setError(errorMsg);
+        showError(errorMsg);
+        setIsCreating(false);
+        return;
+      }
+
+      // Validate maximum 3 days selected
+      if (schedules.length > 3) {
+        const errorMsg = 'You can only select a maximum of 3 days per week. Please deselect some days.';
         setError(errorMsg);
         showError(errorMsg);
         setIsCreating(false);
@@ -2122,14 +2263,23 @@ const CreateContract: React.FC = () => {
                               ...prev,
                               daysOfWeeks: prev.daysOfWeeks & ~day.value
                             }));
+                            setError(null);
                           } else {
+                            // Select day - check if already selected 3 days
+                            const currentSelectedCount = countSelectedDays(schedule.daysOfWeeks);
+                            if (currentSelectedCount >= 3) {
+                              const errorMsg = 'You can only select a maximum of 3 days per week. Please deselect a day first.';
+                              setError(errorMsg);
+                              showError(errorMsg);
+                              return;
+                            }
                             // Select day
                             setSchedule(prev => ({
                               ...prev,
                               daysOfWeeks: prev.daysOfWeeks | day.value
                             }));
+                            setError(null);
                           }
-                          setError(null);
                         }}
                         className={`p-3 rounded-lg border-2 transition-all ${
                           isSelected
@@ -3574,6 +3724,31 @@ const CreateContract: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Confirmation Dialog for Contract Creation */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        title="Confirm Contract Creation"
+        message={
+          <>
+            Are you sure you want to create this contract?{' '}
+            <strong className="font-bold text-amber-700">Important Notice:</strong> Once the contract status changes to{' '}
+            <strong className="font-bold text-amber-700">'Active'</strong>, you will{' '}
+            <strong className="font-bold text-amber-700">not be able to request a refund</strong>. Refunds are only available when the contract is in{' '}
+            <strong className="font-bold text-amber-700">'Pending'</strong> status.
+          </>
+        }
+        confirmText="Confirm & Create"
+        cancelText="Cancel"
+        type="warning"
+        onConfirm={() => {
+          setShowConfirmDialog(false);
+          createContractInternal();
+        }}
+        onCancel={() => {
+          setShowConfirmDialog(false);
+        }}
+      />
     </div>
     </>
   );

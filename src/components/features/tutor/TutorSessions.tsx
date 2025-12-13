@@ -562,7 +562,7 @@ const TutorSessions: React.FC = () => {
                           {formatTime(session.startTime)}
                         </div>
                         <div className="truncate text-[9px] sm:text-[10px] opacity-90">
-                          {session.childName || 'Student'}
+                          {session.childName || session.studentName || 'Student'}
                         </div>
                         <div className="flex items-center gap-0.5 mt-0.5">
                           {session.isOnline ? (
