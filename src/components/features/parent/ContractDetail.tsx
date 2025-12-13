@@ -176,6 +176,14 @@ const ContractDetail: React.FC = () => {
           return;
         }
 
+        // Debug: Log contract data to check SecondChildName
+        if (import.meta.env.DEV) {
+          console.log('Contract Data:', contractData);
+          console.log('SecondChildName:', contractData.SecondChildName, contractData.secondChildName);
+          console.log('SecondChildId:', contractData.SecondChildId, contractData.secondChildId);
+          console.log('Available keys:', Object.keys(contractData));
+        }
+
         // Map backend data to frontend format
         // Fetch package details to get base price
         let totalSessions = contractData.TotalSessions || contractData.totalSessions || 0;
@@ -276,11 +284,30 @@ const ContractDetail: React.FC = () => {
           }
         }
 
+        // Extract second child name - handle various formats and empty strings
+        let secondChildName: string | null = null;
+        const secondChildNameValue = contractData.SecondChildName ?? contractData.secondChildName;
+        const secondChildId = contractData.SecondChildId ?? contractData.secondChildId;
+        
+        // If we have a SecondChildId, we should have a SecondChildName
+        // Handle empty string, null, undefined cases
+        if (secondChildId && (secondChildNameValue === null || secondChildNameValue === undefined || secondChildNameValue === '')) {
+          // If we have SecondChildId but no name, log a warning
+          if (import.meta.env.DEV) {
+            console.warn('Contract has SecondChildId but no SecondChildName. SecondChildId:', secondChildId);
+          }
+        }
+        
+        // Set secondChildName if we have a valid non-empty string
+        if (secondChildNameValue && typeof secondChildNameValue === 'string' && secondChildNameValue.trim() !== '') {
+          secondChildName = secondChildNameValue.trim();
+        }
+
         // Map to frontend format
         const mappedContract: ContractDetail = {
           id: contractData.ContractId || contractData.contractId || contractData.id || contractId,
           childName: contractData.ChildName || contractData.childName || 'N/A',
-          secondChildName: contractData.SecondChildName || contractData.secondChildName || null,
+          secondChildName: secondChildName,
           tutorName: contractData.MainTutorName || contractData.mainTutorName || 'Tutor not assigned',
           tutorEmail: contractData.MainTutorEmail || contractData.mainTutorEmail || '',
           tutorPhone: contractData.MainTutorPhone || contractData.mainTutorPhone || '',

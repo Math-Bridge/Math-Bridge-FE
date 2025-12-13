@@ -3922,9 +3922,10 @@ export async function getParentSessions(_parentId?: string) {
       startTime: item.startTime || item.StartTime || item.start_time || '',
       endTime: item.endTime || item.EndTime || item.end_time || '',
       tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
-      // Backend SessionDto has ChildName field (line 17 in SessionDto.cs)
-      childName: item.childName || item.ChildName || item.child_name || item.studentName || item.StudentName || item.student_name || undefined,
-      studentName: item.studentName || item.StudentName || item.student_name || item.childName || item.ChildName || item.child_name || undefined,
+      // Backend SessionDto has StudentNames field (contains both children if contract has SecondChild)
+      // Format: "Child1" or "Child1 & Child2"
+      childName: item.studentNames || item.StudentNames || item.childName || item.ChildName || item.child_name || item.studentName || item.StudentName || item.student_name || undefined,
+      studentName: item.studentNames || item.StudentNames || item.studentName || item.StudentName || item.student_name || item.childName || item.ChildName || item.child_name || undefined,
       packageName: item.packageName || item.PackageName || item.package_name || undefined,
       isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
       videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
@@ -3995,8 +3996,10 @@ export async function getSessionById(bookingId: string) {
       startTime: result.data.startTime || result.data.StartTime || result.data.start_time || '',
       endTime: result.data.endTime || result.data.EndTime || result.data.end_time || '',
       tutorName: result.data.tutorName || result.data.TutorName || result.data.tutor_name || '',
-      studentName: result.data.studentName || result.data.StudentName || result.data.student_name || undefined,
-      childName: result.data.childName || result.data.ChildName || result.data.child_name || undefined,
+      // Backend SessionDto has StudentNames field (contains both children if contract has SecondChild)
+      // Format: "Child1" or "Child1 & Child2"
+      studentName: result.data.studentNames || result.data.StudentNames || result.data.studentName || result.data.StudentName || result.data.student_name || undefined,
+      childName: result.data.studentNames || result.data.StudentNames || result.data.childName || result.data.ChildName || result.data.child_name || undefined,
       packageName: result.data.packageName || result.data.PackageName || result.data.package_name || undefined,
       isOnline: result.data.isOnline ?? result.data.IsOnline ?? result.data.is_online ?? false,
       videoCallPlatform: result.data.videoCallPlatform || result.data.VideoCallPlatform || result.data.video_call_platform || undefined,
@@ -4049,7 +4052,10 @@ export async function getTutorSessions(tutorId?: string) {
       startTime: item.startTime || item.StartTime || item.start_time || '',
       endTime: item.endTime || item.EndTime || item.end_time || '',
       tutorName: item.tutorName || item.TutorName || item.tutor_name || '',
-      childName: item.childName || item.ChildName || item.child_name || undefined,
+      // Backend SessionDto has StudentNames field (contains both children if contract has SecondChild)
+      // Format: "Child1" or "Child1 & Child2"
+      childName: item.studentNames || item.StudentNames || item.childName || item.ChildName || item.child_name || item.studentName || item.StudentName || item.student_name || undefined,
+      studentName: item.studentNames || item.StudentNames || item.studentName || item.StudentName || item.student_name || item.childName || item.ChildName || item.child_name || undefined,
       packageName: item.packageName || item.PackageName || item.package_name || undefined,
       isOnline: item.isOnline ?? item.IsOnline ?? item.is_online ?? false,
       videoCallPlatform: item.videoCallPlatform || item.VideoCallPlatform || item.video_call_platform || undefined,
@@ -4082,7 +4088,10 @@ export async function getSessionByIdForTutor(bookingId: string) {
       startTime: result.data.startTime || result.data.StartTime || result.data.start_time || '',
       endTime: result.data.endTime || result.data.EndTime || result.data.end_time || '',
       tutorName: result.data.tutorName || result.data.TutorName || result.data.tutor_name || '',
-      childName: result.data.childName || result.data.ChildName || result.data.child_name || undefined,
+      // Backend SessionDto has StudentNames field (contains both children if contract has SecondChild)
+      // Format: "Child1" or "Child1 & Child2"
+      childName: result.data.studentNames || result.data.StudentNames || result.data.childName || result.data.ChildName || result.data.child_name || result.data.studentName || result.data.StudentName || result.data.student_name || undefined,
+      studentName: result.data.studentNames || result.data.StudentNames || result.data.studentName || result.data.StudentName || result.data.student_name || result.data.childName || result.data.ChildName || result.data.child_name || undefined,
       packageName: result.data.packageName || result.data.PackageName || result.data.package_name || undefined,
       isOnline: result.data.isOnline ?? result.data.IsOnline ?? result.data.is_online ?? false,
       videoCallPlatform: result.data.videoCallPlatform || result.data.VideoCallPlatform || result.data.video_call_platform || undefined,
@@ -4716,14 +4725,19 @@ export interface DailyReport {
   sessionDate?: string;
 }
 
-export interface CreateDailyReportRequest {
+export interface ChildReportData {
   childId: string; // Required
-  bookingId: string; // Required
   notes?: string; // Optional, max 1000 chars
   url?: string; // Optional
   onTrack: boolean; // Required
   haveHomework: boolean; // Required
   unitId: string; // Required
+}
+
+export interface CreateDailyReportRequest {
+  bookingId: string; // Required
+  mainChild: ChildReportData; // Required
+  secondChild?: ChildReportData; // Optional - only needed if contract has SecondChildId
 }
 
 export interface UpdateDailyReportRequest {
@@ -5339,37 +5353,76 @@ export async function getChildUnitProgress(contractId: string) {
 export async function createDailyReport(data: CreateDailyReportRequest) {
   try {
     // Validate required fields
-    if (!data.childId || !data.bookingId || !data.unitId) {
+    if (!data.bookingId || !data.mainChild || !data.mainChild.childId || !data.mainChild.unitId) {
       return {
         success: false,
         data: null,
-        error: 'Missing required fields: childId, bookingId, and unitId are required',
+        error: 'Missing required fields: bookingId, mainChild.childId, and mainChild.unitId are required',
       };
     }
 
-    // Validate notes length
-    if (data.notes && data.notes.length > 1000) {
+    // Validate notes length for main child
+    if (data.mainChild.notes && data.mainChild.notes.length > 1000) {
       return {
         success: false,
         data: null,
-        error: 'Notes cannot exceed 1000 characters',
+        error: 'Main child notes cannot exceed 1000 characters',
       };
     }
 
+    // Validate notes length for second child (if provided)
+    if (data.secondChild?.notes && data.secondChild.notes.length > 1000) {
+      return {
+        success: false,
+        data: null,
+        error: 'Second child notes cannot exceed 1000 characters',
+      };
+    }
+
+    // Build request body matching backend structure
     const requestBody: any = {
-      childId: data.childId,
       bookingId: data.bookingId,
-      onTrack: data.onTrack,
-      haveHomework: data.haveHomework,
-      unitId: data.unitId,
+      mainChild: {
+        childId: data.mainChild.childId,
+        onTrack: data.mainChild.onTrack,
+        haveHomework: data.mainChild.haveHomework,
+        unitId: data.mainChild.unitId,
+      },
     };
-    
-    if (data.notes && data.notes.trim() !== '') {
-      requestBody.notes = data.notes.trim();
+
+    // Add optional fields for main child
+    if (data.mainChild.notes && data.mainChild.notes.trim() !== '') {
+      requestBody.mainChild.notes = data.mainChild.notes.trim();
     }
     
-    if (data.url && data.url.trim() !== '') {
-      requestBody.url = data.url.trim();
+    if (data.mainChild.url && data.mainChild.url.trim() !== '') {
+      requestBody.mainChild.url = data.mainChild.url.trim();
+    }
+
+    // Add second child if provided
+    if (data.secondChild) {
+      if (!data.secondChild.childId || !data.secondChild.unitId) {
+        return {
+          success: false,
+          data: null,
+          error: 'Second child requires childId and unitId',
+        };
+      }
+
+      requestBody.secondChild = {
+        childId: data.secondChild.childId,
+        onTrack: data.secondChild.onTrack,
+        haveHomework: data.secondChild.haveHomework,
+        unitId: data.secondChild.unitId,
+      };
+
+      if (data.secondChild.notes && data.secondChild.notes.trim() !== '') {
+        requestBody.secondChild.notes = data.secondChild.notes.trim();
+      }
+      
+      if (data.secondChild.url && data.secondChild.url.trim() !== '') {
+        requestBody.secondChild.url = data.secondChild.url.trim();
+      }
     }
     
     const result = await apiService.request<{ message: string; reportId: string }>(`/daily-reports`, {
