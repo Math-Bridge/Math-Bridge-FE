@@ -80,7 +80,18 @@ const Login: React.FC = () => {
         navigate('/home', { replace: true });
       }
     } else {
-      setErrors({ general: result.error || t('loginFailed') });
+      // If error is a translation key, use it; otherwise use the error message directly
+      const errorMessage = result.error || t('loginFailed');
+      // Check if it's a translation key (doesn't contain spaces and matches a known pattern)
+      const isTranslationKey = errorMessage && !errorMessage.includes(' ') && 
+        (errorMessage.includes('invalidCredentials') || 
+         errorMessage.includes('accountLocked') || 
+         errorMessage.includes('tooManyAttempts') || 
+         errorMessage.includes('networkError') || 
+         errorMessage.includes('emailNotVerified') ||
+         errorMessage.includes('googleLoginFailed'));
+      
+      setErrors({ general: isTranslationKey ? t(errorMessage as any) : errorMessage });
     }
   };
 
@@ -144,11 +155,31 @@ const Login: React.FC = () => {
         }
       } else {
         console.error('Google login failed:', loginResult.error);
-        setErrors({ general: loginResult.error || "Google login failed" });
+        const errorMessage = loginResult.error || 'googleLoginFailed';
+        // Check if it's a translation key
+        const isTranslationKey = errorMessage && !errorMessage.includes(' ') && 
+          (errorMessage.includes('invalidCredentials') || 
+           errorMessage.includes('accountLocked') || 
+           errorMessage.includes('tooManyAttempts') || 
+           errorMessage.includes('networkError') || 
+           errorMessage.includes('emailNotVerified') ||
+           errorMessage.includes('googleLoginFailed'));
+        
+        setErrors({ general: isTranslationKey ? t(errorMessage as any) : errorMessage });
       }
     } catch (error: any) {
       console.error('Google login error:', error);
-      setErrors({ general: error.message || "Google login failed" });
+      const errorMessage = error.message || 'googleLoginFailed';
+      // Check if it's a translation key
+      const isTranslationKey = errorMessage && !errorMessage.includes(' ') && 
+        (errorMessage.includes('invalidCredentials') || 
+         errorMessage.includes('accountLocked') || 
+         errorMessage.includes('tooManyAttempts') || 
+         errorMessage.includes('networkError') || 
+         errorMessage.includes('emailNotVerified') ||
+         errorMessage.includes('googleLoginFailed'));
+      
+      setErrors({ general: isTranslationKey ? t(errorMessage as any) : errorMessage });
     } finally {
       setIsGoogleLoading(false);
     }

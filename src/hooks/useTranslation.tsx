@@ -1,4 +1,4 @@
-import { useSettings } from '../contexts/SettingsContext';
+import { useSettings, Language } from '../contexts/SettingsContext';
 
 type TranslationKey = 
   | 'myChildren'
@@ -387,6 +387,7 @@ type TranslationKey =
   | 'invalidCredentials'
   | 'accountLocked'
   | 'tooManyAttempts'
+  | 'emailNotVerified'
   | 'signup'
   | 'createAccount'
   | 'fullName'
@@ -849,9 +850,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loginSuccess: 'Login successful',
     googleLoginSuccess: 'Google login successful',
     googleLoginFailed: 'Google login failed',
-    invalidCredentials: 'Invalid credentials',
+    invalidCredentials: 'Email or password is invalid',
     accountLocked: 'Account locked',
     tooManyAttempts: 'Too many attempts',
+    emailNotVerified: 'Email not verified. Please check your email and verify your account.',
     signup: 'Sign Up',
     createAccount: 'Create Account',
     fullName: 'Full Name',
@@ -1313,9 +1315,10 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     loginSuccess: 'Đăng nhập thành công',
     googleLoginSuccess: 'Đăng nhập Google thành công',
     googleLoginFailed: 'Đăng nhập Google thất bại',
-    invalidCredentials: 'Thông tin đăng nhập không hợp lệ',
+    invalidCredentials: 'Email hoặc mật khẩu không hợp lệ',
     accountLocked: 'Tài khoản bị khóa',
     tooManyAttempts: 'Quá nhiều lần thử',
+    emailNotVerified: 'Email chưa được xác minh. Vui lòng kiểm tra email và xác minh tài khoản của bạn.',
     signup: 'Đăng ký',
     createAccount: 'Tạo tài khoản',
     fullName: 'Họ và tên',

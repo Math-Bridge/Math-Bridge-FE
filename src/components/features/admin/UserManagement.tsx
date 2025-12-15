@@ -1175,7 +1175,7 @@ const UserManagement: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, roleId: parseInt(e.target.value) })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="1">Admin</option>
+                    {/* <option value="1">Admin</option> */}
                     <option value="2">Tutor</option>
                     <option value="3">Parent</option>
                     <option value="4">Staff</option>

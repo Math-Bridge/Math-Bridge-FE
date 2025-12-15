@@ -1,6 +1,33 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { apiService, User } from '../services/api';
 
+// Helper function to map backend error messages to translation keys
+const mapErrorToTranslationKey = (error: string | undefined): string | undefined => {
+  if (!error) return undefined;
+  
+  const errorLower = error.toLowerCase();
+  
+  // Map common backend error messages to translation keys
+  if (errorLower.includes('invalid credentials') || errorLower.includes('invalid credential')) {
+    return 'invalidCredentials';
+  }
+  if (errorLower.includes('account is banned') || errorLower.includes('banned')) {
+    return 'accountLocked';
+  }
+  if (errorLower.includes('too many attempts') || errorLower.includes('too many')) {
+    return 'tooManyAttempts';
+  }
+  if (errorLower.includes('network error') || errorLower.includes('network')) {
+    return 'networkError';
+  }
+  if (errorLower.includes('email not verified') || errorLower.includes('not verified')) {
+    return 'emailNotVerified';
+  }
+  
+  // Return original error if no mapping found
+  return error;
+};
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -64,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; needsLocationSetup?: boolean; needsVerification?: boolean }> => {
     console.log('useAuth.login called with:', { email, passwordLength: password.length });
     setIsLoading(true);
     try {
@@ -192,11 +219,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } else {
         console.error('Login failed:', response.error);
-        return { success: false, error: response.error };
+        // Map error to translation key
+        const errorKey = mapErrorToTranslationKey(response.error);
+        return { success: false, error: errorKey || response.error };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'An unexpected error occurred during login' };
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred during login';
+      const errorKey = mapErrorToTranslationKey(errorMessage);
+      return { success: false, error: errorKey || errorMessage };
     } finally {
       setIsLoading(false);
     }
@@ -341,11 +372,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } else {
         console.error('Google login failed:', response.error);
-        return { success: false, error: response.error || 'Google login failed' };
+        const errorKey = mapErrorToTranslationKey(response.error || 'Google login failed');
+        return { success: false, error: errorKey || response.error || 'googleLoginFailed' };
       }
     } catch (error) {
       console.error('Google login network error:', error);
-      return { success: false, error: 'Network error occurred during Google login' };
+      const errorMessage = error instanceof Error ? error.message : 'Network error occurred during Google login';
+      const errorKey = mapErrorToTranslationKey(errorMessage);
+      return { success: false, error: errorKey || 'networkError' };
     } finally {
       setIsLoading(false);
     }
