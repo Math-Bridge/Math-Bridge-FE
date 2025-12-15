@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown, ExternalLink, Link as LinkIcon, Plus, Copy, Check, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, Monitor, MapPin, AlertCircle, X, User, ChevronDown, ExternalLink, Link as LinkIcon, Plus, Copy, Check, RefreshCw, FileText, CheckCircle, XCircle } from 'lucide-react';
 import {
   getSessionsByChildId,
   Session,
@@ -10,6 +10,8 @@ import {
   CreateVideoConferenceRequest,
   getContractsByParent,
   Contract,
+  getDailyReportsByChild,
+  DailyReport,
 } from '../../../services/api';
 
 // Lightweight representation of raw child coming from API mapping with varied casing
@@ -47,6 +49,8 @@ const StudySchedule: React.FC = () => {
   const [creatingVideoConference, setCreatingVideoConference] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showReschedulePopup, setShowReschedulePopup] = useState(false);
+  const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
   const { showSuccess } = useToast();
 
   const fetchChildren = async () => {
@@ -151,13 +155,56 @@ const StudySchedule: React.FC = () => {
     }
   };
 
+  // Fetch daily reports for selected child
+  const fetchDailyReports = async (childId: string) => {
+    if (!childId) {
+      setDailyReports([]);
+      return;
+    }
+
+    setLoadingReports(true);
+    try {
+      const reportsRes = await getDailyReportsByChild(childId);
+      
+      if (reportsRes.success && reportsRes.data) {
+        // Enrich reports with child name if missing
+        const enrichedReports = reportsRes.data.map((report: DailyReport) => {
+          // If childName is missing, try to get it from children list
+          if (!report.childName && report.childId) {
+            const child = children.find(c => c.childId === report.childId);
+            if (child) {
+              return { ...report, childName: child.fullName };
+            }
+          }
+          return report;
+        });
+        
+        // Sort by date descending (newest first)
+        const sorted = enrichedReports.sort((a, b) => {
+          const dateA = new Date(a.sessionDate || a.createdDate).getTime();
+          const dateB = new Date(b.sessionDate || b.createdDate).getTime();
+          return dateB - dateA;
+        });
+        
+        setDailyReports(sorted);
+      } else {
+        setDailyReports([]);
+      }
+    } catch (err) {
+      console.error('Error fetching daily reports:', err);
+      setDailyReports([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
   useEffect(() => {
     fetchChildren();
     fetchContracts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Fetch sessions when child is selected or contracts change
+  // Fetch sessions and daily reports when child is selected or contracts change
   useEffect(() => {
     // Clear selected session and session detail when child changes
     setSelectedSession(null);
@@ -165,18 +212,21 @@ const StudySchedule: React.FC = () => {
     
     if (selectedChildId) {
       fetchSessionsForChild(selectedChildId);
+      fetchDailyReports(selectedChildId);
       
-      // Auto-reload sessions every 30 seconds
+      // Auto-reload sessions and reports every 30 seconds
       const sessionsInterval = setInterval(() => {
         fetchSessionsForChild(selectedChildId);
+        fetchDailyReports(selectedChildId);
       }, 30000);
       
       return () => clearInterval(sessionsInterval);
     } else {
       setSessions([]);
+      setDailyReports([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChildId, contracts]);
+  }, [selectedChildId, contracts, children]);
 
   const fetchSessionDetail = async (bookingId: string, autoCreateLink: boolean = false) => {
     try {
@@ -961,6 +1011,87 @@ const StudySchedule: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Daily Reports Section */}
+                  {selectedSession && (() => {
+                    const sessionReports = dailyReports.filter(report => report.bookingId === selectedSession.bookingId);
+                    return sessionReports.length > 0 ? (
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <h4 className="text-lg font-bold text-gray-900">Daily Reports</h4>
+                          <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
+                            {sessionReports.length}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {sessionReports.map((report) => (
+                            <div key={report.reportId} className="bg-gray-50 rounded-xl p-4 border-2 border-primary/20">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-3 mb-2">
+                                    <Calendar className="w-4 h-4 text-gray-500" />
+                                    <span className="text-sm font-semibold text-gray-700">
+                                      {report.sessionDate 
+                                        ? new Date(report.sessionDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+                                        : new Date(report.createdDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    </span>
+                                    {report.onTrack ? (
+                                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold flex items-center space-x-1">
+                                        <CheckCircle className="w-3 h-3" />
+                                        <span>On Track</span>
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold flex items-center space-x-1">
+                                        <XCircle className="w-3 h-3" />
+                                        <span>Off Track</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  {report.childName && (
+                                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                                      <User className="w-4 h-4" />
+                                      <span>{report.childName}</span>
+                                    </div>
+                                  )}
+                                  {report.unitName && (
+                                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                                      <FileText className="w-4 h-4" />
+                                      <span>{report.unitName}</span>
+                                    </div>
+                                  )}
+                                  {report.haveHomework && (
+                                    <div className="flex items-center space-x-2 text-sm text-blue-600 mb-2">
+                                      <FileText className="w-4 h-4" />
+                                      <span>Has Homework</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {report.notes && (
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{report.notes}</p>
+                                </div>
+                              )}
+                              {report.url && (
+                                <div className="mt-3 pt-3 border-t border-gray-200">
+                                  <a
+                                    href={report.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2"
+                                  >
+                                    <span>View Resource</span>
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
 
                   {/* Actions */}
                   <div className="mt-6 pt-6 border-t border-gray-200">

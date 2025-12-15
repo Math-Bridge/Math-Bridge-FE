@@ -515,8 +515,64 @@ const ContractDetail: React.FC = () => {
         // Use contract-specific endpoint to get only reports for this contract
         const reportsResult = await getDailyReportsByContractId(contract.id);
         if (reportsResult.success && reportsResult.data) {
+          // Get child IDs from contract raw data to match correctly
+          const contractData = contractRawData || contract as any;
+          const mainChildId = contractData?.ChildId || contractData?.childId || null;
+          const secondChildId = contractData?.SecondChildId || contractData?.secondChildId || null;
+          
+          // Helper function to normalize IDs for comparison (handle string and GUID formats)
+          const normalizeId = (id: string | null | undefined): string => {
+            if (!id) return '';
+            return String(id).toLowerCase().trim();
+          };
+          
+          // Enrich reports with correct child name based on childId
+          const enrichedReports = reportsResult.data.map((report: DailyReport) => {
+            // If report already has childName, keep it (but verify it's correct)
+            if (report.childName) {
+              // Still verify if we can improve it based on childId
+              const reportChildId = normalizeId(report.childId);
+              const normalizedMainChildId = normalizeId(mainChildId);
+              const normalizedSecondChildId = normalizeId(secondChildId);
+              
+              // If childId matches second child but name doesn't, correct it
+              if (reportChildId && normalizedSecondChildId && reportChildId === normalizedSecondChildId) {
+                if (contract.secondChildName && report.childName !== contract.secondChildName) {
+                  return { ...report, childName: contract.secondChildName };
+                }
+              }
+              // If childId matches main child but name doesn't, correct it
+              if (reportChildId && normalizedMainChildId && reportChildId === normalizedMainChildId) {
+                if (contract.childName && report.childName !== contract.childName) {
+                  return { ...report, childName: contract.childName };
+                }
+              }
+              return report;
+            }
+            
+            // Try to determine child name from childId
+            const reportChildId = normalizeId(report.childId);
+            const normalizedMainChildId = normalizeId(mainChildId);
+            const normalizedSecondChildId = normalizeId(secondChildId);
+            
+            // Compare report's childId with contract's child IDs
+            if (reportChildId && normalizedMainChildId && reportChildId === normalizedMainChildId) {
+              // Report belongs to main child
+              return { ...report, childName: contract.childName };
+            } else if (reportChildId && normalizedSecondChildId && reportChildId === normalizedSecondChildId) {
+              // Report belongs to second child
+              return { ...report, childName: contract.secondChildName || contract.childName };
+            } else if (!reportChildId && contract.childName) {
+              // No childId in report, fallback to main child name
+              return { ...report, childName: contract.childName };
+            }
+            
+            // If we can't determine, return report as is
+            return report;
+          });
+          
           // Sort by date descending
-          const sorted = [...reportsResult.data].sort((a, b) => {
+          const sorted = [...enrichedReports].sort((a, b) => {
             const dateA = new Date(a.createdDate).getTime();
             const dateB = new Date(b.createdDate).getTime();
             return dateB - dateA;
@@ -544,7 +600,7 @@ const ContractDetail: React.FC = () => {
     if (activeTab === 'dailyReports') {
       fetchDailyReports();
     }
-  }, [contract?.id, activeTab]);
+  }, [contract?.id, contract?.childName, contract?.secondChildName, contractRawData, activeTab]);
 
   // Fetch units and unit progress when curriculum tab is active
   useEffect(() => {
@@ -1722,6 +1778,11 @@ const ContractDetail: React.FC = () => {
                               <p className="text-sm text-gray-600">
                                 {report.unitName || 'No unit specified'}
                               </p>
+                              {(report.childName || report.ChildName) && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {report.childName || report.ChildName}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center space-x-3">
@@ -1746,6 +1807,13 @@ const ContractDetail: React.FC = () => {
                         {expandedReportId === (report.reportId || report.ReportId) && (
                           <div className="mt-4 pt-4 border-t border-gray-200">
                             <div className="space-y-3">
+                              {(report.childName || report.ChildName) && (
+                                <div className="flex items-center space-x-2 text-sm">
+                                  <User className="w-4 h-4 text-purple-500" />
+                                  <span className="text-gray-600">Student:</span>
+                                  <span className="font-medium text-gray-900">{report.childName || report.ChildName}</span>
+                                </div>
+                              )}
                               {(report.tutorName || report.TutorName) && (
                                 <div className="flex items-center space-x-2 text-sm">
                                   <User className="w-4 h-4 text-gray-400" />
