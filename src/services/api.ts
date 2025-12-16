@@ -2290,7 +2290,7 @@ export async function getTutorAvailabilitiesByTutorId(tutorId: string) {
 
 // POST /api/tutor-availabilities
 export async function createTutorAvailability(data: CreateTutorAvailabilityRequest) {
-  const result = await apiService.request<any>(`/tutor-availabilities`, {
+  const result = await apiService.request<any>(`/tutor-availabi lities`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -5089,7 +5089,7 @@ export async function getDailyReportsByChild(childId: string) {
 // Get all daily reports for a contract
 export async function getDailyReportsByContractId(contractId: string) {
   try {
-    const result = await apiService.request<any[]>(`/daily-reports/contract/${contractId}`, {
+    const result = await apiService.request<any>(`/daily-reports/contract/${contractId}`, {
       method: 'GET',
     });
     
@@ -5110,6 +5110,31 @@ export async function getDailyReportsByContractId(contractId: string) {
     }
     
     if (result.success && result.data) {
+      // New BE structure: { contractId, sessions: [{ bookingId, sessionDate, startTime, endTime, reports: [...] }] }
+      // Flatten the reports from all sessions into a single array
+      let allReports: any[] = [];
+      
+      if (result.data.sessions && Array.isArray(result.data.sessions)) {
+        // New grouped structure - extract reports from each session
+        result.data.sessions.forEach((session: any) => {
+          if (session.reports && Array.isArray(session.reports)) {
+            session.reports.forEach((report: any) => {
+              // Add session info to each report
+              allReports.push({
+                ...report,
+                sessionDate: session.sessionDate || report.sessionDate,
+                startTime: session.startTime,
+                endTime: session.endTime,
+                bookingId: session.bookingId || report.bookingId,
+              });
+            });
+          }
+        });
+      } else if (Array.isArray(result.data)) {
+        // Fallback: if it's still an array (old format), use it directly
+        allReports = result.data;
+      }
+      
       // Fetch all units to map unit IDs to names
       let unitsMap: { [key: string]: string } = {};
       try {
@@ -5126,7 +5151,7 @@ export async function getDailyReportsByContractId(contractId: string) {
         console.warn('Failed to fetch units for enrichment:', error);
       }
 
-      const mappedData: DailyReport[] = result.data.map((item: any) => {
+      const mappedData: DailyReport[] = allReports.map((item: any) => {
         const unitId = item.unitId || item.UnitId || '';
         const unitName = item.unitName || item.UnitName || (unitId && unitsMap[unitId] ? unitsMap[unitId] : undefined);
         

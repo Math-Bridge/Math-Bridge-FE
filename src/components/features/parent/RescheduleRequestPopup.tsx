@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -9,7 +9,15 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '../../../hooks/useTranslation';
-import { createRescheduleRequest, CreateRescheduleRequest, getSessionsByChildId, Session } from '../../../services/api';
+import { 
+  createRescheduleRequest, 
+  CreateRescheduleRequest, 
+  getSessionsByChildId, 
+  Session,
+  getContractById,
+  getTutorAvailabilitiesByTutorId,
+  TutorAvailability
+} from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface RescheduleRequestPopupProps {
@@ -17,10 +25,11 @@ interface RescheduleRequestPopupProps {
   onClose: () => void;
   onSuccess?: () => void; // Callback when request is successfully created
   currentSession: {
-    bookingId: string; // Required: bookingId from session
+    bookingId: string; // Required: bookingId from session  
     date: string;
     time: string;
     topic?: string;
+    contractId?: string; // Optional: contractId to fetch tutor availability
   };
   tutorName: string;
   childId?: string; // Optional: childId to fetch existing sessions
@@ -46,6 +55,11 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   const [selectedWeek, setSelectedWeek] = useState(0);
   const [existingSessions, setExistingSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [tutorAvailabilities, setTutorAvailabilities] = useState<{
+    mainTutor: TutorAvailability[];
+    subTutor: TutorAvailability[];
+  }>({ mainTutor: [], subTutor: [] });
+  const [loadingAvailabilities, setLoadingAvailabilities] = useState(false);
   
   // Valid start times: 16:00, 17:30, 19:00, 20:30
   const VALID_START_TIMES = ['16:00', '17:30', '19:00', '20:30'];
@@ -61,120 +75,113 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     return `${endHours}:${endMinutes}`;
   };
 
-  // Generate weekly schedule (7 days starting from today, excluding past dates and past time slots)
-  const generateWeeklySchedule = () => {
-    // Use local date to avoid timezone issues
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+  // Check if a slot is available for both tutors
+  const isSlotAvailableForTutors = (date: string, time: string): boolean => {
+    // If no contract ID, show all slots (backward compatibility)
+    if (!currentSession.contractId) return true;
     
-    // Start from today + (selectedWeek * 7) days
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() + (selectedWeek * 7));
-    
-    const weekDays = [];
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    
-    // Generate 7 days, but only include dates from today onwards
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      
-      // Only include dates that are today or in the future
-      if (date >= today) {
-        // Format date as YYYY-MM-DD in local timezone
-        const dateYear = date.getFullYear();
-        const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
-        const dateDay = String(date.getDate()).padStart(2, '0');
-        const dateStr = `${dateYear}-${dateMonth}-${dateDay}`;
-        
-        // Check if this is today
-        const isToday = date.getTime() === today.getTime();
-        
-        // Filter slots: if today, only include future time slots
-        const availableSlots = VALID_START_TIMES.filter(time => {
-          if (!isToday) return true; // All slots available for future dates
-          
-          // For today, check if the time slot is in the future
-          const [hours, minutes] = time.split(':').map(Number);
-          const slotTime = hours * 60 + minutes; // Convert to minutes
-          const currentTime = currentHour * 60 + currentMinute;
-          
-          return slotTime > currentTime; // Only include slots that haven't passed yet
-        }).map(time => ({
-          time,
-          endTime: calculateEndTime(time),
-          id: `${dateStr}-${time}`,
-        }));
-        
-        // Only add day if it has available slots
-        if (availableSlots.length > 0) {
-          weekDays.push({
-            date: dateStr,
-            dayName: dayNames[date.getDay()],
-            dayNumber: date.getDate(),
-            isPast: false,
-            slots: availableSlots
-          });
-        }
-      }
-    }
-    
-    return weekDays;
-  };;
-
-  const weeklySchedule = generateWeeklySchedule();
-
-  // Fetch existing sessions when popup opens
-  React.useEffect(() => {
-    if (isOpen && childId) {
-      fetchExistingSessions();
-    } else {
-      setExistingSessions([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, childId]);
-
-  const fetchExistingSessions = async () => {
-    if (!childId) return;
-    
-    try {
-      setLoadingSessions(true);
-      const result = await getSessionsByChildId(childId);
-      if (result.success && result.data) {
-        // Filter out the current session being rescheduled and only get scheduled/completed sessions
-        const sessions = result.data.filter((s: Session) => 
-          s.bookingId !== currentSession.bookingId && 
-          (s.status === 'scheduled' || s.status === 'completed')
-        );
-        setExistingSessions(sessions);
-      }
-    } catch (error) {
-      console.error('Error fetching sessions:', error);
-      // Don't show error - just continue without session data
-    } finally {
-      setLoadingSessions(false);
-    }
-  };
-
-  // Check if a slot is in the past
-  const isSlotInPast = (date: string, time: string): boolean => {
-    const [year, month, day] = date.split('-').map(Number);
-    const slotDate = new Date(year, month - 1, day);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // If date is in the past, slot is in past
-    if (slotDate < today) {
+    // If no tutor availability data, show all slots
+    if (tutorAvailabilities.mainTutor.length === 0 && tutorAvailabilities.subTutor.length === 0) {
       return true;
     }
     
-    // If date is today, check if time is in the past
-    if (slotDate.getTime() === today.getTime()) {
-      const [hours, minutes] = time.split(':').map(Number);
-      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      return slotDateTime <= now;
+    const [year, month, day] = date.split('-').map(Number);
+    const slotDate = new Date(year, month - 1, day);
+    const dayOfWeek = slotDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    // Convert day of week to bitmask (BE format: Sun=1, Mon=2, Tue=4, Wed=8, Thu=16, Fri=32, Sat=64)
+    const dayBitmask = dayOfWeek === 0 ? 1 : Math.pow(2, dayOfWeek);
+    
+    // Parse time
+    const [hours, minutes] = time.split(':').map(Number);
+    const slotTimeMinutes = hours * 60 + minutes;
+    const slotEndTimeMinutes = slotTimeMinutes + 90; // 90 minutes session
+    
+    // Check if main tutor is available
+    const mainTutorAvailable = tutorAvailabilities.mainTutor.length === 0 || 
+      tutorAvailabilities.mainTutor.some(avail => {
+        // Check day of week
+        if ((avail.daysOfWeek & dayBitmask) === 0) return false;
+        
+        // Check date range
+        const effectiveFrom = new Date(avail.effectiveFrom + 'T00:00:00');
+        const effectiveUntil = avail.effectiveUntil 
+          ? new Date(avail.effectiveUntil + 'T23:59:59')
+          : null;
+        
+        if (slotDate < effectiveFrom) return false;
+        if (effectiveUntil && slotDate > effectiveUntil) return false;
+        
+        // Check time range
+        const [availFromHours, availFromMins] = avail.availableFrom.split(':').map(Number);
+        const [availUntilHours, availUntilMins] = avail.availableUntil.split(':').map(Number);
+        const availFromMinutes = availFromHours * 60 + availFromMins;
+        const availUntilMinutes = availUntilHours * 60 + availUntilMins;
+        
+        // Slot must be within tutor's available time range
+        return slotTimeMinutes >= availFromMinutes && slotEndTimeMinutes <= availUntilMinutes;
+      });
+    
+    // Check if sub tutor is available (if exists)
+    const subTutorAvailable = tutorAvailabilities.subTutor.length === 0 ||
+      tutorAvailabilities.subTutor.some(avail => {
+        // Check day of week
+        if ((avail.daysOfWeek & dayBitmask) === 0) return false;
+        
+        // Check date range
+        const effectiveFrom = new Date(avail.effectiveFrom + 'T00:00:00');
+        const effectiveUntil = avail.effectiveUntil 
+          ? new Date(avail.effectiveUntil + 'T23:59:59')
+          : null;
+        
+        if (slotDate < effectiveFrom) return false;
+        if (effectiveUntil && slotDate > effectiveUntil) return false;
+        
+        // Check time range
+        const [availFromHours, availFromMins] = avail.availableFrom.split(':').map(Number);
+        const [availUntilHours, availUntilMins] = avail.availableUntil.split(':').map(Number);
+        const availFromMinutes = availFromHours * 60 + availFromMins;
+        const availUntilMinutes = availUntilHours * 60 + availUntilMins;
+        
+        // Slot must be within tutor's available time range
+        return slotTimeMinutes >= availFromMinutes && slotEndTimeMinutes <= availUntilMinutes;
+      });
+    
+    // Both tutors must be available (or at least main tutor if no sub tutor)
+    return mainTutorAvailable && (tutorAvailabilities.subTutor.length === 0 || subTutorAvailable);
+  };
+
+  // Check if slot is too close to existing sessions (must be at least 1 slot apart)
+  // Ensures slots are at least 180 minutes (2 slots = 1 gap) apart from existing sessions
+  const isSlotTooClose = (date: string, time: string): boolean => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const slotTimeMinutes = hours * 60 + minutes;
+    
+    // Check against existing sessions on the same date
+    if (existingSessions.length > 0) {
+      return existingSessions.some(session => {
+        if (!session.sessionDate || !session.startTime) return false;
+        
+        // Exclude the current session being rescheduled
+        if (session.bookingId === currentSession.bookingId) return false;
+        
+        let sessionDateStr = session.sessionDate;
+        if (sessionDateStr.includes('T')) {
+          sessionDateStr = sessionDateStr.split('T')[0];
+        }
+        if (sessionDateStr !== date) return false;
+        
+        const sessionStart = new Date(session.startTime);
+        const sessionHours = sessionStart.getHours();
+        const sessionMinutes = sessionStart.getMinutes();
+        const sessionTimeMinutes = sessionHours * 60 + sessionMinutes;
+        
+        // Calculate difference in minutes
+        const diff = Math.abs(slotTimeMinutes - sessionTimeMinutes);
+        
+        // If difference is less than 180 minutes (2 slots = 1 gap), it's too close
+        return diff < 180;
+      });
     }
     
     return false;
@@ -217,7 +224,161 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       // Check for time overlap: slot overlaps if it starts before session ends and ends after session starts
       return (slotStart < sessionEnd && slotEnd > sessionStart);
     });
-  };;
+  };
+
+  // Generate weekly schedule (7 days starting from today, showing all slots but disabling unavailable ones)
+  const generateWeeklySchedule = () => {
+    // Use local date to avoid timezone issues
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Start from today + (selectedWeek * 7) days
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() + (selectedWeek * 7));
+    
+    const weekDays = [];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // Generate 7 days, always include all days from today onwards
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      
+      // Only include dates that are today or in the future
+      if (date >= today) {
+        // Format date as YYYY-MM-DD in local timezone
+        const dateYear = date.getFullYear();
+        const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
+        const dateDay = String(date.getDate()).padStart(2, '0');
+        const dateStr = `${dateYear}-${dateMonth}-${dateDay}`;
+        
+        // Check if this is today
+        const isToday = date.getTime() === today.getTime();
+        
+        // Create all slots for this day, but mark them as disabled if not available
+        const allSlots = VALID_START_TIMES.map(time => {
+          // Check if slot is in the past (for today only)
+          let isPast = false;
+          if (isToday) {
+            const [hours, minutes] = time.split(':').map(Number);
+            const slotTime = hours * 60 + minutes;
+            const currentTime = currentHour * 60 + currentMinute;
+            isPast = slotTime <= currentTime;
+          }
+          
+          // Check if slot is available for tutors
+          const isTutorAvailable = isSlotAvailableForTutors(dateStr, time);
+          
+          // Check if slot is booked
+          const isBooked = isSlotBooked(dateStr, time);
+          
+          // Check if slot is too close to existing sessions
+          const isTooClose = isSlotTooClose(dateStr, time);
+          
+          // Slot is disabled if: past, not available for tutors, booked, or too close
+          const isDisabled = isPast || !isTutorAvailable || isBooked || isTooClose;
+          
+          return {
+            time,
+            endTime: calculateEndTime(time),
+            id: `${dateStr}-${time}`,
+            isDisabled,
+            isPast,
+            isBooked,
+            isTutorAvailable,
+            isTooClose
+          };
+        });
+        
+        // Always add day, even if all slots are disabled
+        weekDays.push({
+          date: dateStr,
+          dayName: dayNames[date.getDay()],
+          dayNumber: date.getDate(),
+          isPast: false,
+          slots: allSlots
+        });
+      }
+    }
+    
+    return weekDays;
+  };
+
+  // Use useMemo to recalculate schedule when dependencies change
+  const weeklySchedule = useMemo(() => {
+    return generateWeeklySchedule();
+  }, [selectedWeek, tutorAvailabilities, existingSessions, currentSession.date, currentSession.time]);
+
+  // Fetch existing sessions and tutor availabilities when popup opens
+  React.useEffect(() => {
+    if (isOpen) {
+      if (childId) {
+        fetchExistingSessions();
+      }
+      if (currentSession.contractId) {
+        fetchTutorAvailabilities();
+      }
+    } else {
+      setExistingSessions([]);
+      setTutorAvailabilities({ mainTutor: [], subTutor: [] });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, childId, currentSession.contractId]);
+
+  const fetchExistingSessions = async () => {
+    if (!childId) return;
+    
+    try {
+      setLoadingSessions(true);
+      const result = await getSessionsByChildId(childId);
+      if (result.success && result.data) {
+        // Filter out the current session being rescheduled and only get scheduled/completed sessions
+        const sessions = result.data.filter((s: Session) => 
+          s.bookingId !== currentSession.bookingId && 
+          (s.status === 'scheduled' || s.status === 'completed')
+        );
+        setExistingSessions(sessions);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      // Don't show error - just continue without session data
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const fetchTutorAvailabilities = async () => {
+    if (!currentSession.contractId) return;
+    
+    try {
+      setLoadingAvailabilities(true);
+      // Fetch contract to get tutor IDs
+      const contractResult = await getContractById(currentSession.contractId);
+      if (contractResult.success && contractResult.data) {
+        const contractData = contractResult.data as any;
+        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
+        const subTutor1Id = contractData.SubstituteTutor1Id || contractData.substituteTutor1Id || contractData.substitute_tutor1_id;
+        
+        // Fetch availabilities for both tutors
+        const [mainTutorAvail, subTutorAvail] = await Promise.all([
+          mainTutorId ? getTutorAvailabilitiesByTutorId(mainTutorId) : Promise.resolve({ success: false, data: [] }),
+          subTutor1Id ? getTutorAvailabilitiesByTutorId(subTutor1Id) : Promise.resolve({ success: false, data: [] })
+        ]);
+        
+        setTutorAvailabilities({
+          mainTutor: mainTutorAvail.success && mainTutorAvail.data ? mainTutorAvail.data : [],
+          subTutor: subTutorAvail.success && subTutorAvail.data ? subTutorAvail.data : []
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching tutor availabilities:', error);
+      // Continue without availability data - will show all slots
+    } finally {
+      setLoadingAvailabilities(false);
+    }
+  };
 
   const handleDateTimeSelect = (date: string, time: string) => {
     // Parse selected date (YYYY-MM-DD format)
@@ -493,26 +654,13 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
               </div>
 
               {/* Calendar Grid */}
-              {loadingSessions ? (
+              {(loadingSessions || loadingAvailabilities) ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                   <p className="text-gray-600">Loading available slots...</p>
                 </div>
-              ) : weeklySchedule.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No available dates in this week</p>
-                  <p className="text-sm mt-2">Please select a different week</p>
-                </div>
               ) : (
-                <div className={`grid grid-cols-1 gap-3 ${
-                  weeklySchedule.length === 1 ? 'md:grid-cols-1' :
-                  weeklySchedule.length === 2 ? 'md:grid-cols-2' :
-                  weeklySchedule.length === 3 ? 'md:grid-cols-3' :
-                  weeklySchedule.length === 4 ? 'md:grid-cols-4' :
-                  weeklySchedule.length === 5 ? 'md:grid-cols-5' :
-                  weeklySchedule.length === 6 ? 'md:grid-cols-6' :
-                  'md:grid-cols-7'
-                }`}>
+                <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
                   {weeklySchedule.map((day) => (
                     <div key={day.date} className="space-y-2">
                       <div className="text-center">
@@ -527,34 +675,43 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
                       <div className="space-y-1.5">
                         {day.slots.map((slot) => {
                           const isSelected = requestedDate === day.date && startTime === slot.time;
-                          const isBooked = isSlotBooked(day.date, slot.time);
-                          const isPast = isSlotInPast(day.date, slot.time);
-                          const isDisabled = isBooked || isPast;
+                          
+                          // Get disabled reason for tooltip
+                          let disabledReason = '';
+                          if (slot.isPast) {
+                            disabledReason = 'This time slot is in the past';
+                          } else if (slot.isBooked) {
+                            disabledReason = 'This time slot is already booked';
+                          } else if (!slot.isTutorAvailable) {
+                            disabledReason = 'Tutor not available at this time';
+                          } else if (slot.isTooClose) {
+                            disabledReason = 'Too close to another session (must be at least 1 slot apart)';
+                          }
                           
                           return (
                             <button
                               key={slot.id}
-                              onClick={() => !isDisabled && handleDateTimeSelect(day.date, slot.time)}
-                              disabled={isDisabled}
+                              onClick={() => !slot.isDisabled && handleDateTimeSelect(day.date, slot.time)}
+                              disabled={slot.isDisabled}
                               className={`w-full p-2 text-xs rounded-lg transition-all ${
                                 isSelected
                                   ? 'bg-blue-600 text-white shadow-md'
-                                  : isDisabled
+                                  : slot.isDisabled
                                   ? 'bg-gray-100 border border-gray-200 text-gray-400 cursor-not-allowed opacity-50'
                                   : 'bg-white border border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-gray-700'
                               }`}
-                              title={isPast ? 'This time slot is in the past' : isBooked ? 'This time slot is already booked' : ''}
+                              title={disabledReason || ''}
                             >
                               <div className="flex items-center justify-center space-x-1">
-                                <Clock className={`w-3 h-3 ${isBooked ? 'opacity-50' : ''}`} />
+                                <Clock className={`w-3 h-3 ${slot.isDisabled ? 'opacity-50' : ''}`} />
                                 <span className="font-medium">{slot.time}</span>
                               </div>
-                              <div className={`text-[10px] mt-0.5 ${isBooked ? 'opacity-50' : 'opacity-75'}`}>
+                              <div className={`text-[10px] mt-0.5 ${slot.isDisabled ? 'opacity-50' : 'opacity-75'}`}>
                                 {slot.endTime}
                               </div>
-                              {isBooked && (
-                                <div className="text-[9px] mt-0.5 opacity-60 line-through">
-                                  Booked
+                              {!slot.isTutorAvailable && !slot.isBooked && !slot.isPast && (
+                                <div className="text-[9px] mt-0.5 opacity-60">
+                                  Unavailable
                                 </div>
                               )}
                             </button>

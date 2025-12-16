@@ -20,8 +20,7 @@ interface UsePackagesResult {
 }
 
 export const usePackages = (
-  enabled: boolean = true,
-  refetchInterval?: number
+  enabled: boolean = true
 ): UsePackagesResult => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -66,18 +65,7 @@ export const usePackages = (
 
   useEffect(() => {
     fetchPackages();
-
-    let intervalId: NodeJS.Timeout | null = null;
-    if (refetchInterval && refetchInterval > 0) {
-      intervalId = setInterval(fetchPackages, refetchInterval);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [enabled, refetchInterval]);
+  }, [enabled]);
 
   return {
     packages,

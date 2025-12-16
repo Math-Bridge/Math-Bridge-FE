@@ -64,15 +64,6 @@ const ParentDailyReports: React.FC = () => {
       fetchReports();
       fetchProgress();
       fetchForecast();
-      
-      // Auto-reload reports, progress, and forecast every 60 seconds
-      const reportsInterval = setInterval(() => {
-        fetchReports();
-        fetchProgress();
-        fetchForecast();
-      }, 60000);
-      
-      return () => clearInterval(reportsInterval);
     }
   }, [selectedChildId]);
 
@@ -197,6 +188,66 @@ const ParentDailyReports: React.FC = () => {
     }
   };
 
+  const getDateKey = (report: DailyReport): string => {
+    // Use sessionDate if available, otherwise use createdDate
+    // Both should be in DateOnly format (YYYY-MM-DD) from backend
+    const dateStr = report.sessionDate || report.createdDate;
+    
+    if (!dateStr) {
+      console.warn('Report has no date:', report);
+      return 'unknown';
+    }
+    
+    try {
+      // If already in YYYY-MM-DD format, use it directly (most common case)
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateStr;
+      }
+      
+      // If it's an ISO string with time, extract date part
+      if (dateStr.includes('T')) {
+        const datePart = dateStr.split('T')[0];
+        if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return datePart;
+        }
+      }
+      
+      // If it has space, might be date with time
+      if (dateStr.includes(' ')) {
+        const datePart = dateStr.split(' ')[0];
+        if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          return datePart;
+        }
+      }
+      
+      // Try parsing as date
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateStr);
+        // Fallback: try to extract first 10 characters
+        if (dateStr.length >= 10) {
+          return dateStr.substring(0, 10);
+        }
+        return 'unknown';
+      }
+      
+      // Use local date components to avoid timezone issues
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      
+      // Return YYYY-MM-DD format for grouping (using local date)
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    } catch (error) {
+      // Fallback: try to extract date part from string
+      if (dateStr && dateStr.length >= 10) {
+        return dateStr.substring(0, 10);
+      }
+      console.warn('Error parsing date:', dateStr, error);
+      return dateStr || 'unknown';
+    }
+  };
+
   const filteredReports = reports.filter((report) => {
     const matchesSearch = !searchTerm || 
       report.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -212,6 +263,46 @@ const ParentDailyReports: React.FC = () => {
 
     return matchesSearch && matchesFilter && matchesUnit;
   });
+
+  // Group reports by date
+  const groupedReports = filteredReports.reduce((groups, report) => {
+    const dateKey = getDateKey(report);
+    // Debug: log if dateKey is invalid
+    if (!dateKey || dateKey === 'Invalid Date' || dateKey.includes('Invalid')) {
+      console.warn('Invalid date key for report:', report, 'dateKey:', dateKey);
+    }
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(report);
+    return groups;
+  }, {} as Record<string, DailyReport[]>);
+  
+  // Debug: log grouped reports
+  if (import.meta.env.DEV) {
+    console.log('Grouped reports:', groupedReports);
+    console.log('Total groups:', Object.keys(groupedReports).length);
+    console.log('Total reports:', filteredReports.length);
+  }
+
+  // Convert to array and sort by date (newest first)
+  const groupedReportsArray = Object.entries(groupedReports)
+    .map(([dateKey, reports]) => ({
+      dateKey,
+      date: reports[0].sessionDate || reports[0].createdDate,
+      reports: reports.sort((a, b) => {
+        // Sort reports within same date by createdDate descending
+        const dateA = new Date(a.createdDate).getTime();
+        const dateB = new Date(b.createdDate).getTime();
+        return dateB - dateA;
+      })
+    }))
+    .sort((a, b) => {
+      // Sort groups by date descending
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
 
   // Calculate statistics
   const totalReports = reports.length;
@@ -496,7 +587,7 @@ const ParentDailyReports: React.FC = () => {
                 <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-6"></div>
                 <p className="text-gray-600 text-lg font-medium">Loading reports...</p>
               </div>
-            ) : filteredReports.length === 0 ? (
+            ) : groupedReportsArray.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-16 text-center backdrop-blur-sm">
                 <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
                   <FileText className="w-10 h-10 text-gray-400" />
@@ -510,120 +601,140 @@ const ParentDailyReports: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredReports.map((report) => (
-                  <div
-                    key={report.reportId}
-                    className="bg-white rounded-2xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm transform transition-all duration-200 hover:shadow-xl hover:scale-[1.01]"
-                  >
+                {groupedReportsArray.map(({ dateKey, date, reports: dayReports }) => {
+                  const isExpanded = expandedReportId === dateKey;
+                  return (
                     <div
-                      className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200"
-                      onClick={() =>
-                        setExpandedReportId(expandedReportId === report.reportId ? null : report.reportId)
-                      }
+                      key={dateKey}
+                      className="bg-white rounded-2xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm transform transition-all duration-200 hover:shadow-xl hover:scale-[1.01]"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                              <Calendar className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <span className="font-bold text-lg text-gray-900">
-                              {formatDate(report.createdDate)}
-                            </span>
-                            {report.onTrack ? (
-                              <span className="px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-                                <CheckCircle className="w-4 h-4" />
-                                <span>On Track</span>
+                      <div
+                        className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200"
+                        onClick={() =>
+                          setExpandedReportId(isExpanded ? null : dateKey)
+                        }
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div className="p-2 bg-blue-100 rounded-lg">
+                                <Calendar className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <span className="font-bold text-lg text-gray-900">
+                                {formatDate(date)}
                               </span>
+                              {dayReports.length > 1 && (
+                                <span className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
+                                  {dayReports.length} reports
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-2 ml-12">
+                              {dayReports.map((report, index) => (
+                                <div key={report.reportId} className="flex flex-wrap items-center gap-4 text-sm text-gray-700">
+                                  {report.unitName && (
+                                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 rounded-lg border border-purple-100">
+                                      <BookOpen className="w-4 h-4 text-purple-600" />
+                                      <span className="font-medium">{report.unitName}</span>
+                                    </div>
+                                  )}
+                                  {report.tutorName && (
+                                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
+                                      <User className="w-4 h-4 text-indigo-600" />
+                                      <span className="font-medium">{report.tutorName}</span>
+                                    </div>
+                                  )}
+                                  {report.onTrack ? (
+                                    <span className="px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                                      <CheckCircle className="w-4 h-4" />
+                                      <span>On Track</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-3 py-1.5 bg-gradient-to-r from-red-100 to-rose-100 text-red-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
+                                      <XCircle className="w-4 h-4" />
+                                      <span>Off Track</span>
+                                    </span>
+                                  )}
+                                  {report.haveHomework && (
+                                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100">
+                                      <FileText className="w-4 h-4 text-amber-600" />
+                                      <span className="font-medium text-amber-700">Has Homework</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="ml-4">
+                            {isExpanded ? (
+                              <ChevronUp className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
                             ) : (
-                              <span className="px-3 py-1.5 bg-gradient-to-r from-red-100 to-rose-100 text-red-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-                                <XCircle className="w-4 h-4" />
-                                <span>Off Track</span>
-                              </span>
+                              <ChevronDown className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
                             )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 ml-12">
-                            {report.unitName && (
-                              <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 rounded-lg border border-purple-100">
-                                <BookOpen className="w-4 h-4 text-purple-600" />
-                                <span className="font-medium">{report.unitName}</span>
-                              </div>
-                            )}
-                            {report.tutorName && (
-                              <div className="flex items-center space-x-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
-                                <User className="w-4 h-4 text-indigo-600" />
-                                <span className="font-medium">{report.tutorName}</span>
-                              </div>
-                            )}
-                            {report.haveHomework && (
-                              <div className="flex items-center space-x-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100">
-                                <FileText className="w-4 h-4 text-amber-600" />
-                                <span className="font-medium text-amber-700">Has Homework</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          {expandedReportId === report.reportId ? (
-                            <ChevronUp className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
-                          ) : (
-                            <ChevronDown className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
-                          )}
                         </div>
                       </div>
-                    </div>
 
-                    {expandedReportId === report.reportId && (
-                      <div className="px-6 pb-6 border-t-2 border-gray-100 pt-6 bg-gradient-to-br from-gray-50/50 to-blue-50/30">
-                        {report.notes && (
-                          <div className="mb-6">
-                            <div className="flex items-center space-x-2 mb-3">
-                              <FileText className="w-5 h-5 text-gray-600" />
-                              <h4 className="text-base font-bold text-gray-900">Notes</h4>
-                            </div>
-                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                                <Latex delimiters={[
-                                  { left: '$$', right: '$$', display: true },
-                                  { left: '$', right: '$', display: false },
-                                  { left: '\\(', right: '\\)', display: false },
-                                  { left: '\\[', right: '\\]', display: true },
-                                ]}>
-                                  {report.notes}
-                                </Latex>
+                      {isExpanded && (
+                        <div className="px-6 pb-6 border-t-2 border-gray-100 pt-6 bg-gradient-to-br from-gray-50/50 to-blue-50/30 space-y-6">
+                          {dayReports.map((report) => (
+                            <div key={report.reportId} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                              <div className="mb-4">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <User className="w-4 h-4 text-gray-600" />
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {report.tutorName || 'Tutor'}
+                                  </span>
+                                  {report.unitName && (
+                                    <>
+                                      <span className="text-gray-400">•</span>
+                                      <span className="text-sm text-gray-600">{report.unitName}</span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
+                              {report.notes && (
+                                <div className="mb-4">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <FileText className="w-4 h-4 text-gray-600" />
+                                    <h4 className="text-sm font-bold text-gray-900">Notes</h4>
+                                  </div>
+                                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                    <Latex delimiters={[
+                                      { left: '$$', right: '$$', display: true },
+                                      { left: '$', right: '$', display: false },
+                                      { left: '\\(', right: '\\)', display: false },
+                                      { left: '\\[', right: '\\]', display: true },
+                                    ]}>
+                                      {report.notes}
+                                    </Latex>
+                                  </div>
+                                </div>
+                              )}
+                              {report.url && (
+                                <div className="mb-4">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <FileText className="w-4 h-4 text-gray-600" />
+                                    <h4 className="text-sm font-bold text-gray-900">URL</h4>
+                                  </div>
+                                  <a
+                                    href={report.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
+                                  >
+                                    <span>{removeIdFromUrl(report.url)}</span>
+                                    <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                                  </a>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
-                        {report.url && (
-                          <div className="mb-6">
-                            <div className="flex items-center space-x-2 mb-3">
-                              <FileText className="w-5 h-5 text-gray-600" />
-                              <h4 className="text-base font-bold text-gray-900">URL</h4>
-                            </div>
-                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                              <a
-                                href={report.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2 break-all"
-                              >
-                                <span>{removeIdFromUrl(report.url)}</span>
-                                <ExternalLink className="w-4 h-4 flex-shrink-0" />
-                              </a>
-                            </div>
-                          </div>
-                        )}
-                        {report.sessionDate && (
-                          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Session Date</p>
-                            <p className="text-sm text-gray-900 font-medium">{formatDate(report.sessionDate)}</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>

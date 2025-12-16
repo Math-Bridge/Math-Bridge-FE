@@ -36,13 +36,6 @@ const ParentTestResults: React.FC = () => {
   useEffect(() => {
     if (selectedChildId) {
       fetchTestResults();
-      
-      // Auto-reload test results every 60 seconds
-      const testResultsInterval = setInterval(() => {
-        fetchTestResults();
-      }, 60000);
-      
-      return () => clearInterval(testResultsInterval);
     } else {
       setTestResults([]);
     }

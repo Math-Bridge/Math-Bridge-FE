@@ -162,11 +162,9 @@ export const useNotifications = () => {
     }
   }, []);
 
-  // Poll unread count every 30 seconds
+  // Fetch unread count on mount
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
   }, [fetchUnreadCount]);
 
   // Switch tab handler

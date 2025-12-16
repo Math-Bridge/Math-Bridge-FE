@@ -18,8 +18,7 @@ interface UseTutorsResult {
 }
 
 export const useTutors = (
-  enabled: boolean = true,
-  refetchInterval?: number
+  enabled: boolean = true
 ): UseTutorsResult => {
   const [tutors, setTutors] = useState<TutorDisplay[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -62,18 +61,7 @@ export const useTutors = (
 
   useEffect(() => {
     fetchTutors();
-
-    let intervalId: NodeJS.Timeout | null = null;
-    if (refetchInterval && refetchInterval > 0) {
-      intervalId = setInterval(fetchTutors, refetchInterval);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [enabled, refetchInterval]);
+  }, [enabled]);
 
   return {
     tutors,

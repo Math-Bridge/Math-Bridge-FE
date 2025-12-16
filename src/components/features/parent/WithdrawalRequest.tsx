@@ -181,7 +181,7 @@ const WithdrawalRequest: React.FC = () => {
         setSelectedBank(null);
         // Redirect to history after 2 seconds
         setTimeout(() => {
-          navigate('/wallet/history');
+          navigate('/wallet');
         }, 2000);
       } else if (result.error === 'INCOMPLETE_RESPONSE') {
         // Handle incomplete chunked encoding - request may have succeeded
@@ -214,7 +214,7 @@ const WithdrawalRequest: React.FC = () => {
               });
               setSelectedBank(null);
               setTimeout(() => {
-                navigate('/wallet/history');
+                navigate('/wallet');
               }, 2000);
             } else {
               // Request might not have been created, show warning
@@ -268,7 +268,7 @@ const WithdrawalRequest: React.FC = () => {
               });
               setSelectedBank(null);
               setTimeout(() => {
-                navigate('/wallet/history');
+                navigate('/wallet');
               }, 2000);
               return;
             }

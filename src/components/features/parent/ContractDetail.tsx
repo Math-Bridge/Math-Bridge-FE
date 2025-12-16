@@ -1736,136 +1736,237 @@ const ContractDetail: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'dailyReports' && (
-          <div className="space-y-6">
-            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
-                <p className="text-sm text-gray-600 mt-1">Track your child's learning progress</p>
-              </div>
-              {loadingDailyReports ? (
-                <div className="p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading daily reports...</p>
+        {activeTab === 'dailyReports' && (() => {
+          // Helper function to get date key for grouping
+          const getDateKey = (report: any): string => {
+            const dateStr = report.sessionDate || report.SessionDate || report.createdDate || report.CreatedDate;
+            if (!dateStr) return 'unknown';
+            
+            try {
+              // If already in YYYY-MM-DD format, use it directly
+              if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                return dateStr;
+              }
+              
+              // If it's an ISO string with time, extract date part
+              if (dateStr.includes('T')) {
+                const datePart = dateStr.split('T')[0];
+                if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                  return datePart;
+                }
+              }
+              
+              // If it has space, might be date with time
+              if (dateStr.includes(' ')) {
+                const datePart = dateStr.split(' ')[0];
+                if (datePart.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                  return datePart;
+                }
+              }
+              
+              // Try parsing as date
+              const date = new Date(dateStr);
+              if (isNaN(date.getTime())) {
+                if (dateStr.length >= 10) {
+                  return dateStr.substring(0, 10);
+                }
+                return 'unknown';
+              }
+              
+              // Use local date components to avoid timezone issues
+              const year = date.getFullYear();
+              const month = date.getMonth() + 1;
+              const day = date.getDate();
+              
+              return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            } catch {
+              if (dateStr && dateStr.length >= 10) {
+                return dateStr.substring(0, 10);
+              }
+              return dateStr || 'unknown';
+            }
+          };
+
+          // Group reports by date
+          const groupedReports = dailyReports.reduce((groups, report) => {
+            const dateKey = getDateKey(report);
+            if (!groups[dateKey]) {
+              groups[dateKey] = [];
+            }
+            groups[dateKey].push(report);
+            return groups;
+          }, {} as Record<string, any[]>);
+
+          // Convert to array and sort by date (newest first)
+          const groupedReportsArray = Object.entries(groupedReports)
+            .map(([dateKey, reports]) => ({
+              dateKey,
+              date: reports[0].sessionDate || reports[0].SessionDate || reports[0].createdDate || reports[0].CreatedDate,
+              reports: reports.sort((a, b) => {
+                const dateA = new Date(a.createdDate || a.CreatedDate).getTime();
+                const dateB = new Date(b.createdDate || b.CreatedDate).getTime();
+                return dateB - dateA;
+              })
+            }))
+            .sort((a, b) => {
+              const dateA = new Date(a.date).getTime();
+              const dateB = new Date(b.date).getTime();
+              return dateB - dateA;
+            });
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
+                  <p className="text-sm text-gray-600 mt-1">Track your child's learning progress</p>
                 </div>
-              ) : dailyReports.length === 0 ? (
-                <div className="p-12 text-center">
-                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h4 className="text-xl font-semibold text-gray-900 mb-2">No Reports Yet</h4>
-                  <p className="text-gray-600">Daily reports will appear here once the tutor starts creating them</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {dailyReports.map((report) => (
-                    <div key={report.reportId || report.ReportId} className="p-6">
-                      <div 
-                        className="cursor-pointer"
-                        onClick={() => setExpandedReportId(
-                          expandedReportId === (report.reportId || report.ReportId) 
-                            ? null 
-                            : (report.reportId || report.ReportId)
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                              <Calendar className="w-6 h-6 text-blue-600" />
+                {loadingDailyReports ? (
+                  <div className="p-12 text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading daily reports...</p>
+                  </div>
+                ) : groupedReportsArray.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h4 className="text-xl font-semibold text-gray-900 mb-2">No Reports Yet</h4>
+                    <p className="text-gray-600">Daily reports will appear here once the tutor starts creating them</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {groupedReportsArray.map(({ dateKey, date, reports: dayReports }) => {
+                      const isExpanded = expandedReportId === dateKey;
+                      return (
+                        <div key={dateKey} className="p-6">
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => setExpandedReportId(isExpanded ? null : dateKey)}
+                          >
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center space-x-4">
+                                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                  <Calendar className="w-6 h-6 text-blue-600" />
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">
+                                    {new Date(date).toLocaleDateString()}
+                                  </h4>
+                                  {dayReports.length > 1 && (
+                                    <p className="text-xs text-blue-600 font-medium mt-1">
+                                      {dayReports.length} reports
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                {isExpanded ? (
+                                  <ChevronUp className="w-5 h-5 text-gray-400" />
+                                ) : (
+                                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900">
-                                {new Date(report.createdDate || report.CreatedDate).toLocaleDateString()}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {report.unitName || 'No unit specified'}
-                              </p>
-                              {(report.childName || report.ChildName) && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {report.childName || report.ChildName}
-                                </p>
-                              )}
+                            <div className="ml-16 space-y-2">
+                              {dayReports.map((report, index) => (
+                                <div key={report.reportId || report.ReportId || index} className="flex items-center space-x-3">
+                                  <p className="text-sm text-gray-600">
+                                    {report.unitName || 'No unit specified'}
+                                  </p>
+                                  {(report.childName || report.ChildName) && (
+                                    <>
+                                      <span className="text-gray-400">•</span>
+                                      <p className="text-xs text-gray-500">
+                                        {report.childName || report.ChildName}
+                                      </p>
+                                    </>
+                                  )}
+                                  {report.onTrack || report.OnTrack ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      On Track
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      Off Track
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            {report.onTrack || report.OnTrack ? (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                On Track
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                <XCircle className="w-4 h-4 mr-1" />
-                                Off Track
-                              </span>
-                            )}
-                            {expandedReportId === (report.reportId || report.ReportId) ? (
-                              <ChevronUp className="w-5 h-5 text-gray-400" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            {isExpanded && (
+                              <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
+                                {dayReports.map((report, index) => (
+                                  <div key={report.reportId || report.ReportId || index} className="bg-gray-50 rounded-lg p-4">
+                                    <div className="space-y-3">
+                                      {(report.childName || report.ChildName) && (
+                                        <div className="flex items-center space-x-2 text-sm">
+                                          <User className="w-4 h-4 text-purple-500" />
+                                          <span className="text-gray-600">Student:</span>
+                                          <span className="font-medium text-gray-900">{report.childName || report.ChildName}</span>
+                                        </div>
+                                      )}
+                                      {(report.tutorName || report.TutorName) && (
+                                        <div className="flex items-center space-x-2 text-sm">
+                                          <User className="w-4 h-4 text-gray-400" />
+                                          <span className="text-gray-600">Tutor:</span>
+                                          <span className="font-medium text-gray-900">{report.tutorName || report.TutorName}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex items-center space-x-2 text-sm">
+                                        <BookOpen className="w-4 h-4 text-purple-500" />
+                                        <span className="text-gray-600">Unit:</span>
+                                        <span className="font-medium text-gray-900">{report.unitName || 'No unit specified'}</span>
+                                      </div>
+                                      {(report.haveHomework || report.HaveHomework) && (
+                                        <div className="flex items-center space-x-2 text-sm">
+                                          <BookOpen className="w-4 h-4 text-blue-600" />
+                                          <span className="font-medium text-blue-600">Has Homework</span>
+                                        </div>
+                                      )}
+                                      {(report.notes || report.Notes) && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg">
+                                          <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
+                                          <div className="text-sm text-gray-600 whitespace-pre-wrap">
+                                            <Latex delimiters={[
+                                              { left: '$$', right: '$$', display: true },
+                                              { left: '$', right: '$', display: false },
+                                              { left: '\\(', right: '\\)', display: false },
+                                              { left: '\\[', right: '\\]', display: true },
+                                            ]}>
+                                              {report.notes || report.Notes}
+                                            </Latex>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {(report.url || report.Url) && (
+                                        <div className="mt-3 p-3 bg-white rounded-lg">
+                                          <p className="text-sm font-medium text-gray-700 mb-1">URL:</p>
+                                          <a
+                                            href={report.url || report.Url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-sm text-blue-600 hover:text-blue-800 font-medium break-all"
+                                          >
+                                            {removeIdFromUrl(report.url || report.Url)}
+                                          </a>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
-                        {expandedReportId === (report.reportId || report.ReportId) && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <div className="space-y-3">
-                              {(report.childName || report.ChildName) && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <User className="w-4 h-4 text-purple-500" />
-                                  <span className="text-gray-600">Student:</span>
-                                  <span className="font-medium text-gray-900">{report.childName || report.ChildName}</span>
-                                </div>
-                              )}
-                              {(report.tutorName || report.TutorName) && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <User className="w-4 h-4 text-gray-400" />
-                                  <span className="text-gray-600">Tutor:</span>
-                                  <span className="font-medium text-gray-900">{report.tutorName || report.TutorName}</span>
-                                </div>
-                              )}
-                              {(report.haveHomework || report.HaveHomework) && (
-                                <div className="flex items-center space-x-2 text-sm">
-                                  <BookOpen className="w-4 h-4 text-blue-600" />
-                                  <span className="font-medium text-blue-600">Has Homework</span>
-                                </div>
-                              )}
-                              {(report.notes || report.Notes) && (
-                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-sm font-medium text-gray-700 mb-1">Notes:</p>
-                                  <div className="text-sm text-gray-600 whitespace-pre-wrap">
-                                    <Latex delimiters={[
-                                      { left: '$$', right: '$$', display: true },
-                                      { left: '$', right: '$', display: false },
-                                      { left: '\\(', right: '\\)', display: false },
-                                      { left: '\\[', right: '\\]', display: true },
-                                    ]}>
-                                      {report.notes || report.Notes}
-                                    </Latex>
-                                  </div>
-                                </div>
-                              )}
-                              {(report.url || report.Url) && (
-                                <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-sm font-medium text-gray-700 mb-1">URL:</p>
-                                  <a
-                                    href={report.url || report.Url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-blue-600 hover:text-blue-800 font-medium break-all"
-                                  >
-                                    {removeIdFromUrl(report.url || report.Url)}
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {activeTab === 'curriculum' && (
           <div className="space-y-8">

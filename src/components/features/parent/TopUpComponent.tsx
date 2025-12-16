@@ -55,8 +55,6 @@ const TopUpComponent: React.FC = () => {
     };
 
     fetchWalletBalance();
-    const interval = setInterval(fetchWalletBalance, 5000);
-    return () => clearInterval(interval);
   }, [user?.id]);
 
   // Poll payment status

@@ -87,7 +87,7 @@ const Header: React.FC = () => {
     setAvatarError(false);
   }, [user?.avatarUrl]);
 
-  // Fetch wallet data and check balance every 5 seconds
+  // Fetch wallet data and update every 5 seconds (real-time)
   useEffect(() => {
     const fetchWallet = async () => {
       if (!isAuthenticated) return;
@@ -128,11 +128,11 @@ const Header: React.FC = () => {
 
     // Fetch initial balance
     fetchWallet();
-
-    // Check balance every 5 seconds
-    const walletInterval = setInterval(fetchWallet, 5000);
-
-    return () => clearInterval(walletInterval);
+    
+    // Auto-refresh every 5 seconds
+    const interval = setInterval(fetchWallet, 5000);
+    
+    return () => clearInterval(interval);
   }, [isAuthenticated, user?.role]);
 
   // Click outside handler

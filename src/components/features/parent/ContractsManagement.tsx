@@ -255,13 +255,6 @@ const ContractsManagement: React.FC = () => {
   useEffect(() => { 
     // Initial load with loading state
     fetchData(true); 
-    
-    // Auto-reload contracts every 30 seconds without showing loading skeleton
-    const contractsInterval = setInterval(() => {
-      fetchData(false);
-    }, 30000);
-    
-    return () => clearInterval(contractsInterval);
   }, [fetchData]);
 
   // Fetch unit progress for active/completed contracts

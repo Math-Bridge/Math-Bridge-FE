@@ -25,8 +25,8 @@ const ParentHome: React.FC = () => {
   const tutorsScrollRef = useRef<HTMLDivElement>(null);
   const packagesScrollRef = useRef<HTMLDivElement>(null);
 
-  const { packages: allPackages, loading: packagesLoading, error: packagesError } = usePackages(true, 60000);
-  const { tutors: allTutors, loading: tutorsLoading, error: tutorsError } = useTutors(true, 60000);
+  const { packages: allPackages, loading: packagesLoading, error: packagesError } = usePackages(true);
+  const { tutors: allTutors, loading: tutorsLoading, error: tutorsError } = useTutors(true);
   
   // Duplicate tutors and packages for seamless infinite scroll
   const duplicatedTutors = [...allTutors, ...allTutors];

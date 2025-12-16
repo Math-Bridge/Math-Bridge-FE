@@ -137,7 +137,17 @@ const StudySchedule: React.FC = () => {
         
         const filteredSessions = sessionsRes.data.filter(session => {
           // Keep session if its contract is not in completed/cancelled list
-          return !completedContractIds.includes(session.contractId);
+          if (completedContractIds.includes(session.contractId)) {
+            return false;
+          }
+          
+          // Hide rescheduled sessions - they have been replaced by new scheduled sessions
+          // The new session will be displayed instead
+          if (session.status === 'rescheduled') {
+            return false;
+          }
+          
+          return true;
         });
         
         setSessions(filteredSessions);
@@ -213,14 +223,6 @@ const StudySchedule: React.FC = () => {
     if (selectedChildId) {
       fetchSessionsForChild(selectedChildId);
       fetchDailyReports(selectedChildId);
-      
-      // Auto-reload sessions and reports every 30 seconds
-      const sessionsInterval = setInterval(() => {
-        fetchSessionsForChild(selectedChildId);
-        fetchDailyReports(selectedChildId);
-      }, 30000);
-      
-      return () => clearInterval(sessionsInterval);
     } else {
       setSessions([]);
       setDailyReports([]);
@@ -1187,6 +1189,7 @@ const StudySchedule: React.FC = () => {
             // Pass HH:mm format so popup can block the same slot accurately
             time: new Date(selectedSession.startTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
             topic: selectedSession.childName || selectedSession.studentName || 'Session',
+            contractId: selectedSession.contractId, // Pass contractId to check tutor availability
           }}
           tutorName={selectedSession.tutorName || 'Tutor'}
           childId={selectedChildId || undefined}

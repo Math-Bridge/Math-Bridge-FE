@@ -151,11 +151,13 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     if (isAuthenticated) {
       fetchNotifications();
+      fetchUnreadCount();
       
+      // Auto-refresh unread count every 5 seconds (real-time)
       const interval = setInterval(() => {
         fetchUnreadCount();
-      }, 30_000);
-
+      }, 5000);
+      
       return () => clearInterval(interval);
     } else {
       // Clear notifications when user logs out

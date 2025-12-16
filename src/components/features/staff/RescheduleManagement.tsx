@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   RefreshCw,
   Calendar,
@@ -59,6 +60,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   
   // Dropdown state for actions
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
 
   // Helper functions for formatting
   const formatDate = (dateStr: string | undefined): string => {
@@ -567,24 +569,46 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setOpenDropdownId(openDropdownId === request.requestId ? null : request.requestId);
+                                  const button = e.currentTarget;
+                                  const rect = button.getBoundingClientRect();
+                                  if (openDropdownId === request.requestId) {
+                                    setOpenDropdownId(null);
+                                    setDropdownPosition(null);
+                                  } else {
+                                    setOpenDropdownId(request.requestId);
+                                    setDropdownPosition({
+                                      top: rect.bottom + window.scrollY + 4,
+                                      right: window.innerWidth - rect.right + window.scrollX
+                                    });
+                                  }
                                 }}
                                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                               >
                                 <MoreVertical className="w-5 h-5" />
                               </button>
                               
-                              {openDropdownId === request.requestId && (
+                              {openDropdownId === request.requestId && dropdownPosition && createPortal(
                                 <>
                                   <div
-                                    className="fixed inset-0 z-10"
-                                    onClick={() => setOpenDropdownId(null)}
+                                    className="fixed inset-0 z-[9998]"
+                                    onClick={() => {
+                                      setOpenDropdownId(null);
+                                      setDropdownPosition(null);
+                                    }}
                                   />
-                                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
+                                  <div 
+                                    className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-[9999] py-1"
+                                    style={{
+                                      top: `${dropdownPosition.top}px`,
+                                      right: `${dropdownPosition.right}px`
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setOpenDropdownId(null);
+                                        setDropdownPosition(null);
                                         handleOpenApproveModal(request);
                                       }}
                                       className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
@@ -596,6 +620,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setOpenDropdownId(null);
+                                        setDropdownPosition(null);
                                         setSelectedRequest(request);
                                         setShowRejectModal(true);
                                       }}
@@ -605,7 +630,8 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                                       <span>Reject</span>
                                     </button>
                                   </div>
-                                </>
+                                </>,
+                                document.body
                               )}
                             </div>
                           )}
