@@ -18,13 +18,30 @@ import {
   getWalletTransactions,
   WalletTransaction,
   apiService,
+  getMyWithdrawalRequests,
+  WithdrawalRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+
+interface CombinedTransaction {
+  id: string;
+  type: 'deposit' | 'payment' | 'refund' | 'withdrawal';
+  amount: number;
+  description: string;
+  date: string;
+  status: string;
+  method?: string;
+  transactionId?: string;
+  isWithdrawal?: boolean;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankHolderName?: string;
+}
 
 const TransactionHistoryComponent: React.FC = () => {
   const navigate = useNavigate();
   const { showError } = useToast();
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [transactions, setTransactions] = useState<CombinedTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('completed'); // Default to completed only
@@ -32,6 +49,30 @@ const TransactionHistoryComponent: React.FC = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 5; // 5 transactions per page
+
+  // Remove contract ID and other IDs from description
+  const cleanDescription = (description: string): string => {
+    if (!description) return '';
+    
+    let cleaned = description
+      // Remove contract UUID patterns: "contract 544767dd-d236-4891-a5b1-f389b79d545c"
+      .replace(/\s+[Cc]ontract\s+[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g, '')
+      // Remove contract ID patterns: (Contract ID: xxx), (ContractId: xxx), etc.
+      .replace(/\s*\([^)]*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Remove generic ID patterns that might include contract IDs
+      .replace(/\s*\([^)]*(?:[Ii][Dd]|ContractId|contractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Ii][Dd]|ContractId|contractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Clean up extra spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return cleaned;
+  };
 
   useEffect(() => {
     fetchTransactions();
@@ -50,13 +91,20 @@ const TransactionHistoryComponent: React.FC = () => {
         return;
       }
 
-      // First try to get from wallet endpoint
-      const walletRes = await apiService.getUserWallet(userId);
+      // Fetch both wallet transactions and withdrawal requests
+      const [walletRes, withdrawalRes] = await Promise.all([
+        apiService.getUserWallet(userId),
+        getMyWithdrawalRequests()
+      ]);
+
+      let allCombinedTransactions: CombinedTransaction[] = [];
+
+      // Process wallet transactions
       if (walletRes.success && walletRes.data) {
-        let allTransactions = walletRes.data.transactions || [];
+        let walletTransactions = walletRes.data.transactions || [];
         
-        // Map to WalletTransaction format
-        const mappedTransactions = allTransactions.map((tx: any) => {
+        // Map to CombinedTransaction format
+        const mappedTransactions = walletTransactions.map((tx: any) => {
           // Determine transaction type - handle both camelCase and PascalCase from backend
           let transactionType = (tx.type || tx.transactionType || '').toLowerCase();
           const desc = (tx.description || tx.note || '').toLowerCase();
@@ -82,66 +130,75 @@ const TransactionHistoryComponent: React.FC = () => {
             }
           }
           
+          const rawDescription = tx.description || tx.note || '';
           return {
             id: tx.id || tx.transactionId || String(Date.now()),
             transactionId: tx.transactionId || tx.id,
-            type: transactionType,
+            type: transactionType as 'deposit' | 'payment' | 'refund' | 'withdrawal',
             amount: tx.amount || 0,
-            description: tx.description || tx.note || '',
+            description: cleanDescription(rawDescription),
             date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
             status: tx.status?.toLowerCase() || 'completed',
             method: tx.method || tx.paymentMethod,
+            isWithdrawal: false,
           };
         });
 
-        // Apply filters - Only show completed transactions
-        let filtered = mappedTransactions.filter(t => {
-          // Always filter to show only completed transactions
-          const isCompleted = (t.status?.toLowerCase() === 'completed');
-          return isCompleted;
-        });
-
-        // Apply type filter if not 'all'
-        if (typeFilter !== 'all') {
-          filtered = filtered.filter(t => t.type === typeFilter);
-        }
-
-        // Apply search term filter
-        if (searchTerm) {
-          const term = searchTerm.toLowerCase();
-          filtered = filtered.filter(t =>
-            t.description.toLowerCase().includes(term) ||
-            t.id.toLowerCase().includes(term) ||
-            t.transactionId?.toLowerCase().includes(term)
-          );
-        }
-
-        // Pagination
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedTransactions = filtered.slice(startIndex, endIndex);
-        
-        setTransactions(paginatedTransactions);
-        setTotalPages(Math.ceil(filtered.length / pageSize));
-      } else {
-        // Fallback: try getWalletTransactions API - Only get completed transactions
-        const result = await getWalletTransactions({
-          page,
-          pageSize,
-          status: 'completed', // Always filter for completed only
-          type: typeFilter !== 'all' ? typeFilter : undefined,
-        });
-
-        if (result.success && result.data) {
-          // Ensure only 5 transactions per page - slice if API returns more
-          const apiTransactions = result.data.transactions || [];
-          const paginatedApiTransactions = apiTransactions.slice(0, pageSize);
-          setTransactions(paginatedApiTransactions);
-          setTotalPages(Math.ceil((result.data.total || apiTransactions.length) / pageSize));
-        } else {
-          setTransactions([]);
-        }
+        // Only add completed wallet transactions
+        const completedTransactions = mappedTransactions.filter(t => 
+          (t.status?.toLowerCase() === 'completed')
+        );
+        allCombinedTransactions = [...allCombinedTransactions, ...completedTransactions];
       }
+
+      // Process withdrawal requests
+      if (withdrawalRes.success && withdrawalRes.data) {
+        const withdrawalTransactions: CombinedTransaction[] = withdrawalRes.data.map((wr: WithdrawalRequest) => ({
+          id: wr.id,
+          type: 'withdrawal' as const,
+          amount: wr.amount,
+          description: `Withdrawal to ${wr.bankName} - ${wr.bankAccountNumber}`,
+          date: wr.processedDate || wr.createdDate,
+          status: wr.status.toLowerCase(),
+          method: 'Bank Transfer',
+          isWithdrawal: true,
+          bankName: wr.bankName,
+          bankAccountNumber: wr.bankAccountNumber,
+          bankHolderName: wr.bankHolderName,
+        }));
+        allCombinedTransactions = [...allCombinedTransactions, ...withdrawalTransactions];
+      }
+
+      // Sort by date (newest first)
+      allCombinedTransactions.sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      // Apply type filter if not 'all'
+      let filtered = allCombinedTransactions;
+      if (typeFilter !== 'all') {
+        filtered = filtered.filter(t => t.type === typeFilter);
+      }
+
+      // Apply search term filter
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filtered = filtered.filter(t =>
+          t.description.toLowerCase().includes(term) ||
+          t.id.toLowerCase().includes(term) ||
+          t.transactionId?.toLowerCase().includes(term) ||
+          t.bankName?.toLowerCase().includes(term) ||
+          t.bankAccountNumber?.toLowerCase().includes(term)
+        );
+      }
+
+      // Pagination
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedTransactions = filtered.slice(startIndex, endIndex);
+      
+      setTransactions(paginatedTransactions);
+      setTotalPages(Math.ceil(filtered.length / pageSize));
     } catch (error) {
       console.error('Error fetching transactions:', error);
       showError('Failed to load transaction history');
@@ -271,11 +328,11 @@ const TransactionHistoryComponent: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            {/* Status filter hidden - Only showing completed transactions */}
+            {/* Status filter - Show all statuses for withdrawal requests, completed for wallet transactions */}
             <div className="relative">
               <div className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600">
                 <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <span>Status: Completed Only</span>
+                <span>Status: All (Wallet: Completed, Withdrawals: All)</span>
               </div>
             </div>
             <div className="relative">
@@ -365,6 +422,14 @@ const TransactionHistoryComponent: React.FC = () => {
                               {getTypeLabel(transaction.type)}
                             </span>
                           </div>
+                          {transaction.isWithdrawal && transaction.bankName && (
+                            <div className="mt-2 text-xs text-gray-500">
+                              <span>Bank: {transaction.bankName}</span>
+                              {transaction.bankHolderName && (
+                                <span className="ml-2">• Holder: {transaction.bankHolderName}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">

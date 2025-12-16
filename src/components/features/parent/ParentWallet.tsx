@@ -280,7 +280,7 @@ const ParentWallet: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/wallet/withdrawal/history')}
+            onClick={() => navigate('/wallet/history')}
             className="p-6 bg-gradient-to-r from-primary/10 to-primary/20 rounded-xl border-2 border-primary/30 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
           >
             <div className="flex items-center space-x-3 mb-3">

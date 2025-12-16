@@ -14,7 +14,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { apiService } from '../../../services/api';
+import { apiService, getMyWithdrawalRequests, WithdrawalRequest } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 
 interface Transaction {
@@ -50,10 +50,34 @@ const WalletComponent: React.FC = () => {
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'deposit' | 'payment' | 'refund'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'deposit' | 'payment' | 'refund' | 'withdrawal'>('all');
   const [flowFilter, setFlowFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  // Remove contract ID and other IDs from description
+  const cleanDescription = (description: string): string => {
+    if (!description) return '';
+    
+    let cleaned = description
+      // Remove contract UUID patterns: "contract 544767dd-d236-4891-a5b1-f389b79d545c"
+      .replace(/\s+[Cc]ontract\s+[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g, '')
+      // Remove contract ID patterns: (Contract ID: xxx), (ContractId: xxx), etc.
+      .replace(/\s*\([^)]*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Remove generic ID patterns that might include contract IDs
+      .replace(/\s*\([^)]*(?:[Ii][Dd]|ContractId|contractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Ii][Dd]|ContractId|contractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Clean up extra spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return cleaned;
+  };
 
   const mapTransactionsWithBalances = (
     rawTxs: any[],
@@ -65,21 +89,33 @@ const WalletComponent: React.FC = () => {
         let type = (tx.type || tx.transactionType || '').toLowerCase();
         const desc = (tx.description || tx.note || '').toLowerCase();
 
-        if (type.includes('withdrawal') || type.includes('deduct') || desc.includes('payment for contract') || desc.includes('contract payment')) {
+        // Check if it's a withdrawal request (rút tiền về ngân hàng)
+        if (desc.includes('withdrawal to') || (type.includes('withdrawal') && !desc.includes('payment for contract') && !desc.includes('contract payment'))) {
+          type = 'withdrawal';
+        } 
+        // Check if it's a contract payment (thanh toán hợp đồng)
+        else if (desc.includes('payment for contract') || desc.includes('contract payment') || (type.includes('deduct') && desc.includes('contract'))) {
           type = 'payment';
-        } else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
+        } 
+        // Check if it's a deposit/topup
+        else if (type.includes('deposit') || type.includes('top') || desc.includes('deposit') || desc.includes('topup')) {
           type = 'deposit';
-        } else if (type.includes('refund')) {
+        } 
+        // Check if it's a refund
+        else if (type.includes('refund')) {
           type = 'refund';
-        } else {
+        } 
+        // Default: infer from description
+        else {
           type = desc.includes('deposit') || desc.includes('topup') ? 'deposit' : 'payment';
         }
 
+        const rawDescription = tx.description || tx.note || 'Wallet Transaction';
         return {
           id: tx.id || tx.transactionId || String(Date.now() + Math.random()),
           type: type as 'deposit' | 'payment' | 'refund' | 'withdrawal',
           amount: Math.abs(tx.amount || 0),
-          description: tx.description || tx.note || 'Wallet Transaction',
+          description: cleanDescription(rawDescription),
           date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
           status: 'completed' as const,
           method: tx.method || tx.paymentMethod
@@ -108,18 +144,65 @@ const WalletComponent: React.FC = () => {
         return;
       }
 
-      const response = await apiService.getUserWallet(userId);
-      if (response.success && response.data) {
-        const walletResponse = response.data;
+      // Fetch both wallet transactions and withdrawal requests
+      const [walletRes, withdrawalRes] = await Promise.all([
+        apiService.getUserWallet(userId),
+        getMyWithdrawalRequests()
+      ]);
+
+      let allTransactions: TransactionWithBalance[] = [];
+
+      // Process wallet transactions
+      if (walletRes.success && walletRes.data) {
+        const walletResponse = walletRes.data;
         const walletBalance = walletResponse.walletBalance ?? walletResponse.balance ?? 0;
-
-        const transactions = mapTransactionsWithBalances(walletResponse.transactions || [], walletBalance);
-
-        setWalletData({
-          balance: walletBalance,
-          recentTransactions: transactions
-        });
+        const walletTransactions = mapTransactionsWithBalances(walletResponse.transactions || [], walletBalance);
+        allTransactions = [...allTransactions, ...walletTransactions];
       }
+
+      // Process withdrawal requests
+      if (withdrawalRes.success && withdrawalRes.data) {
+        const withdrawalTransactions: TransactionWithBalance[] = withdrawalRes.data
+          .filter((wr: WithdrawalRequest) => wr.status?.toLowerCase() === 'completed')
+          .map((wr: WithdrawalRequest) => {
+            const withdrawalAmount = wr.amount || 0;
+            return {
+              id: wr.id,
+              type: 'withdrawal' as const,
+              amount: withdrawalAmount,
+              description: `Withdrawal to ${wr.bankName} - ${wr.bankAccountNumber}`,
+              date: wr.processedDate || wr.createdDate || new Date().toISOString(),
+              status: 'completed' as const,
+              method: 'Bank Transfer',
+              balanceBefore: 0, // Will be recalculated
+              balanceAfter: 0, // Will be recalculated
+              signedAmount: -withdrawalAmount
+            };
+          });
+        allTransactions = [...allTransactions, ...withdrawalTransactions];
+      }
+
+      // Sort all transactions by date (newest first)
+      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Recalculate balances for all transactions
+      const walletBalance = walletRes.success && walletRes.data 
+        ? (walletRes.data.walletBalance ?? walletRes.data.balance ?? 0)
+        : 0;
+      
+      let runningAfter = walletBalance;
+      const transactionsWithBalances = allTransactions.map((tx) => {
+        const signedAmount = ['deposit', 'refund'].includes(tx.type) ? tx.amount : -tx.amount;
+        const balanceBefore = runningAfter - signedAmount;
+        const result = { ...tx, balanceBefore, balanceAfter: runningAfter, signedAmount };
+        runningAfter = balanceBefore;
+        return result;
+      });
+
+      setWalletData({
+        balance: walletBalance,
+        recentTransactions: transactionsWithBalances
+      });
     } catch (error) {
       console.error('Error fetching wallet:', error);
     } finally {
@@ -285,6 +368,7 @@ const WalletComponent: React.FC = () => {
                 <option value="deposit">Top Up</option>
                 <option value="payment">Payment</option>
                 <option value="refund">Refund</option>
+                <option value="withdrawal">Withdrawal</option>
               </select>
 
               {/* Flow Filter */}
@@ -354,7 +438,7 @@ const WalletComponent: React.FC = () => {
                               {['deposit', 'refund'].includes(tx.type) ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
                             </div>
                             <span className="font-medium">
-                              {tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : 'Refund'}
+                              {tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : tx.type === 'refund' ? 'Refund' : 'Withdrawal'}
                             </span>
                           </div>
                         </td>
@@ -391,7 +475,7 @@ const WalletComponent: React.FC = () => {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">{tx.description}</p>
-                            <p className="text-sm text-gray-500">{tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : 'Refund'}</p>
+                            <p className="text-sm text-gray-500">{tx.type === 'deposit' ? 'Top Up' : tx.type === 'payment' ? 'Payment' : tx.type === 'refund' ? 'Refund' : 'Withdrawal'}</p>
                           </div>
                         </div>
                         <p className={`text-xl font-bold ${['deposit', 'refund'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'}`}>
