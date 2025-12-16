@@ -23,7 +23,7 @@ export interface ChatMessage {
 
 class GeminiService {
   private model = genAI?.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-flash-lite',
   });
   private chat: ReturnType<NonNullable<typeof this.model>['startChat']> | null = null;
   private currentUser: any = null;
