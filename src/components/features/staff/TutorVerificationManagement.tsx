@@ -637,20 +637,15 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                 <span>Previous</span>
               </button>
               <div className="flex items-center space-x-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                  const showPage = 
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1);
-                  
-                  if (!showPage) {
-                    if (page === currentPage - 2 || page === currentPage + 2) {
-                      return <span key={page} className="px-2">...</span>;
-                    }
-                    return null;
+                {(() => {
+                  // Chỉ hiển thị 5 số trang
+                  const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                  const endPage = Math.min(startPage + 4, totalPages);
+                  const pages = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
                   }
-
-                  return (
+                  return pages.map((page) => (
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
@@ -662,8 +657,8 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                     >
                       {page}
                     </button>
-                  );
-                })}
+                  ));
+                })()}
               </div>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

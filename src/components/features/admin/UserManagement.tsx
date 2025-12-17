@@ -959,32 +959,28 @@ const UserManagement: React.FC = () => {
                     <span>Previous</span>
                   </button>
                   <div className="flex items-center space-x-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        return page === 1 || 
-                               page === totalPages || 
-                               (page >= currentPage - 1 && page <= currentPage + 1);
-                      })
-                      .map((page, index, array) => {
-                        const showEllipsisBefore = index > 0 && page - array[index - 1] > 1;
-                        return (
-                          <React.Fragment key={page}>
-                            {showEllipsisBefore && (
-                              <span className="px-2 text-gray-500">...</span>
-                            )}
-                            <button
-                              onClick={() => setCurrentPage(page)}
-                              className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                                currentPage === page
-                                  ? 'bg-blue-600 text-white'
-                                  : 'border border-gray-300 hover:bg-gray-50'
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          </React.Fragment>
-                        );
-                      })}
+                    {(() => {
+                      // Chỉ hiển thị 5 số trang
+                      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                      const endPage = Math.min(startPage + 4, totalPages);
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white'
+                              : 'border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
                   </div>
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}

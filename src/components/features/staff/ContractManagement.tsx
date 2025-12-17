@@ -925,60 +925,26 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                   </button>
                   <div className="flex items-center space-x-1">
                     {(() => {
-                      const pages: (number | 'ellipsis-left' | 'ellipsis-right')[] = [];
-                      const showEllipsisLeft = currentPage > 3;
-                      const showEllipsisRight = currentPage < totalPages - 2;
-
-                      // Add first page
-                      pages.push(1);
-
-                      // Add ellipsis left if needed
-                      if (showEllipsisLeft) {
-                        pages.push('ellipsis-left');
-                      }
-
-                      // Add pages around current page
-                      const startPage = Math.max(2, currentPage - 1);
-                      const endPage = Math.min(totalPages - 1, currentPage + 1);
+                      // Chỉ hiển thị 5 số trang
+                      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                      const endPage = Math.min(startPage + 4, totalPages);
+                      const pages = [];
                       for (let i = startPage; i <= endPage; i++) {
-                        if (i !== 1 && i !== totalPages) {
-                          pages.push(i);
-                        }
+                        pages.push(i);
                       }
-
-                      // Add ellipsis right if needed
-                      if (showEllipsisRight) {
-                        pages.push('ellipsis-right');
-                      }
-
-                      // Add last page if not already added
-                      if (totalPages > 1) {
-                        pages.push(totalPages);
-                      }
-
-                      return pages.map((page, index) => {
-                        if (page === 'ellipsis-left' || page === 'ellipsis-right') {
-                          return (
-                            <span key={`ellipsis-${page}-${index}`} className="px-2 text-gray-400">
-                              ...
-                            </span>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={`page-${page}`}
-                            onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
-                              currentPage === page
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      });
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
                     })()}
                   </div>
                   <button

@@ -452,19 +452,28 @@ const PackageList: React.FC<PackageListProps> = ({
                 </button>
 
                 <div className="flex items-center gap-2">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`w-12 h-12 rounded-xl font-bold transition-all ${
-                        currentPage === page
-                          ? "bg-primary text-white shadow-math"
-                          : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-200"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {(() => {
+                    // Chỉ hiển thị 5 số trang
+                    const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                    const endPage = Math.min(startPage + 4, totalPages);
+                    const pages = [];
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(i);
+                    }
+                    return pages.map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-12 h-12 rounded-xl font-bold transition-all ${
+                          currentPage === page
+                            ? "bg-primary text-white shadow-math"
+                            : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-200"
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ));
+                  })()}
                 </div>
 
                 <button

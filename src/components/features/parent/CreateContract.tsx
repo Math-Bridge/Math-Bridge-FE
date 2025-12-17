@@ -15,7 +15,10 @@ import {
   Wallet,
   QrCode,
   Copy,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId, checkTutorsAvailability } from '../../../services/api';
@@ -124,6 +127,9 @@ const CreateContract: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
+  const [packageCurrentPage, setPackageCurrentPage] = useState(1);
+  const [packageItemsPerPage] = useState(6); // 2 columns x 3 rows = 6 packages per page
+  const [packageSearchTerm, setPackageSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -673,6 +679,8 @@ const CreateContract: React.FC = () => {
       setNumberOfChildren(1);
     }
     setCurrentStep('select-package');
+    setPackageCurrentPage(1); // Reset pagination when selecting a child
+    setPackageSearchTerm(''); // Reset search when selecting a child
   };
 
   const handleToggleChild = (child: Child) => {
@@ -1708,6 +1716,8 @@ const CreateContract: React.FC = () => {
     if (currentStep === 'select-package') {
       setCurrentStep('select-child');
       setSelectedPackage(null);
+      setPackageCurrentPage(1); // Reset pagination when going back
+      setPackageSearchTerm(''); // Reset search when going back
     } else if (currentStep === 'schedule') {
       setCurrentStep('select-package');
     } else if (currentStep === 'payment') {
@@ -1999,6 +2009,8 @@ const CreateContract: React.FC = () => {
                         return;
                       }
                       setCurrentStep('select-package');
+                      setPackageCurrentPage(1); // Reset pagination when entering package selection
+                      setPackageSearchTerm(''); // Reset search when entering package selection
                     }}
                     disabled={
                       (numberOfChildren === 1 && !selectedChild) ||
@@ -2074,6 +2086,36 @@ const CreateContract: React.FC = () => {
               </div>
             )}
 
+            {/* Search Box */}
+            {packages.length > 0 && (
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="text"
+                    placeholder="Search packages by name or description..."
+                    value={packageSearchTerm}
+                    onChange={(e) => {
+                      setPackageSearchTerm(e.target.value);
+                      setPackageCurrentPage(1); // Reset to first page when searching
+                    }}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                  {packageSearchTerm && (
+                    <button
+                      onClick={() => {
+                        setPackageSearchTerm('');
+                        setPackageCurrentPage(1);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {packages.length === 0 ? (
               <div className="text-center py-12">
                 <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -2082,76 +2124,158 @@ const CreateContract: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  {packages
-                    .filter(pkg => {
-                      // If child has a grade, show packages that match the grade OR packages with no grade specified
-                      // If child has no grade, show all packages
-                      if (!selectedChild?.grade) {
-                        return true; // Show all if no child grade
-                      }
-                      // Show packages that match child's grade OR packages with no grade specified
-                      return !pkg.grade || pkg.grade === selectedChild.grade || 
-                             pkg.grade.toLowerCase() === selectedChild.grade.toLowerCase();
-                    })
-                    .map((pkg) => {
-                      return (
-                        <div
-                          key={pkg.packageId}
-                          onClick={() => handleSelectPackage(pkg)}
-                          className={`border-2 rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
-                            selectedPackage?.packageId === pkg.packageId
-                              ? 'border-primary bg-primary/10'
-                              : 'border-gray-200'
-                          }`}
-                        >
-                          <h3 className="font-bold text-gray-900 text-lg mb-2">{pkg.packageName}</h3>
-                          {pkg.description && (
-                            <p className="text-sm text-gray-600 mb-4">{pkg.description}</p>
-                          )}
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">Sessions:</span>
-                              <span className="font-medium">{pkg.sessionCount}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">Duration:</span>
-                              <span className="font-medium">{pkg.durationDays} days</span>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">Grade:</span>
-                              <span className="font-medium">{pkg.grade || 'All'}</span>
-                            </div>
-                          </div>
-                          <div className="pt-4 border-t border-gray-200">
-                            <div className="space-y-1">
-                              {numberOfChildren > 1 && (
-                                <p className="text-xs text-gray-500 line-through">
-                              {new Intl.NumberFormat('vi-VN', { 
-                                style: 'currency', 
-                                currency: 'VND' 
-                              }).format(pkg.price)}
-                            </p>
-                              )}
-                              <p className={`text-2xl font-bold ${numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment' ? 'text-primary' : 'text-gray-900'}`}>
-                                {new Intl.NumberFormat('vi-VN', { 
-                                  style: 'currency', 
-                                  currency: 'VND' 
-                                }).format(calculatePrice(pkg.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
-                              </p>
-                              {(numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment') && (
-                                <div className="text-xs text-primary font-medium space-y-0.5">
-                                  {numberOfChildren > 1 && <p>+60% for 2 children</p>}
-                                  {!schedule.isOnline && <p>+2% for offline mode</p>}
-                                  {paymentMethod === 'direct_payment' && <p>+2% for direct payment</p>}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                {(() => {
+                  // Filter packages based on child grade and search term
+                  const filteredPackages = packages.filter(pkg => {
+                    // Filter by grade
+                    let matchesGrade = true;
+                    if (selectedChild?.grade) {
+                      matchesGrade = !pkg.grade || pkg.grade === selectedChild.grade || 
+                                    pkg.grade.toLowerCase() === selectedChild.grade.toLowerCase();
+                    }
+
+                    // Filter by search term
+                    let matchesSearch = true;
+                    if (packageSearchTerm.trim()) {
+                      const searchLower = packageSearchTerm.toLowerCase();
+                      matchesSearch = 
+                        pkg.packageName.toLowerCase().includes(searchLower) ||
+                        (pkg.description && pkg.description.toLowerCase().includes(searchLower));
+                    }
+
+                    return matchesGrade && matchesSearch;
+                  });
+
+                  // Pagination logic
+                  const totalPages = Math.ceil(filteredPackages.length / packageItemsPerPage);
+                  const startIndex = (packageCurrentPage - 1) * packageItemsPerPage;
+                  const endIndex = startIndex + packageItemsPerPage;
+                  const paginatedPackages = filteredPackages.slice(startIndex, endIndex);
+
+                  return (
+                    <>
+                      {filteredPackages.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Packages Found</h3>
+                          <p className="text-gray-600">
+                            {packageSearchTerm 
+                              ? `No packages match "${packageSearchTerm}". Try a different search term.`
+                              : 'No packages available for the selected criteria.'}
+                          </p>
                         </div>
-                      );
-                    })}
-                </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            {paginatedPackages.map((pkg) => {
+                          return (
+                            <div
+                              key={pkg.packageId}
+                              onClick={() => handleSelectPackage(pkg)}
+                              className={`border-2 rounded-lg p-6 hover:shadow-md transition-all cursor-pointer ${
+                                selectedPackage?.packageId === pkg.packageId
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-gray-200'
+                              }`}
+                            >
+                              <h3 className="font-bold text-gray-900 text-lg mb-2">{pkg.packageName}</h3>
+                              {pkg.description && (
+                                <p className="text-sm text-gray-600 mb-4">{pkg.description}</p>
+                              )}
+                              <div className="space-y-2 mb-4">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600">Sessions:</span>
+                                  <span className="font-medium">{pkg.sessionCount}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600">Duration:</span>
+                                  <span className="font-medium">{pkg.durationDays} days</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-gray-600">Grade:</span>
+                                  <span className="font-medium">{pkg.grade || 'All'}</span>
+                                </div>
+                              </div>
+                              <div className="pt-4 border-t border-gray-200">
+                                <div className="space-y-1">
+                                  {numberOfChildren > 1 && (
+                                    <p className="text-xs text-gray-500 line-through">
+                                  {new Intl.NumberFormat('vi-VN', { 
+                                    style: 'currency', 
+                                    currency: 'VND' 
+                                  }).format(pkg.price)}
+                                </p>
+                                  )}
+                                  <p className={`text-2xl font-bold ${numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment' ? 'text-primary' : 'text-gray-900'}`}>
+                                    {new Intl.NumberFormat('vi-VN', { 
+                                      style: 'currency', 
+                                      currency: 'VND' 
+                                    }).format(calculatePrice(pkg.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
+                                  </p>
+                                  {(numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment') && (
+                                    <div className="text-xs text-primary font-medium space-y-0.5">
+                                      {numberOfChildren > 1 && <p>+60% for 2 children</p>}
+                                      {!schedule.isOnline && <p>+2% for offline mode</p>}
+                                      {paymentMethod === 'direct_payment' && <p>+2% for direct payment</p>}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-2 mb-6">
+                          <button
+                            onClick={() => setPackageCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={packageCurrentPage === 1}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span>Previous</span>
+                          </button>
+                          <div className="flex items-center space-x-1">
+                            {(() => {
+                              // Chỉ hiển thị 5 số trang
+                              const startPage = Math.floor((packageCurrentPage - 1) / 5) * 5 + 1;
+                              const endPage = Math.min(startPage + 4, totalPages);
+                              const pages = [];
+                              for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                              }
+                              return pages.map((page) => (
+                                <button
+                                  key={page}
+                                  onClick={() => setPackageCurrentPage(page)}
+                                  className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                                    packageCurrentPage === page
+                                      ? 'bg-primary text-white'
+                                      : 'border border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              ));
+                            })()}
+                          </div>
+                          <button
+                            onClick={() => setPackageCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={packageCurrentPage === totalPages}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Action Buttons */}
                 <div className="flex space-x-4 pt-4 border-t border-gray-200">

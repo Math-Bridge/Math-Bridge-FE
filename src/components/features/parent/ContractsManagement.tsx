@@ -812,13 +812,15 @@ const ContractsManagement: React.FC = () => {
             </button>
 
             <div className="flex items-center gap-2">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
-                const show = page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1);
-                if (!show && (page === currentPage - 2 || page === currentPage + 2)) {
-                  return <span key={page} className="px-3 text-gray-400 font-bold">...</span>;
+              {(() => {
+                // Chỉ hiển thị 5 số trang
+                const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                const endPage = Math.min(startPage + 4, totalPages);
+                const pages = [];
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(i);
                 }
-                if (!show) return null;
-                return (
+                return pages.map((page) => (
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
@@ -830,8 +832,8 @@ const ContractsManagement: React.FC = () => {
                   >
                     {page}
                   </button>
-                );
-              })}
+                ));
+              })()}
             </div>
 
             <button

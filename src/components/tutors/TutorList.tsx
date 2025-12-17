@@ -380,35 +380,28 @@ const TutorList: React.FC = () => {
 
             {/* Page Numbers */}
               <div className="flex gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                // Show first page, last page, current page, and pages around current
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                        className={`px-4 py-2 rounded-xl border-2 ${
-                        currentPage === page
-                            ? 'bg-primary text-white border-primary shadow-math'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return (
-                    <span key={page} className="px-2 py-2 text-gray-400">
-                      ...
-                    </span>
-                  );
+              {(() => {
+                // Chỉ hiển thị 5 số trang
+                const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                const endPage = Math.min(startPage + 4, totalPages);
+                const pages = [];
+                for (let i = startPage; i <= endPage; i++) {
+                  pages.push(i);
                 }
-                return null;
-              })}
+                return pages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-4 py-2 rounded-xl border-2 ${
+                      currentPage === page
+                        ? 'bg-primary text-white border-primary shadow-math'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ));
+              })()}
             </div>
 
             <button
