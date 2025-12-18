@@ -11,6 +11,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   MessageSquare,
   Award,
 } from 'lucide-react';
@@ -29,9 +31,13 @@ const FinalFeedbackManagement: React.FC = () => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingContracts, setLoadingContracts] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedFeedbackId, setExpandedFeedbackId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterProvider, setFilterProvider] = useState<'all' | 'parent' | 'tutor'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     const initialize = async () => {
@@ -56,6 +62,7 @@ const FinalFeedbackManagement: React.FC = () => {
 
   const fetchContracts = async () => {
     try {
+      setLoadingContracts(true);
       // Fetch all contracts to filter by (for staff)
       const result = await getAllContracts();
       if (result.success && result.data) {
@@ -63,6 +70,9 @@ const FinalFeedbackManagement: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching contracts:', error);
+      showError('Failed to load contracts');
+    } finally {
+      setLoadingContracts(false);
     }
   };
 
@@ -146,6 +156,17 @@ const FinalFeedbackManagement: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterProvider, selectedContractId]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredFeedbacks.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedFeedbacks = filteredFeedbacks.slice(startIndex, endIndex);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -167,23 +188,26 @@ const FinalFeedbackManagement: React.FC = () => {
             <p className="text-gray-600 mt-2">View and manage all final feedbacks from parents and tutors</p>
           </div>
           <button
-            onClick={() => {
+            onClick={async () => {
+              setRefreshing(true);
               if (selectedContractId) {
-                fetchFeedbacksByContract();
+                await fetchFeedbacksByContract();
               } else {
-                fetchAllFeedbacks();
+                await fetchAllFeedbacks();
               }
+              setRefreshing(false);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            disabled={refreshing || loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className="w-4 h-4" />
-            <span>Refresh</span>
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -194,7 +218,7 @@ const FinalFeedbackManagement: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div className="relative">
+            {/* <div className="relative">
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <select
                 value={filterProvider}
@@ -205,12 +229,18 @@ const FinalFeedbackManagement: React.FC = () => {
                 <option value="parent">Parent Feedbacks</option>
                 <option value="tutor">Tutor Feedbacks</option>
               </select>
-            </div>
-            <div>
+            </div> */}
+            <div className="relative">
+              {loadingContracts && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                </div>
+              )}
               <select
                 value={selectedContractId || ''}
                 onChange={(e) => setSelectedContractId(e.target.value || null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loadingContracts}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">All Contracts</option>
                 {contracts
@@ -226,7 +256,27 @@ const FinalFeedbackManagement: React.FC = () => {
         </div>
 
         {/* Feedbacks List */}
-        {filteredFeedbacks.length === 0 ? (
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-pulse"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-32 mb-3"></div>
+                      <div className="h-3 bg-gray-200 rounded w-48 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-24"></div>
+                    </div>
+                    <div className="h-5 w-5 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredFeedbacks.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
             <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Feedbacks Found</h3>
@@ -237,8 +287,9 @@ const FinalFeedbackManagement: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredFeedbacks.map((feedback) => (
+          <>
+            <div className="space-y-4">
+              {paginatedFeedbacks.map((feedback) => (
               <div
                 key={feedback.feedbackId}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
@@ -267,7 +318,7 @@ const FinalFeedbackManagement: React.FC = () => {
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                             feedback.feedbackStatus === 'Submitted'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                              : 'bg-green-100 text-gray-800'
                           }`}>
                             {feedback.feedbackStatus}
                           </span>
@@ -417,8 +468,60 @@ const FinalFeedbackManagement: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredFeedbacks.length)} of {filteredFeedbacks.length} feedbacks
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      // Show only 5 page numbers
+                      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                      const endPage = Math.min(startPage + 4, totalPages);
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

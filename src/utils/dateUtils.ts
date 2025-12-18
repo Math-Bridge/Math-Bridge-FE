@@ -82,7 +82,7 @@ export interface SanitizeDateRangeResult {
   error: string | null;
 }
 
-const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+const formatDateISO = (date: Date): string => date.toISOString().split('T')[0];
 
 /**
  * Format a date to YYYY-MM-DD using local timezone (not UTC)
@@ -101,7 +101,7 @@ const isValidDateString = (value: string): boolean => {
   return !Number.isNaN(date.getTime());
 };
 
-export const todayString = (): string => formatDate(new Date());
+export const todayString = (): string => formatDateISO(new Date());
 
 /**
  * Get today's date string in local timezone (YYYY-MM-DD)
@@ -117,7 +117,7 @@ export function adjustEndDateForInclusive(endDate: string): string {
   
   const date = new Date(endDate);
   date.setDate(date.getDate() + 1);
-  return formatDate(date);
+  return formatDateISO(date);
 }
 
 /**
@@ -172,5 +172,126 @@ export function sanitizeDateRange(
     range: { startDate: nextStart, endDate: nextEnd },
     error: messages.length ? messages.join(' ') : null,
   };
+}
+
+/**
+ * Parse date string from backend (handles UTC and local time)
+ * Backend sends DateTime.UtcNow which may be serialized as UTC or local time string
+ * @param dateString - Date string from backend (ISO format or other)
+ * @returns Date object parsed correctly (always treats as UTC if no timezone info)
+ */
+export function parseBackendDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null;
+  
+  try {
+    // If string ends with 'Z' or has timezone offset, parse directly
+    if (dateString.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateString)) {
+      return new Date(dateString);
+    }
+    
+    // If string doesn't have timezone info, assume it's UTC from backend
+    // Backend uses DateTime.UtcNow, so we need to parse it as UTC
+    // Check if it's an ISO-like format (YYYY-MM-DDTHH:mm:ss or YYYY-MM-DDTHH:mm:ss.fff)
+    if (dateString.includes('T')) {
+      // This is likely a UTC time without timezone indicator
+      // Parse it and treat as UTC by appending 'Z'
+      return new Date(dateString + 'Z');
+    }
+    
+    // For date-only strings (YYYY-MM-DD), parse as local date at midnight
+    // But since backend uses UTC, we should treat it as UTC date
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      return new Date(dateString + 'T00:00:00Z');
+    }
+    
+    // Fallback: try parsing as-is
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+    
+    return date;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Format date and time for display in Vietnam timezone (UTC+7)
+ * @param dateString - Date string from backend
+ * @param options - Formatting options
+ * @returns Formatted date/time string
+ */
+export function formatDateTime(
+  dateString: string | null | undefined,
+  options: {
+    includeTime?: boolean;
+    includeDate?: boolean;
+    timeFormat?: '12h' | '24h';
+    dateFormat?: 'short' | 'long' | 'numeric';
+  } = {}
+): string {
+  const {
+    includeTime = true,
+    includeDate = true,
+    timeFormat = '24h',
+    dateFormat = 'numeric'
+  } = options;
+
+  const date = parseBackendDate(dateString);
+  if (!date) return 'N/A';
+
+  // Use toLocaleString with Vietnam timezone
+  // This automatically converts UTC time to Vietnam local time
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  };
+
+  if (includeDate) {
+    if (dateFormat === 'short') {
+      formatOptions.day = '2-digit';
+      formatOptions.month = '2-digit';
+      formatOptions.year = 'numeric';
+    } else if (dateFormat === 'long') {
+      formatOptions.day = '2-digit';
+      formatOptions.month = 'long';
+      formatOptions.year = 'numeric';
+    } else {
+      formatOptions.day = '2-digit';
+      formatOptions.month = '2-digit';
+      formatOptions.year = 'numeric';
+    }
+  }
+
+  if (includeTime) {
+    formatOptions.hour = '2-digit';
+    formatOptions.minute = '2-digit';
+    if (timeFormat === '12h') {
+      formatOptions.hour12 = true;
+    } else {
+      formatOptions.hour12 = false;
+    }
+  }
+
+  return date.toLocaleString('vi-VN', formatOptions);
+}
+
+/**
+ * Format date only (no time) for display
+ * @param dateString - Date string from backend
+ * @returns Formatted date string (dd/MM/yyyy)
+ */
+export function formatDate(dateString: string | null | undefined): string {
+  return formatDateTime(dateString, { includeTime: false, includeDate: true });
+}
+
+/**
+ * Format time only (no date) for display
+ * @param dateString - Date string from backend
+ * @param format - Time format (12h or 24h)
+ * @returns Formatted time string (HH:mm or hh:mm AM/PM)
+ */
+export function formatTime(dateString: string | null | undefined, format: '12h' | '24h' = '24h'): string {
+  return formatDateTime(dateString, { includeTime: true, includeDate: false, timeFormat: format });
 }
 

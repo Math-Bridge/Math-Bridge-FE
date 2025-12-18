@@ -160,15 +160,6 @@ export const appRoutes = [
     }
   />,
   <Route
-    key="wallet-history"
-    path="wallet/history"
-    element={
-      <ProtectedRoute>
-        <TransactionHistoryPage />
-      </ProtectedRoute>
-    }
-  />,
-  <Route
     key="wallet-withdrawal-request"
     path="wallet/withdrawal/request"
     element={

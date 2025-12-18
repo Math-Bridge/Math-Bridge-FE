@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   RefreshCw,
@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  Bell,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -195,7 +196,36 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
   // Helper function to determine if request is from tutor
   const isTutorRequest = (request: RescheduleRequest): boolean => {
     // Backend marks tutor replacement requests with "[CHANGE TUTOR]" prefix in Reason
-    return request.reason?.startsWith('[CHANGE TUTOR]') || false;
+    // Check both tutorId field and reason prefix for compatibility
+    if (request.tutorId) {
+      return true;
+    }
+    if (request.reason) {
+      const reasonUpper = request.reason.toUpperCase();
+      return reasonUpper.includes('[CHANGE TUTOR]') || reasonUpper.includes('CHANGE TUTOR');
+    }
+    return false;
+  };
+
+  // Helper function to check if request is a make-up request from parent
+  const isMakeUpRequestFromParent = (request: RescheduleRequest): boolean => {
+    // Make-up requests from parent:
+    // 1. Not from tutor (tutorId is null/undefined)
+    // 2. Reason contains "makeup", "make-up", or "Reschedule due to Tutor unavailability"
+    if (isTutorRequest(request)) {
+      return false; // Not from parent
+    }
+    
+    if (request.reason) {
+      const reasonLower = request.reason.toLowerCase();
+      return (
+        reasonLower.includes('makeup') ||
+        reasonLower.includes('make-up') ||
+        reasonLower.includes('reschedule due to tutor unavailability')
+      );
+    }
+    
+    return false;
   };
 
   const filterRequests = () => {
@@ -265,13 +295,27 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
     }
   };
 
-  const handleApprove = async () => {
-    if (!selectedRequest) return;
+  const handleApprove = async (): Promise<boolean> => {
+    if (!selectedRequest) return false;
     
     // Double check if session is within 4 hours (safety check)
     if (isSessionWithin4Hours(selectedRequest)) {
       showError('Cannot reschedule session when it is 4 hours or less before the session starts');
-      return;
+      return false;
+    }
+    
+    // If request is from tutor, must select a different tutor
+    const isFromTutor = isTutorRequest(selectedRequest);
+    if (isFromTutor) {
+      if (!selectedTutorId || selectedTutorId.trim() === '') {
+        showError('This request is from a tutor. You must select a different tutor to approve.');
+        return false;
+      }
+      // Also check that selected tutor is different from original tutor
+      if (selectedTutorId === selectedRequest.originalTutorId) {
+        showError('You must select a different tutor than the original tutor.');
+        return false;
+      }
     }
     
     try {
@@ -289,14 +333,16 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
         setApproveNote('');
         setAvailableTutors([]);
         await fetchRequests();
+        return true;
       } else {
         const errorMsg = result.error || 'Failed to approve request';
         
         // If no tutor is available, send notification to parent
         if (errorMsg.includes('not available') || errorMsg.includes('no tutor')) {
-          if (selectedRequest?.contractId && selectedRequest?.bookingId) {
+          if (selectedRequest?.requestId && selectedRequest?.contractId && selectedRequest?.bookingId) {
             try {
               const notificationResult = await createRescheduleOrRefundNotification({
+                requestId: selectedRequest.requestId,
                 contractId: selectedRequest.contractId,
                 bookingId: selectedRequest.bookingId,
               });
@@ -308,7 +354,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 setApproveNote('');
                 setAvailableTutors([]);
                 await fetchRequests();
-                return;
+                return false;
               }
             } catch (notifError: any) {
               console.error('Error creating notification:', notifError);
@@ -318,6 +364,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
         
         showError(errorMsg);
         console.error('Approve error:', errorMsg);
+        return false;
       }
     } catch (error: any) {
       console.error('Error approving request:', error);
@@ -325,9 +372,10 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
       
       // If no tutor is available, send notification to parent
       if (errorMsg.includes('not available') || errorMsg.includes('no tutor')) {
-        if (selectedRequest?.contractId && selectedRequest?.bookingId) {
+        if (selectedRequest?.requestId && selectedRequest?.contractId && selectedRequest?.bookingId) {
           try {
             const notificationResult = await createRescheduleOrRefundNotification({
+              requestId: selectedRequest.requestId,
               contractId: selectedRequest.contractId,
               bookingId: selectedRequest.bookingId,
             });
@@ -339,7 +387,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
               setApproveNote('');
               setAvailableTutors([]);
               await fetchRequests();
-              return;
+              return false; // Return false because approve failed, but notification was sent
             }
           } catch (notifError: any) {
             console.error('Error creating notification:', notifError);
@@ -348,12 +396,22 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
       }
       
       showError(errorMsg);
+      return false;
     }
   };
 
   const handleReject = async () => {
     if (!selectedRequest || !rejectReason.trim()) {
       showError('Please provide a reason for rejection');
+      return;
+    }
+
+    // Check if this is a make-up request from parent - cannot be rejected
+    if (isMakeUpRequestFromParent(selectedRequest)) {
+      showError('Make-up session requests from parents cannot be rejected. Please approve the request instead.');
+      setShowRejectModal(false);
+      setSelectedRequest(null);
+      setRejectReason('');
       return;
     }
 
@@ -381,6 +439,18 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
 
   const handleCancelSession = async () => {
     if (!selectedRequest) return;
+    
+    // Validate that we have required fields
+    if (!selectedRequest.bookingId) {
+      showError('Booking ID is required to cancel session');
+      return;
+    }
+    
+    // Backend requires rescheduleRequestId - check if it exists
+    if (!selectedRequest.requestId || selectedRequest.requestId.trim() === '') {
+      showError('Cannot cancel session: Reschedule request ID is missing. Please select a valid reschedule request.');
+      return;
+    }
     
     try {
       setCancelLoading(true);
@@ -672,10 +742,25 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                                         e.stopPropagation();
                                         setOpenDropdownId(null);
                                         setDropdownPosition(null);
+                                        // Check if this is a make-up request from parent - cannot be rejected
+                                        if (isMakeUpRequestFromParent(request)) {
+                                          showError('Make-up session requests from parents cannot be rejected. Please approve the request instead.');
+                                          return;
+                                        }
                                         setSelectedRequest(request);
                                         setShowRejectModal(true);
                                       }}
-                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2 transition-colors"
+                                      disabled={isMakeUpRequestFromParent(request)}
+                                      className={`w-full px-4 py-2 text-left text-sm flex items-center space-x-2 transition-colors ${
+                                        isMakeUpRequestFromParent(request)
+                                          ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                          : 'text-gray-700 hover:bg-gray-100'
+                                      }`}
+                                      title={
+                                        isMakeUpRequestFromParent(request)
+                                          ? 'Make-up session requests from parents cannot be rejected'
+                                          : 'Reject this request'
+                                      }
                                     >
                                       <XCircle className="w-4 h-4 text-red-600" />
                                       <span>Reject</span>
@@ -839,10 +924,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 {/* Tutor Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Tutor (Optional)
+                    Select Tutor {isTutorRequest(selectedRequest) ? '(Required)' : '(Optional)'}
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    If not selected, will use requested tutor or original tutor
+                    {isTutorRequest(selectedRequest)
+                      ? 'This request is from a tutor. You must select a different tutor to approve.'
+                      : 'If not selected, will use requested tutor or original tutor'}
                   </p>
                   {loadingTutors ? (
                     <div className="flex items-center justify-center py-4">
@@ -864,7 +951,9 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                   </select>
                   ) : (
                     <div className="text-sm text-gray-500 py-2">
-                      No substitute tutors available. Will use requested tutor or original tutor.
+                      {isTutorRequest(selectedRequest) 
+                        ? 'No substitute tutors available. You must select a tutor to approve this request.'
+                        : 'No substitute tutors available. Will use requested tutor or original tutor.'}
                     </div>
                   )}
                 </div>
@@ -897,18 +986,69 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
               >
                 Cancel
               </button>
-              {!loadingTutors && availableTutors.length === 0 ? (
+              {!loadingTutors && availableTutors.length === 0 && !isTutorRequest(selectedRequest) ? (
+                // For parent requests with no tutors available, show refund option only
                 <button
                   onClick={async () => {
-                    // Send notification to parent to choose reschedule or refund
-                    if (selectedRequest?.contractId && selectedRequest?.bookingId) {
-                      try {
-                        const result = await createRescheduleOrRefundNotification({
+                    if (!selectedRequest) return;
+                    
+                    // Cancel session and refund
+                    try {
+                      setCancelLoading(true);
+                      const result = await cancelRescheduleSession(selectedRequest.bookingId, selectedRequest.requestId);
+                      if (result.success) {
+                        showSuccess(result.data?.message || 'Session cancelled successfully. Refund has been added to wallet.');
+                        setShowApproveModal(false);
+                        setSelectedRequest(null);
+                        setSelectedTutorId('');
+                        setApproveNote('');
+                        setAvailableTutors([]);
+                        await fetchRequests();
+                      } else {
+                        const errorMsg = result.error || 'Failed to cancel session';
+                        showError(errorMsg);
+                        console.error('Cancel session error:', errorMsg);
+                      }
+                    } catch (error: any) {
+                      console.error('Error cancelling session:', error);
+                      const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to cancel session';
+                      showError(errorMsg);
+                    } finally {
+                      setCancelLoading(false);
+                    }
+                  }}
+                  disabled={cancelLoading}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {cancelLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      <span>Cancel & Refund</span>
+                    </>
+                  )}
+                </button>
+              ) : !loadingTutors && availableTutors.length === 0 && isTutorRequest(selectedRequest) ? (
+                // For tutor requests with no tutors available, show notification option
+                <button
+                  onClick={async () => {
+                    if (!selectedRequest) return;
+                    
+                    // Send notification to parent
+                    try {
+                      setCancelLoading(true);
+                      if (selectedRequest?.requestId && selectedRequest?.contractId && selectedRequest?.bookingId) {
+                        const notificationResult = await createRescheduleOrRefundNotification({
+                          requestId: selectedRequest.requestId,
                           contractId: selectedRequest.contractId,
                           bookingId: selectedRequest.bookingId,
                         });
-                        if (result.success) {
-                          showSuccess('Notification sent to parent to choose makeup session or refund.');
+                        if (notificationResult.success) {
+                          showSuccess('No tutors available. Notification sent to parent to choose makeup session or refund.');
                           setShowApproveModal(false);
                           setSelectedRequest(null);
                           setSelectedTutorId('');
@@ -916,29 +1056,47 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                           setAvailableTutors([]);
                           await fetchRequests();
                         } else {
-                          showError(result.error || 'Failed to send notification to parent');
+                          showError(notificationResult.error || 'Failed to send notification to parent');
                         }
-                      } catch (error: any) {
-                        console.error('Error creating notification:', error);
-                        showError('Failed to send notification to parent');
+                      } else {
+                        showError('Missing required information to send notification');
                       }
-                    } else {
-                      // Fallback: show cancel modal if contractId or bookingId is missing
-                      setShowApproveModal(false);
-                      setShowCancelModal(true);
+                    } catch (error: any) {
+                      console.error('Error sending notification:', error);
+                      showError(error?.message || 'Failed to send notification to parent');
+                    } finally {
+                      setCancelLoading(false);
                     }
                   }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  disabled={cancelLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Notify Parent (No Tutors Available)</span>
+                  {cancelLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-4 h-4" />
+                      <span>Notify Parent</span>
+                    </>
+                  )}
                 </button>
               ) : (
                 <button
                   onClick={handleApprove}
-                  disabled={loadingTutors}
+                  disabled={
+                    loadingTutors || 
+                    (isTutorRequest(selectedRequest) && (!selectedTutorId || selectedTutorId.trim() === ''))
+                  }
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   id="approve-reschedule-btn"
+                  title={
+                    isTutorRequest(selectedRequest) && (!selectedTutorId || selectedTutorId.trim() === '')
+                      ? 'You must select a different tutor to approve this request'
+                      : ''
+                  }
                 >
                   Approve Request
                 </button>

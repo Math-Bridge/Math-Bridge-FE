@@ -15,8 +15,6 @@ import {
   getSessionById,
   Session,
   getSessionsByChildId,
-  getContractById,
-  getTutorAvailabilitiesByTutorId,
   TutorAvailability,
   createMakeUpSession,
   getRescheduleRequests,
@@ -156,22 +154,12 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
     
     try {
       setLoadingAvailabilities(true);
-      const contractResult = await getContractById(notification.contractId);
-      if (contractResult.success && contractResult.data) {
-        const contractData = contractResult.data as any;
-        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
-        const subTutor1Id = contractData.SubstituteTutor1Id || contractData.substituteTutor1Id || contractData.substitute_tutor1_id;
-        
-        const [mainTutorAvail, subTutorAvail] = await Promise.all([
-          mainTutorId ? getTutorAvailabilitiesByTutorId(mainTutorId) : Promise.resolve({ success: false, data: [] }),
-          subTutor1Id ? getTutorAvailabilitiesByTutorId(subTutor1Id) : Promise.resolve({ success: false, data: [] })
-        ]);
-        
-        setTutorAvailabilities({
-          mainTutor: mainTutorAvail.success && mainTutorAvail.data ? mainTutorAvail.data : [],
-          subTutor: subTutorAvail.success && subTutorAvail.data ? subTutorAvail.data : []
-        });
-      }
+      // API endpoint /tutor-availabilities/tutor/{tutorId} does not exist in backend
+      // Return empty arrays for tutor availabilities
+      setTutorAvailabilities({
+        mainTutor: [],
+        subTutor: []
+      });
     } catch (error) {
       console.error('Error fetching tutor availabilities:', error);
     } finally {

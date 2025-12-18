@@ -14,9 +14,9 @@ import {
   CreateRescheduleRequest, 
   getSessionsByChildId, 
   Session,
-  getContractById,
-  getTutorAvailabilitiesByTutorId,
-  TutorAvailability
+  TutorAvailability,
+  getAvailableSlots,
+  AvailableSlot
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -60,6 +60,8 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     subTutor: TutorAvailability[];
   }>({ mainTutor: [], subTutor: [] });
   const [loadingAvailabilities, setLoadingAvailabilities] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   
   // Valid start times: 16:00, 17:30, 19:00, 20:30
   const VALID_START_TIMES = ['16:00', '17:30', '19:00', '20:30'];
@@ -268,8 +270,16 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
             isPast = slotTime <= currentTime;
           }
           
-          // Check if slot is available for tutors
-          const isTutorAvailable = isSlotAvailableForTutors(dateStr, time);
+          // Check if slot is available from API
+          const slotTimeRange = `${time} - ${calculateEndTime(time)}`;
+          const isAvailableFromAPI = availableSlots.some(slot => 
+            slot.date === dateStr && slot.slot === slotTimeRange
+          );
+          
+          // Check if slot is available for tutors (use API data if available, otherwise fallback to tutor availability check)
+          const isTutorAvailable = availableSlots.length > 0 
+            ? isAvailableFromAPI 
+            : isSlotAvailableForTutors(dateStr, time);
           
           // Check if slot is booked
           const isBooked = isSlotBooked(dateStr, time);
@@ -277,7 +287,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           // Check if slot is too close to existing sessions
           const isTooClose = isSlotTooClose(dateStr, time);
           
-          // Slot is disabled if: past, not available for tutors, booked, or too close
+          // Slot is disabled if: past, not available (from API or tutor check), booked, or too close
           const isDisabled = isPast || !isTutorAvailable || isBooked || isTooClose;
           
           return {
@@ -309,7 +319,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   // Use useMemo to recalculate schedule when dependencies change
   const weeklySchedule = useMemo(() => {
     return generateWeeklySchedule();
-  }, [selectedWeek, tutorAvailabilities, existingSessions, currentSession.date, currentSession.time]);
+  }, [selectedWeek, tutorAvailabilities, existingSessions, currentSession.date, currentSession.time, availableSlots]);
 
   // Fetch existing sessions and tutor availabilities when popup opens
   React.useEffect(() => {
@@ -319,10 +329,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       }
       if (currentSession.contractId) {
         fetchTutorAvailabilities();
+        fetchAvailableSlots();
       }
     } else {
       setExistingSessions([]);
       setTutorAvailabilities({ mainTutor: [], subTutor: [] });
+      setAvailableSlots([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, childId, currentSession.contractId]);
@@ -354,29 +366,36 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     
     try {
       setLoadingAvailabilities(true);
-      // Fetch contract to get tutor IDs
-      const contractResult = await getContractById(currentSession.contractId);
-      if (contractResult.success && contractResult.data) {
-        const contractData = contractResult.data as any;
-        const mainTutorId = contractData.MainTutorId || contractData.mainTutorId || contractData.main_tutor_id;
-        const subTutor1Id = contractData.SubstituteTutor1Id || contractData.substituteTutor1Id || contractData.substitute_tutor1_id;
-        
-        // Fetch availabilities for both tutors
-        const [mainTutorAvail, subTutorAvail] = await Promise.all([
-          mainTutorId ? getTutorAvailabilitiesByTutorId(mainTutorId) : Promise.resolve({ success: false, data: [] }),
-          subTutor1Id ? getTutorAvailabilitiesByTutorId(subTutor1Id) : Promise.resolve({ success: false, data: [] })
-        ]);
-        
-        setTutorAvailabilities({
-          mainTutor: mainTutorAvail.success && mainTutorAvail.data ? mainTutorAvail.data : [],
-          subTutor: subTutorAvail.success && subTutorAvail.data ? subTutorAvail.data : []
-        });
-      }
+      // API endpoint /tutor-availabilities/tutor/{tutorId} does not exist in backend
+      // Return empty arrays for tutor availabilities
+      setTutorAvailabilities({
+        mainTutor: [],
+        subTutor: []
+      });
     } catch (error) {
       console.error('Error fetching tutor availabilities:', error);
       // Continue without availability data - will show all slots
     } finally {
       setLoadingAvailabilities(false);
+    }
+  };
+
+  const fetchAvailableSlots = async () => {
+    if (!currentSession.contractId) return;
+    
+    try {
+      setLoadingSlots(true);
+      const result = await getAvailableSlots(currentSession.contractId);
+      if (result.success && result.data) {
+        setAvailableSlots(result.data.data || []);
+      } else {
+        setAvailableSlots([]);
+      }
+    } catch (error) {
+      console.error('Error fetching available slots:', error);
+      setAvailableSlots([]);
+    } finally {
+      setLoadingSlots(false);
     }
   };
 

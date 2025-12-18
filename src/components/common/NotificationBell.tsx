@@ -22,6 +22,9 @@ const NotificationBell: React.FC = () => {
     message: string;
   } | null>(null);
   const [childId, setChildId] = useState<string | undefined>(undefined);
+  
+  // Lưu danh sách các notification đã được xử lý (đã submit form)
+  const [processedNotifications, setProcessedNotifications] = useState<Set<string>>(new Set());
 
   const {
     notifications,
@@ -38,6 +41,33 @@ const NotificationBell: React.FC = () => {
     switchTab,
     goToPage,
   } = useNotifications();
+
+  // Load danh sách notification đã xử lý từ localStorage khi component mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('processedNotifications');
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        setProcessedNotifications(new Set(parsed));
+      }
+    } catch (error) {
+      console.error('Error loading processed notifications:', error);
+    }
+  }, []);
+
+  // Lưu danh sách notification đã xử lý vào localStorage
+  const saveProcessedNotification = (notificationId: string) => {
+    setProcessedNotifications(prev => {
+      const newSet = new Set(prev);
+      newSet.add(notificationId);
+      try {
+        localStorage.setItem('processedNotifications', JSON.stringify(Array.from(newSet)));
+      } catch (error) {
+        console.error('Error saving processed notifications:', error);
+      }
+      return newSet;
+    });
+  };
 
   // Click outside để đóng dropdown
   useEffect(() => {
@@ -65,6 +95,20 @@ const NotificationBell: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  // Auto-refresh notifications mỗi 30 giây
+  useEffect(() => {
+    // Chỉ auto-refresh khi dropdown đóng để tránh làm gián đoạn người dùng
+    if (isOpen) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000); // 30 giây
+
+    return () => clearInterval(interval);
+  }, [isOpen, fetchNotifications]);
+
   // Xử lý click vào thông báo
   const handleNotificationClick = async (notification: any) => {
     if (notification.status !== 'Read') {
@@ -72,8 +116,24 @@ const NotificationBell: React.FC = () => {
     }
 
     // Check if this is a RescheduleOrRefund notification
-    if (notification.type === 'RescheduleOrRefund' || notification.notificationType === 'RescheduleOrRefund') {
+    const notificationType = (notification as any).notificationType || notification.type;
+    if (notificationType === 'RescheduleOrRefund') {
       if (notification.bookingId && notification.contractId) {
+        // Kiểm tra xem notification này đã được xử lý chưa
+        if (processedNotifications.has(notification.id)) {
+          // Notification đã được xử lý, không cho mở form lại
+          return;
+        }
+        
+        // Nếu đã có modal đang mở, đóng nó trước để đảm bảo chỉ có 1 form được mở tại một thời điểm
+        if (showRescheduleOrRefundModal) {
+          setShowRescheduleOrRefundModal(false);
+          setSelectedNotification(null);
+          setChildId(undefined);
+          // Đợi một chút để modal cũ đóng hoàn toàn trước khi mở modal mới
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
         // Fetch childId from contract
         try {
           const contractResult = await getContractById(notification.contractId);
@@ -266,21 +326,65 @@ const NotificationBell: React.FC = () => {
               </div>
             ) : (
               <div>
-                {filteredNotifications.map((notification) => (
+                {filteredNotifications.map((notification) => {
+                  // Kiểm tra xem notification này có đang mở modal không
+                  const isCurrentModalNotification = selectedNotification?.id === notification.id && showRescheduleOrRefundModal;
+                  // Kiểm tra xem có modal đang mở từ notification khác không
+                  const isOtherModalOpen = showRescheduleOrRefundModal && selectedNotification?.id !== notification.id;
+                  // Kiểm tra xem notification này đã được xử lý chưa
+                  const isProcessed = processedNotifications.has(notification.id);
+                  const notificationType = (notification as any).notificationType || notification.type;
+                  const isRescheduleOrRefundType = notificationType === 'RescheduleOrRefund';
+                  // Disable nếu: có modal khác đang mở HOẶC notification đã được xử lý
+                  const isDisabled = (isOtherModalOpen && isRescheduleOrRefundType) || (isProcessed && isRescheduleOrRefundType);
+                  
+                  return (
                   <div
                     key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    onClick={() => {
+                      // Nếu disabled, không cho phép click
+                      if (isDisabled) {
+                        return;
+                      }
+                      handleNotificationClick(notification);
+                    }}
+                    className={`p-4 border-b border-gray-100 transition-colors ${
+                      isDisabled
+                        ? 'opacity-50 cursor-not-allowed'
+                        : 'hover:bg-gray-50 cursor-pointer'
+                    } ${
                       notification.status !== 'Read'
                         ? 'bg-blue-50 border-l-4 border-l-blue-500'
                         : ''
+                    } ${
+                      isCurrentModalNotification
+                        ? 'bg-green-50 border-l-4 border-l-green-500'
+                        : ''
+                    } ${
+                      isProcessed && isRescheduleOrRefundType
+                        ? 'bg-gray-100 border-l-4 border-l-gray-400'
+                        : ''
                     }`}
+                    title={
+                      isProcessed && isRescheduleOrRefundType
+                        ? 'Notification này đã được xử lý'
+                        : isDisabled
+                        ? 'Vui lòng đóng form hiện tại trước khi mở form mới'
+                        : ''
+                    }
                   >
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {notification.message}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          {isProcessed && isRescheduleOrRefundType && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full whitespace-nowrap">
+                              Processed
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500 mt-1">
                           {formatTimeAgo(notification.createdAt)}
                         </p>
@@ -294,7 +398,8 @@ const NotificationBell: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -362,6 +467,10 @@ const NotificationBell: React.FC = () => {
             setChildId(undefined);
           }}
           onSuccess={() => {
+            // Đánh dấu notification này đã được xử lý
+            if (selectedNotification) {
+              saveProcessedNotification(selectedNotification.id);
+            }
             setShowRescheduleOrRefundModal(false);
             setSelectedNotification(null);
             setChildId(undefined);

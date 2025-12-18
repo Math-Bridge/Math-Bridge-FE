@@ -2257,36 +2257,8 @@ export async function getTutorAvailabilityById(id: string) {
 }
 
 // GET /api/tutor-availabilities/tutor/{tutorId}
-export async function getTutorAvailabilitiesByTutorId(tutorId: string) {
-  const result = await apiService.request<any[]>(`/tutor-availabilities/tutor/${tutorId}`);
-  
-  if (result.success && result.data) {
-    // Map snake_case from backend to camelCase for frontend
-    const mappedData: TutorAvailability[] = result.data.map((item: any) => ({
-      availabilityId: item.availabilityId || item.availability_id || item.AvailabilityId || item.id,
-      tutorId: item.tutorId || item.tutor_id || item.TutorId,
-      daysOfWeek: item.daysOfWeeks ?? item.DaysOfWeeks ?? item.daysOfWeek ?? item.DaysOfWeek ?? item.days_of_week ?? item.days_of_weeks ?? 0, // BE uses DaysOfWeeks (camelCase when serialized)
-      availableFrom: item.availableFrom || item.available_from || item.AvailableFrom || '',
-      availableUntil: item.availableUntil || item.available_until || item.AvailableUntil || '',
-      effectiveFrom: item.effectiveFrom || item.effective_from || item.EffectiveFrom || '',
-      effectiveUntil: item.effectiveUntil ?? item.effective_until ?? item.EffectiveUntil ?? null,
-      canTeachOnline: item.canTeachOnline ?? item.can_teach_online ?? item.CanTeachOnline ?? false,
-      canTeachOffline: item.canTeachOffline ?? item.can_teach_offline ?? item.CanTeachOffline ?? false,
-      status: item.status || item.Status || 'active',
-      createdDate: item.createdDate || item.created_date || item.CreatedDate,
-      updatedDate: item.updatedDate ?? item.updated_date ?? item.UpdatedDate ?? null,
-      isBooked: item.isBooked ?? item.is_booked ?? item.IsBooked ?? null,
-    }));
-    
-    return {
-      success: true,
-      data: mappedData,
-      error: null,
-    };
-  }
-  
-  return result;
-}
+// REMOVED: This endpoint does not exist in the backend
+// export async function getTutorAvailabilitiesByTutorId(tutorId: string) { ... }
 
 // POST /api/tutor-availabilities
 export async function createTutorAvailability(data: CreateTutorAvailabilityRequest) {
@@ -2816,10 +2788,20 @@ export interface CancelSessionResponse {
   processedDate: string;
 }
 
-export async function cancelRescheduleSession(bookingId: string, rescheduleRequestId: string) {
+export async function cancelRescheduleSession(bookingId: string, rescheduleRequestId?: string) {
   try {
+    // Only include rescheduleRequestId in query if it's provided and not empty
+    // Check for null, undefined, empty string, or whitespace-only string
+    const hasValidRequestId = rescheduleRequestId != null && 
+                              typeof rescheduleRequestId === 'string' && 
+                              rescheduleRequestId.trim() !== '';
+    
+    const queryParam = hasValidRequestId 
+      ? `?rescheduleRequestId=${encodeURIComponent(rescheduleRequestId.trim())}` 
+      : '';
+    
     const result = await apiService.request<CancelSessionResponse>(
-      `/reschedule/cancel-session/${bookingId}?rescheduleRequestId=${rescheduleRequestId}`, 
+      `/reschedule/cancel-session/${bookingId}${queryParam}`, 
       {
         method: 'POST',
       }
@@ -2837,6 +2819,7 @@ export async function cancelRescheduleSession(bookingId: string, rescheduleReque
 
 // Create reschedule or refund notification for parent
 export interface CreateRescheduleOrRefundNotificationRequest {
+  requestId: string; // Required: reschedule request ID
   contractId: string;
   bookingId: string;
 }
@@ -2860,6 +2843,7 @@ export async function createRescheduleOrRefundNotification(data: CreateReschedul
       {
         method: 'POST',
         body: JSON.stringify({
+          requestId: data.requestId,
           contractId: data.contractId,
           bookingId: data.bookingId,
         }),
@@ -2965,18 +2949,41 @@ export async function respondToRescheduleOrRefund(data: RespondToRescheduleOrRef
       // For refund, cancel the session
       // First, find the reschedule request ID if exists
       const rescheduleRequests = await getRescheduleRequests();
-      let rescheduleRequestId = '';
+      let rescheduleRequestId: string | undefined = undefined;
       
       if (rescheduleRequests.success && rescheduleRequests.data) {
-        const request = rescheduleRequests.data.find(
+        // Try to find pending request first
+        let request = rescheduleRequests.data.find(
           (r: RescheduleRequest) => r.bookingId === data.bookingId && r.status === 'pending'
         );
-        if (request) {
-          rescheduleRequestId = request.requestId;
+        
+        // If no pending request, try to find any request for this booking
+        if (!request) {
+          request = rescheduleRequests.data.find(
+            (r: RescheduleRequest) => r.bookingId === data.bookingId
+          );
+        }
+        
+        // Ensure requestId is valid (not null, undefined, or empty string)
+        if (request?.requestId && 
+            typeof request.requestId === 'string' && 
+            request.requestId.trim() !== '') {
+          rescheduleRequestId = request.requestId.trim();
         }
       }
       
+      // Only call cancelRescheduleSession if we have a valid rescheduleRequestId
+      // Backend requires rescheduleRequestId to be present
+      if (!rescheduleRequestId) {
+        return {
+          success: false,
+          data: null,
+          error: 'Cannot cancel session: No reschedule request found. Please create a reschedule request first or contact staff for assistance.',
+        };
+      }
+      
       // Get session ID from booking ID (they are the same)
+      // Pass rescheduleRequestId (required by backend)
       const result = await cancelRescheduleSession(data.bookingId, rescheduleRequestId);
       
       if (result.success && result.data) {
@@ -3706,6 +3713,54 @@ export async function getAvailableTutorsForContract(
       success: false,
       error: error?.message || 'Failed to get available tutors for contract',
       data: undefined,
+    };
+  }
+}
+
+// GET /api/contracts/{contractId}/available-slots
+export interface AvailableSlot {
+  date: string; // DateOnly format: "YYYY-MM-DD"
+  slot: string; // Display format: "16:00 - 17:30"
+  availableTutors: string[]; // List of tutor names who are available
+}
+
+export interface AvailableSlotsResponse {
+  totalAvailableSlots: number;
+  message: string;
+  data: AvailableSlot[];
+}
+
+export async function getAvailableSlots(contractId: string) {
+  try {
+    const result = await apiService.request<any>(`/contracts/${contractId}/available-slots`);
+    
+    if (result.success && result.data) {
+      // Backend returns: { totalAvailableSlots, message, data: AvailableSlot[] }
+      const responseData = result.data;
+      const mappedSlots: AvailableSlot[] = (responseData.data || []).map((slot: any) => ({
+        date: slot.date || slot.Date || '',
+        slot: slot.slot || slot.Slot || '',
+        availableTutors: slot.availableTutors || slot.AvailableTutors || [],
+      }));
+
+      return {
+        success: true,
+        data: {
+          totalAvailableSlots: responseData.totalAvailableSlots || mappedSlots.length,
+          message: responseData.message || '',
+          data: mappedSlots,
+        },
+        error: null,
+      };
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('Error in getAvailableSlots:', error);
+    return {
+      success: false,
+      data: undefined,
+      error: error?.message || 'Failed to get available slots',
     };
   }
 }

@@ -85,10 +85,9 @@ const Footer: React.FC = () => {
               {[
                 { name: 'Home', href: '/home' },
                 { name: 'About Us', href: '/about' },
-                { name: 'Courses', href: '/packages' },
+                { name: 'Packages', href: '/packages' },
                 { name: 'Tutors', href: '/tutors' },
                 { name: 'Contact', href: '/contact' },
-                { name: 'Blog', href: '/blog' },
               ].map((link, idx) => (
                 <li key={idx}>
                   <Link

@@ -16,6 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiService, getMyWithdrawalRequests, WithdrawalRequest } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 interface Transaction {
   id: string;
@@ -256,6 +257,27 @@ const WalletComponent: React.FC = () => {
   const totalPages = Math.ceil(filteredTransactions.length / pageSize);
   const paginatedTxs = filteredTransactions.slice((page - 1) * pageSize, page * pageSize);
 
+  // Calculate total amount for filtered transactions
+  const filteredTotal = useMemo(() => {
+    return filteredTransactions.reduce((sum, tx) => {
+      const signedAmount = ['deposit', 'refund'].includes(tx.type) ? tx.amount : -tx.amount;
+      return sum + signedAmount;
+    }, 0);
+  }, [filteredTransactions]);
+
+  // Calculate income and expense totals separately
+  const incomeTotal = useMemo(() => {
+    return filteredTransactions
+      .filter(tx => ['deposit', 'refund'].includes(tx.type))
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [filteredTransactions]);
+
+  const expenseTotal = useMemo(() => {
+    return filteredTransactions
+      .filter(tx => ['payment', 'withdrawal'].includes(tx.type))
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [filteredTransactions]);
+
   const resetFilters = () => {
     setSearchTerm('');
     setTypeFilter('all');
@@ -345,7 +367,7 @@ const WalletComponent: React.FC = () => {
 
           {/* Filter Bar */}
           <div className="p-6 bg-gray-50/70 border-b border-gray-200">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -404,6 +426,36 @@ const WalletComponent: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Total Summary */}
+            {hasActiveFilter && filteredTransactions.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-300">
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 font-medium">Filtered Total:</span>
+                    <span className={`text-lg font-bold ${filteredTotal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {filteredTotal >= 0 ? '+' : ''}{formatCurrency(Math.abs(filteredTotal))}
+                    </span>
+                  </div>
+                  {typeFilter === 'all' && (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Income:</span>
+                        <span className="text-emerald-600 font-semibold">+{formatCurrency(incomeTotal)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Expense:</span>
+                        <span className="text-rose-600 font-semibold">-{formatCurrency(expenseTotal)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">Transactions:</span>
+                    <span className="text-gray-900 font-semibold">{filteredTransactions.length}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Table */}
@@ -422,7 +474,6 @@ const WalletComponent: React.FC = () => {
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Method</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Balance</th>
                     </tr>
@@ -444,9 +495,13 @@ const WalletComponent: React.FC = () => {
                         </td>
                         <td className="px-6 py-5 text-gray-900">{tx.description}</td>
                         <td className="px-6 py-5 text-sm text-gray-600">
-                          {new Date(tx.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {formatDateTime(tx.date, { 
+                            includeTime: true, 
+                            includeDate: true, 
+                            timeFormat: '24h',
+                            dateFormat: 'numeric'
+                          })}
                         </td>
-                        <td className="px-6 py-5 text-sm text-gray-600">{tx.method || '-'}</td>
                         <td className={`px-6 py-5 text-right font-bold text-lg ${
                           ['deposit', 'refund'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'
                         }`}>
@@ -484,8 +539,15 @@ const WalletComponent: React.FC = () => {
                         </p>
                       </div>
                       <div className="text-sm text-gray-500 space-y-1">
-                        <p className="flex items-center gap-1"><Clock className="w-4 h-4" /> {new Date(tx.date).toLocaleString()}</p>
-                        {tx.method && <p>Method: {tx.method}</p>}
+                        <p className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" /> 
+                          {formatDateTime(tx.date, { 
+                            includeTime: true, 
+                            includeDate: true, 
+                            timeFormat: '24h',
+                            dateFormat: 'numeric'
+                          })}
+                        </p>
                         <p>Before: {formatCurrency(tx.balanceBefore)}</p>
                         <p>After: {formatCurrency(tx.balanceAfter)}</p>
                       </div>

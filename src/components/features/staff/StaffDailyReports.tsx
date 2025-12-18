@@ -11,6 +11,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Trash2,
   ExternalLink,
 } from 'lucide-react';
@@ -37,6 +39,8 @@ const StaffDailyReports: React.FC = () => {
   const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState<string>('');
   const [dateTo, setDateTo] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchAllReports();
@@ -125,6 +129,17 @@ const StaffDailyReports: React.FC = () => {
 
     return matchesSearch && matchesFilter && matchesUnit && matchesDateFrom && matchesDateTo;
   });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterOnTrack, selectedUnitId, dateFrom, dateTo]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -294,8 +309,9 @@ const StaffDailyReports: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredReports.map((report) => (
+          <>
+            <div className="space-y-4">
+              {paginatedReports.map((report) => (
               <div
                 key={report.reportId}
                 className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
@@ -455,8 +471,60 @@ const StaffDailyReports: React.FC = () => {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                <div className="text-sm text-gray-600">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredReports.length)} of {filteredReports.length} reports
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    {(() => {
+                      // Show only 5 page numbers
+                      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                      const endPage = Math.min(startPage + 4, totalPages);
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                            currentPage === page
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

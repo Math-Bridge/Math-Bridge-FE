@@ -700,13 +700,13 @@ const CreateContract: React.FC = () => {
     } else {
       // Select child - check if we can select more
       if (selectedChildren.length >= numberOfChildren) {
-        showError(`You can only select ${numberOfChildren} ${numberOfChildren === 1 ? 'child' : 'children'}`);
+        showError(`You can only select ${numberOfChildren === 1 ? '1 child' : 'twin'}`);
         return;
       }
       
       // Check max limit of 2 children (backend only supports max 2)
       if (selectedChildren.length >= 2) {
-        showError('You can only select up to 2 children per contract');
+        showError('You can only select up to twin per contract');
         return;
       }
       
@@ -1277,7 +1277,7 @@ const CreateContract: React.FC = () => {
         
         // Validate that children are different
         if (firstChild.childId === secondChild.childId) {
-          const errorMsg = 'Cannot select the same child twice. Please select 2 different children.';
+          const errorMsg = 'Cannot select the same child twice. Please select 2 different twins.';
           setError(errorMsg);
           showError(errorMsg);
           setIsCreating(false);
@@ -1888,14 +1888,18 @@ const CreateContract: React.FC = () => {
                         }`}
                       >
                         <div className="text-center">
-                          <div className="text-2xl font-bold mb-1">{count}</div>
-                          <div className="text-xs text-gray-600">
-                            {count === 1 ? 'Child' : 'Children'}
-                          </div>
-                          {count > 1 && (
-                            <div className="text-xs mt-1 text-primary font-medium">
-                              +60% price
-                            </div>
+                          {count === 1 ? (
+                            <>
+                              <div className="text-2xl font-bold mb-1">{count}</div>
+                              <div className="text-xs text-gray-600">Child</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-2xl font-bold mb-1">Twin</div>
+                              <div className="text-xs mt-1 text-primary font-medium">
+                                +60% price
+                              </div>
+                            </>
                           )}
                         </div>
                       </button>
@@ -1909,7 +1913,7 @@ const CreateContract: React.FC = () => {
                 {/* Children Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    {numberOfChildren === 1 ? 'Select Child' : `Select ${numberOfChildren} Children`} <span className="text-red-500">*</span>
+                    {numberOfChildren === 1 ? 'Select Child' : 'Select Twin'} <span className="text-red-500">*</span>
                   </label>
                   {numberOfChildren === 2 && (
                     <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -1981,7 +1985,7 @@ const CreateContract: React.FC = () => {
                   </div>
                   {numberOfChildren > 1 && (
                     <p className="mt-2 text-xs text-gray-500">
-                      Selected: {selectedChildren.length} / {numberOfChildren} children
+                      Selected: {selectedChildren.length} / {numberOfChildren} twin
                     </p>
                   )}
                 </div>
@@ -2001,7 +2005,7 @@ const CreateContract: React.FC = () => {
                         return;
                       }
                       if (numberOfChildren > 1 && selectedChildren.length !== numberOfChildren) {
-                        showError(`Please select ${numberOfChildren} children`);
+                        showError(`Please select twin`);
                         return;
                       }
                       setCurrentStep('select-package');
@@ -2075,7 +2079,7 @@ const CreateContract: React.FC = () => {
                 {numberOfChildren > 1 && (
                   <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-sm font-medium text-yellow-800">
-                      Price Adjustment: +60% for 2 children
+                      Price Adjustment: +60% for twin
                     </p>
                   </div>
                 )}
@@ -2210,7 +2214,7 @@ const CreateContract: React.FC = () => {
                                   </p>
                                   {(numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment') && (
                                     <div className="text-xs text-primary font-medium space-y-0.5">
-                                      {numberOfChildren > 1 && <p>+60% for 2 children</p>}
+                                      {numberOfChildren > 1 && <p>+60% for twin</p>}
                                       {!schedule.isOnline && <p>+2% for offline mode</p>}
                                       {paymentMethod === 'direct_payment' && <p>+2% for direct payment</p>}
                                     </div>
@@ -3497,7 +3501,7 @@ const CreateContract: React.FC = () => {
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Price Adjustment:</span>
                           <span className="text-primary font-medium">
-                            +60% (2 children)
+                            +60% (twin)
                           </span>
                         </div>
                       )}

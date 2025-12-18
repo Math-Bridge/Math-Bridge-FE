@@ -23,6 +23,7 @@ import {
   WithdrawalRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 interface WithdrawalManagementProps {
   hideBackButton?: boolean;
@@ -138,21 +139,14 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
     setSelectedRequestId(null);
   };
 
+  // Use formatDateTime from dateUtils for proper timezone handling
   const formatDate = (dateStr: string | undefined): string => {
-    if (!dateStr) return 'N/A';
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
+    return formatDateTime(dateStr, {
+      includeTime: true,
+      includeDate: true,
+      timeFormat: '12h',
+      dateFormat: 'short'
+    });
   };
 
   const formatCurrency = (amount: number): string => {
