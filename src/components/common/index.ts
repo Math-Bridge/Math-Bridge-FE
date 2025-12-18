@@ -13,4 +13,3 @@ export { default as CustomerSupportButton } from './CustomerSupportButton';
 export { default as CustomerSupportChat } from './CustomerSupportChat';
 export { default as UnitProgressDisplay } from './UnitProgressDisplay';
 export { default as LatexKeyboard } from './LatexKeyboard';
-export { default as FallingLatexSymbols } from './FallingLatexSymbols';

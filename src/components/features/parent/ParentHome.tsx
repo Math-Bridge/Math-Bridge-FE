@@ -434,17 +434,39 @@ const ParentHome: React.FC = () => {
           {/* All Tutors Section with Auto Scrolling */}
           <section className="py-24 bg-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
-                    <GraduationCap className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">Meet Our Experts</span>
+                <div className="mb-16 relative">
+                  <div className="text-center mb-4">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
+                      <GraduationCap className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-primary">Meet Our Experts</span>
+                    </div>
                   </div>
-                  <h2 className="text-5xl font-bold text-gray-900 mb-3">
-                    All <span className="text-primary">Tutors</span>
-                  </h2>
-                  <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                    Learn from our experienced educators specializing in international mathematics curricula
-                  </p>
+                  <div className="relative">
+                    <div className="text-center">
+                      <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-2">
+                        All <span className="text-primary">Tutors</span>
+                      </h2>
+                      <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                        Learn from our experienced educators specializing in international mathematics curricula
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/tutors')}
+                      className="group absolute top-0 right-0 hidden sm:flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg transform hover:-translate-y-1"
+                    >
+                      <span>View All</span>
+                      <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                    <div className="flex justify-center mt-4 sm:hidden">
+                      <button
+                        onClick={() => navigate('/tutors')}
+                        className="group flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg transform hover:-translate-y-1"
+                      >
+                        <span>View All</span>
+                        <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {tutorsLoading ? (
@@ -568,17 +590,39 @@ const ParentHome: React.FC = () => {
           {/* All Packages Section with Auto Scrolling */}
           <section className="py-24 bg-gradient-to-b from-background-cream to-white">
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-16">
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-6">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">All Packages</span>
+                <div className="mb-16 relative">
+                  <div className="text-center mb-6">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-6">
+                      <BookOpen className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-primary">All Packages</span>
+                    </div>
                   </div>
-                  <h2 className="text-5xl font-bold text-gray-900 mb-4">
-                    All <span className="text-primary">Course Packages</span>
-                  </h2>
-                  <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                    Carefully designed programs to meet diverse learning needs and international curriculum standards
-                  </p>
+                  <div className="relative">
+                    <div className="text-center">
+                      <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-2">
+                        All <span className="text-primary">Course Packages</span>
+                      </h2>
+                      <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                        Carefully designed programs to meet diverse learning needs and international curriculum standards
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => navigate('/packages')}
+                      className="group absolute top-0 right-0 hidden sm:flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg transform hover:-translate-y-1"
+                    >
+                      <span>View All</span>
+                      <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                    <div className="flex justify-center mt-4 sm:hidden">
+                      <button
+                        onClick={() => navigate('/packages')}
+                        className="group flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-primary-dark transition-all shadow-math hover:shadow-math-lg transform hover:-translate-y-1"
+                      >
+                        <span>View All</span>
+                        <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {packagesLoading ? (

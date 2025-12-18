@@ -2638,6 +2638,35 @@ export async function createRescheduleRequest(data: CreateRescheduleRequest) {
   }
 }
 
+// Create make-up session request (compensatory lesson - does NOT deduct RescheduleCount)
+// Backend endpoint: POST /api/reschedule/make-up
+// Backend automatically sets reason to "Reschedule due to Tutor unavailability"
+export async function createMakeUpSession(data: Omit<CreateRescheduleRequest, 'reason'>) {
+  try {
+    const requestBody: any = {
+      bookingId: data.bookingId,
+      requestedDate: data.requestedDate, // Required: DateOnly format (YYYY-MM-DD)
+      startTime: data.startTime, // Required: TimeOnly format (HH:mm)
+      endTime: data.endTime, // Required: TimeOnly format (HH:mm)
+    };
+    // Note: Reason is automatically set by backend to "Reschedule due to Tutor unavailability"
+    // Note: requestedTutorId is not supported in backend
+    
+    const result = await apiService.request<{ requestId: string; status: string; message: string }>(`/reschedule/make-up`, {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    });
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to create make-up session request',
+    };
+  }
+}
+
 // Get reschedule request by ID
 export async function getRescheduleRequestById(requestId: string) {
   try {
@@ -2806,6 +2835,47 @@ export async function cancelRescheduleSession(bookingId: string, rescheduleReque
   }
 }
 
+// Create reschedule or refund notification for parent
+export interface CreateRescheduleOrRefundNotificationRequest {
+  contractId: string;
+  bookingId: string;
+}
+
+export interface CreateRescheduleOrRefundNotificationResponse {
+  notificationId: string;
+  userId: string;
+  contractId: string;
+  bookingId: string;
+  title: string;
+  message: string;
+  notificationType: string;
+  status: string;
+  createdDate: string;
+}
+
+export async function createRescheduleOrRefundNotification(data: CreateRescheduleOrRefundNotificationRequest) {
+  try {
+    const result = await apiService.request<CreateRescheduleOrRefundNotificationResponse>(
+      `/notification/reschedule-refund-request`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          contractId: data.contractId,
+          bookingId: data.bookingId,
+        }),
+      }
+    );
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to create reschedule or refund notification',
+    };
+  }
+}
+
 // Tutor request replacement (change teacher for a session)
 export interface TutorReplacementRequest {
   bookingId: string;
@@ -2842,6 +2912,96 @@ export async function requestTutorReplacement(data: TutorReplacementRequest) {
       success: false,
       data: null,
       error: error?.message || 'Failed to request tutor replacement',
+    };
+  }
+}
+
+// Parent response to reschedule or refund notification
+export interface RespondToRescheduleOrRefundRequest {
+  bookingId: string;
+  contractId: string;
+  choice: 'makeup' | 'refund';
+  requestedDate?: string; // Required if choice is 'makeup'
+  startTime?: string; // Required if choice is 'makeup'
+  endTime?: string; // Required if choice is 'makeup'
+}
+
+export interface RespondToRescheduleOrRefundResponse {
+  success: boolean;
+  message: string;
+  refundAmount?: number;
+}
+
+export async function respondToRescheduleOrRefund(data: RespondToRescheduleOrRefundRequest) {
+  try {
+    if (data.choice === 'makeup') {
+      // For makeup session, create a new reschedule request
+      if (!data.requestedDate || !data.startTime || !data.endTime) {
+        return {
+          success: false,
+          data: null,
+          error: 'Date and time are required for makeup session',
+        };
+      }
+      
+      const rescheduleRequest: CreateRescheduleRequest = {
+        bookingId: data.bookingId,
+        requestedDate: data.requestedDate,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        reason: 'Makeup session - no tutors available for original reschedule request',
+      };
+      
+      const result = await createRescheduleRequest(rescheduleRequest);
+      return {
+        success: result.success,
+        data: result.data ? {
+          success: true,
+          message: result.data.message || 'Makeup session request submitted successfully',
+        } : null,
+        error: result.error,
+      };
+    } else {
+      // For refund, cancel the session
+      // First, find the reschedule request ID if exists
+      const rescheduleRequests = await getRescheduleRequests();
+      let rescheduleRequestId = '';
+      
+      if (rescheduleRequests.success && rescheduleRequests.data) {
+        const request = rescheduleRequests.data.find(
+          (r: RescheduleRequest) => r.bookingId === data.bookingId && r.status === 'pending'
+        );
+        if (request) {
+          rescheduleRequestId = request.requestId;
+        }
+      }
+      
+      // Get session ID from booking ID (they are the same)
+      const result = await cancelRescheduleSession(data.bookingId, rescheduleRequestId);
+      
+      if (result.success && result.data) {
+        return {
+          success: true,
+          data: {
+            success: true,
+            message: result.data.message || 'Session cancelled and refund processed successfully',
+            refundAmount: undefined, // Backend should return this
+          },
+          error: undefined,
+        };
+      } else {
+        return {
+          success: false,
+          data: null,
+          error: result.error || 'Failed to process refund',
+        };
+      }
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      data: null,
+      error: error?.message || 'Failed to respond to reschedule or refund notification',
     };
   }
 }

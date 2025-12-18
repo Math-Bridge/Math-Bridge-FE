@@ -34,7 +34,6 @@ import {
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
 
@@ -325,9 +324,6 @@ const ParentDailyReports: React.FC = () => {
 
   return (
     <div className="w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8 relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
         {/* Header */}
         <div className="mb-6 sm:mb-8">

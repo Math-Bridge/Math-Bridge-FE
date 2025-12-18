@@ -8,7 +8,6 @@ import ConfirmDialog from "../../common/ConfirmDialog";
 // ĐÃ IMPORT ĐẦY ĐỦ 
 import { Child, getChildById, softDeleteChild, restoreChild } from "../../../services/api";
 import { useToast } from "../../../contexts/ToastContext";
-import FallingLatexSymbols from "../../common/FallingLatexSymbols";
 
 const MyChildren: React.FC = () => {
   const navigate = useNavigate();
@@ -127,9 +126,6 @@ const MyChildren: React.FC = () => {
 
   return (
     <div className="w-full">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       {/* Subtle Animated Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-background-cream via-white to-gray-50" />

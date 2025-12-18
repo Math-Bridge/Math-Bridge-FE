@@ -26,7 +26,6 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 interface Contract {
   id: string;

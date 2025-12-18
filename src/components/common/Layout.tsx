@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import CustomerSupportButton from './CustomerSupportButton';
-import FallingLatexSymbols from './FallingLatexSymbols';
 import { useAuth } from '../../hooks/useAuth';
 import { useHideIdInUrl } from '../../hooks/useHideIdInUrl';
 
@@ -29,9 +28,6 @@ const Layout: React.FC = () => {
   if (isAuthPage) {
     return (
       <div className="min-h-screen gradient-bg relative">
-        {/* Falling LaTeX Symbols Background Animation */}
-        <FallingLatexSymbols />
-        
         <div className="flex min-h-screen relative z-10">
           {/* Left side - Image */}
           <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
@@ -72,9 +68,6 @@ const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       {!shouldHideHeader && <Header />}
       
       <main className="flex-1 relative w-full">

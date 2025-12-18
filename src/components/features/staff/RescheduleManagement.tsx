@@ -25,6 +25,7 @@ import {
   getAvailableSubTutors,
   AvailableSubTutor,
   cancelRescheduleSession,
+  createRescheduleOrRefundNotification,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 
@@ -290,12 +291,62 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
         await fetchRequests();
       } else {
         const errorMsg = result.error || 'Failed to approve request';
+        
+        // If no tutor is available, send notification to parent
+        if (errorMsg.includes('not available') || errorMsg.includes('no tutor')) {
+          if (selectedRequest?.contractId && selectedRequest?.bookingId) {
+            try {
+              const notificationResult = await createRescheduleOrRefundNotification({
+                contractId: selectedRequest.contractId,
+                bookingId: selectedRequest.bookingId,
+              });
+              if (notificationResult.success) {
+                showSuccess('No tutors available. Notification sent to parent to choose makeup session or refund.');
+                setShowApproveModal(false);
+                setSelectedRequest(null);
+                setSelectedTutorId('');
+                setApproveNote('');
+                setAvailableTutors([]);
+                await fetchRequests();
+                return;
+              }
+            } catch (notifError: any) {
+              console.error('Error creating notification:', notifError);
+            }
+          }
+        }
+        
         showError(errorMsg);
         console.error('Approve error:', errorMsg);
       }
     } catch (error: any) {
       console.error('Error approving request:', error);
       const errorMsg = error?.response?.data?.error || error?.response?.data?.message || error?.message || 'Failed to approve request';
+      
+      // If no tutor is available, send notification to parent
+      if (errorMsg.includes('not available') || errorMsg.includes('no tutor')) {
+        if (selectedRequest?.contractId && selectedRequest?.bookingId) {
+          try {
+            const notificationResult = await createRescheduleOrRefundNotification({
+              contractId: selectedRequest.contractId,
+              bookingId: selectedRequest.bookingId,
+            });
+            if (notificationResult.success) {
+              showSuccess('No tutors available. Notification sent to parent to choose makeup session or refund.');
+              setShowApproveModal(false);
+              setSelectedRequest(null);
+              setSelectedTutorId('');
+              setApproveNote('');
+              setAvailableTutors([]);
+              await fetchRequests();
+              return;
+            }
+          } catch (notifError: any) {
+            console.error('Error creating notification:', notifError);
+          }
+        }
+      }
+      
       showError(errorMsg);
     }
   };
@@ -659,15 +710,26 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                     <span>Previous</span>
                   </button>
                   <div className="flex items-center space-x-1">
-                    {(() => {
-                      // Chỉ hiển thị 5 số trang
-                      const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
-                      const endPage = Math.min(startPage + 4, totalPages);
-                      const pages = [];
-                      for (let i = startPage; i <= endPage; i++) {
-                        pages.push(i);
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1);
+                      
+                      if (!showPage) {
+                        // Show ellipsis
+                        if (page === currentPage - 2 || page === currentPage + 2) {
+                          return (
+                            <span key={page} className="px-2 text-gray-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
                       }
-                      return pages.map((page) => (
+                      
+                      return (
                         <button
                           key={page}
                           onClick={() => setCurrentPage(page)}
@@ -679,8 +741,8 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                         >
                           {page}
                         </button>
-                      ));
-                    })()}
+                      );
+                    })}
                   </div>
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -837,17 +899,39 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
               </button>
               {!loadingTutors && availableTutors.length === 0 ? (
                 <button
-                  onClick={() => {
-                    setShowApproveModal(false);
-                    setShowCancelModal(true);
+                  onClick={async () => {
+                    // Send notification to parent to choose reschedule or refund
+                    if (selectedRequest?.contractId && selectedRequest?.bookingId) {
+                      try {
+                        const result = await createRescheduleOrRefundNotification({
+                          contractId: selectedRequest.contractId,
+                          bookingId: selectedRequest.bookingId,
+                        });
+                        if (result.success) {
+                          showSuccess('Notification sent to parent to choose makeup session or refund.');
+                          setShowApproveModal(false);
+                          setSelectedRequest(null);
+                          setSelectedTutorId('');
+                          setApproveNote('');
+                          setAvailableTutors([]);
+                          await fetchRequests();
+                        } else {
+                          showError(result.error || 'Failed to send notification to parent');
+                        }
+                      } catch (error: any) {
+                        console.error('Error creating notification:', error);
+                        showError('Failed to send notification to parent');
+                      }
+                    } else {
+                      // Fallback: show cancel modal if contractId or bookingId is missing
+                      setShowApproveModal(false);
+                      setShowCancelModal(true);
+                    }
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center space-x-2"
-                  style={{
-                    backgroundColor: '#dc3545',
-                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
-                  <XCircle className="w-4 h-4" />
-                  <span>Cancel Session & Refund</span>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Notify Parent (No Tutors Available)</span>
                 </button>
               ) : (
                 <button

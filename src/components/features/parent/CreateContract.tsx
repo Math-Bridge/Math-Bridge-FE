@@ -25,7 +25,6 @@ import { getChildrenByParent, createContract, apiService, getSchoolById, createC
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
 import { Child } from '../../../services/api';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 import ConfirmDialog from '../../common/ConfirmDialog';
 
 interface Package {
@@ -1740,9 +1739,6 @@ const CreateContract: React.FC = () => {
 
   return (
     <>
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div className="w-full bg-gray-50 py-8">
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
         {/* Header */}

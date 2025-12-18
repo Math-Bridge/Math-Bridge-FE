@@ -1,194 +1,187 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-interface Symbol {
-  id: string;
-  symbol: string;
-  left: number;
-  top: number;
+const SYMBOLS = [
+  '∫','∑','π','α','β','γ','δ','θ','λ','σ','∞','√','Δ','Ω','Σ',
+  '±','×','÷','≤','≥','≠','≈','∝','∠','⊥','∥','∪','∩','ℝ','ℤ','∇'
+];
+
+const COLORS = [
+  '#3B82F6','#6366F1','#8B5CF6',
+  '#EC4899','#06B6D4','#10B981','#F59E0B'
+];
+
+const MAX = 12; // Giảm số lượng để tối ưu performance
+const SPAWN_MS = 800; // Tăng thời gian spawn để giảm số lượng symbols
+
+interface Slot {
+  el: HTMLDivElement;
+  active: boolean;
+  start: number;
   duration: number;
-  size: number;
-  opacity: number;
+  x: number;
   drift: number;
-  rotation: number;
-  color: string;
-  startTime: number;
+  rot: number;
+  opacity: number;
 }
 
-// Nhiều ký hiệu toán học khác nhau
-const mathSymbols = [
-  '∫', '∑', 'π', 'α', 'β', 'γ', 'δ', 'θ', 'λ', 'σ', '∞', '√', 'Δ', 'Ω', 'Σ', 
-  '±', '×', '÷', '≤', '≥', '≠', '≈', '∝', '∴', '∵', '∠', '⊥', '∥', '∪', '∩', 
-  '⊂', '⊃', '∅', 'ℝ', 'ℕ', 'ℤ', 'ℚ', '∂', '∇', '∈', '∉', '∀', '∃', '∄',
-  '∨', '∧', '¬', '→', '↔', '⊕', '⊗', '⊖', '⊙', '◯', '△', '□', '◇'
-];
-
-const colors = [
-  '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', 
-  '#06B6D4', '#14B8A6', '#F97316', '#EF4444',
-  '#10B981', '#F59E0B', '#84CC16', '#06B6D4'
-];
-
-const FallingLatexSymbols: React.FC = () => {
-  const [symbols, setSymbols] = useState<Symbol[]>([]);
-  const [mounted, setMounted] = useState(false);
-  const animationFrameRef = useRef<number>();
-  const symbolsRef = useRef<Symbol[]>([]);
-  const lastSpawnTimeRef = useRef<number>(0);
+const FallingLatexSymbols = () => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const pool = useRef<Slot[]>([]);
+  const lastSpawn = useRef(0);
+  const raf = useRef(0);
+  const height = useRef(window.innerHeight);
+  const isVisible = useRef(true);
+  const isScrolling = useRef(false);
+  const scrollTimeout = useRef(0);
 
   useEffect(() => {
-    setMounted(true);
-    console.log('FallingLatexSymbols: Component mounted');
-    
-    const createSymbol = (): Symbol => {
-      const drift = (Math.random() - 0.5) * 100; // Giảm drift để ít di chuyển ngang
-      const rotation = Math.random() * 1080;
-      const id = `sym-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const now = Date.now();
-      
-      // Chỉ spawn ở 2 bên: bên trái (0-15%) hoặc bên phải (85-100%)
-      const side = Math.random() < 0.5 ? 'left' : 'right';
-      const left = side === 'left' 
-        ? Math.random() * 15  // 0-15%
-        : 85 + Math.random() * 15; // 85-100%
-      
-      return {
-        id: id,
-        symbol: mathSymbols[Math.floor(Math.random() * mathSymbols.length)],
-        left: left,
-        top: -150,
-        duration: 15 + Math.random() * 10, // 15-25s (rơi chậm hơn)
-        size: 45 + Math.random() * 35, // 45-80px
-        opacity: 0.3 + Math.random() * 0.2, // 0.3-0.5 (mờ hơn nữa)
-        drift: drift,
-        rotation: rotation,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        startTime: now,
-      };
+    const root = rootRef.current!;
+    height.current = window.innerHeight;
+
+    // Tạm dừng animation khi đang scroll
+    const handleScroll = () => {
+      isScrolling.current = true;
+      clearTimeout(scrollTimeout.current);
+      scrollTimeout.current = window.setTimeout(() => {
+        isScrolling.current = false;
+      }, 150);
     };
 
-    // Tạo symbols ban đầu
-    const initialSymbols: Symbol[] = [];
-    for (let i = 0; i < 25; i++) {
-      const symbol = createSymbol();
-      symbol.startTime = Date.now() - (Math.random() * symbol.duration * 1000);
-      initialSymbols.push(symbol);
+    // Intersection Observer để tạm dừng khi không visible
+    const observer = new IntersectionObserver(
+      (entries) => {
+        isVisible.current = entries[0].isIntersecting;
+      },
+      { threshold: 0 }
+    );
+
+    if (root) {
+      observer.observe(root);
     }
-    symbolsRef.current = initialSymbols;
-    setSymbols(initialSymbols);
-    lastSpawnTimeRef.current = Date.now();
-    console.log('FallingLatexSymbols: Generated', initialSymbols.length, 'initial symbols');
 
-    // Animate using requestAnimationFrame
-    const animate = () => {
-      const now = Date.now();
-      
-      // Spawn new symbols continuously (every 500-800ms) - chậm hơn một chút
-      if (now - lastSpawnTimeRef.current > 500 + Math.random() * 300) {
-        const newSymbol = createSymbol();
-        symbolsRef.current = [...symbolsRef.current, newSymbol];
-        lastSpawnTimeRef.current = now;
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // ==== INIT POOL ====
+    for (let i = 0; i < MAX; i++) {
+      const el = document.createElement('div');
+      el.textContent = SYMBOLS[i % SYMBOLS.length];
+
+      Object.assign(el.style, {
+        position: 'absolute',
+        top: '-200px',
+        left: '0%',
+        fontSize: '64px',
+        fontWeight: '900',
+        opacity: '0',
+        pointerEvents: 'none',
+        userSelect: 'none',
+        transform: 'translate3d(0,0,0)',
+        willChange: 'transform',
+        // Tối ưu: chỉ dùng textShadow thay vì filter (nhanh hơn)
+        textShadow: '0 2px 8px rgba(0,0,0,.4)',
+        contain: 'layout style paint', // CSS containment để tối ưu rendering
+      });
+
+      root.appendChild(el);
+
+      pool.current.push({
+        el,
+        active: false,
+        start: 0,
+        duration: 0,
+        x: 0,
+        drift: 0,
+        rot: 0,
+        opacity: 0.45,
+      });
+    }
+
+    const spawn = (t: number) => {
+      for (let i = 0; i < MAX; i++) {
+        const s = pool.current[i];
+        if (!s.active) {
+          s.active = true;
+          s.start = t;
+          s.duration = 15000 + Math.random() * 8000;
+          s.x = Math.random() < 0.5 ? Math.random() * 15 : 85 + Math.random() * 15;
+          s.drift = (Math.random() - 0.5) * 120;
+          s.rot = Math.random() * 1080;
+
+          s.el.textContent = SYMBOLS[(Math.random() * SYMBOLS.length) | 0];
+          s.el.style.left = `${s.x}%`;
+          s.el.style.color = COLORS[(Math.random() * COLORS.length) | 0];
+          s.el.style.opacity = `${s.opacity}`;
+          return;
+        }
       }
-      
-      // Update all symbols
-      const updated = symbolsRef.current.map(symbol => {
-        const elapsed = (now - symbol.startTime) / 1000;
-        
-        if (elapsed < 0) {
-          return { ...symbol, top: -150, opacity: 0 };
-        }
-        
-        const progress = elapsed / symbol.duration;
-        
-        // Remove symbols that have fallen off screen
-        if (progress > 1) {
-          return null;
-        }
-        
-        // Rơi từ header (top: 0) xuống footer (document height)
-        const documentHeight = Math.max(
-          document.body.scrollHeight,
-          document.body.offsetHeight,
-          document.documentElement.clientHeight,
-          document.documentElement.scrollHeight,
-          document.documentElement.offsetHeight
-        );
-        const currentTop = -150 + (documentHeight + 300) * progress;
-        const currentX = symbol.drift * progress;
-        const currentRotation = symbol.rotation * progress;
-        const currentOpacity = symbol.opacity * (1 - progress * 0.3); // Fade out rất chậm để giữ độ đậm
-        
-        return {
-          ...symbol,
-          top: currentTop,
-          left: symbol.left + (currentX / window.innerWidth) * 100,
-          rotation: currentRotation,
-          opacity: Math.max(0, currentOpacity),
-        };
-      }).filter((s): s is Symbol => s !== null);
-      
-      symbolsRef.current = updated;
-      setSymbols(updated);
-      
-      animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animationFrameRef.current = requestAnimationFrame(animate);
+    const animate = (t: number) => {
+      // Tạm dừng animation khi đang scroll hoặc không visible
+      if (isScrolling.current || !isVisible.current) {
+        raf.current = requestAnimationFrame(animate);
+        return;
+      }
+
+      if (t - lastSpawn.current > SPAWN_MS) {
+        spawn(t);
+        lastSpawn.current = t;
+      }
+
+      // Batch DOM updates
+      for (let i = 0; i < MAX; i++) {
+        const s = pool.current[i];
+        if (!s.active) continue;
+
+        const p = (t - s.start) / s.duration;
+        if (p >= 1) {
+          s.active = false;
+          s.el.style.opacity = '0';
+          continue;
+        }
+
+        const y = -200 + (height.current + 200) * p;
+        const x = s.drift * p;
+        const r = s.rot * p;
+
+        // Sử dụng transform thay vì thay đổi nhiều thuộc tính
+        s.el.style.transform =
+          `translate3d(${x}px, ${y}px, 0) rotate(${r}deg)`;
+      }
+
+      raf.current = requestAnimationFrame(animate);
+    };
+
+    raf.current = requestAnimationFrame(animate);
+
+    const onResize = () => (height.current = window.innerHeight);
+    window.addEventListener('resize', onResize, { passive: true });
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      cancelAnimationFrame(raf.current);
+      clearTimeout(scrollTimeout.current);
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', onResize);
+      observer.disconnect();
+      pool.current.forEach(s => s.el.remove());
+      pool.current = [];
     };
   }, []);
 
-  if (!mounted) {
-    return null;
-  }
-
   return (
-    <div 
-      className="fixed inset-0 pointer-events-none"
-      style={{ 
-        zIndex: 1,
+    <div
+      ref={rootRef}
+      style={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
+        inset: 0,
+        zIndex: 1,
         pointerEvents: 'none',
         overflow: 'hidden',
+        // Tối ưu rendering
+        contain: 'layout style paint',
+        transform: 'translateZ(0)', // Force GPU acceleration
       }}
-    >
-      {symbols.map((symbol) => (
-        <div
-          key={symbol.id}
-          style={{
-            position: 'absolute',
-            left: `${Math.max(0, Math.min(100, symbol.left))}%`,
-            top: `${symbol.top}px`,
-            fontSize: `${symbol.size}px`,
-            color: symbol.color,
-            opacity: symbol.opacity,
-            transform: `translateX(${symbol.drift * 0.01}%) rotate(${symbol.rotation}deg)`,
-            willChange: 'transform, opacity',
-            pointerEvents: 'none',
-            userSelect: 'none',
-            fontWeight: 900, // Extra bold
-            fontFamily: 'Arial, "Segoe UI", sans-serif',
-            lineHeight: 1,
-            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
-            textShadow: '0 4px 10px rgba(0,0,0,0.5), 0 0 6px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.4)',
-            WebkitTextStroke: '0.5px rgba(255,255,255,0.3)', // Thêm stroke để đậm hơn
-            zIndex: 1,
-            transition: 'none',
-          } as React.CSSProperties}
-        >
-          {symbol.symbol}
-        </div>
-      ))}
-    </div>
+    />
   );
 };
 

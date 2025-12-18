@@ -4,7 +4,6 @@ import { getParentSessions, Session, getContractsByParent, Contract } from '../.
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import RescheduleRequestPopup from './RescheduleRequestPopup';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 const ParentScheduleCalendar: React.FC = () => {
   const { showError } = useToast();
@@ -200,9 +199,6 @@ const handleSessionClick = (session: Session) => {
 
   return (
     <div className="w-full bg-gray-50 py-8 relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div className="w-full px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Header */}
         <div className="mb-8">

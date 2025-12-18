@@ -12,7 +12,6 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult, TutorParentReports } from '.';
 import { useAuth } from '../../../hooks/useAuth';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 const TutorDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -123,9 +122,6 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div
         className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"
         onMouseEnter={() => setIsSidebarVisible(true)}

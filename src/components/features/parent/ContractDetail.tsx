@@ -28,7 +28,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId, getSessionsByContractId, Session as ApiSession, getUnitsByContractId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 import UnitProgressDisplay from '../../common/UnitProgressDisplay';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
 import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
@@ -1080,9 +1079,6 @@ const ContractDetail: React.FC = () => {
 
   return (
     <>
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div className="w-full bg-gradient-to-br from-background-cream via-white to-gray-50 py-8 animate-slide-in-left">
       {/* Back Button - Top Left Corner (Only for non-staff roles) */}
       {user?.role !== 'staff' && (

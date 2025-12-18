@@ -30,7 +30,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getStaffStats, StaffStats } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 import ContractManagement from './ContractManagement';
 import RescheduleManagement from './RescheduleManagement';
 import TutorVerificationManagement from './TutorVerificationManagement';
@@ -364,9 +363,6 @@ const StaffDashboard: React.FC = () => {
   return (
     <NotificationProvider>
     <div className="min-h-screen bg-gray-50 relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       {/* Hover hotspot to reveal sidebar */}
       <div
         className="fixed inset-y-0 left-0 z-40 w-2 bg-transparent hover:bg-blue-100/10 transition-colors duration-200"

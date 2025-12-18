@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, X, Trash2, RefreshCw } from 'lucide-react';
 import { useNotifications } from '../../contexts/NotificationContext';
 import { useNavigate } from 'react-router-dom';
+import RescheduleOrRefundModal from '../features/parent/RescheduleOrRefundModal';
+import { getContractById } from '../../services/api';
 
 const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +12,16 @@ const NotificationBell: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<string | 'all' | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // RescheduleOrRefund modal state
+  const [showRescheduleOrRefundModal, setShowRescheduleOrRefundModal] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<{
+    id: string;
+    bookingId: string;
+    contractId: string;
+    message: string;
+  } | null>(null);
+  const [childId, setChildId] = useState<string | undefined>(undefined);
 
   const {
     notifications,
@@ -59,6 +71,35 @@ const NotificationBell: React.FC = () => {
       await markAsRead(notification.id);
     }
 
+    // Check if this is a RescheduleOrRefund notification
+    if (notification.type === 'RescheduleOrRefund' || notification.notificationType === 'RescheduleOrRefund') {
+      if (notification.bookingId && notification.contractId) {
+        // Fetch childId from contract
+        try {
+          const contractResult = await getContractById(notification.contractId);
+          if (contractResult.success && contractResult.data) {
+            const contractData = contractResult.data as any;
+            const mainChildId = contractData.childId || contractData.ChildId || contractData.child_id;
+            setChildId(mainChildId);
+          }
+        } catch (error) {
+          console.error('Error fetching contract for childId:', error);
+          // Continue without childId - it's optional
+        }
+        
+        setSelectedNotification({
+          id: notification.id,
+          bookingId: notification.bookingId,
+          contractId: notification.contractId,
+          message: notification.message,
+        });
+        setShowRescheduleOrRefundModal(true);
+        setIsOpen(false);
+        return;
+      }
+    }
+
+    // Default behavior for other notifications
     if (notification.contractId) {
       navigate(`/contracts/${notification.contractId}`);
     } else if (notification.link) {
@@ -309,6 +350,32 @@ const NotificationBell: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* RescheduleOrRefund Modal */}
+      {selectedNotification && (
+        <RescheduleOrRefundModal
+          isOpen={showRescheduleOrRefundModal}
+          onClose={() => {
+            setShowRescheduleOrRefundModal(false);
+            setSelectedNotification(null);
+            setChildId(undefined);
+          }}
+          onSuccess={() => {
+            setShowRescheduleOrRefundModal(false);
+            setSelectedNotification(null);
+            setChildId(undefined);
+            // Refresh notifications after successful action
+            fetchNotifications();
+          }}
+          notification={{
+            id: selectedNotification.id,
+            bookingId: selectedNotification.bookingId,
+            contractId: selectedNotification.contractId,
+            message: selectedNotification.message,
+          }}
+          childId={childId}
+        />
       )}
     </div>
   );

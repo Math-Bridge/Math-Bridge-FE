@@ -30,7 +30,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { removeIdFromUrl } from '../../../utils/urlUtils';
-import FallingLatexSymbols from '../../common/FallingLatexSymbols';
 
 const ParentTutorReports: React.FC = () => {
   const { user } = useAuth();
@@ -330,9 +329,6 @@ const ParentTutorReports: React.FC = () => {
 
   return (
     <div className="w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8 relative">
-      {/* Falling LaTeX Symbols Background Animation */}
-      <FallingLatexSymbols />
-      
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
