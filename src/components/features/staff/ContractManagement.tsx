@@ -828,7 +828,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                 Active
                               </option>
                               <option value="completed" disabled={contract.status === 'pending' || contract.status === 'cancelled' || contract.status === 'unpaid'}>Completed</option>
-                              <option value="cancelled" disabled={contract.status === 'unpaid'}>Cancelled</option>
+                              <option value="cancelled" disabled={contract.status === 'unpaid' || contract.status === 'completed'}>Cancelled</option>
                             </select>
                             {updatingStatus === contract.contractId && (
                               <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>

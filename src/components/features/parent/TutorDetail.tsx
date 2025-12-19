@@ -376,13 +376,13 @@ const TutorDetail: React.FC = () => {
     <div className="w-full min-h-screen bg-background-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
-        <button
-          onClick={() => navigate('/tutors')}
+          <button
+            onClick={() => navigate('/tutors')}
           className="flex items-center gap-2 px-4 py-2 bg-white text-primary border border-primary/20 rounded-lg font-medium hover:bg-primary/10 transition-all mb-6 shadow-sm"
-        >
+          >
           <ArrowLeft className="w-4 h-4" />
-          Back to Tutors
-        </button>
+            Back to Tutors
+          </button>
 
         {/* Main Profile Card */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
@@ -392,22 +392,22 @@ const TutorDetail: React.FC = () => {
               {/* Profile Picture */}
               <div className="relative">
                 <div className="w-full aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg">
-                  {tutor.avatarUrl ? (
-                    <img 
-                      src={tutor.avatarUrl} 
-                      alt={tutor.name} 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                      }}
-                    />
+                {tutor.avatarUrl ? (
+                  <img 
+                    src={tutor.avatarUrl} 
+                    alt={tutor.name} 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
+                  />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <User className="w-32 h-32 text-white opacity-50" />
                     </div>
-                  )}
-                </div>
+                )}
+              </div>
               </div>
             </div>
 
@@ -418,20 +418,20 @@ const TutorDetail: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h1 className="text-3xl font-bold text-gray-900">{tutor.name}</h1>
-                    {tutor.verified && (
+              {tutor.verified && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         <CheckCircle className="w-3 h-3 mr-1" />
-                        Verified
-                      </span>
-                    )}
-                  </div>
+                  Verified
+                </span>
+              )}
+              </div>
                   <p className="text-lg text-primary font-medium mb-2">Math Tutor</p>
                   <div className="flex items-center gap-2 text-gray-600">
                     <MapPin className="w-4 h-4" />
                     <span className="text-sm">{tutor.centerAddress}</span>
-                  </div>
-                </div>
-              </div>
+            </div>
+          </div>
+        </div>
 
               {/* RANKINGS */}
               <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
@@ -450,55 +450,55 @@ const TutorDetail: React.FC = () => {
                 <span className="text-sm text-gray-600">({tutor.totalReviews} reviews)</span>
               </div>
 
-             
-              {/* Tabs */}
+
+        {/* Tabs */}
               <div className="border-b border-gray-200">
                 <nav className="flex space-x-8">
-                  {[
+              {[
                     { key: 'about', label: 'About', icon: User },
-                    { key: 'reviews', label: 'Reviews', icon: Star }
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key as any)}
+                { key: 'reviews', label: 'Reviews', icon: Star }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
                       className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                        activeTab === tab.key
+                    activeTab === tab.key
                           ? 'border-primary text-primary'
                           : 'border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
+                  }`}
+                >
                       <tab.icon className="w-4 h-4" />
-                      <span>{tab.label}</span>
-                    </button>
-                  ))}
-                </nav>
-              </div>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </nav>
+        </div>
 
-              {/* Tab Content */}
+        {/* Tab Content */}
               {activeTab === 'about' && (
                 <div className="space-y-6 pt-4">
                   {/* About Section */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
                     <p className="text-gray-600 leading-relaxed">{tutor.bio}</p>
-                  </div>
+              </div>
 
-                  {/* Qualifications */}
+              {/* Qualifications */}
                   {tutor.qualifications.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">Education</h3>
-                      <div className="space-y-4">
-                        {tutor.qualifications.map((qual, index) => (
+                <div className="space-y-4">
+                  {tutor.qualifications.map((qual, index) => (
                           <div key={index} className="flex items-start gap-3">
                             <GraduationCap className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
-                            <div>
-                              <p className="font-medium text-gray-900">{qual.title}</p>
-                              <p className="text-sm text-gray-600">{qual.institution} • {qual.year}</p>
-                            </div>
-                          </div>
-                        ))}
+                      <div>
+                        <p className="font-medium text-gray-900">{qual.title}</p>
+                        <p className="text-sm text-gray-600">{qual.institution} • {qual.year}</p>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
                   )}
 
                   {/* CONTACT INFORMATION */}
@@ -520,31 +520,31 @@ const TutorDetail: React.FC = () => {
                         <a href={`mailto:${tutor.email}`} className="text-primary hover:underline">
                           {tutor.email}
                         </a>
-                      </div>
-                    </div>
-                  </div>
+                </div>
+              </div>
+            </div>
 
                   {/* BASIC INFORMATION */}
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">BASIC INFORMATION</h3>
-                    <div className="space-y-3">
+                <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <span className="text-gray-600 font-medium w-24">Experience:</span>
                         <span className="text-gray-900">{tutor.experience}</span>
-                      </div>
+                  </div>
                       <div className="flex items-center gap-3">
                         <span className="text-gray-600 font-medium w-24">Center:</span>
                         <span className="text-gray-900">{tutor.centerName}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
-              )}
+            </div>
+          </div>
+        )}
 
-              {activeTab === 'reviews' && (
+        {activeTab === 'reviews' && (
                 <div className="space-y-6 pt-4">
                   {/* Tutor Rating Section */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Tutor Rating</h3>
                     {reviews.length > 0 ? (
                       <>
@@ -560,7 +560,7 @@ const TutorDetail: React.FC = () => {
                           const recommendPercentage = (wouldRecommendCount / totalReviews) * 100;
                           
                           return (
-                            <div className="space-y-4">
+              <div className="space-y-4">
                               {/* Overall Rating */}
                               <div className="text-center pb-4 border-b border-gray-200">
                                 <div className="flex items-center justify-center space-x-2 mb-2">
@@ -632,7 +632,7 @@ const TutorDetail: React.FC = () => {
                                 )}
                                 
                                 {avgProfessionalism > 0 && (
-                                  <div>
+                      <div>
                                     <div className="flex items-center justify-between mb-1">
                                       <span className="text-xs text-gray-600">Professionalism</span>
                                       <span className="text-sm font-semibold text-gray-900">{avgProfessionalism.toFixed(1)}</span>
@@ -662,7 +662,7 @@ const TutorDetail: React.FC = () => {
                                       <span className="text-xs text-gray-500">
                                         {currentReviewIndex + 1} / {totalReviews}
                                       </span>
-                                    </div>
+                      </div>
                                     
                                     <div className="relative flex items-center gap-2">
                                       {/* Previous Button */}
@@ -682,23 +682,23 @@ const TutorDetail: React.FC = () => {
                                       <div className="flex-1 bg-gray-50 p-4 rounded-lg min-h-[100px]">
                                         <div className="flex items-center space-x-2 mb-2">
                                           <div className="flex">
-                                            {[...Array(5)].map((_, i) => (
-                                              <Star
-                                                key={i}
-                                                className={`w-4 h-4 ${
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-4 h-4 ${
                                                   i < Math.floor(currentReview.rating)
                                                     ? 'text-yellow-400 fill-current'
                                                     : 'text-gray-300'
-                                                }`}
-                                              />
-                                            ))}
-                                          </div>
+                            }`}
+                          />
+                        ))}
+                      </div>
                                             <span className="text-sm text-gray-600 font-medium">
                                             {currentReview.userFullName || currentReview.parentName || 'Anonymous'}
                                           </span>
-                                        </div>
+                    </div>
                                         <p className="text-sm text-gray-600">{currentReview.comment}</p>
-                                      </div>
+                  </div>
                                       
                                       {/* Next Button */}
                                       {totalReviews > 1 && (
@@ -712,7 +712,7 @@ const TutorDetail: React.FC = () => {
                                           <ChevronRight className="w-5 h-5" />
                                         </button>
                                       )}
-                                    </div>
+              </div>
                                   </div>
                                 );
                               })()}
@@ -725,13 +725,13 @@ const TutorDetail: React.FC = () => {
                         <p className="text-sm text-gray-500">No reviews yet</p>
                       </div>
                     )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-        </div>
+        )}
+            </div>
+          </div>
       </div>
+    </div>
     </div>
   );
 };

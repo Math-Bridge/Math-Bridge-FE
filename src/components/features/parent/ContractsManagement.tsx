@@ -566,7 +566,6 @@ const ContractsManagement: React.FC = () => {
                 My Learning Contracts
               </h1>
               <p className="text-lg text-gray-600 flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-yellow-500" />
                 Track progress, reschedule sessions, and manage all contracts
               </p>
               <div className="mt-3 flex items-center gap-6 text-sm">

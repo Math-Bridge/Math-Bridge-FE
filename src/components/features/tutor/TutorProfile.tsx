@@ -579,17 +579,17 @@ const TutorProfile: React.FC = () => {
           <div className="px-6 pt-6 pb-6 relative">
             {/* Status Badge and Cancel Button */}
             <div className="absolute top-4 right-4 flex items-center gap-2">
-              {verificationDetail && getStatusBadge(verificationDetail.verificationStatus)}
-              {isEditing && (
-                <button
-                  onClick={handleCancel}
+            {verificationDetail && getStatusBadge(verificationDetail.verificationStatus)}
+          {isEditing && (
+              <button
+                onClick={handleCancel}
                   className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all shadow-md flex items-center gap-2 text-sm font-medium"
-                >
-                  <X className="w-4 h-4" />
-                  Cancel
-                </button>
-              )}
-            </div>
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+          )}
+        </div>
             {/* Profile Picture */}
             <div className="flex justify-center mb-4">
               <div className="relative">
