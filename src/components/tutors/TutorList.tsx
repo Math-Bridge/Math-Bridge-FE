@@ -306,20 +306,6 @@ const TutorList: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="h-4 w-4 mr-2" />
-                    <span>{tutor.experience} experience</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <MapPin className="h-4 w-4 mr-2" />
-                    <span>{tutor.location}</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <User className="h-4 w-4 mr-2" />
-                    <span>{tutor.languages.join(', ')}</span>
-                  </div>
-                </div>
 
                 {/* Subjects */}
                 <div className="mb-4">

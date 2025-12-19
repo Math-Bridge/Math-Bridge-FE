@@ -365,7 +365,7 @@ const PackageManagement: React.FC = () => {
       try {
         const response = await apiService.uploadPackageImage(selectedPackage.packageId, file);
         if (response.success && response.data?.imageUrl) {
-          setFormData(prev => ({ ...prev, imageUrl: response.data.imageUrl }));
+          setFormData(prev => ({ ...prev, imageUrl: response.data!.imageUrl }));
           showSuccess('Image uploaded successfully!');
         } else {
           showError(response.error || 'Failed to upload image');
@@ -449,7 +449,7 @@ const PackageManagement: React.FC = () => {
           try {
             const uploadResponse = await apiService.uploadPackageImage(newPackageId, selectedImageFile);
             if (uploadResponse.success && uploadResponse.data?.imageUrl) {
-              setFormData(prev => ({ ...prev, imageUrl: uploadResponse.data.imageUrl }));
+              setFormData(prev => ({ ...prev, imageUrl: uploadResponse.data!.imageUrl }));
             }
           } catch (error) {
             console.error('Error uploading image:', error);
@@ -1024,6 +1024,72 @@ const PackageManagement: React.FC = () => {
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none resize-none"
                     placeholder="Enter package description"
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Package Image
+                  </label>
+                  
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mb-4 relative">
+                      <img
+                        src={imagePreview}
+                        alt="Package preview"
+                        className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview(null);
+                          setFormData(prev => ({ ...prev, imageUrl: '' }));
+                          setSelectedImageFile(null);
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                          }
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* File Upload */}
+                  <div className="mb-4">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={(e) => handleImageFileSelect(e, false)}
+                      disabled={uploadingImage}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingImage}
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {uploadingImage ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin text-blue-600" />
+                          <span className="text-gray-700">Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-5 h-5 text-blue-600" />
+                          <span className="text-gray-700 font-medium">
+                            {imagePreview ? 'Change Image' : 'Upload Image'}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      JPG, PNG, WebP (max 2MB)
+                    </p>
+                  </div>
                 </div>
 
                 <div className="md:col-span-2">

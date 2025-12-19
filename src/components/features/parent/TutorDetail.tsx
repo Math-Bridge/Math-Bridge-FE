@@ -2,19 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Star, 
-  Award, 
   MapPin, 
-  Clock, 
-  MessageSquare,
-  BookOpen,
-  TrendingUp,
   CheckCircle,
   ArrowLeft,
-  Calendar,
   GraduationCap,
-  Languages,
   Phone,
-  Mail
+  Mail,
+  Bookmark,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTutorById, getFinalFeedbacksByUserId, apiService } from '../../../services/api';
@@ -56,6 +52,14 @@ interface Review {
   comment: string;
   date: string;
   subject: string;
+  communicationRating?: number;
+  sessionQualityRating?: number;
+  learningProgressRating?: number;
+  professionalismRating?: number;
+  wouldRecommend?: boolean;
+  feedbackText?: string;
+  additionalComments?: string;
+  userFullName?: string;
 }
 
 const TutorDetail: React.FC = () => {
@@ -66,7 +70,8 @@ const TutorDetail: React.FC = () => {
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'reviews'>('overview');
+  const [activeTab, setActiveTab] = useState<'about' | 'reviews'>('about');
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
 
   useEffect(() => {
     if (!tutorId) {
@@ -132,7 +137,7 @@ const TutorDetail: React.FC = () => {
         const firstCenter = centers[0]?.center || centers[0]?.Center || null;
 
         // Try to get avatarUrl from tutor data first
-        let avatarUrl = tutorData.avatarUrl || tutorData.AvatarUrl;
+        let avatarUrl = tutorData.avatarUrl;
         
         // If no avatarUrl, fetch from User API
         if (!avatarUrl && tutorData.userId) {
@@ -188,11 +193,19 @@ const TutorDetail: React.FC = () => {
         if (reviewsResponse.success && reviewsResponse.data) {
           const mappedReviews: Review[] = reviewsResponse.data.map((fb: any) => ({
             id: fb.feedbackId || fb.FeedbackId || '',
-            parentName: fb.parentName || fb.ParentName || 'Anonymous',
+            parentName: fb.parentName || fb.ParentName || fb.userFullName || fb.UserFullName || 'Anonymous',
             rating: fb.overallSatisfactionRating || fb.OverallSatisfactionRating || 0,
-            comment: fb.comment || fb.Comment || 'No comment',
+            comment: fb.comment || fb.Comment || fb.feedbackText || fb.FeedbackText || fb.additionalComments || fb.AdditionalComments || 'No comment',
             date: fb.createdDate || fb.CreatedDate || new Date().toISOString(),
-            subject: 'Mathematics' // Could be enhanced with package info
+            subject: 'Mathematics', // Could be enhanced with package info
+            communicationRating: fb.communicationRating || fb.CommunicationRating,
+            sessionQualityRating: fb.sessionQualityRating || fb.SessionQualityRating,
+            learningProgressRating: fb.learningProgressRating || fb.LearningProgressRating,
+            professionalismRating: fb.professionalismRating || fb.ProfessionalismRating,
+            wouldRecommend: fb.wouldRecommend || fb.WouldRecommend || false,
+            feedbackText: fb.feedbackText || fb.FeedbackText,
+            additionalComments: fb.additionalComments || fb.AdditionalComments,
+            userFullName: fb.userFullName || fb.UserFullName || fb.parentName || fb.ParentName || 'Anonymous'
           }));
           setReviews(mappedReviews);
         }
@@ -208,31 +221,6 @@ const TutorDetail: React.FC = () => {
     fetchTutorData();
   }, [tutorId, showError]);
 
-  const handleBookSession = () => {
-    navigate('/contracts/create', { 
-      state: { 
-        tutorId: tutor?.id, 
-        tutorName: tutor?.name 
-      } 
-    });
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const handleContactTutor = () => {
-    navigate('/user/chat', { 
-      state: { 
-        tutorId: tutor?.id, 
-        tutorName: tutor?.name 
-      } 
-    });
-  };
 
   if (loading) {
     return (
@@ -303,13 +291,13 @@ const TutorDetail: React.FC = () => {
                     const centers = tutorData.tutorCenters || [];
                     const firstCenter = centers[0]?.center || centers[0]?.Center || null;
 
-                    let avatarUrl = tutorData.avatarUrl || tutorData.AvatarUrl;
+                    let avatarUrl = tutorData.avatarUrl;
                     
                     if (!avatarUrl && tutorData.userId) {
                       try {
                         const userResponse = await apiService.getUserById(tutorData.userId);
                         if (userResponse.success && userResponse.data) {
-                          avatarUrl = userResponse.data.avatarUrl || userResponse.data.AvatarUrl || undefined;
+                          avatarUrl = userResponse.data.avatarUrl || undefined;
                         }
                       } catch (err) {
                         if (import.meta.env.DEV) {
@@ -383,198 +371,371 @@ const TutorDetail: React.FC = () => {
     );
   }
 
+  if (!tutor) return null;
+
   return (
-    <div className="w-full">
-      <div className="w-full bg-gray-50 py-8">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => navigate('/tutors')}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-primary border-2 border-primary rounded-xl font-semibold hover:bg-primary hover:text-white transition-all shadow-math hover:shadow-math-lg mb-6"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Tutors
-          </button>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md overflow-hidden flex-shrink-0">
-                {tutor.avatarUrl ? (
-                  <img 
-                    src={tutor.avatarUrl} 
-                    alt={tutor.name} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
-                ) : null}
-                {!tutor.avatarUrl && (
-                  <User className="h-8 w-8 sm:h-10 sm:w-10 text-white" aria-hidden="true" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">{tutor.name}</h1>
-                <p className="text-sm sm:text-base text-gray-600 mt-2 break-words">
-                  {tutor.subjects.join(' • ')} • {tutor.experience} experience
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {tutor.verified && (
-                <span className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800">
-                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                  Verified
-                </span>
-              )}
-              <div className="flex items-center space-x-1">
-                <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-current" />
-                <span className="font-semibold text-sm sm:text-base">{tutor.rating}</span>
-                <span className="text-gray-500 text-xs sm:text-sm">({tutor.totalReviews} reviews)</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/tutors')}
+          className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-50 transition-all mb-6 shadow-sm"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Tutors
+        </button>
 
-        {/* Tabs */}
-        <div className="mb-6 sm:mb-8">
-          <div className="border-b border-gray-200 overflow-x-auto">
-            <nav className="-mb-px flex space-x-4 sm:space-x-8">
-              {[
-                { key: 'overview', label: 'Overview', icon: User },
-                { key: 'reviews', label: 'Reviews', icon: Star }
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key as any)}
-                  className={`flex items-center space-x-1 sm:space-x-2 py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <tab.icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Bio */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
-                <p className="text-gray-700 leading-relaxed">{tutor.bio}</p>
-              </div>
-
-              {/* Subjects */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Subjects</h3>
-                <div className="flex flex-wrap gap-3">
-                  {tutor.subjects.map((subject, index) => (
-                    <span
-                      key={index}
-                      className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium"
-                    >
-                      {subject}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Qualifications */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Qualifications</h3>
-                <div className="space-y-4">
-                  {tutor.qualifications.map((qual, index) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <Award className="w-5 h-5 text-blue-500 mt-1" />
-                      <div>
-                        <p className="font-medium text-gray-900">{qual.title}</p>
-                        <p className="text-sm text-gray-600">{qual.institution} • {qual.year}</p>
-                      </div>
+        {/* Main Profile Card */}
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
+            {/* Left Column */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Profile Picture */}
+              <div className="relative">
+                <div className="w-full aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg">
+                  {tutor.avatarUrl ? (
+                    <img 
+                      src={tutor.avatarUrl} 
+                      alt={tutor.name} 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-32 h-32 text-white opacity-50" />
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* Languages */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Languages</h3>
-                <div className="flex flex-wrap gap-3">
-                  {tutor.languages.map((language, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium"
+            {/* Right Column */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Header with Name, Title, Location */}
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h1 className="text-3xl font-bold text-gray-900">{tutor.name}</h1>
+                    {tutor.verified && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-lg text-blue-600 font-medium mb-2">Math Tutor</p>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm">{tutor.centerAddress}</span>
+                  </div>
+                </div>
+                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <Bookmark className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+
+              {/* RANKINGS */}
+              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-2xl font-bold text-gray-900">{tutor.rating.toFixed(1)}</div>
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.floor(tutor.rating) ? 'text-yellow-400 fill-current' : 
+                        i < tutor.rating ? 'text-yellow-400 fill-current opacity-50' : 'text-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm text-gray-600">({tutor.totalReviews} reviews)</span>
+              </div>
+
+             
+              {/* Tabs */}
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-8">
+                  {[
+                    { key: 'about', label: 'About', icon: User },
+                    { key: 'reviews', label: 'Reviews', icon: Star }
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key as any)}
+                      className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === tab.key
+                          ? 'border-blue-600 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
                     >
-                      {language}
-                    </span>
+                      <tab.icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
                   ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Contact Info */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Mail className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm text-gray-900">{tutor.email}</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Phone className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm text-gray-900">{tutor.phone}</span>
-                  </div>
-                </div>
+                </nav>
               </div>
 
-            </div>
-          </div>
-        )}
+              {/* Tab Content */}
+              {activeTab === 'about' && (
+                <div className="space-y-6 pt-4">
+                  {/* About Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
+                    <p className="text-gray-700 leading-relaxed">{tutor.bio}</p>
+                  </div>
 
-        {activeTab === 'reviews' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Student Reviews</h3>
-              <div className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="font-medium text-gray-900">{review.parentName}</p>
-                        <p className="text-sm text-gray-600">{review.subject}</p>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-                            }`}
-                          />
+                  {/* Qualifications */}
+                  {tutor.qualifications.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Education</h3>
+                      <div className="space-y-4">
+                        {tutor.qualifications.map((qual, index) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <GraduationCap className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium text-gray-900">{qual.title}</p>
+                              <p className="text-sm text-gray-600">{qual.institution} • {qual.year}</p>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
-                    <p className="text-gray-700 mb-2">{review.comment}</p>
-                    <p className="text-xs text-gray-500">{formatDate(review.date)}</p>
+                  )}
+
+                  {/* CONTACT INFORMATION */}
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">CONTACT INFORMATION</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-5 h-5 text-blue-600" />
+                        <a href={`tel:${tutor.phone}`} className="text-blue-600 hover:underline">
+                          {tutor.phone}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <MapPin className="w-5 h-5 text-blue-600" />
+                        <span className="text-gray-700">{tutor.centerAddress}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Mail className="w-5 h-5 text-blue-600" />
+                        <a href={`mailto:${tutor.email}`} className="text-blue-600 hover:underline">
+                          {tutor.email}
+                        </a>
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
+
+                  {/* BASIC INFORMATION */}
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">BASIC INFORMATION</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-600 font-medium w-24">Experience:</span>
+                        <span className="text-gray-900">{tutor.experience}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-600 font-medium w-24">Center:</span>
+                        <span className="text-gray-900">{tutor.centerName}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'reviews' && (
+                <div className="space-y-6 pt-4">
+                  {/* Tutor Rating Section */}
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Tutor Rating</h3>
+                    {reviews.length > 0 ? (
+                      <>
+                        {/* Calculate average ratings */}
+                        {(() => {
+                          const totalReviews = reviews.length;
+                          const avgOverall = reviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews;
+                          const avgCommunication = reviews.reduce((sum, r) => sum + (r.communicationRating || 0), 0) / reviews.filter(r => r.communicationRating).length || 0;
+                          const avgSessionQuality = reviews.reduce((sum, r) => sum + (r.sessionQualityRating || 0), 0) / reviews.filter(r => r.sessionQualityRating).length || 0;
+                          const avgLearningProgress = reviews.reduce((sum, r) => sum + (r.learningProgressRating || 0), 0) / reviews.filter(r => r.learningProgressRating).length || 0;
+                          const avgProfessionalism = reviews.reduce((sum, r) => sum + (r.professionalismRating || 0), 0) / reviews.filter(r => r.professionalismRating).length || 0;
+                          const wouldRecommendCount = reviews.filter(r => r.wouldRecommend).length;
+                          const recommendPercentage = (wouldRecommendCount / totalReviews) * 100;
+                          
+                          return (
+                            <div className="space-y-4">
+                              {/* Overall Rating */}
+                              <div className="text-center pb-4 border-b border-gray-200">
+                                <div className="flex items-center justify-center space-x-2 mb-2">
+                                  <div className="flex">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`w-6 h-6 ${
+                                          i < Math.floor(avgOverall)
+                                            ? 'text-yellow-400 fill-current'
+                                            : i < avgOverall
+                                            ? 'text-yellow-400 fill-current opacity-50'
+                                            : 'text-gray-300'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-2xl font-bold text-gray-900">{avgOverall.toFixed(1)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600">{totalReviews} review{totalReviews !== 1 ? 's' : ''}</p>
+                                <p className="text-xs text-green-600 mt-1">{recommendPercentage.toFixed(0)}% would recommend</p>
+                              </div>
+                              
+                              {/* Individual Rating Breakdown */}
+                              <div className="space-y-3">
+                                {avgCommunication > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-gray-600">Communication</span>
+                                      <span className="text-sm font-semibold text-gray-900">{avgCommunication.toFixed(1)}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-blue-600 h-2 rounded-full" 
+                                        style={{ width: `${(avgCommunication / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {avgSessionQuality > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-gray-600">Session Quality</span>
+                                      <span className="text-sm font-semibold text-gray-900">{avgSessionQuality.toFixed(1)}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-purple-600 h-2 rounded-full" 
+                                        style={{ width: `${(avgSessionQuality / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {avgLearningProgress > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-gray-600">Learning Progress</span>
+                                      <span className="text-sm font-semibold text-gray-900">{avgLearningProgress.toFixed(1)}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-green-600 h-2 rounded-full" 
+                                        style={{ width: `${(avgLearningProgress / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {avgProfessionalism > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs text-gray-600">Professionalism</span>
+                                      <span className="text-sm font-semibold text-gray-900">{avgProfessionalism.toFixed(1)}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div 
+                                        className="bg-indigo-600 h-2 rounded-full" 
+                                        style={{ width: `${(avgProfessionalism / 5) * 100}%` }}
+                                      ></div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Recent Reviews Carousel */}
+                              {(() => {
+                                const validReviews = reviews.filter(r => r.comment && r.comment !== 'No comment');
+                                if (validReviews.length === 0) return null;
+                                
+                                const currentReview = validReviews[currentReviewIndex];
+                                const totalReviews = validReviews.length;
+                                
+                                return (
+                                  <div className="pt-4 border-t border-gray-200">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h4 className="text-sm font-semibold text-gray-900">Recent Reviews</h4>
+                                      <span className="text-xs text-gray-500">
+                                        {currentReviewIndex + 1} / {totalReviews}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="relative flex items-center gap-2">
+                                      {/* Previous Button */}
+                                      {totalReviews > 1 && (
+                                        <button
+                                          onClick={() => setCurrentReviewIndex((prev) => 
+                                            prev === 0 ? totalReviews - 1 : prev - 1
+                                          )}
+                                          className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                          aria-label="Previous review"
+                                        >
+                                          <ChevronLeft className="w-5 h-5" />
+                                        </button>
+                                      )}
+                                      
+                                      {/* Review Card */}
+                                      <div className="flex-1 bg-gray-50 p-4 rounded-lg min-h-[100px]">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <div className="flex">
+                                            {[...Array(5)].map((_, i) => (
+                                              <Star
+                                                key={i}
+                                                className={`w-4 h-4 ${
+                                                  i < Math.floor(currentReview.rating)
+                                                    ? 'text-yellow-400 fill-current'
+                                                    : 'text-gray-300'
+                                                }`}
+                                              />
+                                            ))}
+                                          </div>
+                                          <span className="text-sm text-gray-700 font-medium">
+                                            {currentReview.userFullName || currentReview.parentName || 'Anonymous'}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-gray-700">{currentReview.comment}</p>
+                                      </div>
+                                      
+                                      {/* Next Button */}
+                                      {totalReviews > 1 && (
+                                        <button
+                                          onClick={() => setCurrentReviewIndex((prev) => 
+                                            prev === totalReviews - 1 ? 0 : prev + 1
+                                          )}
+                                          className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                          aria-label="Next review"
+                                        >
+                                          <ChevronRight className="w-5 h-5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500">No reviews yet</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
-
+        </div>
       </div>
-    </div>
     </div>
   );
 };

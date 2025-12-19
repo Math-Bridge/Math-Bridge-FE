@@ -12,7 +12,7 @@ import {
   Calendar,
   MapPin,
   Building,
-  Camera,
+  ImagePlus,
   AlertCircle,
 } from 'lucide-react';
 import { apiService, getTutorVerificationByUserId } from '../../../services/api';
@@ -574,36 +574,30 @@ const TutorProfile: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto">
-        {/* Banner Section */}
-        <div className="relative bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-48 rounded-t-lg overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/90 via-purple-600/80 to-pink-600/70"></div>
-          <div className="absolute top-4 right-4">
-            {verificationDetail && getStatusBadge(verificationDetail.verificationStatus)}
-          </div>
-          {isEditing && (
-            <div className="absolute top-4 right-4">
-              <button
-                onClick={handleCancel}
-                className="px-4 py-2 bg-white/90 text-gray-700 rounded-lg hover:bg-white transition-all shadow-md flex items-center gap-2 text-sm font-medium"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Profile Header Card */}
-        <div className="bg-white rounded-b-lg shadow-lg border border-gray-200 -mt-20 mb-6">
-          <div className="px-6 pt-20 pb-6">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mt-6 mb-6">
+          <div className="px-6 pt-6 pb-6 relative">
+            {/* Status Badge and Cancel Button */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              {verificationDetail && getStatusBadge(verificationDetail.verificationStatus)}
+              {isEditing && (
+                <button
+                  onClick={handleCancel}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all shadow-md flex items-center gap-2 text-sm font-medium"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+              )}
+            </div>
             {/* Profile Picture */}
-            <div className="relative inline-block mb-4">
+            <div className="flex justify-center mb-4">
               <div className="relative">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt="Profile"
-                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl"
+                    className="w-64 h-64 rounded-xl object-cover border-4 border-gray-200 shadow-xl"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.style.display = 'none';
@@ -616,7 +610,7 @@ const TutorProfile: React.FC = () => {
                   />
                 ) : null}
                 <div
-                  className={`w-32 h-32 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold border-4 border-white shadow-xl ${avatarUrl ? 'hidden' : ''}`}
+                  className={`w-64 h-64 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-7xl font-bold border-4 border-gray-200 shadow-xl ${avatarUrl ? 'hidden' : ''}`}
                 >
                   {((user as any)?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
                 </div>
@@ -625,7 +619,7 @@ const TutorProfile: React.FC = () => {
                     {isUploadingAvatar ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
                     ) : (
-                      <Camera className="w-5 h-5" />
+                      <ImagePlus className="w-5 h-5" />
                     )}
                     <input
                       type="file"
