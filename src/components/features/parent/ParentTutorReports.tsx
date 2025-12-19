@@ -6,16 +6,12 @@ import {
   Search,
   Filter,
   Plus,
-  AlertCircle,
   CheckCircle,
   XCircle,
   Clock,
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Edit,
-  Mail,
-  Phone,
 } from 'lucide-react';
 import {
   getReportsByParent,
@@ -190,8 +186,8 @@ const ParentTutorReports: React.FC = () => {
         // Filter only active or completed contracts
         const activeContracts = result.data.filter(
           (c: Contract) => 
-            (c.status || c.Status || '').toLowerCase() === 'active' ||
-            (c.status || c.Status || '').toLowerCase() === 'completed'
+            (c.status || '').toLowerCase() === 'active' ||
+            (c.status || '').toLowerCase() === 'completed'
         );
         setContracts(activeContracts);
       }
@@ -298,27 +294,9 @@ const ParentTutorReports: React.FC = () => {
     return matchesSearch && matchesStatus && matchesContract;
   });
 
-  // Get available tutors from contracts
-  const availableTutors = contracts
-    .map((c: Contract) => ({
-      tutorId: c.mainTutorId || '',
-      tutorName: c.mainTutorName || '',
-      contractId: c.contractId || '',
-      contractTitle: c.childName || '',
-      childName: c.childName || '',
-    }))
-    .filter((t: any) => t.tutorId)
-    .reduce((acc: any[], current: any) => {
-      const existing = acc.find((item: any) => item.tutorId === current.tutorId);
-      if (!existing) {
-        acc.push(current);
-      }
-      return acc;
-    }, []);
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background-cream flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
@@ -328,36 +306,30 @@ const ParentTutorReports: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8 relative">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
+    <div className="min-h-screen bg-background-cream">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
-              <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg flex-shrink-0">
-                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mt-6 mb-6">
+          <div className="px-6 pt-6 pb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Tutor Reports</h1>
+                <p className="text-gray-600 mt-2">Report issues or concerns about your tutors</p>
               </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  Tutor Reports
-                </h1>
-                <p className="text-sm sm:text-base lg:text-lg text-gray-600 mt-1">
-                  Report issues or concerns about your tutors
-                </p>
-              </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all shadow-md flex-shrink-0"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-semibold">Create Report</span>
+              </button>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:from-primary-dark hover:to-primary transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="font-semibold">Create Report</span>
-            </button>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-6 mb-6 backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+          <div className="px-6 pt-6 pb-6">
           <div className="flex items-center space-x-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-900">Filter & Search</h3>
@@ -378,7 +350,7 @@ const ParentTutorReports: React.FC = () => {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 appearance-none bg-white font-medium"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -391,7 +363,7 @@ const ParentTutorReports: React.FC = () => {
               <select
                 value={selectedContractId || ''}
                 onChange={(e) => setSelectedContractId(e.target.value || null)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 appearance-none bg-white font-medium"
               >
                 <option value="">All Contracts</option>
                 {contracts.map((contract) => (
@@ -402,16 +374,20 @@ const ParentTutorReports: React.FC = () => {
               </select>
             </div>
           </div>
+          </div>
         </div>
 
         {/* Reports List */}
         {loadingReports ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-16 text-center backdrop-blur-sm">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-6"></div>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+            <div className="px-6 pt-6 pb-6 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mx-auto mb-6"></div>
             <p className="text-gray-600 text-lg font-medium">Loading reports...</p>
+            </div>
           </div>
         ) : filteredReports.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-16 text-center backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+            <div className="px-6 pt-6 pb-6 text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
               <FileText className="w-10 h-10 text-gray-400" />
             </div>
@@ -424,18 +400,19 @@ const ParentTutorReports: React.FC = () => {
             {reports.length === 0 && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="mt-6 px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 Create Your First Report
               </button>
             )}
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 mb-6">
             {filteredReports.map((report) => (
               <div
                 key={report.reportId}
-                className="bg-white rounded-2xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm transform transition-all duration-200 hover:shadow-xl hover:scale-[1.01]"
+                className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden transform transition-all duration-200 hover:shadow-xl"
               >
                 <div
                   className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200"
@@ -447,7 +424,7 @@ const ParentTutorReports: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-3">
                         <div className="p-2 bg-blue-100 rounded-lg">
-                          <Calendar className="w-5 h-5 text-blue-600" />
+                          <Calendar className="w-5 h-5 text-primary" />
                         </div>
                         <span className="font-bold text-lg text-gray-900">
                           {formatDate(report.createdDate)}
@@ -459,7 +436,7 @@ const ParentTutorReports: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 ml-12">
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 ml-12">
                         {report.tutor && (
                           <div className="flex items-center space-x-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
                             <User className="w-4 h-4 text-indigo-600" />
@@ -490,7 +467,7 @@ const ParentTutorReports: React.FC = () => {
                 </div>
 
                 {expandedReportId === report.reportId && (
-                  <div className="px-6 pb-6 border-t-2 border-gray-100 pt-6 bg-gradient-to-br from-gray-50/50 to-blue-50/30">
+                  <div className="px-6 pb-6 border-t-2 border-gray-100 pt-6 bg-gray-50">
                     {report.content && (
                       <div className="mb-6">
                         <div className="flex items-center space-x-2 mb-3">
@@ -498,7 +475,7 @@ const ParentTutorReports: React.FC = () => {
                           <h4 className="text-base font-bold text-gray-900">Report Content</h4>
                         </div>
                         <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{report.content}</p>
+                          <p className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">{report.content}</p>
                         </div>
                       </div>
                     )}
@@ -525,7 +502,7 @@ const ParentTutorReports: React.FC = () => {
                             href={report.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-2"
+                            className="text-sm text-primary hover:text-primary-dark font-medium flex items-center space-x-2"
                           >
                             <span>{removeIdFromUrl(report.url)}</span>
                             <ExternalLink className="w-4 h-4" />
@@ -658,7 +635,7 @@ const ParentTutorReports: React.FC = () => {
                         setSelectedTutorId(tutors[0].id);
                       }
                     }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
                     required
                   >
                     <option value="">-- Select a contract --</option>
@@ -723,7 +700,7 @@ const ParentTutorReports: React.FC = () => {
                     placeholder="https://example.com"
                     value={reportUrl}
                     onChange={(e) => setReportUrl(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
                   />
                   <p className="mt-1 text-xs text-gray-500">Link to any relevant documents or evidence</p>
                 </div>
@@ -746,7 +723,7 @@ const ParentTutorReports: React.FC = () => {
                 <button
                   onClick={handleCreateReport}
                   disabled={isCreating || !selectedTutorId || !selectedContractIdForReport || !reportContent.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                  className="px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {isCreating ? (
                     <>

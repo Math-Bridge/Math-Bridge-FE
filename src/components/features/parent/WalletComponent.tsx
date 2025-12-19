@@ -291,7 +291,7 @@ const WalletComponent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-background-cream flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-14 w-14 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">Loading your wallet...</p>
@@ -301,7 +301,7 @@ const WalletComponent: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="w-full bg-background-cream">
       <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
 
         {/* Header */}
@@ -314,7 +314,7 @@ const WalletComponent: React.FC = () => {
         </div>
 
         {/* Balance Card */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 p-1 mb-10 shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary-dark to-primary p-1 mb-10 shadow-2xl">
           <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 sm:p-10">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-8">
               <div>
@@ -354,7 +354,7 @@ const WalletComponent: React.FC = () => {
 
         {/* Transaction History + Filters */}
         <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-white/20 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold text-white flex items-center gap-3">
               <Clock className="w-7 h-7" /> Transaction History
             </h2>
@@ -376,7 +376,7 @@ const WalletComponent: React.FC = () => {
                   placeholder="Search description..."
                   value={searchTerm}
                   onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition"
                 />
               </div>
 
@@ -384,7 +384,7 @@ const WalletComponent: React.FC = () => {
               <select
                 value={typeFilter}
                 onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="all">All Types</option>
                 <option value="deposit">Top Up</option>
@@ -397,7 +397,7 @@ const WalletComponent: React.FC = () => {
               <select
                 value={flowFilter}
                 onChange={(e) => { setFlowFilter(e.target.value as any); setPage(1); }}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none"
               >
                 <option value="all">All Flows</option>
                 <option value="income">Income (+)</option>
@@ -411,7 +411,7 @@ const WalletComponent: React.FC = () => {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
 
@@ -422,7 +422,7 @@ const WalletComponent: React.FC = () => {
                   type="date"
                   value={dateTo}
                   onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
             </div>
@@ -463,8 +463,8 @@ const WalletComponent: React.FC = () => {
             {filteredTransactions.length === 0 ? (
               <div className="text-center py-20">
                 <Wallet className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-700">No transactions found</h3>
-                <p className="text-gray-500 mt-2">Try adjusting your filters or clear them</p>
+                <h3 className="text-xl font-semibold text-gray-900">No transactions found</h3>
+                <p className="text-gray-600 mt-2">Try adjusting your filters or clear them</p>
               </div>
             ) : (
               <>
@@ -567,7 +567,7 @@ const WalletComponent: React.FC = () => {
                         <ChevronLeft className="w-4 h-4" /> Previous
                       </button>
                       <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                        className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium hover:shadow-lg disabled:opacity-50 flex items-center gap-2">
+                        className="px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark hover:shadow-lg disabled:opacity-50 flex items-center gap-2 transition-colors">
                         Next <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
@@ -579,7 +579,7 @@ const WalletComponent: React.FC = () => {
         </div>
 
         <div className="text-center mt-12 text-gray-500 text-sm">
-          Need help? Contact <span className="text-blue-600 font-medium">support@yourapp.com</span>
+          Need help? Contact <span className="text-primary font-medium">support@yourapp.com</span>
         </div>
       </div>
     </div>

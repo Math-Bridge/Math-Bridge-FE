@@ -8,7 +8,6 @@ import {
   GraduationCap,
   Phone,
   Mail,
-  Bookmark,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -224,7 +223,7 @@ const TutorDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background-cream flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
@@ -361,7 +360,7 @@ const TutorDetail: React.FC = () => {
                   setLoading(false);
                 }
               }}
-              className="border border-gray-300 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              className="border border-gray-300 text-gray-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
             >
               Retry
             </button>
@@ -374,12 +373,12 @@ const TutorDetail: React.FC = () => {
   if (!tutor) return null;
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="w-full min-h-screen bg-background-cream">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
         <button
           onClick={() => navigate('/tutors')}
-          className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg font-medium hover:bg-blue-50 transition-all mb-6 shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-white text-primary border border-primary/20 rounded-lg font-medium hover:bg-primary/10 transition-all mb-6 shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Tutors
@@ -426,15 +425,12 @@ const TutorDetail: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-lg text-blue-600 font-medium mb-2">Math Tutor</p>
+                  <p className="text-lg text-primary font-medium mb-2">Math Tutor</p>
                   <div className="flex items-center gap-2 text-gray-600">
                     <MapPin className="w-4 h-4" />
                     <span className="text-sm">{tutor.centerAddress}</span>
                   </div>
                 </div>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Bookmark className="w-5 h-5 text-gray-400" />
-                </button>
               </div>
 
               {/* RANKINGS */}
@@ -467,8 +463,8 @@ const TutorDetail: React.FC = () => {
                       onClick={() => setActiveTab(tab.key as any)}
                       className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm ${
                         activeTab === tab.key
-                          ? 'border-blue-600 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300'
                       }`}
                     >
                       <tab.icon className="w-4 h-4" />
@@ -484,7 +480,7 @@ const TutorDetail: React.FC = () => {
                   {/* About Section */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">About</h3>
-                    <p className="text-gray-700 leading-relaxed">{tutor.bio}</p>
+                    <p className="text-gray-600 leading-relaxed">{tutor.bio}</p>
                   </div>
 
                   {/* Qualifications */}
@@ -494,7 +490,7 @@ const TutorDetail: React.FC = () => {
                       <div className="space-y-4">
                         {tutor.qualifications.map((qual, index) => (
                           <div key={index} className="flex items-start gap-3">
-                            <GraduationCap className="w-5 h-5 text-blue-500 mt-1 flex-shrink-0" />
+                            <GraduationCap className="w-5 h-5 text-primary mt-1 flex-shrink-0" />
                             <div>
                               <p className="font-medium text-gray-900">{qual.title}</p>
                               <p className="text-sm text-gray-600">{qual.institution} • {qual.year}</p>
@@ -507,21 +503,21 @@ const TutorDetail: React.FC = () => {
 
                   {/* CONTACT INFORMATION */}
                   <div>
-                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">CONTACT INFORMATION</h3>
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">CONTACT INFORMATION</h3>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
-                        <Phone className="w-5 h-5 text-blue-600" />
-                        <a href={`tel:${tutor.phone}`} className="text-blue-600 hover:underline">
+                        <Phone className="w-5 h-5 text-primary" />
+                        <a href={`tel:${tutor.phone}`} className="text-primary hover:underline">
                           {tutor.phone}
                         </a>
                       </div>
                       <div className="flex items-center gap-3">
-                        <MapPin className="w-5 h-5 text-blue-600" />
-                        <span className="text-gray-700">{tutor.centerAddress}</span>
+                        <MapPin className="w-5 h-5 text-primary" />
+                        <span className="text-gray-600">{tutor.centerAddress}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Mail className="w-5 h-5 text-blue-600" />
-                        <a href={`mailto:${tutor.email}`} className="text-blue-600 hover:underline">
+                        <Mail className="w-5 h-5 text-primary" />
+                        <a href={`mailto:${tutor.email}`} className="text-primary hover:underline">
                           {tutor.email}
                         </a>
                       </div>
@@ -530,7 +526,7 @@ const TutorDetail: React.FC = () => {
 
                   {/* BASIC INFORMATION */}
                   <div>
-                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">BASIC INFORMATION</h3>
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">BASIC INFORMATION</h3>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <span className="text-gray-600 font-medium w-24">Experience:</span>
@@ -697,11 +693,11 @@ const TutorDetail: React.FC = () => {
                                               />
                                             ))}
                                           </div>
-                                          <span className="text-sm text-gray-700 font-medium">
+                                            <span className="text-sm text-gray-600 font-medium">
                                             {currentReview.userFullName || currentReview.parentName || 'Anonymous'}
                                           </span>
                                         </div>
-                                        <p className="text-sm text-gray-700">{currentReview.comment}</p>
+                                        <p className="text-sm text-gray-600">{currentReview.comment}</p>
                                       </div>
                                       
                                       {/* Next Button */}

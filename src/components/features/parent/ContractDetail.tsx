@@ -21,6 +21,8 @@ import {
   Phone,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   MessageSquare,
   Brain
 } from 'lucide-react';
@@ -117,6 +119,8 @@ const ContractDetail: React.FC = () => {
   
   // Tutor rating states
   const [tutorFeedbacks, setTutorFeedbacks] = useState<FinalFeedback[]>([]);
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
+  const [currentReviewIndexMap, setCurrentReviewIndexMap] = useState<Map<string, number>>(new Map());
   const [loadingTutorRatings, setLoadingTutorRatings] = useState(false);
   
   // Unit progress states
@@ -1553,40 +1557,76 @@ const ContractDetail: React.FC = () => {
                             )}
                           </div>
                           
-                          {/* Recent Comments */}
-                          {tutorFeedbacks.slice(0, 2).some(f => f.feedbackText || f.additionalComments) && (
-                            <div className="pt-4 border-t border-gray-200">
-                              <h4 className="text-sm font-semibold text-gray-900 mb-2">Recent Reviews</h4>
-                              <div className="space-y-2">
-                                {tutorFeedbacks.slice(0, 2).map((feedback, idx) => {
-                                  const comment = feedback.feedbackText || feedback.additionalComments;
-                                  if (!comment) return null;
-                                  return (
-                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg">
-                                      <div className="flex items-center space-x-2 mb-1">
-                                        <div className="flex">
-                                          {[...Array(5)].map((_, i) => (
-                                            <Star
-                                              key={i}
-                                              className={`w-3 h-3 ${
-                                                i < Math.floor(feedback.overallSatisfactionRating)
-                                                  ? 'text-yellow-400 fill-current'
-                                                  : 'text-gray-300'
-                                              }`}
-                                            />
-                                          ))}
-                                        </div>
-                                        <span className="text-xs text-gray-500">
-                                          {feedback.userFullName || 'Anonymous'}
-                                        </span>
+                          {/* Recent Reviews Carousel */}
+                          {(() => {
+                            const validFeedbacks = tutorFeedbacks.filter(f => f.feedbackText || f.additionalComments);
+                            if (validFeedbacks.length === 0) return null;
+                            
+                            const currentFeedback = validFeedbacks[currentReviewIndex];
+                            const totalReviews = validFeedbacks.length;
+                            const comment = currentFeedback.feedbackText || currentFeedback.additionalComments;
+                            
+                            return (
+                              <div className="pt-4 border-t border-gray-200">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-semibold text-gray-900">Recent Reviews</h4>
+                                  <span className="text-xs text-gray-500">
+                                    {currentReviewIndex + 1} / {totalReviews}
+                                  </span>
+                                </div>
+                                
+                                <div className="relative flex items-center gap-2">
+                                  {/* Previous Button */}
+                                  {totalReviews > 1 && (
+                                    <button
+                                      onClick={() => setCurrentReviewIndex((prev) => 
+                                        prev === 0 ? totalReviews - 1 : prev - 1
+                                      )}
+                                      className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                      aria-label="Previous review"
+                                    >
+                                      <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                  )}
+                                  
+                                  {/* Review Card */}
+                                  <div className="flex-1 bg-gray-50 p-4 rounded-lg min-h-[100px]">
+                                    <div className="flex items-center space-x-2 mb-2">
+                                      <div className="flex">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star
+                                            key={i}
+                                            className={`w-4 h-4 ${
+                                              i < Math.floor(currentFeedback.overallSatisfactionRating)
+                                                ? 'text-yellow-400 fill-current'
+                                                : 'text-gray-300'
+                                            }`}
+                                          />
+                                        ))}
                                       </div>
-                                      <p className="text-xs text-gray-700 line-clamp-2">{comment}</p>
+                                      <span className="text-sm text-gray-700 font-medium">
+                                        {currentFeedback.userFullName || 'Anonymous'}
+                                      </span>
                                     </div>
-                                  );
-                                })}
+                                    <p className="text-sm text-gray-700">{comment}</p>
+                                  </div>
+                                  
+                                  {/* Next Button */}
+                                  {totalReviews > 1 && (
+                                    <button
+                                      onClick={() => setCurrentReviewIndex((prev) => 
+                                        prev === totalReviews - 1 ? 0 : prev + 1
+                                      )}
+                                      className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                      aria-label="Next review"
+                                    >
+                                      <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       );
                     })()}
@@ -2359,40 +2399,88 @@ const ContractDetail: React.FC = () => {
                   </div>
                                   )}
 
-                                  {/* Recent Reviews */}
-                                  {tutorFeedbacks.slice(0, 2).some(f => f.feedbackText || f.additionalComments) && (
-                                    <div className="pt-3 border-t border-gray-200">
-                                      <h5 className="text-xs font-semibold text-gray-900 mb-2">Recent Reviews</h5>
-                                      <div className="space-y-2">
-                                        {tutorFeedbacks.slice(0, 2).map((feedback, idx) => {
-                                          const comment = feedback.feedbackText || feedback.additionalComments;
-                                          if (!comment) return null;
-                                          return (
-                                            <div key={idx} className="bg-gray-50 p-2 rounded-lg">
-                                              <div className="flex items-center space-x-2 mb-1">
-                                                <div className="flex">
-                                                  {[...Array(5)].map((_, i) => (
-                                                    <Star
-                                                      key={i}
-                                                      className={`w-3 h-3 ${
-                                                        i < Math.floor(feedback.overallSatisfactionRating)
-                                                          ? 'text-yellow-400 fill-current'
-                                                          : 'text-gray-300'
-                                                      }`}
-                                                    />
-                                                  ))}
-                    </div>
-                                                <span className="text-xs text-gray-500">
-                                                  {feedback.userFullName || 'Anonymous'}
-                                                </span>
-                    </div>
-                                              <p className="text-xs text-gray-700 line-clamp-2">{comment}</p>
-                  </div>
-                                          );
-                                        })}
-                    </div>
-                        </div>
-                                  )}
+                                  {/* Recent Reviews Carousel */}
+                                  {(() => {
+                                    const validFeedbacks = tutorFeedbacks.filter(f => f.feedbackText || f.additionalComments);
+                                    if (validFeedbacks.length === 0) return null;
+                                    
+                                    const tutorId = tutorData.id || '';
+                                    const currentIndex = currentReviewIndexMap.get(tutorId) || 0;
+                                    const currentFeedback = validFeedbacks[currentIndex];
+                                    const totalReviews = validFeedbacks.length;
+                                    const comment = currentFeedback.feedbackText || currentFeedback.additionalComments;
+                                    
+                                    return (
+                                      <div className="pt-3 border-t border-gray-200">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <h5 className="text-xs font-semibold text-gray-900">Recent Reviews</h5>
+                                          <span className="text-xs text-gray-500">
+                                            {currentIndex + 1} / {totalReviews}
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="relative flex items-center gap-2">
+                                          {/* Previous Button */}
+                                          {totalReviews > 1 && (
+                                            <button
+                                              onClick={() => {
+                                                const newIndex = currentIndex === 0 ? totalReviews - 1 : currentIndex - 1;
+                                                setCurrentReviewIndexMap(prev => {
+                                                  const newMap = new Map(prev);
+                                                  newMap.set(tutorId, newIndex);
+                                                  return newMap;
+                                                });
+                                              }}
+                                              className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                              aria-label="Previous review"
+                                            >
+                                              <ChevronLeft className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                          
+                                          {/* Review Card */}
+                                          <div className="flex-1 bg-gray-50 p-3 rounded-lg min-h-[80px]">
+                                            <div className="flex items-center space-x-2 mb-1">
+                                              <div className="flex">
+                                                {[...Array(5)].map((_, i) => (
+                                                  <Star
+                                                    key={i}
+                                                    className={`w-3 h-3 ${
+                                                      i < Math.floor(currentFeedback.overallSatisfactionRating)
+                                                        ? 'text-yellow-400 fill-current'
+                                                        : 'text-gray-300'
+                                                    }`}
+                                                  />
+                                                ))}
+                                              </div>
+                                              <span className="text-xs text-gray-700 font-medium">
+                                                {currentFeedback.userFullName || 'Anonymous'}
+                                              </span>
+                                            </div>
+                                            <p className="text-xs text-gray-700">{comment}</p>
+                                          </div>
+                                          
+                                          {/* Next Button */}
+                                          {totalReviews > 1 && (
+                                            <button
+                                              onClick={() => {
+                                                const newIndex = currentIndex === totalReviews - 1 ? 0 : currentIndex + 1;
+                                                setCurrentReviewIndexMap(prev => {
+                                                  const newMap = new Map(prev);
+                                                  newMap.set(tutorId, newIndex);
+                                                  return newMap;
+                                                });
+                                              }}
+                                              className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+                                              aria-label="Next review"
+                                            >
+                                              <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                         </div>
                               ) : (
                                 <div className="text-center py-4">

@@ -187,7 +187,7 @@ const ParentWallet: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background-cream flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading wallet...</p>
@@ -198,7 +198,7 @@ const ParentWallet: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background-cream flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
@@ -214,16 +214,19 @@ const ParentWallet: React.FC = () => {
   }
 
   return (
-    <div className="w-full bg-gray-50 relative">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16 relative z-10">
+    <div className="min-h-screen bg-background-cream">
+      <div className="max-w-4xl mx-auto">
         {/* Page Title */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>
-          <p className="text-gray-600 mt-2">Manage your account balance and transactions</p>
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mt-6 mb-6">
+          <div className="px-6 pt-6 pb-6">
+            <h1 className="text-3xl font-bold text-gray-900">Wallet</h1>
+            <p className="text-gray-600 mt-2">Manage your account balance and transactions</p>
+          </div>
         </div>
 
         {/* Balance Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+          <div className="px-6 pt-6 pb-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Wallet Balance</h2>
             <button
@@ -241,10 +244,13 @@ const ParentWallet: React.FC = () => {
             </div>
             <p className="text-gray-600">Available Balance</p>
           </div>
+          </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+          <div className="px-6 pt-6 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <button
             onClick={() => navigate('/wallet/topup')}
             className="p-6 bg-gradient-to-r from-green-50 to-green-100 rounded-xl border border-green-200 hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
@@ -304,10 +310,13 @@ const ParentWallet: React.FC = () => {
               </div>
             </div>
           </button>
+            </div>
+          </div>
         </div>
 
         {/* Recent Transactions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6">
+          <div className="px-6 pt-6 pb-6">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">Recent Transactions</h2>
           </div>
@@ -318,7 +327,7 @@ const ParentWallet: React.FC = () => {
               <p className="text-gray-500">No transactions yet</p>
               <button
                 onClick={() => navigate('/wallet/topup')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
               >
                 Add Funds
               </button>
@@ -378,6 +387,7 @@ const ParentWallet: React.FC = () => {
               )}
             </>
           )}
+          </div>
         </div>
       </div>
     </div>
