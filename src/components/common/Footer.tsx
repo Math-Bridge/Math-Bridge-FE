@@ -47,7 +47,7 @@ const Footer: React.FC = () => {
               </span>
             </Link>
             <p className="text-white/80 mb-8 leading-relaxed">
-              Transforming mathematics education through personalized tutoring and innovative teaching methods since 2016.
+              Transforming mathematics education through personalized tutoring and innovative teaching methods since 2025.
             </p>
 
             {/* Social Links */}

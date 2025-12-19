@@ -21,6 +21,7 @@ interface Package {
   description: string;
   subject: string;
   level: string;
+  grade?: string;
   duration: number; // in weeks
   sessions: number;
   price: number;
@@ -39,9 +40,7 @@ const PackageSelection: React.FC = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-  const [selectedLevel, setSelectedLevel] = useState('all');
-  const [sortBy, setSortBy] = useState('popular');
+  const [selectedGrade, setSelectedGrade] = useState('all');
 
   useEffect(() => {
     const fetchPackages = async () => {
@@ -53,8 +52,9 @@ const PackageSelection: React.FC = () => {
             id: pkg.packageId || pkg.id || pkg.PackageId || String(pkg.packageId || pkg.PackageId),
             name: pkg.name || pkg.packageName || pkg.PackageName || '',
             description: pkg.description || pkg.Description || '',
-            subject: pkg.subject || pkg.category || pkg.Grade || 'General',
+            subject: pkg.subject || pkg.category || 'General',
             level: pkg.level || 'Intermediate',
+            grade: pkg.Grade || pkg.grade || '',
             duration: pkg.duration || pkg.durationWeeks || pkg.DurationDays ? Math.ceil(pkg.DurationDays / 7) : 0,
             sessions: pkg.sessions || pkg.totalSessions || pkg.SessionCount || pkg.sessionCount || 0,
             price: pkg.price || pkg.Price || 0,
@@ -88,36 +88,20 @@ const PackageSelection: React.FC = () => {
   const filteredPackages = packages.filter(pkg => {
     const matchesSearch = pkg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          pkg.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = selectedSubject === 'all' || pkg.subject === selectedSubject;
-    const matchesLevel = selectedLevel === 'all' || pkg.level === selectedLevel;
+    const pkgGrade = (pkg as any).grade || '';
+    const matchesGrade = selectedGrade === 'all' || pkgGrade.toLowerCase() === selectedGrade.toLowerCase();
     
-    return matchesSearch && matchesSubject && matchesLevel;
+    return matchesSearch && matchesGrade;
   });
 
-  const sortedPackages = [...filteredPackages].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-low':
-        return a.price - b.price;
-      case 'price-high':
-        return b.price - a.price;
-      case 'rating':
-        return b.rating - a.rating;
-      case 'popular':
-      default:
-        return (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0);
-    }
-  });
-
-  const subjects = [
-    { value: 'mathematics', label: t('mathematics') },
-    { value: 'physics', label: t('physics') },
-    { value: 'chemistry', label: t('chemistry') }
-  ];
-  const levels = [
-    { value: 'beginner', label: t('beginner') },
-    { value: 'intermediate', label: t('intermediate') },
-    { value: 'advanced', label: t('advanced') }
-  ];
+  // Get unique grades from packages
+  const availableGrades = Array.from(new Set(
+    packages
+      .map(pkg => (pkg as any).grade || '')
+      .filter(grade => grade && grade.trim() !== '')
+      .sort()
+  ));
+  
 
   const handleSelectPackage = (packageId: string) => {
     navigate(`/contracts/create?package=${packageId}`);
@@ -150,7 +134,7 @@ const PackageSelection: React.FC = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <div className="relative">
@@ -159,59 +143,36 @@ const PackageSelection: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={t('searchPackages')}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Search packages by name or description..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="all">{t('allSubjects')}</option>
-                {subjects.map(subject => (
-                  <option key={subject.value} value={subject.value}>{subject.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Level</label>
-              <select
-                value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="all">{t('allLevels')}</option>
-                {levels.map(level => (
-                  <option key={level.value} value={level.value}>{level.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="popular">{t('popular')}</option>
-                <option value="rating">Highest Rated</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Grade</label>
+              <div className="relative">
+                <Filter className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <select
+                  value={selectedGrade}
+                  onChange={(e) => setSelectedGrade(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary appearance-none"
+                >
+                  <option value="all">All Grades</option>
+                  {availableGrades.map(grade => (
+                    <option key={grade} value={grade}>
+                      {grade.charAt(0).toUpperCase() + grade.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Packages Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedPackages.map((pkg) => {
+          {filteredPackages.map((pkg) => {
             const packageImageUrl = (pkg as any).imageUrl || (pkg as any).image_url || (pkg as any).ImageUrl || '';
             return (
             <div key={pkg.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow">
@@ -256,9 +217,13 @@ const PackageSelection: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-6">
+              {/* Package Name */}
+              <div className="px-6 pt-4">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
+              </div>
+
+              <div className="p-6 pt-0">
                 <div className="mb-4">
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{pkg.name}</h3>
                   <p className="text-gray-600 text-sm mb-3">{pkg.description}</p>
                   
                   <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -266,10 +231,10 @@ const PackageSelection: React.FC = () => {
                       <BookOpen className="w-4 h-4" />
                       <span>{pkg.subject}</span>
                     </div>
-                    <div className="flex items-center space-x-1">
+                    {/* <div className="flex items-center space-x-1">
                       <Award className="w-4 h-4" />
                       <span>{pkg.level}</span>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
 
@@ -341,7 +306,7 @@ const PackageSelection: React.FC = () => {
         </div>
 
         {/* Empty State */}
-        {sortedPackages.length === 0 && (
+        {filteredPackages.length === 0 && (
           <div className="text-center py-12">
             <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No packages found</h3>
@@ -349,8 +314,7 @@ const PackageSelection: React.FC = () => {
             <button
               onClick={() => {
                 setSearchTerm('');
-                setSelectedSubject('all');
-                setSelectedLevel('all');
+                setSelectedGrade('all');
               }}
               className="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary-dark transition-colors"
             >

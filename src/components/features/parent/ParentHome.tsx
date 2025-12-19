@@ -648,6 +648,7 @@ const ParentHome: React.FC = () => {
                         {duplicatedPackages.map((pkg, index) => {
                         const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0;
                         const grade = pkg.Grade || pkg.grade || '';
+                        const packageImageUrl = (pkg as any).ImageUrl || (pkg as any).imageUrl || (pkg as any).image_url || '';
 
                         return (
                           <div
@@ -656,27 +657,44 @@ const ParentHome: React.FC = () => {
                             className="group relative bg-white rounded-2xl overflow-hidden border-2 border-gray-100 hover:border-primary transition-all duration-300 hover:shadow-math-lg transform hover:-translate-y-2 cursor-pointer flex-shrink-0 w-96"
                           >
                             {/* Course Header */}
-                            <div className="relative h-56 bg-gradient-to-br from-primary/10 via-background-cream to-accent-orange/10 flex flex-col items-center justify-center p-8 overflow-hidden">
-                              <div className="absolute inset-0 opacity-10">
-                                <div className="absolute inset-0" style={{
-                                  backgroundImage: `radial-gradient(circle, #FF6B35 1px, transparent 1px)`,
-                                  backgroundSize: '20px 20px'
-                                }}></div>
-                              </div>
+                            <div className="relative h-56 bg-gradient-to-br from-primary/10 via-background-cream to-accent-orange/10 overflow-hidden">
+                              {packageImageUrl ? (
+                                <img
+                                  src={packageImageUrl}
+                                  alt={pkg.title || 'Package image'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    // Hide image on error, show gradient background
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <>
+                                  <div className="absolute inset-0 opacity-10">
+                                    <div className="absolute inset-0" style={{
+                                      backgroundImage: `radial-gradient(circle, #FF6B35 1px, transparent 1px)`,
+                                      backgroundSize: '20px 20px'
+                                    }}></div>
+                                  </div>
+                                  <div className="relative z-10 flex flex-col items-center justify-center h-full p-8">
+                                    <div className="text-center">
+                                      <div className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
+                                        <span className="text-4xl text-primary">∫</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
 
-                              <div className="relative z-10 text-center">
-                                <div className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-                                  <span className="text-4xl text-primary">∫</span>
-                                </div>
-                                <div className="space-y-2">
-                                  <h3 className="text-2xl font-bold text-gray-900">{pkg.title}</h3>
-                                  <p className="text-gray-600 font-medium">Mathematics Program</p>
-                                </div>
-                              </div>
+                            {/* Package Name */}
+                            <div className="px-8 pt-4">
+                              <h3 className="text-2xl font-bold text-gray-900">{pkg.title}</h3>
+                              <p className="text-gray-600 font-medium text-sm mt-1">Mathematics Program</p>
                             </div>
 
                             {/* Course Details */}
-                            <div className="p-8">
+                            <div className="p-8 pt-4">
                               <div className="flex justify-center gap-8 mb-6 pb-6 border-b border-gray-100">
                                 <div className="text-center">
                                   <PlayCircle className="h-5 w-5 text-primary mx-auto mb-1" />

@@ -174,10 +174,18 @@ const PackageList: React.FC<PackageListProps> = ({
     };
   }, [courses, searchQuery, categoryFilter, statusFilter, levelFilter, currentPage]);
 
-  const categories = [
-    "all",
-    ...Array.from(new Set(courses.map((c) => c.category))).filter(Boolean),
-  ];
+  // Get unique categories and sort them by grade number
+  const uniqueCategories = Array.from(new Set(courses.map((c) => c.category))).filter(Boolean);
+  const sortedCategories = uniqueCategories.sort((a, b) => {
+    // Extract grade number from strings like "grade 9", "grade 10", etc.
+    const getGradeNumber = (str: string): number => {
+      const match = str.toLowerCase().match(/grade\s*(\d+)/);
+      return match ? parseInt(match[1], 10) : 999;
+    };
+    return getGradeNumber(a) - getGradeNumber(b);
+  });
+
+  const categories = ["all", ...sortedCategories];
   const levels = ["all", "Beginner", "Intermediate", "Advanced"];
   const statuses = ["all", "active", "upcoming"];
 
@@ -340,15 +348,23 @@ const PackageList: React.FC<PackageListProps> = ({
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   className="bg-transparent focus:outline-none text-gray-700 font-medium"
                 >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat === "all" ? "All Grades" : `Grade ${cat}`}
-                    </option>
-                  ))}
+                  {categories.map((cat) => {
+                    // Format display text: if cat already contains "grade", use it as is, otherwise add "Grade"
+                    const displayText = cat === "all" 
+                      ? "All Grades" 
+                      : cat.toLowerCase().includes("grade") 
+                        ? cat.charAt(0).toUpperCase() + cat.slice(1)
+                        : `Grade ${cat}`;
+                    return (
+                      <option key={cat} value={cat}>
+                        {displayText}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
-              <select
+              {/* <select
                 value={levelFilter}
                 onChange={(e) => setLevelFilter(e.target.value)}
                 className="px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all text-gray-700 font-medium"
@@ -358,9 +374,9 @@ const PackageList: React.FC<PackageListProps> = ({
                     {level === "all" ? "All Levels" : level}
                   </option>
                 ))}
-              </select>
+              </select> */}
 
-              <select
+              {/* <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-5 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all text-gray-700 font-medium"
@@ -370,7 +386,7 @@ const PackageList: React.FC<PackageListProps> = ({
                     {status === "all" ? "All Status" : status.charAt(0).toUpperCase() + status.slice(1)}
                   </option>
                 ))}
-              </select>
+              </select> */}
             </div>
           </div>
         </div>
