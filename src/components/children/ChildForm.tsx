@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, School as SchoolIcon, Calendar, Upload, ImagePlus } from 'lucide-react';
-import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getActiveSchools, School, uploadChildAvatar } from '../../services/api';
+import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllActiveSchools, School, uploadChildAvatar } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useToast } from '../../contexts/ToastContext';
@@ -105,45 +105,20 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
   }, [child]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoadingData(true);
-      await fetchSchools();
-      setLoadingData(false);
-    };
-    loadData();
+    fetchSchools();
   }, []);
 
   const fetchSchools = async () => {
     try {
-      const result = await getActiveSchools();
-      console.log('Schools API response:', result);
-      if (result.success && result.data) {
-        // Handle different response structures:
-        // 1. Direct array: result.data = [...]
-        // 2. Wrapped in data: result.data = { data: [...] }
-        // 3. Wrapped in array property: result.data = { schools: [...] }
-        let schoolsData: any[] = [];
-        const data = result.data as any;
-        
-        if (Array.isArray(data)) {
-          schoolsData = data;
-        } else if (data.data && Array.isArray(data.data)) {
-          schoolsData = data.data;
-        } else if (data.schools && Array.isArray(data.schools)) {
-          schoolsData = data.schools;
-        } else if (data.items && Array.isArray(data.items)) {
-          schoolsData = data.items;
-        }
-        
-        setSchools(schoolsData);
-        console.log('Parsed schools:', schoolsData);
-      } else {
-        console.error('Failed to fetch schools:', result.error);
-        setSchools([]);
-      }
+      setLoadingData(true);
+      const schoolsData = await getAllActiveSchools();
+      console.log('Fetched all schools:', schoolsData.length, schoolsData);
+      setSchools(schoolsData);
     } catch (error) {
       console.error('Error fetching schools:', error);
       setSchools([]);
+    } finally {
+      setLoadingData(false);
     }
   };
 

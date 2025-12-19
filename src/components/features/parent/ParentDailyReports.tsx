@@ -10,6 +10,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Search,
   Filter,
   BarChart3,
@@ -52,6 +54,10 @@ const ParentDailyReports: React.FC = () => {
   const [filterOnTrack, setFilterOnTrack] = useState<'all' | 'onTrack' | 'offTrack'>('all');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchChildren();
@@ -260,7 +266,12 @@ const ParentDailyReports: React.FC = () => {
 
     const matchesUnit = !selectedUnitId || report.unitId === selectedUnitId;
 
-    return matchesSearch && matchesFilter && matchesUnit;
+    // Date range filter - use sessionDate if available, otherwise createdDate
+    const reportDate = report.sessionDate || report.createdDate;
+    const matchesDateFrom = !dateFrom || reportDate >= dateFrom;
+    const matchesDateTo = !dateTo || reportDate <= dateTo;
+
+    return matchesSearch && matchesFilter && matchesUnit && matchesDateFrom && matchesDateTo;
   });
 
   // Group reports by date
@@ -302,6 +313,17 @@ const ParentDailyReports: React.FC = () => {
       const dateB = new Date(b.date).getTime();
       return dateB - dateA;
     });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterOnTrack, selectedUnitId, dateFrom, dateTo]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(groupedReportsArray.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReports = groupedReportsArray.slice(startIndex, endIndex);
 
   // Calculate statistics
   const totalReports = reports.length;
@@ -534,7 +556,7 @@ const ParentDailyReports: React.FC = () => {
                 <Filter className="w-5 h-5 text-gray-600" />
                 <h3 className="text-lg font-semibold text-gray-900">Filter & Search</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -575,6 +597,42 @@ const ParentDailyReports: React.FC = () => {
                   </select>
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    placeholder="From Date"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                  />
+                </div>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    placeholder="To Date"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                  />
+                </div>
+                <div>
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterOnTrack('all');
+                      setSelectedUnitId(null);
+                      setDateFrom('');
+                      setDateTo('');
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Reports List */}
@@ -596,8 +654,9 @@ const ParentDailyReports: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {groupedReportsArray.map(({ dateKey, date, reports: dayReports }) => {
+              <>
+                <div className="space-y-4">
+                  {paginatedReports.map(({ dateKey, date, reports: dayReports }) => {
                   const isExpanded = expandedReportId === dateKey;
                   return (
                     <div
@@ -730,8 +789,60 @@ const ParentDailyReports: React.FC = () => {
                       )}
                     </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {startIndex + 1} to {Math.min(endIndex, groupedReportsArray.length)} of {groupedReportsArray.length} reports
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Previous</span>
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {(() => {
+                          // Show only 5 page numbers
+                          const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                          const endPage = Math.min(startPage + 4, totalPages);
+                          const pages = [];
+                          for (let i = startPage; i <= endPage; i++) {
+                            pages.push(i);
+                          }
+                          return pages.map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

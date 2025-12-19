@@ -5,6 +5,7 @@ export { default as Footer } from './Footer';
 export { default as Layout } from './Layout';
 export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as Button } from './Button';
 export { ToastContainer } from './Toast';
 export type { Toast, ToastType } from './Toast';
 export { default as ConfirmDialog } from './ConfirmDialog';

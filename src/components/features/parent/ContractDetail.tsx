@@ -68,14 +68,25 @@ interface ContractDetail {
   createdAt: string;
   sessions: Session[];
   tutorRating: number;
+  isOnline?: boolean;
 }
 
-// Calculate price based on number of children
-const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
+// Calculate price based on number of children, offline mode, and discount
+// Note: basePrice should already have discount applied (if any)
+const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false): number => {
+  let price = basePrice;
+  
+  // Increase 60% for 2 children
   if (numberOfChildren === 2) {
-    return basePrice * 1.6; // Increase 60% for 2 children
+    price = basePrice * 1.6;
   }
-  return basePrice;
+  
+  // Add 2% for offline mode
+  if (isOffline) {
+    price = price * 1.02;
+  }
+  
+  return price;
 };
 
 const ContractDetail: React.FC = () => {
@@ -87,6 +98,8 @@ const ContractDetail: React.FC = () => {
   const [contract, setContract] = useState<ContractDetail | null>(null);
   const [contractRawData, setContractRawData] = useState<any>(null); // Store raw contract data from API
   const [basePackagePrice, setBasePackagePrice] = useState<number | null>(null); // Store base price from package
+  const [packageDiscount, setPackageDiscount] = useState<number | undefined>(undefined); // Store package discount
+  const [packageOriginalPrice, setPackageOriginalPrice] = useState<number | undefined>(undefined); // Store package original price
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor' | 'curriculum'>('overview');
@@ -136,6 +149,10 @@ const ContractDetail: React.FC = () => {
   const [dailyReports, setDailyReports] = useState<any[]>([]);
   const [loadingDailyReports, setLoadingDailyReports] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   
   // Sessions and actual teaching tutors
   const [sessions, setSessions] = useState<any[]>([]);
@@ -193,15 +210,23 @@ const ContractDetail: React.FC = () => {
         let price = contractData.Price || contractData.price || contractData.Amount || contractData.amount || 0;
         let basePrice = 0;
         
-        // Always fetch package to get base price (needed for 2 children calculation)
+        // Always fetch package to get base price, discount, and original price (needed for 2 children calculation and discount)
         if (contractData.PackageId || contractData.packageId) {
           try {
             const packageId = contractData.PackageId || contractData.packageId;
             const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
             if (packageResponse.success && packageResponse.data) {
               const pkg = packageResponse.data;
-              basePrice = pkg.Price || pkg.price || 0;
+              const originalPrice = pkg.OriginalPrice || pkg.originalPrice || pkg.Price || pkg.price || 0;
+              const discount = pkg.Discount || pkg.discount || 0;
+              // Calculate price with discount applied
+              basePrice = discount > 0 && discount <= 100 
+                ? originalPrice * (1 - discount / 100)
+                : originalPrice;
+              
               setBasePackagePrice(basePrice);
+              setPackageDiscount(discount > 0 ? discount : undefined);
+              setPackageOriginalPrice(discount > 0 ? originalPrice : undefined);
               
               if (!totalSessions) {
                 totalSessions = pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0;
@@ -328,7 +353,8 @@ const ContractDetail: React.FC = () => {
           centerAddress: contractData.CenterAddress || contractData.centerAddress || contractData.OfflineAddress || contractData.offlineAddress || '',
           createdAt: contractData.CreatedDate || contractData.createdDate || contractData.CreatedAt || contractData.createdAt || '',
           sessions: [], // TODO: Fetch sessions from API
-          tutorRating: contractData.TutorRating || contractData.tutorRating || 0
+          tutorRating: contractData.TutorRating || contractData.tutorRating || 0,
+          isOnline: contractData.IsOnline !== undefined ? contractData.IsOnline : contractData.isOnline !== undefined ? contractData.isOnline : true
         };
 
         setContract(mappedContract);
@@ -604,6 +630,13 @@ const ContractDetail: React.FC = () => {
       fetchDailyReports();
     }
   }, [contract?.id, contract?.childName, contract?.secondChildName, contractRawData, activeTab]);
+
+  // Reset to page 1 when date filters change
+  useEffect(() => {
+    if (activeTab === 'dailyReports') {
+      setCurrentPage(1);
+    }
+  }, [dateFrom, dateTo, activeTab]);
 
   // Fetch units and unit progress when curriculum tab is active
   useEffect(() => {
@@ -901,7 +934,12 @@ const ContractDetail: React.FC = () => {
       setIsCreatingPayment(true);
       setError(null);
       
-      const paymentResult = await createContractDirectPayment(contractId);
+      // Use contract price (which should already include discount if applied during contract creation)
+      // Calculate final amount: contract.price may already include adjustments, but we need to add direct payment fee (+2%)
+      const finalAmount = contract.price * 1.02; // Add 2% for direct payment
+      
+      // Send final amount to backend
+      const paymentResult = await createContractDirectPayment(contractId, finalAmount);
       
       if (paymentResult.success && paymentResult.data) {
         // Backend returns response with camelCase properties, but handle both cases for safety
@@ -912,13 +950,15 @@ const ContractDetail: React.FC = () => {
         
         if (qrCodeUrl) {
           // Map response to match frontend interface (ensure camelCase)
+          // Always use calculated price from frontend (with discount + fees) instead of backend amount
           const mappedPaymentResponse: SePayPaymentResponse = {
             success: paymentData.success ?? paymentData.Success ?? true,
             message: paymentData.message || paymentData.Message || 'Payment request created successfully',
             qrCodeUrl: qrCodeUrl,
             orderReference: paymentData.orderReference || paymentData.OrderReference || '',
             walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
-            amount: paymentData.amount || paymentData.Amount || contract.price,
+            // Always use calculated price from frontend - override backend amount
+            amount: finalAmount,
             bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
             transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
           };
@@ -1366,18 +1406,45 @@ const ContractDetail: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <div>
                       <p className="text-sm text-gray-600">Total Price</p>
-                      <p className="font-medium">
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                          contract.secondChildName && basePackagePrice
-                            ? calculatePrice(basePackagePrice, 2)
-                            : contract.price
-                        )}
-                      </p>
-                      {contract.secondChildName && basePackagePrice && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          (Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(basePackagePrice)} + 60% for 2 children)
-                        </p>
-                      )}
+                      {(() => {
+                        // Calculate final price with discount and fees
+                        const numberOfChildren = contract.secondChildName ? 2 : 1;
+                        const isOffline = contract.isOnline !== undefined ? !contract.isOnline : (!contract.centerName || contract.centerName !== 'Online');
+                        const finalPrice = basePackagePrice !== null
+                          ? calculatePrice(basePackagePrice, numberOfChildren, isOffline)
+                          : contract.price;
+                        
+                        return (
+                          <>
+                            {packageOriginalPrice && packageOriginalPrice > (basePackagePrice || 0) && (
+                              <p className="text-xs text-gray-500 line-through mb-1">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                  calculatePrice(packageOriginalPrice, numberOfChildren, isOffline)
+                                )}
+                              </p>
+                            )}
+                            {packageDiscount && packageDiscount > 0 && (
+                              <div className="mb-1">
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                                  -{packageDiscount}%
+                                </span>
+                              </div>
+                            )}
+                            <p className="font-medium">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}
+                            </p>
+                            {(contract.secondChildName || isOffline) && basePackagePrice && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                {contract.secondChildName && (
+                                  <span>Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(basePackagePrice)} + 60% for 2 children</span>
+                                )}
+                                {contract.secondChildName && isOffline && <span> + </span>}
+                                {isOffline && <span>+2% for offline mode</span>}
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   {contract.centerAddress && (
@@ -1823,8 +1890,16 @@ const ContractDetail: React.FC = () => {
             }
           };
 
-          // Group reports by date
-          const groupedReports = dailyReports.reduce((groups, report) => {
+          // Filter reports by date range first
+          const filteredReports = dailyReports.filter((report) => {
+            const reportDate = report.sessionDate || report.SessionDate || report.createdDate || report.CreatedDate;
+            const matchesDateFrom = !dateFrom || reportDate >= dateFrom;
+            const matchesDateTo = !dateTo || reportDate <= dateTo;
+            return matchesDateFrom && matchesDateTo;
+          });
+
+          // Group filtered reports by date
+          const groupedReports = filteredReports.reduce((groups, report) => {
             const dateKey = getDateKey(report);
             if (!groups[dateKey]) {
               groups[dateKey] = [];
@@ -1850,12 +1925,56 @@ const ContractDetail: React.FC = () => {
               return dateB - dateA;
             });
 
+          // Calculate pagination
+          const totalPages = Math.ceil(groupedReportsArray.length / itemsPerPage);
+          const startIndex = (currentPage - 1) * itemsPerPage;
+          const endIndex = startIndex + itemsPerPage;
+          const paginatedReports = groupedReportsArray.slice(startIndex, endIndex);
+
           return (
             <div className="space-y-6">
               <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
                 <div className="p-6 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
-                  <p className="text-sm text-gray-600 mt-1">Track your child's learning progress</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Daily Reports</h3>
+                      <p className="text-sm text-gray-600 mt-1">Track your child's learning progress</p>
+                    </div>
+                  </div>
+                  {/* Date Range Filter */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        placeholder="From Date"
+                        className="w-full pl-12 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
+                      />
+                    </div>
+                    <div className="relative">
+                      <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="date"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        placeholder="To Date"
+                        className="w-full pl-12 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
+                      />
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => {
+                          setDateFrom('');
+                          setDateTo('');
+                        }}
+                        className="w-full px-4 py-2 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 {loadingDailyReports ? (
                   <div className="p-12 text-center">
@@ -1869,8 +1988,9 @@ const ContractDetail: React.FC = () => {
                     <p className="text-gray-600">Daily reports will appear here once the tutor starts creating them</p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-gray-200">
-                    {groupedReportsArray.map(({ dateKey, date, reports: dayReports }) => {
+                  <>
+                    <div className="divide-y divide-gray-200">
+                      {paginatedReports.map(({ dateKey, date, reports: dayReports }: any) => {
                       const isExpanded = expandedReportId === dateKey;
                       return (
                         <div key={dateKey} className="p-6">
@@ -1996,8 +2116,60 @@ const ContractDetail: React.FC = () => {
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
+                      })}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 px-6">
+                        <div className="text-sm text-gray-600">
+                          Showing {startIndex + 1} to {Math.min(endIndex, groupedReportsArray.length)} of {groupedReportsArray.length} reports
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                            <span>Previous</span>
+                          </button>
+                          <div className="flex items-center space-x-1">
+                            {(() => {
+                              // Show only 5 page numbers
+                              const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                              const endPage = Math.min(startPage + 4, totalPages);
+                              const pages = [];
+                              for (let i = startPage; i <= endPage; i++) {
+                                pages.push(i);
+                              }
+                              return pages.map((page) => (
+                                <button
+                                  key={page}
+                                  onClick={() => setCurrentPage(page)}
+                                  className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                    currentPage === page
+                                      ? 'bg-primary text-white hover:bg-primary-dark'
+                                      : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              ));
+                            })()}
+                          </div>
+                          <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                          >
+                            <span>Next</span>
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

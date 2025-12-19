@@ -234,8 +234,22 @@ const TutorTestResult: React.FC = () => {
   });
 
   const selectedContractData = contracts.find(c => c.contractId === selectedContract);
-  const sessionTestResults = testResults.filter(r => r.contractId === selectedContract);
-  const otherTestResults = testResults.filter(r => r.contractId !== selectedContract);
+  const sessionTestResults = testResults
+    .filter(r => r.contractId === selectedContract)
+    .sort((a, b) => {
+      // Sort by date descending (newest first)
+      const dateA = new Date(a.createdDate).getTime();
+      const dateB = new Date(b.createdDate).getTime();
+      return dateB - dateA;
+    });
+  const otherTestResults = testResults
+    .filter(r => r.contractId !== selectedContract)
+    .sort((a, b) => {
+      // Sort by date descending (newest first)
+      const dateA = new Date(a.createdDate).getTime();
+      const dateB = new Date(b.createdDate).getTime();
+      return dateB - dateA;
+    });
 
   if (loading) {
     return (

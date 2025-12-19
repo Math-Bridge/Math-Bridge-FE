@@ -39,7 +39,9 @@ interface Contract {
   totalSessions: number;
   completedSessions: number;
   price: number;
-  basePackagePrice?: number; // Base price from package (for 2 children calculation)
+  basePackagePrice?: number; // Base price from package (with discount applied, for 2 children calculation)
+  packageDiscount?: number; // Discount percentage from package
+  packageOriginalPrice?: number; // Original price before discount
   status: 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid';
   startDate: string;
   endDate: string;
@@ -52,12 +54,22 @@ interface Contract {
   rawData?: any;
 }
 
-// Calculate price based on number of children
-const calculatePrice = (basePrice: number, numberOfChildren: number): number => {
+// Calculate price based on number of children, offline mode, and discount
+// Note: basePrice should already have discount applied (if any)
+const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false): number => {
+  let price = basePrice;
+  
+  // Increase 60% for 2 children
   if (numberOfChildren === 2) {
-    return basePrice * 1.6; // Increase 60% for 2 children
+    price = basePrice * 1.6;
   }
-  return basePrice;
+  
+  // Add 2% for offline mode
+  if (isOffline) {
+    price = price * 1.02;
+  }
+  
+  return price;
 };
 
 const ContractsManagement: React.FC = () => {
@@ -188,15 +200,24 @@ const ContractsManagement: React.FC = () => {
           const secondChildId = cleanContract.SecondChildId || cleanContract.secondChildId || null;
           const secondChildName = cleanContract.SecondChildName || cleanContract.secondChildName || null;
           
-          // Fetch package to get base price (needed for 2 children calculation)
+          // Fetch package to get base price, discount, and original price (needed for 2 children calculation and discount)
           let basePackagePrice: number | undefined = undefined;
+          let packageDiscount: number | undefined = undefined;
+          let packageOriginalPrice: number | undefined = undefined;
           if (cleanContract.PackageId || cleanContract.packageId) {
             try {
               const packageId = cleanContract.PackageId || cleanContract.packageId;
               const packageResponse = await apiService.request<any>(`/packages/${packageId}`);
               if (packageResponse.success && packageResponse.data) {
                 const pkg = packageResponse.data;
-                basePackagePrice = pkg.Price || pkg.price || 0;
+                const originalPrice = pkg.OriginalPrice || pkg.originalPrice || pkg.Price || pkg.price || 0;
+                const discount = pkg.Discount || pkg.discount || 0;
+                // Calculate price with discount applied
+                basePackagePrice = discount > 0 && discount <= 100 
+                  ? originalPrice * (1 - discount / 100)
+                  : originalPrice;
+                packageDiscount = discount > 0 ? discount : undefined;
+                packageOriginalPrice = discount > 0 ? originalPrice : undefined;
               }
             } catch (error) {
               // Silently fail - base price is optional
@@ -215,6 +236,8 @@ const ContractsManagement: React.FC = () => {
             subject: cleanContract.Subject || cleanContract.subject || 'Mathematics',
             totalSessions, completedSessions, price,
             basePackagePrice,
+            packageDiscount,
+            packageOriginalPrice,
             status: (cleanContract.Status || cleanContract.status || 'pending').toLowerCase(),
             startDate: cleanContract.StartDate || cleanContract.startDate || '',
             endDate: cleanContract.EndDate || cleanContract.endDate || '',
@@ -726,21 +749,52 @@ const ContractsManagement: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div>
                         <p className="text-xs font-semibold text-primary-dark uppercase tracking-wider">Price</p>
-                        <p className="text-lg font-bold text-gray-900">
-                          {contract.price > 0 
-                            ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                                contract.secondChildName && contract.basePackagePrice
-                                  ? calculatePrice(contract.basePackagePrice, 2)
-                                  : contract.price
-                              )
-                            : 'Free'
+                        {(() => {
+                          if (contract.price <= 0) {
+                            return <p className="text-lg font-bold text-gray-900">Free</p>;
                           }
-                        </p>
-                        {contract.secondChildName && contract.basePackagePrice && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            (Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.basePackagePrice)} + 60%)
-                          </p>
-                        )}
+                          
+                          // Calculate final price with discount and fees
+                          const numberOfChildren = contract.secondChildName ? 2 : 1;
+                          const isOffline = contract.isOnline !== undefined ? !contract.isOnline : false;
+                          
+                          // Always use basePackagePrice if available (already has discount applied)
+                          // If basePackagePrice is undefined, use contract.price directly (it's already the final price from backend)
+                          const finalPrice = contract.basePackagePrice !== undefined
+                            ? calculatePrice(contract.basePackagePrice, numberOfChildren, isOffline)
+                            : contract.price;
+                          
+                          return (
+                            <>
+                              {contract.packageOriginalPrice && contract.packageOriginalPrice > (contract.basePackagePrice || 0) && (
+                                <p className="text-xs text-gray-500 line-through mb-1">
+                                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                    calculatePrice(contract.packageOriginalPrice, numberOfChildren, isOffline)
+                                  )}
+                                </p>
+                              )}
+                              {contract.packageDiscount && contract.packageDiscount > 0 && (
+                                <div className="mb-1">
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                                    -{contract.packageDiscount}%
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-lg font-bold text-gray-900">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}
+                              </p>
+                              {(contract.secondChildName || isOffline) && contract.basePackagePrice && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {contract.secondChildName && (
+                                    <span>Base: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.basePackagePrice)} + 60% for 2 children</span>
+                                  )}
+                                  {contract.secondChildName && isOffline && <span> + </span>}
+                                  {isOffline && <span>+2% for offline mode</span>}
+                                </p>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

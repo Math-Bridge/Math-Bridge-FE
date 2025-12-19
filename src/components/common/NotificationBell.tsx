@@ -466,10 +466,13 @@ const NotificationBell: React.FC = () => {
             setSelectedNotification(null);
             setChildId(undefined);
           }}
-          onSuccess={() => {
-            // Đánh dấu notification này đã được xử lý
+          onSuccess={async () => {
+            // Xóa notification sau khi submit form thành công
             if (selectedNotification) {
+              // Đánh dấu notification này đã được xử lý
               saveProcessedNotification(selectedNotification.id);
+              // Xóa notification từ database và UI
+              await deleteNotification(selectedNotification.id);
             }
             setShowRescheduleOrRefundModal(false);
             setSelectedNotification(null);

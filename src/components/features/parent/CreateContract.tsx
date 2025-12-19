@@ -32,6 +32,8 @@ interface Package {
   packageName: string;
   description?: string;
   price: number;
+  originalPrice?: number;
+  discount?: number;
   sessionCount: number;
   durationDays: number;
   grade: string;
@@ -607,15 +609,25 @@ const CreateContract: React.FC = () => {
           packagesData = dataObj.data || dataObj.items || dataObj.packages || [];
         }
         
-        const mappedPackages = packagesData.map((pkg: any) => ({
-          packageId: pkg.PackageId || pkg.packageId || pkg.id || '',
-          packageName: pkg.PackageName || pkg.packageName || pkg.name || '',
-          description: pkg.Description || pkg.description || '',
-          price: pkg.Price || pkg.price || 0,
-          sessionCount: pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0,
-          durationDays: pkg.DurationDays || pkg.durationDays || pkg.duration || 0,
-          grade: pkg.Grade || pkg.grade || ''
-        }));
+        const mappedPackages = packagesData.map((pkg: any) => {
+          const originalPrice = pkg.OriginalPrice || pkg.originalPrice || pkg.Price || pkg.price || 0;
+          const discount = pkg.Discount || pkg.discount || 0;
+          const price = discount > 0 && discount <= 100 
+            ? originalPrice * (1 - discount / 100)
+            : originalPrice;
+          
+          return {
+            packageId: pkg.PackageId || pkg.packageId || pkg.id || '',
+            packageName: pkg.PackageName || pkg.packageName || pkg.name || '',
+            description: pkg.Description || pkg.description || '',
+            price: price,
+            originalPrice: discount > 0 ? originalPrice : undefined,
+            discount: discount > 0 ? discount : undefined,
+            sessionCount: pkg.SessionCount || pkg.sessionCount || pkg.totalSessions || 0,
+            durationDays: pkg.DurationDays || pkg.durationDays || pkg.duration || 0,
+            grade: pkg.Grade || pkg.grade || ''
+          };
+        });
         
         setPackages(mappedPackages);
       } else {
@@ -649,6 +661,7 @@ const CreateContract: React.FC = () => {
   };
 
   // Calculate price based on number of children, offline mode, and payment method
+  // Note: basePrice should already have discount applied (if any)
   const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false, isDirectPayment: boolean = false): number => {
     let price = basePrice;
     
@@ -1633,7 +1646,13 @@ const CreateContract: React.FC = () => {
           // Create direct payment with QR code
           try {
             setCreatedContractId(contractId);
-            const paymentResult = await createContractDirectPayment(contractId);
+            
+            // Calculate final price with discount applied BEFORE calling API
+            // This ensures backend receives the correct discounted amount
+            const finalAmount = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true);
+            
+            // Send discounted amount to backend (backend may or may not use it, but we send it anyway)
+            const paymentResult = await createContractDirectPayment(contractId, finalAmount);
             
             if (paymentResult.success && paymentResult.data) {
               // Backend returns response with camelCase properties (Success -> success, QrCodeUrl -> qrCodeUrl, etc.)
@@ -1645,13 +1664,16 @@ const CreateContract: React.FC = () => {
               
               if (qrCodeUrl) {
                 // Map response to match frontend interface (ensure camelCase)
+                // Always use calculated price from frontend (with discount) instead of backend amount
+                // Backend may return original price, so we override it with the correct discounted price
                 const mappedPaymentResponse: SePayPaymentResponse = {
                   success: paymentData.success ?? paymentData.Success ?? true,
                   message: paymentData.message || paymentData.Message || 'Payment request created successfully',
                   qrCodeUrl: qrCodeUrl,
                   orderReference: paymentData.orderReference || paymentData.OrderReference || '',
                   walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
-                  amount: paymentData.amount || paymentData.Amount || calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true),
+                  // Always use calculated price from frontend (with discount) - override backend amount
+                  amount: finalAmount,
                   bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
                   transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
                 };
@@ -2138,9 +2160,10 @@ const CreateContract: React.FC = () => {
                     let matchesSearch = true;
                     if (packageSearchTerm.trim()) {
                       const searchLower = packageSearchTerm.toLowerCase();
-                      matchesSearch = 
+                      matchesSearch = Boolean(
                         pkg.packageName.toLowerCase().includes(searchLower) ||
-                        (pkg.description && pkg.description.toLowerCase().includes(searchLower));
+                        (pkg.description && pkg.description.toLowerCase().includes(searchLower))
+                      );
                     }
 
                     return matchesGrade && matchesSearch;
@@ -2198,15 +2221,30 @@ const CreateContract: React.FC = () => {
                               </div>
                               <div className="pt-4 border-t border-gray-200">
                                 <div className="space-y-1">
-                                  {numberOfChildren > 1 && (
+                                  {(pkg.originalPrice && pkg.originalPrice > pkg.price) && (
                                     <p className="text-xs text-gray-500 line-through">
-                                  {new Intl.NumberFormat('vi-VN', { 
-                                    style: 'currency', 
-                                    currency: 'VND' 
-                                  }).format(pkg.price)}
-                                </p>
+                                      {new Intl.NumberFormat('vi-VN', { 
+                                        style: 'currency', 
+                                        currency: 'VND' 
+                                      }).format(calculatePrice(pkg.originalPrice, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
+                                    </p>
                                   )}
-                                  <p className={`text-2xl font-bold ${numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment' ? 'text-primary' : 'text-gray-900'}`}>
+                                  {numberOfChildren > 1 && !(pkg.originalPrice && pkg.originalPrice > pkg.price) && (
+                                    <p className="text-xs text-gray-500 line-through">
+                                      {new Intl.NumberFormat('vi-VN', { 
+                                        style: 'currency', 
+                                        currency: 'VND' 
+                                      }).format(calculatePrice(pkg.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
+                                    </p>
+                                  )}
+                                  {pkg.discount && pkg.discount > 0 && (
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-semibold">
+                                        -{pkg.discount}%
+                                      </span>
+                                    </div>
+                                  )}
+                                  <p className={`text-2xl font-bold ${numberOfChildren > 1 || !schedule.isOnline || paymentMethod === 'direct_payment' || (pkg.discount && pkg.discount > 0) ? 'text-primary' : 'text-gray-900'}`}>
                                     {new Intl.NumberFormat('vi-VN', { 
                                       style: 'currency', 
                                       currency: 'VND' 
@@ -3328,13 +3366,37 @@ const CreateContract: React.FC = () => {
                     </p>
                     <div className="mt-3 p-3 bg-white rounded border border-blue-200">
                       <div className="space-y-2">
-                        {numberOfChildren > 1 && (
+                        {selectedPackage.originalPrice && selectedPackage.originalPrice > selectedPackage.price && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Original Price:</span>
+                            <span className="text-gray-500 line-through">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.originalPrice, numberOfChildren, !schedule.isOnline, true))}
+                            </span>
+                          </div>
+                        )}
+                        {selectedPackage.discount && selectedPackage.discount > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Discount:</span>
+                            <span className="text-green-600 font-medium">
+                              -{selectedPackage.discount}%
+                            </span>
+                          </div>
+                        )}
+                        {selectedPackage.originalPrice && selectedPackage.originalPrice > selectedPackage.price && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Price After Discount:</span>
+                            <span className="text-gray-900 font-medium">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true))}
+                            </span>
+                          </div>
+                        )}
+                        {!selectedPackage.originalPrice && numberOfChildren > 1 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Base Price:</span>
                             <span className="text-gray-500 line-through">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedPackage.price)}
-                        </span>
-                      </div>
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true))}
+                            </span>
+                          </div>
                         )}
                         {numberOfChildren > 1 && (
                           <div className="flex justify-between text-sm">
@@ -3486,14 +3548,33 @@ const CreateContract: React.FC = () => {
                   </div>
                   <div className="pt-3 border-t border-gray-200">
                     <div className="space-y-2">
-                      {numberOfChildren > 1 && (
+                      {selectedPackage.originalPrice && selectedPackage.originalPrice > selectedPackage.price && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Original Price:</span>
+                          <span className="text-gray-500 line-through">
+                            {new Intl.NumberFormat('vi-VN', { 
+                              style: 'currency', 
+                              currency: 'VND' 
+                            }).format(calculatePrice(selectedPackage.originalPrice, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
+                          </span>
+                        </div>
+                      )}
+                      {selectedPackage.discount && selectedPackage.discount > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Discount:</span>
+                          <span className="text-green-600 font-medium">
+                            -{selectedPackage.discount}%
+                          </span>
+                        </div>
+                      )}
+                      {!selectedPackage.originalPrice && numberOfChildren > 1 && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-gray-600">Base Price:</span>
                           <span className="text-gray-500 line-through">
                             {new Intl.NumberFormat('vi-VN', { 
                               style: 'currency', 
                               currency: 'VND' 
-                            }).format(selectedPackage.price)}
+                            }).format(calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, paymentMethod === 'direct_payment'))}
                           </span>
                         </div>
                       )}

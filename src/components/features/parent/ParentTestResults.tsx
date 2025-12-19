@@ -8,6 +8,8 @@ import {
   Award,
   TrendingUp,
   BarChart3,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import {
   getTestResultsByChildId,
@@ -27,6 +29,10 @@ const ParentTestResults: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingResults, setLoadingResults] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchChildren();
@@ -108,15 +114,40 @@ const ParentTestResults: React.FC = () => {
     }
   };
 
-  const filteredResults = testResults.filter((result) => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      result.testType.toLowerCase().includes(term) ||
-      result.notes?.toLowerCase().includes(term) ||
-      result.score.toString().includes(term)
-    );
-  });
+  const filteredResults = testResults
+    .filter((result) => {
+      const matchesSearch = !searchTerm || (() => {
+        const term = searchTerm.toLowerCase();
+        return (
+          result.testType.toLowerCase().includes(term) ||
+          result.notes?.toLowerCase().includes(term) ||
+          result.score.toString().includes(term)
+        );
+      })();
+      
+      // Date range filter
+      const matchesDateFrom = !dateFrom || result.createdDate >= dateFrom;
+      const matchesDateTo = !dateTo || result.createdDate <= dateTo;
+      
+      return matchesSearch && matchesDateFrom && matchesDateTo;
+    })
+    .sort((a, b) => {
+      // Sort by date descending (newest first)
+      const dateA = new Date(a.createdDate).getTime();
+      const dateB = new Date(b.createdDate).getTime();
+      return dateB - dateA;
+    });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, dateFrom, dateTo]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedResults = filteredResults.slice(startIndex, endIndex);
 
   // Calculate statistics
   const totalTests = testResults.length;
@@ -288,21 +319,55 @@ const ParentTestResults: React.FC = () => {
               </div>
             </div>
 
-            {/* Search */}
+            {/* Search & Filter */}
             <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 p-6 mb-6">
               <div className="flex items-center space-x-2 mb-4">
                 <Search className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-semibold text-primary-dark">Search Test Results</h3>
+                <h3 className="text-lg font-semibold text-primary-dark">Search & Filter Test Results</h3>
               </div>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by test type, score, or notes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-white"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by test type, score, or notes..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-white"
+                  />
+                </div>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    placeholder="From Date"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-white"
+                  />
+                </div>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    placeholder="To Date"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-white"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setDateFrom('');
+                    setDateTo('');
+                  }}
+                  className="px-4 py-2 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                >
+                  Clear Filters
+                </button>
               </div>
             </div>
 
@@ -325,8 +390,9 @@ const ParentTestResults: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredResults.map((result) => {
+              <>
+                <div className="space-y-4">
+                  {paginatedResults.map((result) => {
                   const scoreColor =
                     result.score >= 8
                       ? 'bg-green-100 text-green-800 border-green-300'
@@ -394,8 +460,60 @@ const ParentTestResults: React.FC = () => {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      Showing {startIndex + 1} to {Math.min(endIndex, filteredResults.length)} of {filteredResults.length} results
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        <span>Previous</span>
+                      </button>
+                      <div className="flex items-center space-x-1">
+                        {(() => {
+                          // Show only 5 page numbers
+                          const startPage = Math.floor((currentPage - 1) / 5) * 5 + 1;
+                          const endPage = Math.min(startPage + 4, totalPages);
+                          const pages = [];
+                          for (let i = startPage; i <= endPage; i++) {
+                            pages.push(i);
+                          }
+                          return pages.map((page) => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-primary text-white hover:bg-primary-dark'
+                                  : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                      >
+                        <span>Next</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

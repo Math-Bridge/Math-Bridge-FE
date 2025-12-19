@@ -851,7 +851,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     googleLoginSuccess: 'Google login successful',
     googleLoginFailed: 'Google login failed',
     invalidCredentials: 'Email or password is invalid',
-    accountLocked: 'Account locked',
+    accountLocked: 'Your account has been banned. Please contact Admin.',
     tooManyAttempts: 'Too many attempts',
     emailNotVerified: 'Email not verified. Please check your email and verify your account.',
     signup: 'Sign Up',

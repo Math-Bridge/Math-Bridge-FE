@@ -1544,8 +1544,68 @@ export async function getAllSchools() {
   return apiService.request<{ data: School[] }>(`/schools`);
 }
 
-export async function getActiveSchools() {
-  return apiService.request<{ data: School[] }>(`/schools/active`);
+export async function getActiveSchools(page?: number, pageSize?: number) {
+  const params = new URLSearchParams();
+  if (page !== undefined) params.append('page', page.toString());
+  if (pageSize !== undefined) params.append('pageSize', pageSize.toString());
+  const queryString = params.toString();
+  return apiService.request<{ data: School[], pagination?: any }>(`/schools/active${queryString ? `?${queryString}` : ''}`);
+}
+
+/**
+ * Fetch all active schools by making multiple requests if needed
+ */
+export async function getAllActiveSchools(): Promise<School[]> {
+  const allSchools: School[] = [];
+  let page = 1;
+  const pageSize = 1000; // Large page size to minimize requests
+  let hasMore = true;
+  let maxPages = 100; // Safety limit to prevent infinite loops
+
+  while (hasMore && page <= maxPages) {
+    try {
+      const result = await getActiveSchools(page, pageSize);
+      if (result.success && result.data) {
+        // Handle different response structures
+        let schools: School[] = [];
+        let pagination: any = null;
+
+        // Check if result.data is an object with nested data and pagination
+        if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+          const responseData = result.data as any;
+          if (Array.isArray(responseData.data)) {
+            schools = responseData.data;
+            pagination = responseData.pagination;
+          } else if (Array.isArray(responseData)) {
+            schools = responseData;
+          }
+        } else if (Array.isArray(result.data)) {
+          schools = result.data;
+        }
+
+        if (schools.length > 0) {
+          allSchools.push(...schools);
+        }
+        
+        // Check if there are more pages
+        if (pagination) {
+          hasMore = pagination.hasNext === true;
+          page++;
+        } else {
+          // If no pagination info, assume we got all if less than pageSize
+          hasMore = schools.length === pageSize;
+          page++;
+        }
+      } else {
+        hasMore = false;
+      }
+    } catch (error) {
+      console.error(`Error fetching schools page ${page}:`, error);
+      hasMore = false;
+    }
+  }
+
+  return allSchools;
 }
 
 export async function getSchoolById(schoolId: string) {
@@ -4003,9 +4063,12 @@ export async function getSePayPaymentDetails(transactionId: string) {
 
 // Create direct contract payment with QR code
 // Backend endpoint: POST /api/SePay/create-contract-payment?contractId={contractId}
-export async function createContractDirectPayment(contractId: string) {
+// amount: Optional final amount with discount applied (if not provided, backend uses package price)
+export async function createContractDirectPayment(contractId: string, amount?: number) {
+  const requestBody = amount !== undefined ? { amount } : undefined;
   return apiService.request<SePayPaymentResponse>(`/SePay/create-contract-payment?contractId=${contractId}`, {
     method: 'POST',
+    body: requestBody ? JSON.stringify(requestBody) : undefined,
   });
 }
 
