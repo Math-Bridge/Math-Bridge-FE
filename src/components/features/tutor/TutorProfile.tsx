@@ -3,9 +3,6 @@ import { useLocation } from 'react-router-dom';
 import {
   Mail,
   GraduationCap,
-  CheckCircle,
-  XCircle,
-  Clock,
   Edit,
   Save,
   X,
@@ -512,8 +509,7 @@ const TutorProfile: React.FC = () => {
   const getStatusBadge = (status?: string) => {
     if (!status) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 shadow-sm">
-          <Clock className="w-3.5 h-3.5" />
+        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">
           Not Verified
         </span>
       );
@@ -522,23 +518,20 @@ const TutorProfile: React.FC = () => {
     const normalized = status.toLowerCase();
     if (normalized === 'approved' || normalized === 'active') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 shadow-sm">
-          <CheckCircle className="w-3.5 h-3.5" />
+        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
           Approved
         </span>
       );
     }
     if (normalized === 'rejected') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-red-100 to-rose-100 text-red-700 shadow-sm">
-          <XCircle className="w-3.5 h-3.5" />
+        <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
           Rejected
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 shadow-sm">
-        <Clock className="w-3.5 h-3.5" />
+      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
         Pending
       </span>
     );
@@ -562,20 +555,19 @@ const TutorProfile: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary/20 border-t-primary"></div>
-          <p className="text-sm text-gray-500">Loading profile...</p>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background-cream">
-      <div className="max-w-4xl mx-auto">
-        {/* Profile Header Card */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 mt-6 mb-6">
+    <div className="space-y-6">
+      {/* Profile Header Card */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="px-6 pt-6 pb-6 relative">
             {/* Status Badge and Cancel Button */}
             <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -583,7 +575,7 @@ const TutorProfile: React.FC = () => {
           {isEditing && (
               <button
                 onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all shadow-md flex items-center gap-2 text-sm font-medium"
+                  className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm font-medium"
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -610,12 +602,12 @@ const TutorProfile: React.FC = () => {
                   />
                 ) : null}
                 <div
-                  className={`w-64 h-64 rounded-xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-7xl font-bold border-4 border-gray-200 shadow-xl ${avatarUrl ? 'hidden' : ''}`}
+                  className={`w-64 h-64 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-7xl font-bold border-4 border-gray-200 ${avatarUrl ? 'hidden' : ''}`}
                 >
                   {((user as any)?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
                 </div>
                 {isEditing && (
-                  <label className={`absolute bottom-2 right-2 bg-white text-primary p-2.5 rounded-full cursor-pointer hover:bg-primary/10 transition-all shadow-lg border-2 border-gray-200 ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <label className={`absolute bottom-2 right-2 bg-white text-blue-600 p-2.5 rounded-full cursor-pointer hover:bg-blue-50 transition-colors border-2 border-gray-200 ${isUploadingAvatar ? 'opacity-50 cursor-not-allowed' : ''}`}>
                     {isUploadingAvatar ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
                     ) : (
@@ -663,7 +655,7 @@ const TutorProfile: React.FC = () => {
               {!isEditing ? (
                 <button
                   onClick={handleEdit}
-                  className="px-6 py-2.5 bg-primary text-white rounded-full hover:bg-primary-dark transition-all shadow-md hover:shadow-lg flex items-center gap-2 font-medium"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium"
                 >
                   <Edit className="w-4 h-4" />
                   Edit Profile
@@ -672,7 +664,7 @@ const TutorProfile: React.FC = () => {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="px-6 py-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {saving ? (
                     <>
@@ -691,8 +683,8 @@ const TutorProfile: React.FC = () => {
           </div>
         </div>
 
-        {/* About Section */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-6">
+      {/* About Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="mb-4">
             <h2 className="text-xl font-bold text-gray-900">About</h2>
           </div>
@@ -702,7 +694,7 @@ const TutorProfile: React.FC = () => {
                 value={formData.bio}
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                 rows={6}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none text-gray-600"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-600"
                 placeholder="Write a brief biography about your teaching experience, qualifications, and teaching style..."
               />
               <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
@@ -721,14 +713,14 @@ const TutorProfile: React.FC = () => {
           )}
         </div>
 
-        {/* Academic Information */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-primary" />
-              Education
-            </h2>
-          </div>
+      {/* Academic Information */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-blue-600" />
+            Education
+          </h2>
+        </div>
           {isEditing ? (
             <div className="space-y-4">
               <div>
@@ -739,7 +731,7 @@ const TutorProfile: React.FC = () => {
                   type="text"
                   value={formData.university}
                   onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your university"
                   required
                 />
@@ -752,7 +744,7 @@ const TutorProfile: React.FC = () => {
                   type="text"
                   value={formData.major}
                   onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your major"
                   required
                 />
@@ -768,34 +760,18 @@ const TutorProfile: React.FC = () => {
                   )}
                 </div>
               )}
-              {verificationDetail?.hourlyRate && (
-                <div className="pt-3 border-t border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Hourly Rate</span>
-                    <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full font-medium">Set by Admin</span>
-                  </div>
-                  <p className="text-gray-900 font-bold text-lg mt-1">
-                    {new Intl.NumberFormat('vi-VN', {
-                      style: 'currency',
-                      currency: 'VND',
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }).format(verificationDetail.hourlyRate * 25000)}/hour
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
 
-        {/* Location Section */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-primary" />
-              Location
-            </h2>
-          </div>
+      {/* Location Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Location
+          </h2>
+        </div>
           {isEditing ? (
             <div className="space-y-4">
               <div className="relative" ref={locationDropdownRef}>
@@ -807,23 +783,23 @@ const TutorProfile: React.FC = () => {
                     type="text"
                     value={locationInput}
                     onChange={(e) => handleLocationInputChange(e.target.value)}
-                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Start typing your address..."
                     required
                   />
                   {isLoadingLocation && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
                     </div>
                   )}
                 </div>
                 {showLocationDropdown && locationPredictions.length > 0 && (
-                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {locationPredictions.map((prediction, index) => (
                       <div
                         key={prediction.placeId || index}
                         onClick={() => handleLocationSelect(prediction)}
-                        className="px-4 py-3 hover:bg-primary/10 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
                       >
                         <div className="font-semibold text-gray-900">{prediction.mainText}</div>
                         <div className="text-sm text-gray-500 mt-0.5">{prediction.secondaryText}</div>
@@ -870,21 +846,21 @@ const TutorProfile: React.FC = () => {
           )}
         </div>
 
-        {/* Center Assignment */}
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Building className="w-5 h-5 text-primary" />
-              Center Assignment
-            </h2>
-          </div>
-          {loadingCenters ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-8 w-8 border-3 border-primary/20 border-t-primary"></div>
-                <p className="text-sm text-gray-500">Loading centers...</p>
-              </div>
+      {/* Center Assignment */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <Building className="w-5 h-5 text-blue-600" />
+            Center Assignment
+          </h2>
+        </div>
+        {loadingCenters ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading centers...</p>
             </div>
+          </div>
           ) : tutorCenters.length === 0 ? (
             <div className="text-center py-8">
               <Building className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -902,11 +878,11 @@ const TutorProfile: React.FC = () => {
                 return (
                   <div
                     key={tutorCenter.tutorCenterId || (tutorCenter as any).TutorCenterId}
-                    className="border border-gray-200 rounded-lg p-4 hover:border-primary/30 hover:shadow-md transition-all bg-gray-50"
+                    className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all bg-gray-50"
                   >
                     <div className="flex items-start gap-3">
                       <div className="p-2 bg-white rounded-lg">
-                        <Building className="w-5 h-5 text-primary" />
+                        <Building className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -946,15 +922,15 @@ const TutorProfile: React.FC = () => {
           )}
         </div>
 
-        {/* Verification Timeline */}
-        {verificationDetail && (
-          <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6 mb-6">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Verification Timeline
-              </h2>
-            </div>
+      {/* Verification Timeline */}
+      {verificationDetail && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              Verification Timeline
+            </h2>
+          </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Created Date</p>
@@ -970,23 +946,22 @@ const TutorProfile: React.FC = () => {
           </div>
         )}
 
-        {/* Alert for Pending Status */}
-        {verificationDetail && verificationDetail.verificationStatus &&
-         verificationDetail.verificationStatus.toLowerCase() !== 'approved' &&
-         verificationDetail.verificationStatus.toLowerCase() !== 'active' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-semibold text-yellow-900 mb-1">Profile Under Review</p>
-                <p className="text-sm text-yellow-800">
-                  Your profile changes will be reviewed by staff. Once approved, your updated information will be visible to parents.
-                </p>
-              </div>
+      {/* Alert for Pending Status */}
+      {verificationDetail && verificationDetail.verificationStatus &&
+       verificationDetail.verificationStatus.toLowerCase() !== 'approved' &&
+       verificationDetail.verificationStatus.toLowerCase() !== 'active' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-yellow-900 mb-1">Profile Under Review</p>
+              <p className="text-sm text-yellow-800">
+                Your profile changes will be reviewed by staff. Once approved, your updated information will be visible to parents.
+              </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

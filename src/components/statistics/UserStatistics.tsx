@@ -269,14 +269,14 @@ const UserStatistics: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Date</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">New Users</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {registrationTrends.trends.map((trend, index) => (
                   <tr key={index}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
                       {new Date(trend.date).toLocaleDateString('en-US')}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{trend.newUsers}</td>
@@ -344,14 +344,14 @@ const UserStatistics: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">City</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">City</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">User Count</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {locationDistribution.cityDistribution.map((city, index) => (
                   <tr key={index}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{city.city}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{city.city}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm">{city.userCount}</td>
                   </tr>
                 ))}

@@ -409,19 +409,19 @@ const CurriculumManagement: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Curriculum Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Code
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Grades
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Statistics
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -447,7 +447,7 @@ const CurriculumManagement: React.FC = () => {
                       <>
                         {paginatedCurriculums.map((curriculum) => (
                     <tr key={curriculum.curriculumId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="flex items-center space-x-3">
                           <div className="p-2 bg-blue-100 rounded-lg">
                             <BookOpen className="w-5 h-5 text-blue-600" />
@@ -470,7 +470,7 @@ const CurriculumManagement: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {curriculum.curriculumCode ? (
                           <span className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">
                             {curriculum.curriculumCode}
@@ -479,7 +479,7 @@ const CurriculumManagement: React.FC = () => {
                           <span className="text-sm text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {curriculum.grades ? (
                           <div className="flex items-center space-x-2">
                             <GraduationCap className="w-4 h-4 text-gray-500" />
@@ -489,7 +489,7 @@ const CurriculumManagement: React.FC = () => {
                           <span className="text-sm text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="flex items-center space-x-4 text-sm">
                           <div className="flex items-center space-x-1 text-gray-600">
                             <CreditCard className="w-4 h-4" />
@@ -505,7 +505,7 @@ const CurriculumManagement: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {curriculum.isActive ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             <CheckCircle className="w-3 h-3 mr-1" />

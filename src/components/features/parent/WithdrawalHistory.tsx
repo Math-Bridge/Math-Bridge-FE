@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Wallet, Clock, CheckCircle, XCircle, Plus, Loader2, Building2, CreditCard, User } from 'lucide-react';
 import { getMyWithdrawalRequests, WithdrawalRequest } from '../../../services/api';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 const WithdrawalHistory: React.FC = () => {
   const navigate = useNavigate();
@@ -38,13 +39,13 @@ const WithdrawalHistory: React.FC = () => {
     }).format(amount);
   };
 
+  // Use formatDateTime from dateUtils for proper timezone handling
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return formatDateTime(dateString, {
+      includeTime: true,
+      includeDate: true,
+      timeFormat: '24h',
+      dateFormat: 'numeric'
     });
   };
 

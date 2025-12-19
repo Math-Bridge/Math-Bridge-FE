@@ -1,7 +1,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../contexts/ToastContext';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { API_BASE_URL } from '../constants';
+import { API_BASE_URL, STORAGE_KEYS } from '../constants';
+import { getCookie } from '../utils/cookie';
 
 const SSE_URL = `${API_BASE_URL}/Notification/sse/connect`;
 
@@ -144,7 +145,7 @@ export const useSSENotifications = (options: UseSSENotificationsOptions = {}) =>
       console.log('Connecting to SSE:', SSE_URL);
 
       // Get auth token for authenticated connection
-      const token = localStorage.getItem('authToken');
+      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
       
       // Create EventSource with Bearer token in Authorization header
       const eventSource = new EventSourcePolyfill(SSE_URL, {

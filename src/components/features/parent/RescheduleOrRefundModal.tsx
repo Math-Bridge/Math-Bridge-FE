@@ -21,6 +21,7 @@ import {
   RescheduleRequest
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { formatDateTime, parseBackendDate } from '../../../utils/dateUtils';
 
 interface RescheduleOrRefundModalProps {
   isOpen: boolean;
@@ -188,9 +189,10 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
       tutorAvailabilities.mainTutor.some(avail => {
         if ((avail.daysOfWeek & dayBitmask) === 0) return false;
         
-        const effectiveFrom = new Date(avail.effectiveFrom + 'T00:00:00');
+        // Parse dates from backend with proper timezone handling
+        const effectiveFrom = parseBackendDate(avail.effectiveFrom + 'T00:00:00') || new Date(avail.effectiveFrom + 'T00:00:00Z');
         const effectiveUntil = avail.effectiveUntil 
-          ? new Date(avail.effectiveUntil + 'T23:59:59')
+          ? (parseBackendDate(avail.effectiveUntil + 'T23:59:59') || new Date(avail.effectiveUntil + 'T23:59:59Z'))
           : null;
         
         if (slotDate < effectiveFrom) return false;
@@ -208,9 +210,10 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
       tutorAvailabilities.subTutor.some(avail => {
         if ((avail.daysOfWeek & dayBitmask) === 0) return false;
         
-        const effectiveFrom = new Date(avail.effectiveFrom + 'T00:00:00');
+        // Parse dates from backend with proper timezone handling
+        const effectiveFrom = parseBackendDate(avail.effectiveFrom + 'T00:00:00') || new Date(avail.effectiveFrom + 'T00:00:00Z');
         const effectiveUntil = avail.effectiveUntil 
-          ? new Date(avail.effectiveUntil + 'T23:59:59')
+          ? (parseBackendDate(avail.effectiveUntil + 'T23:59:59') || new Date(avail.effectiveUntil + 'T23:59:59Z'))
           : null;
         
         if (slotDate < effectiveFrom) return false;
@@ -242,9 +245,28 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
         }
         if (sessionDateStr !== date) return false;
         
-        const sessionStart = new Date(session.startTime);
-        const sessionHours = sessionStart.getHours();
-        const sessionMinutes = sessionStart.getMinutes();
+        // Parse session time from backend
+        // session.startTime can be "HH:mm" (TimeOnly) or ISO datetime string
+        let sessionHours = 0;
+        let sessionMinutes = 0;
+        if (session.startTime.includes('T') || session.startTime.includes(':')) {
+          // If it's an ISO datetime string, parse and get time in VN timezone
+          const sessionStart = parseBackendDate(session.startTime) || new Date(session.startTime);
+          const vnTimeString = sessionStart.toLocaleString('en-US', { 
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          });
+          const [h, m] = vnTimeString.split(':').map(Number);
+          sessionHours = h;
+          sessionMinutes = m;
+        } else {
+          // If it's "HH:mm" format, parse directly
+          const [h, m] = session.startTime.split(':').map(Number);
+          sessionHours = h;
+          sessionMinutes = m;
+        }
         const sessionTimeMinutes = sessionHours * 60 + sessionMinutes;
         
         const diff = Math.abs(slotTimeMinutes - sessionTimeMinutes);
@@ -274,8 +296,9 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
       }
       if (sessionDateStr !== date) return false;
       
-      const sessionStart = new Date(session.startTime);
-      const sessionEnd = new Date(session.endTime);
+      // Parse session times from backend with proper timezone handling
+      const sessionStart = parseBackendDate(session.startTime) || new Date(session.startTime);
+      const sessionEnd = parseBackendDate(session.endTime) || new Date(session.endTime);
       
       return (slotStart < sessionEnd && slotEnd > sessionStart);
     });
@@ -670,7 +693,11 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
                           {day.dayName}
                         </h4>
                         <p className="text-xs text-gray-600">
-                          {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {formatDateTime(day.date + 'T00:00:00', { 
+                            includeTime: false, 
+                            includeDate: true,
+                            dateFormat: 'short'
+                          })}
                         </p>
                       </div>
                       
@@ -727,11 +754,10 @@ const RescheduleOrRefundModal: React.FC<RescheduleOrRefundModalProps> = ({
                     <p className="text-sm font-semibold text-blue-900">Selected Schedule</p>
                   </div>
                   <p className="text-sm text-blue-800">
-                    <span className="font-medium">{new Date(requestedDate).toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
+                    <span className="font-medium">{formatDateTime(requestedDate + 'T00:00:00', { 
+                      includeTime: false, 
+                      includeDate: true,
+                      dateFormat: 'long'
                     })}</span>
                     {' '}at <span className="font-medium">{startTime} - {calculateEndTime(startTime)}</span>
                   </p>

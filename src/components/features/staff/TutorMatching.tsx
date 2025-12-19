@@ -301,22 +301,22 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Package
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Child
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Period
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Time Slot
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Location
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                           Status
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -335,7 +335,7 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                               : ''
                           }`}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <div className="flex items-center space-x-2">
                               <div className="text-sm font-medium text-gray-900">{contract.packageName}</div>
                               {selectedContract?.contractId === contract.contractId && (
@@ -343,15 +343,15 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <div className="text-sm text-gray-900">{contract.childName}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <div className="text-sm text-gray-900">
                               {new Date(contract.startDate).toLocaleDateString()} - {new Date(contract.endDate).toLocaleDateString()}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <div className="text-sm text-gray-900">
                               {(contract as any).daysOfWeeksDisplay || contract.timeSlot || 'Not set'}
                               {(contract as any).startTime && (contract as any).endTime && (
@@ -361,7 +361,7 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <div className="text-sm text-gray-900">
                               {contract.isOnline ? (
                                 <span className="text-blue-600">Online</span>
@@ -370,7 +370,7 @@ const TutorMatching: React.FC<TutorMatchingProps> = ({ hideBackButton = false })
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                               contract.status === 'active' ? 'bg-green-100 text-green-800' :
                               contract.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

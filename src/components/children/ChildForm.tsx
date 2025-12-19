@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, User, School as SchoolIcon, Calendar, Upload, ImagePlus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, User, School as SchoolIcon, Calendar, ImagePlus, ChevronDown } from 'lucide-react';
 import { AddChildRequest, UpdateChildRequest, addChild, updateChild, getAllActiveSchools, School, uploadChildAvatar } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -31,6 +31,12 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
     dateOfBirth: child?.dateOfBirth || ''
   });
   const [schools, setSchools] = useState<School[]>([]);
+  const [filteredSchools, setFilteredSchools] = useState<School[]>([]);
+  const [schoolSearchTerm, setSchoolSearchTerm] = useState('');
+  const [showSchoolDropdown, setShowSchoolDropdown] = useState(false);
+  const [selectedSchoolName, setSelectedSchoolName] = useState<string>('');
+  const schoolDropdownRef = useRef<HTMLDivElement>(null);
+  const schoolInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -114,11 +120,123 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
       const schoolsData = await getAllActiveSchools();
       console.log('Fetched all schools:', schoolsData.length, schoolsData);
       setSchools(schoolsData);
+      setFilteredSchools(schoolsData);
     } catch (error) {
       console.error('Error fetching schools:', error);
       setSchools([]);
+      setFilteredSchools([]);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  // Filter schools based on search term
+  useEffect(() => {
+    if (!schoolSearchTerm.trim()) {
+      setFilteredSchools(schools);
+    } else {
+      const searchLower = schoolSearchTerm.toLowerCase();
+      const filtered = schools.filter((school: any) => {
+        // Handle both camelCase and PascalCase from backend
+        const schoolName = school.SchoolName || school.schoolName || 'Unknown School';
+        return schoolName.toLowerCase().includes(searchLower);
+      });
+      setFilteredSchools(filtered);
+    }
+    // Show dropdown when user types
+    if (schoolSearchTerm.trim() && !showSchoolDropdown) {
+      setShowSchoolDropdown(true);
+    }
+  }, [schoolSearchTerm, schools]);
+
+  // Update selected school name when schoolId changes
+  useEffect(() => {
+    if (formData.schoolId) {
+      const school = schools.find((s: any) => {
+        // Handle both camelCase and PascalCase from backend
+        const schoolId = (s as any).SchoolId || s.schoolId;
+        return schoolId === formData.schoolId;
+      });
+      if (school) {
+        // Handle both camelCase and PascalCase from backend
+        const schoolName = (school as any).SchoolName || school.schoolName || 'Unknown School';
+        setSelectedSchoolName(schoolName);
+        // Update search term if it's empty or doesn't match
+        if (!schoolSearchTerm || schoolSearchTerm !== schoolName) {
+          setSchoolSearchTerm(schoolName);
+        }
+      } else {
+        setSelectedSchoolName('');
+      }
+    } else {
+      setSelectedSchoolName('');
+      // Clear search term only if it was the selected school name
+      if (schoolSearchTerm === selectedSchoolName) {
+        setSchoolSearchTerm('');
+      }
+    }
+  }, [formData.schoolId, schools]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (schoolDropdownRef.current && !schoolDropdownRef.current.contains(event.target as Node)) {
+        setShowSchoolDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleSchoolSelect = (school: any) => {
+    // Handle both camelCase and PascalCase from backend
+    const schoolId = school.SchoolId || school.schoolId;
+    const schoolName = school.SchoolName || school.schoolName || 'Unknown School';
+    handleChange('schoolId', schoolId);
+    setSelectedSchoolName(schoolName);
+    setSchoolSearchTerm(schoolName); // Set search term to selected school name
+    setShowSchoolDropdown(false);
+    if (errors.schoolId) {
+      setErrors(prev => ({ ...prev, schoolId: '' }));
+    }
+  };
+
+  const handleSchoolInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSchoolSearchTerm(value);
+    setShowSchoolDropdown(true);
+    
+    // If user clears the input, clear the selection
+    if (!value.trim()) {
+      handleChange('schoolId', '');
+      setSelectedSchoolName('');
+    } else {
+      // Try to find matching school as user types
+      const matchingSchool = schools.find((school: any) => {
+        const schoolName = (school as any).SchoolName || school.schoolName || 'Unknown School';
+        return schoolName.toLowerCase() === value.toLowerCase();
+      });
+      
+      if (matchingSchool) {
+        const schoolId = (matchingSchool as any).SchoolId || matchingSchool.schoolId;
+        handleChange('schoolId', schoolId);
+        setSelectedSchoolName((matchingSchool as any).SchoolName || matchingSchool.schoolName);
+      } else {
+        // Clear selection if no exact match
+        handleChange('schoolId', '');
+        setSelectedSchoolName('');
+      }
+    }
+  };
+
+  const handleSchoolInputFocus = () => {
+    setShowSchoolDropdown(true);
+    // If there's a selected school, show it in search term
+    if (selectedSchoolName && !schoolSearchTerm) {
+      setSchoolSearchTerm(selectedSchoolName);
     }
   };
 
@@ -450,27 +568,55 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
 
           <div>
             <label className="form-label">{t('school')} *</label>
-            <div className="relative">
-              <SchoolIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <select
-                value={formData.schoolId}
-                onChange={(e) => handleChange('schoolId', e.target.value)}
-                className="form-input pl-10"
+            <div className="relative" ref={schoolDropdownRef}>
+              <SchoolIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+              <input
+                ref={schoolInputRef}
+                type="text"
+                value={schoolSearchTerm}
+                onChange={handleSchoolInputChange}
+                onFocus={handleSchoolInputFocus}
+                placeholder={loadingData ? 'Loading...' : t('selectSchool')}
                 disabled={loadingData}
-              >
-                <option value="">
-                  {loadingData ? 'Loading...' : t('selectSchool')}
-                </option>
-                {schools.map((school: any) => {
-                  const schoolId = school.SchoolId || school.schoolId || school.id;
-                  const schoolName = school.SchoolName || school.schoolName || school.name || 'Unknown School';
-                  return (
-                    <option key={schoolId} value={schoolId}>
-                      {schoolName}
-                    </option>
-                  );
-                })}
-              </select>
+                className={`form-input pl-10 pr-10 ${loadingData ? 'opacity-50 cursor-not-allowed' : ''} ${errors.schoolId ? 'border-red-500' : ''}`}
+              />
+              <ChevronDown 
+                className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-transform pointer-events-none ${showSchoolDropdown ? 'rotate-180' : ''}`}
+                onClick={() => setShowSchoolDropdown(!showSchoolDropdown)}
+              />
+              
+              {showSchoolDropdown && !loadingData && (
+                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                  <div className="overflow-y-auto max-h-80">
+                    {filteredSchools.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <p className="text-sm text-gray-500">No schools found</p>
+                      </div>
+                    ) : (
+                      filteredSchools.map((school: any) => {
+                        // Handle both camelCase and PascalCase from backend
+                        const schoolId = school.SchoolId || school.schoolId;
+                        const schoolName = school.SchoolName || school.schoolName || 'Unknown School';
+                        const isSelected = formData.schoolId === schoolId;
+                        return (
+                          <button
+                            key={schoolId}
+                            type="button"
+                            onClick={() => handleSchoolSelect(school)}
+                            className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-blue-50' : ''}`}
+                          >
+                            <SchoolIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                            <span className="flex-1 text-sm text-gray-900">{schoolName}</span>
+                            {isSelected && (
+                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             {errors.schoolId && <p className="error-message">{errors.schoolId}</p>}
           </div>
@@ -498,7 +644,7 @@ const ChildForm: React.FC<ChildFormProps> = ({ child, onClose, onSuccess }) => {
 
 
           <div>
-            <label className="form-label">{t('dateOfBirth')} ({t('optional')})</label>
+            <label className="form-label">{t('dateOfBirth')} </label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input

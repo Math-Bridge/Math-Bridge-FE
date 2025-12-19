@@ -22,6 +22,7 @@ import {
   WithdrawalRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 interface CombinedTransaction {
   id: string;
@@ -55,6 +56,10 @@ const TransactionHistoryComponent: React.FC = () => {
     if (!description) return '';
     
     let cleaned = description
+      // Remove "for Contract #UUID" pattern: "Payment for Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+for\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
+      // Remove "Contract #UUID" pattern: "Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
       // Remove contract UUID patterns: "contract 544767dd-d236-4891-a5b1-f389b79d545c"
       .replace(/\s+[Cc]ontract\s+[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g, '')
       // Remove contract ID patterns: (Contract ID: xxx), (ContractId: xxx), etc.
@@ -215,13 +220,13 @@ const TransactionHistoryComponent: React.FC = () => {
     }).format(amount);
   };
 
+  // Use formatDateTime from dateUtils for proper timezone handling
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return formatDateTime(dateString, {
+      includeTime: true,
+      includeDate: true,
+      timeFormat: '24h',
+      dateFormat: 'numeric'
     });
   };
 

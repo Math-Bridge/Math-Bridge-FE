@@ -1,3 +1,6 @@
+import { getCookie, removeCookie } from '../utils/cookie';
+import { STORAGE_KEYS } from '../constants';
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vibe88.tech/api';
 
 // Log which API base is being used in development to aid debugging
@@ -53,6 +56,15 @@ export interface ResetPasswordRequest {
 export interface ChangePasswordRequest {
   CurrentPassword: string;
   NewPassword: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  token: string;
+  refreshToken?: string;
 }
 
 export interface DashboardStats {
@@ -119,7 +131,7 @@ class ApiService {
       };
 
       // Add auth token if available
-      const token = localStorage.getItem('authToken');
+      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
       if (token) {
         // Ensure token is not empty and is a valid string
         const cleanToken = token.trim();
@@ -276,7 +288,7 @@ class ApiService {
         // Handle 401 Unauthorized - token expired or invalid
         if (response.status === 401) {
           // Clear invalid token and user data
-          localStorage.removeItem('authToken');
+          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
           localStorage.removeItem('user');
           
           // Redirect to login only if not already on login page
@@ -405,7 +417,7 @@ class ApiService {
     );
   }
 
-  async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
+  async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string; refreshToken?: string }>> {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
@@ -448,6 +460,18 @@ class ApiService {
         body: JSON.stringify({ IdToken: token }),
       }
     );
+  }
+
+  async refreshToken(): Promise<ApiResponse<RefreshTokenResponse>> {
+    const refreshToken = getCookie(STORAGE_KEYS.REFRESH_TOKEN);
+    if (!refreshToken) {
+      return { success: false, error: 'No refresh token available' };
+    }
+
+    return this.request<RefreshTokenResponse>('/auth/refresh-token', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+    });
   }
 
   // Dashboard endpoints
@@ -498,8 +522,8 @@ class ApiService {
       method: 'POST',
     });
     
-    // Clear local storage regardless of API response
-    localStorage.removeItem('authToken');
+    // Clear cookie and local storage regardless of API response
+    removeCookie(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem('user');
     
     return response;
@@ -550,7 +574,7 @@ class ApiService {
       // Cách 1: Thử với query parameter để tránh match với {id} route
       let url = `${baseUrl}/users/avatar?action=upload`;
       
-      const token = localStorage.getItem('authToken');
+      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
       
       const headers: HeadersInit = {};
       if (token) {
@@ -610,7 +634,7 @@ class ApiService {
         }
         
         if (response.status === 401) {
-          localStorage.removeItem('authToken');
+          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
           localStorage.removeItem('user');
           if (!window.location.pathname.includes('/login')) {
             setTimeout(() => {
@@ -723,7 +747,7 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = localStorage.getItem('authToken');
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     const headers: HeadersInit = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -1471,7 +1495,7 @@ export async function uploadChildAvatar(childId: string, file: File): Promise<Ap
     const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const url = `${baseUrl}/children/${childId}/avatar`;
     
-    const token = localStorage.getItem('authToken');
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     
     const headers: HeadersInit = {};
     if (token) {
@@ -2788,6 +2812,64 @@ export async function getAvailableSubTutors(rescheduleRequestId: string) {
       success: false,
       data: { availableTutors: [], totalAvailable: 0 },
       error: error?.message || 'Failed to fetch available sub tutors',
+    };
+  }
+}
+
+// Get reschedule requests by tutor ID
+// Backend: GET /api/reschedule/by-tutor/{tutorId}
+// Returns only CHANGE TUTOR requests related to the tutor
+export async function getRescheduleRequestsByTutorId(tutorId: string) {
+  try {
+    const result = await apiService.request<any[]>(`/reschedule/by-tutor/${tutorId}`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Map backend DTO to frontend interface
+      const mappedData: RescheduleRequest[] = result.data.map((item: any) => ({
+        requestId: item.requestId || item.RequestId || '',
+        bookingId: item.bookingId || item.BookingId || '',
+        contractId: item.contractId || item.ContractId || '',
+        parentId: item.parentId || item.ParentId || '',
+        parentName: item.parentName || item.ParentName || '',
+        childName: item.childName || item.ChildName,
+        requestedDate: item.requestedDate || item.RequestedDate || '',
+        requestedTimeSlot: item.startTime && item.endTime 
+          ? `${item.startTime} - ${item.endTime}`
+          : item.requestedTimeSlot || item.RequestedTimeSlot,
+        startTime: item.startTime || item.StartTime,
+        endTime: item.endTime || item.EndTime,
+        requestedTutorId: item.requestedTutorId || item.RequestedTutorId,
+        requestedTutorName: item.requestedTutorName || item.RequestedTutorName,
+        reason: item.reason || item.Reason,
+        status: (item.status || item.Status || 'pending').toLowerCase() as 'pending' | 'approved' | 'rejected',
+        createdDate: item.createdDate || item.CreatedDate || '',
+        processedDate: item.processedDate || item.ProcessedDate,
+        staffId: item.staffId || item.StaffId,
+        staffName: item.staffName || item.StaffName,
+        originalSessionDate: item.originalSessionDate || item.OriginalSessionDate,
+        originalStartTime: item.originalStartTime || item.OriginalStartTime,
+        originalEndTime: item.originalEndTime || item.OriginalEndTime,
+        originalTutorId: item.originalTutorId || item.OriginalTutorId,
+        originalTutorName: item.originalTutorName || item.OriginalTutorName,
+        tutorId: item.tutorId || item.TutorId,
+        tutorName: item.tutorName || item.TutorName,
+      }));
+      
+      return {
+        success: true,
+        data: mappedData,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error: any) {
+    return {
+      success: false,
+      data: [],
+      error: error?.message || 'Failed to fetch reschedule requests',
     };
   }
 }

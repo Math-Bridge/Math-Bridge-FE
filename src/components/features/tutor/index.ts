@@ -6,4 +6,6 @@ export { default as TutorProfile } from './TutorProfile';
 export { default as TutorDailyReport } from './TutorDailyReport';
 export { default as TutorTestResult } from './TutorTestResult';
 export { default as TutorParentReports } from './TutorParentReports';
+export { default as TutorRescheduleRequests } from './TutorRescheduleRequests';
+// export { default as TutorVerificationStatus } from './TutorVerificationStatus';
 

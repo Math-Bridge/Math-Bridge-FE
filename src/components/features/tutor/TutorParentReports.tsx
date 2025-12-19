@@ -213,25 +213,22 @@ const TutorParentReports: React.FC = () => {
     switch (statusLower) {
       case 'approved':
         return (
-          <span className="px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-            <CheckCircle className="w-4 h-4" />
-            <span>Approved</span>
+          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+            Approved
           </span>
         );
       case 'denied':
       case 'rejected':
         return (
-          <span className="px-3 py-1.5 bg-gradient-to-r from-red-100 to-rose-100 text-red-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-            <XCircle className="w-4 h-4" />
-            <span>Denied</span>
+          <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
+            Denied
           </span>
         );
       case 'pending':
       default:
         return (
-          <span className="px-3 py-1.5 bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 rounded-full text-xs font-bold flex items-center space-x-1.5 shadow-sm">
-            <Clock className="w-4 h-4" />
-            <span>Pending</span>
+          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">
+            Pending
           </span>
         );
     }
@@ -254,9 +251,9 @@ const TutorParentReports: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -264,117 +261,105 @@ const TutorParentReports: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 py-8">
-      <div className="max-w-[95%] mx-auto px-2 sm:px-3 lg:px-4 py-12 sm:py-16">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3 mb-3">
-              <div className="p-2 sm:p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg flex-shrink-0">
-                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-                  Parent Reports
-                </h1>
-                <p className="text-sm sm:text-base lg:text-lg text-gray-600 mt-1">
-                  Report issues or concerns about parents
-                </p>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Parent Reports</h2>
+            <p className="text-gray-600 mt-1">
+              Report issues or concerns about parents
+            </p>
+          </div>
+          <div className="flex gap-2">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:from-primary-dark hover:to-primary transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
             >
-              <Plus className="w-5 h-5" />
-              <span className="font-semibold">Create Report</span>
+              <Plus className="w-4 h-4" />
+              <span>Create Report</span>
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-6 mb-6 backdrop-blur-sm">
-          <div className="flex items-center space-x-2 mb-4">
-            <Filter className="w-5 h-5 text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Filter & Search</h3>
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by content, parent, type..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by content, parent, type..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
-              />
-            </div>
-            <div className="relative">
-              <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="denied">Denied</option>
-              </select>
-            </div>
-            <div className="relative">
-              <FileText className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={selectedContractId || ''}
-                onChange={(e) => setSelectedContractId(e.target.value || null)}
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 appearance-none bg-white font-medium"
-              >
-                <option value="">All Contracts</option>
-                {contracts.map((contract) => (
-                  <option key={contract.contractId} value={contract.contractId}>
-                    {contract.childName} - {contract.parentName} {contract.packageName ? `(${contract.packageName})` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="denied">Denied</option>
+            </select>
+          </div>
+          <div className="relative">
+            <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <select
+              value={selectedContractId || ''}
+              onChange={(e) => setSelectedContractId(e.target.value || null)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+            >
+              <option value="">All Contracts</option>
+              {contracts.map((contract) => (
+                <option key={contract.contractId} value={contract.contractId}>
+                  {contract.childName} - {contract.parentName} {contract.packageName ? `(${contract.packageName})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* Reports List */}
-        {loadingReports ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-16 text-center backdrop-blur-sm">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mx-auto mb-6"></div>
-            <p className="text-gray-600 text-lg font-medium">Loading reports...</p>
-          </div>
-        ) : filteredReports.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200/50 p-16 text-center backdrop-blur-sm">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
-              <FileText className="w-10 h-10 text-gray-400" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">No Reports Found</h3>
-            <p className="text-gray-600 text-lg">
-              {reports.length === 0
-                ? 'You haven\'t created any reports yet. Create your first report to report issues or concerns about parents.'
-                : 'No reports match your search criteria'}
-            </p>
-            {reports.length === 0 && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="mt-6 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Create Your First Report
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredReports.map((report) => (
-              <div
-                key={report.reportId}
-                className="bg-white rounded-2xl shadow-md border border-gray-200/50 overflow-hidden backdrop-blur-sm transform transition-all duration-200 hover:shadow-xl hover:scale-[1.01]"
-              >
+      {/* Reports List */}
+      {loadingReports ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading reports...</p>
+        </div>
+      ) : filteredReports.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Reports Found</h3>
+          <p className="text-gray-600">
+            {reports.length === 0
+              ? 'You haven\'t created any reports yet. Create your first report to report issues or concerns about parents.'
+              : 'No reports match your search criteria'}
+          </p>
+          {reports.length === 0 && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create Your First Report
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredReports.map((report) => (
+            <div
+              key={report.reportId}
+              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+            >
                 <div
-                  className="p-6 cursor-pointer hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50/30 transition-all duration-200"
+                  className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
                   onClick={() =>
                     setExpandedReportId(expandedReportId === report.reportId ? null : report.reportId)
                   }
@@ -382,81 +367,82 @@ const TutorParentReports: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Calendar className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <span className="font-bold text-lg text-gray-900">
+                        <Calendar className="w-5 h-5 text-gray-400" />
+                        <span className="font-semibold text-gray-900">
                           {formatDate(report.createdDate)}
                         </span>
                         {getStatusBadge(report.status)}
                         {report.type && (
-                          <span className="px-3 py-1.5 bg-purple-50 text-purple-800 rounded-full text-xs font-semibold">
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">
                             {report.type}
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-700 ml-12">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 ml-8">
                         {report.parent && (
-                          <div className="flex items-center space-x-2 px-3 py-1.5 bg-indigo-50 rounded-lg border border-indigo-100">
-                            <User className="w-4 h-4 text-indigo-600" />
+                          <div className="flex items-center space-x-2">
+                            <User className="w-4 h-4 text-gray-400" />
                             <span className="font-medium">{report.parent.fullName}</span>
                           </div>
                         )}
                         {report.url && (
-                          <div className="flex items-center space-x-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-100">
-                            <ExternalLink className="w-4 h-4 text-amber-600" />
-                            <span className="font-medium text-amber-700">Has URL</span>
+                          <div className="flex items-center space-x-2">
+                            <ExternalLink className="w-4 h-4 text-gray-400" />
+                            <span className="font-medium">Has URL</span>
                           </div>
                         )}
                       </div>
                       {report.content && (
-                        <p className="mt-3 ml-12 text-sm text-gray-600 line-clamp-2">
+                        <p className="mt-3 ml-8 text-sm text-gray-600 line-clamp-2">
                           {report.content}
                         </p>
                       )}
                     </div>
                     <div className="ml-4">
                       {expandedReportId === report.reportId ? (
-                        <ChevronUp className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
+                        <ChevronUp className="w-5 h-5 text-gray-400 hover:text-gray-600 transition-colors" />
                       ) : (
-                        <ChevronDown className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors" />
+                        <ChevronDown className="w-5 h-5 text-gray-400 hover:text-gray-600 transition-colors" />
                       )}
                     </div>
                   </div>
                 </div>
 
                 {expandedReportId === report.reportId && (
-                  <div className="px-6 pb-6 border-t-2 border-gray-100 pt-6 bg-gradient-to-br from-gray-50/50 to-blue-50/30">
+                  <div className="px-6 pb-6 border-t border-gray-200 pt-6 bg-gray-50">
                     {report.content && (
                       <div className="mb-6">
-                        <div className="flex items-center space-x-2 mb-3">
-                          <FileText className="w-5 h-5 text-gray-600" />
-                          <h4 className="text-base font-bold text-gray-900">Report Content</h4>
-                        </div>
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{report.content}</p>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-3">Report Content</h4>
+                        <div className="bg-white rounded-lg p-4 border border-gray-200">
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{report.content}</p>
                         </div>
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {report.parent && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Parent</p>
-                          <p className="text-sm text-gray-900 font-medium">{report.parent.fullName}</p>
+                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Parent</div>
+                          <div className="flex items-center space-x-2 text-gray-900">
+                            <User className="w-5 h-5 text-purple-500" />
+                            <div className="text-sm font-medium">{report.parent.fullName}</div>
+                          </div>
                           {report.parent.email && (
                             <p className="text-xs text-gray-600 mt-1">{report.parent.email}</p>
                           )}
                         </div>
                       )}
                       {report.createdDate && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Created Date</p>
-                          <p className="text-sm text-gray-900 font-medium">{formatDate(report.createdDate)}</p>
+                        <div className="bg-white p-4 rounded-lg border border-gray-200">
+                          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Created Date</div>
+                          <div className="flex items-center space-x-2 text-gray-900">
+                            <Calendar className="w-5 h-5 text-emerald-500" />
+                            <div className="text-sm font-medium">{formatDate(report.createdDate)}</div>
+                          </div>
                         </div>
                       )}
                       {report.url && (
-                        <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm md:col-span-2">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Related URL</p>
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 md:col-span-2">
+                          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Related URL</div>
                           <a
                             href={report.url}
                             target="_blank"
@@ -476,77 +462,13 @@ const TutorParentReports: React.FC = () => {
           </div>
         )}
 
-        {/* Create Report Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Create New Report</h2>
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setSelectedContractIdForReport('');
-                      setReportContent('');
-                      setReportUrl('');
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <XCircle className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-              <div className="p-6 space-y-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Select Contract <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedContractIdForReport}
-                    onChange={(e) => setSelectedContractIdForReport(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                    required
-                  >
-                    <option value="">-- Select a contract --</option>
-                    {contracts.map((contract) => (
-                      <option key={contract.contractId} value={contract.contractId}>
-                        {contract.childName} - {contract.parentName} {contract.packageName ? `(${contract.packageName})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">Select a contract to report the parent</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Report Content <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    placeholder="Describe the issue or concern in detail..."
-                    value={reportContent}
-                    onChange={(e) => setReportContent(e.target.value)}
-                    rows={6}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white resize-none"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Please provide detailed information about the issue or concern</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Related URL (Optional)
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com"
-                    value={reportUrl}
-                    onChange={(e) => setReportUrl(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Link to any relevant documents or evidence</p>
-                </div>
-              </div>
-              <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+      {/* Create Report Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Create New Report</h2>
                 <button
                   onClick={() => {
                     setShowCreateModal(false);
@@ -554,33 +476,96 @@ const TutorParentReports: React.FC = () => {
                     setReportContent('');
                     setReportUrl('');
                   }}
-                  className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold"
-                  disabled={isCreating}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateReport}
-                  disabled={isCreating || !selectedContractIdForReport || !reportContent.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {isCreating ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span>Creating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-5 h-5" />
-                      <span>Create Report</span>
-                    </>
-                  )}
+                  <XCircle className="w-6 h-6" />
                 </button>
               </div>
             </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Contract <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedContractIdForReport}
+                  onChange={(e) => setSelectedContractIdForReport(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">-- Select a contract --</option>
+                  {contracts.map((contract) => (
+                    <option key={contract.contractId} value={contract.contractId}>
+                      {contract.childName} - {contract.parentName} {contract.packageName ? `(${contract.packageName})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">Select a contract to report the parent</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Report Content <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  placeholder="Describe the issue or concern in detail..."
+                  value={reportContent}
+                  onChange={(e) => setReportContent(e.target.value)}
+                  rows={6}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Please provide detailed information about the issue or concern</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Related URL (Optional)
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://example.com"
+                  value={reportUrl}
+                  onChange={(e) => setReportUrl(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="mt-1 text-xs text-gray-500">Link to any relevant documents or evidence</p>
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedContractIdForReport('');
+                  setReportContent('');
+                  setReportUrl('');
+                }}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={isCreating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateReport}
+                disabled={isCreating || !selectedContractIdForReport || !reportContent.trim()}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isCreating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Create Report</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

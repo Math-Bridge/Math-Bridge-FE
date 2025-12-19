@@ -587,31 +587,31 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                 <table className="w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 border-r border-gray-200">
                         Type
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200">
                         Parent
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200">
                         Child
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200">
                         Date
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 border-r border-gray-200">
                         Time
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32 border-r border-gray-200">
                         Tutor
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         Reason
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 border-r border-gray-200">
                         Created
                       </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20 border-r border-gray-200">
                         Status
                       </th>
                       <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
@@ -625,7 +625,7 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                       
                       return (
                       <tr key={request.requestId} className="hover:bg-gray-50">
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="flex items-center">
                             {isTutorReq ? (
                               <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold">
@@ -638,34 +638,34 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]" title={request.parentName}>
                             {request.parentName}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm text-gray-900 truncate max-w-[120px]" title={request.childName}>
                             {request.childName}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm text-gray-900">
                             {formatDate(request.requestedDate)}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm text-gray-900">
                             {request.startTime && request.endTime 
                               ? formatTimeRange(request.startTime, request.endTime)
                               : request.requestedTimeSlot || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm text-gray-900 truncate max-w-[120px]" title={request.requestedTutorName || 'N/A'}>
                             {request.requestedTutorName || 'N/A'}
                           </div>
                         </td>
-                        <td className="px-2 py-3">
+                        <td className="px-2 py-3 border-r border-gray-200">
                           <div className="text-sm text-gray-900 truncate max-w-[200px]" title={request.reason?.startsWith('[CHANGE TUTOR]') 
                               ? request.reason.replace(/^\[CHANGE TUTOR\]\s*/i, '')
                               : request.reason}>
@@ -674,12 +674,12 @@ const RescheduleManagement: React.FC<RescheduleManagementProps> = ({ hideBackBut
                               : request.reason}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <div className="text-sm text-gray-900">
                             {formatDate(request.createdDate)}
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap border-r border-gray-200">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
                             {request.status}
                           </span>

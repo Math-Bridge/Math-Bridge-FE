@@ -437,25 +437,25 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     University
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Major
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Hourly Rate
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Phone
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -475,19 +475,19 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                 ) : (
                   paginatedTutors.map((tutor) => (
                     <tr key={tutor.userId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm font-medium text-gray-900">{tutor.fullName}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm text-gray-900">{tutor.email}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm text-gray-900">{tutor.university || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm text-gray-900">{tutor.major || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm text-gray-900">
                           {tutor.hourlyRate !== undefined ? (
                             <>
@@ -502,10 +502,10 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                           ) : 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="text-sm text-gray-900">{tutor.phone || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {getStatusBadge(tutor.verificationStatus)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>

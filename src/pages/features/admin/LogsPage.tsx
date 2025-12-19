@@ -175,16 +175,16 @@ const LogsPage: React.FC = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         Timestamp
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         User
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         Action
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                         Entity
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -195,22 +195,22 @@ const LogsPage: React.FC = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {paginatedLogs.map((log) => (
                       <tr key={log.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <span>{formatDate(log.timestamp)}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200">
                           <div className="flex items-center space-x-2">
                             <User className="w-4 h-4 text-gray-400" />
                             <span>{log.userName || 'System'}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 border-r border-gray-200">
                           {log.action}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 border-r border-gray-200">
                           <span className="font-medium">{log.entityType}</span>
                           {log.entityId && (
                             <span className="text-gray-500 ml-2">({log.entityId.substring(0, 8)}...)</span>

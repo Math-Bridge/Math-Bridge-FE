@@ -220,20 +220,20 @@ const TutorStatistics: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tutor Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Avg Rating</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Tutor Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Avg Rating</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Feedback Count</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {topRated.tutors.map((tutor, index) => (
                   <tr key={tutor.tutorId}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">{index + 1}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{tutor.tutorName}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{tutor.email}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{tutor.tutorName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{tutor.email}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                         <span className="font-semibold">{tutor.averageRating.toFixed(2)}</span>
@@ -324,20 +324,20 @@ const TutorStatistics: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tutor Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Sessions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Tutor Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Total Sessions</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completed</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {mostActive.tutors.map((tutor, index) => (
                   <tr key={tutor.tutorId}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">{index + 1}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">{tutor.tutorName}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{tutor.email}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold">{tutor.sessionCount}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{tutor.tutorName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{tutor.email}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold border-r border-gray-200">{tutor.sessionCount}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600">{tutor.completedSessions}</td>
                   </tr>
                 ))}

@@ -322,30 +322,30 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-primary to-primary-dark text-white">
                     <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold">Request ID</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold">Amount</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold">Bank Info</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold">Created Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold border-r border-white/20">Request ID</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold border-r border-white/20">Amount</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold border-r border-white/20">Bank Info</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold border-r border-white/20">Status</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold border-r border-white/20">Created Date</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {paginatedRequests.map((request) => (
                       <tr key={request.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 border-r border-gray-200">
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-mono text-gray-600">
                               {request.id.substring(0, 8)}...
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 border-r border-gray-200">
                           <span className="text-lg font-bold text-gray-900">
                             {formatCurrency(request.amount)}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 border-r border-gray-200">
                           <div className="space-y-1">
                             <div className="flex items-center space-x-2">
                               <Building2 className="w-4 h-4 text-gray-400" />
@@ -367,8 +367,8 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">{getStatusBadge(request.status)}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 border-r border-gray-200">{getStatusBadge(request.status)}</td>
+                        <td className="px-6 py-4 border-r border-gray-200">
                           <div className="flex items-center space-x-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
                             <span className="text-sm text-gray-600">

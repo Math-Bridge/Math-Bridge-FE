@@ -520,22 +520,22 @@ const UnitManagement: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Order
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Unit Name
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Curriculum
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Description
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Credit
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -561,12 +561,12 @@ const UnitManagement: React.FC = () => {
                       <>
                         {paginatedUnits.map((unit) => (
                     <tr key={unit.unitId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div className="flex items-center justify-center w-10 h-10 bg-purple-100 text-purple-700 rounded-lg font-semibold">
                           {unit.unitOrder || 0}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-gray-200">
                         <div className="flex items-center space-x-3">
                           <div className="p-2 bg-purple-100 rounded-lg">
                             <FileText className="w-5 h-5 text-purple-600" />
@@ -581,7 +581,7 @@ const UnitManagement: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {unit.curriculumName ? (
                           <div className="flex items-center space-x-2">
                             <BookOpen className="w-4 h-4 text-gray-500" />
@@ -591,12 +591,12 @@ const UnitManagement: React.FC = () => {
                           <span className="text-sm text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-600 max-w-xs truncate" title={unit.unitDescription || ''}>
                           {unit.unitDescription || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {unit.credit ? (
                           <div className="flex items-center space-x-2">
                             <GraduationCap className="w-4 h-4 text-gray-500" />
@@ -606,7 +606,7 @@ const UnitManagement: React.FC = () => {
                           <span className="text-sm text-gray-400">N/A</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         {unit.isActive ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             <CheckCircle className="w-3 h-3 mr-1" />

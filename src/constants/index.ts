@@ -8,6 +8,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vi
 // Storage Keys
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'authToken',
+  REFRESH_TOKEN: 'refreshToken',
   USER: 'user',
 } as const;
 

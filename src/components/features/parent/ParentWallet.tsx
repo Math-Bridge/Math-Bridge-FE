@@ -3,6 +3,7 @@ import { Wallet, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
+import { formatDate as formatDateUtil } from '../../../utils/dateUtils';
 
 const ParentWallet: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +17,34 @@ const ParentWallet: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 5; // 5 transactions per page
   const isInitialLoadRef = useRef(true);
+
+  // Remove contract ID and other IDs from description
+  const cleanDescription = (description: string): string => {
+    if (!description) return '';
+    
+    let cleaned = description
+      // Remove "for Contract #UUID" pattern: "Payment for Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+for\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
+      // Remove "Contract #UUID" pattern: "Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
+      // Remove contract UUID patterns: "contract 544767dd-d236-4891-a5b1-f389b79d545c"
+      .replace(/\s+[Cc]ontract\s+[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g, '')
+      // Remove contract ID patterns: (Contract ID: xxx), (ContractId: xxx), etc.
+      .replace(/\s*\([^)]*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Cc]ontract\s*[Ii][Dd]|ContractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Remove generic ID patterns that might include contract IDs
+      .replace(/\s*\([^)]*(?:[Ii][Dd]|ContractId|contractId)[^)]*\)/g, '')
+      .replace(/\s*-\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[^\s]+/g, '')
+      .replace(/\s*\[\s*(?:[Ii][Dd]|ContractId|contractId)[^\]]*\s*\]/g, '')
+      .replace(/\s*(?:[Ii][Dd]|ContractId|contractId)\s*:\s*[a-fA-F0-9-]{8,}(?:\s|$)/g, '')
+      // Clean up extra spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return cleaned;
+  };
 
   const mapAndAnnotateTransactions = (
     txs: any[],
@@ -44,12 +73,13 @@ const ParentWallet: React.FC = () => {
         }
       }
 
+      const rawDescription = tx.description || tx.note || '';
       return {
         id: tx.id || tx.transactionId || String(Date.now()),
         transactionId: tx.transactionId || tx.id,
         type: transactionType,
         amount: Math.abs(tx.amount || 0),
-        description: tx.description || tx.note || '',
+        description: cleanDescription(rawDescription),
         date: tx.date || tx.transactionDate || tx.createdAt || new Date().toISOString(),
         status: tx.status?.toLowerCase() || 'completed',
         method: tx.method || tx.paymentMethod,
@@ -128,12 +158,9 @@ const ParentWallet: React.FC = () => {
     }).format(amount);
   };
 
+  // Use formatDate from dateUtils for proper timezone handling
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    return formatDateUtil(dateString);
   };
 
   const getTransactionIcon = (type: string) => {

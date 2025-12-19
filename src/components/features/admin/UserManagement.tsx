@@ -751,19 +751,19 @@ const UserManagement: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Wallet Balance
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Salary
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -796,7 +796,7 @@ const UserManagement: React.FC = () => {
                       <>
                         {paginatedUsers.map((user) => (
                     <tr key={user.userId} className="hover:bg-gray-50 transition-colors" style={{ position: 'relative', overflow: 'visible' }}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
                           <div className="text-sm text-gray-500 flex items-center mt-1">
@@ -811,22 +811,22 @@ const UserManagement: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                           {getRoleName(user.roleId)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>
                           {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                         {user.walletBalance !== undefined
                           ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.walletBalance)
                           : '0 ₫'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                         {user.roleId === 2 && user.hourlyRate !== undefined && user.hourlyRate > 0
                           ? new Intl.NumberFormat('vi-VN', { 
                               style: 'currency', 

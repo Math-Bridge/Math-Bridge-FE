@@ -1,5 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { apiService, User } from '../services/api';
+import { setCookie, getCookie, removeCookie } from '../utils/cookie';
+import { STORAGE_KEYS } from '../constants';
 
 // Helper function to map backend error messages to translation keys
 const mapErrorToTranslationKey = (error: string | undefined): string | undefined => {
@@ -71,21 +73,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Check if user is already logged in
-    const token = localStorage.getItem('authToken');
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     const savedUser = localStorage.getItem('user');
     
     if (token && savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
-        console.log('Auth restored from localStorage:', parsedUser);
+        console.log('Auth restored from cookie and localStorage:', parsedUser);
       } catch (error) {
         console.error('Error parsing saved user:', error);
-        localStorage.removeItem('authToken');
+        removeCookie(STORAGE_KEYS.AUTH_TOKEN);
         localStorage.removeItem('user');
       }
     } else {
-      console.log('No saved auth found in localStorage');
+      console.log('No saved auth found');
     }
     
     setIsLoading(false);
@@ -100,17 +102,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Response data structure:', JSON.stringify(response.data, null, 2));
       
       if (response.success && response.data) {
-        // Backend returns: { token: "jwt_token" }
+        // Backend returns: { token: "jwt_token", refreshToken?: "..." }
         const token = (response.data as any).token;
+        const refreshToken = (response.data as any).refreshToken;
         
         if (!token) {
           console.error('Login failed: No token received');
           return { success: false, error: 'No token received from server' };
         }
 
-        // Save token first
-        localStorage.setItem('authToken', token);
-        console.log('Auth token saved to localStorage');
+        // Save token to cookie
+        setCookie(STORAGE_KEYS.AUTH_TOKEN, token, { days: 7 });
+        
+        // Save refresh token nếu có
+        if (refreshToken) {
+          setCookie(STORAGE_KEYS.REFRESH_TOKEN, refreshToken, { days: 30 });
+        }
+        
+        console.log('Auth token saved to cookie');
         
         // Decode JWT token to get user ID and info
         try {
@@ -250,6 +259,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('Token data:', tokenData);
         
         const token = tokenData.token || tokenData.Token;
+        const refreshToken = tokenData.refreshToken || tokenData.RefreshToken;
         const userId = tokenData.userId || tokenData.UserId;
         const roleName = tokenData.role || tokenData.Role;
         const roleId = tokenData.roleId || tokenData.RoleId;
@@ -266,9 +276,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { success: false, error: 'No user ID received from server' };
         }
 
-        // Save token first
-        localStorage.setItem('authToken', token);
-        console.log('Auth token saved to localStorage');
+        // Save token to cookie
+        setCookie(STORAGE_KEYS.AUTH_TOKEN, token, { days: 7 });
+        
+        // Save refresh token nếu có
+        if (refreshToken) {
+          setCookie(STORAGE_KEYS.REFRESH_TOKEN, refreshToken, { days: 30 });
+        }
+        
+        console.log('Auth token saved to cookie');
         
         // Map role - use roleId if available, otherwise use roleName directly
         let userRole: string;
@@ -390,8 +406,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await apiService.signup(signupData);
       if (response.success && response.data) {
-        const { user, token } = response.data;
-        localStorage.setItem('authToken', token);
+        const { user, token, refreshToken } = response.data;
+        setCookie(STORAGE_KEYS.AUTH_TOKEN, token, { days: 7 });
+        
+        // Save refresh token nếu có
+        if (refreshToken) {
+          setCookie(STORAGE_KEYS.REFRESH_TOKEN, refreshToken, { days: 30 });
+        }
+        
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
         // Return success - user needs to verify email before accessing the app
@@ -413,7 +435,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('authToken');
+      removeCookie(STORAGE_KEYS.AUTH_TOKEN);
       localStorage.removeItem('user');
       setUser(null);
       setIsLoading(false);

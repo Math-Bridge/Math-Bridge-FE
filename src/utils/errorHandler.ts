@@ -3,6 +3,7 @@
  */
 
 import { ERROR_MESSAGES, HTTP_STATUS, EXPECTED_404_ENDPOINTS, STORAGE_KEYS } from '../constants';
+import { removeCookie } from './cookie';
 
 export interface ApiError {
   message: string;
@@ -64,11 +65,13 @@ export function handleHttpError(
   errorMessage: string,
   errorDetails?: any
 ): ApiError {
-  // Handle 401 Unauthorized
+  // Handle 401 Unauthorized - token refresh đã được xử lý trong apiClient
+  // Nếu vẫn đến đây nghĩa là refresh thất bại hoặc không có refresh token
   if (status === HTTP_STATUS.UNAUTHORIZED) {
     // Clear invalid token and user data
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+      removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.USER);
       
       // Redirect to login only if not already on login page

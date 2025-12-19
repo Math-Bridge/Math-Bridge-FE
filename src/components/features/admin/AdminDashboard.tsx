@@ -40,7 +40,7 @@ const AdminDashboard: React.FC<AdminLayoutProps> = ({ children }) => {
     { path: '/admin/math-concepts', label: 'Math Concepts', icon: Brain },
     { path: '/admin/centers', label: 'Center Management', icon: Building },
     { path: '/admin/packages', label: 'Payment Packages', icon: CreditCard },
-    { path: '/admin/finance', label: 'Finance & Reports', icon: BarChart3 },
+    // { path: '/admin/finance', label: 'Finance & Reports', icon: BarChart3 },
   ];
 
   const isActive = (path: string) => {

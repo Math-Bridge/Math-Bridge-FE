@@ -61,6 +61,10 @@ const WalletComponent: React.FC = () => {
     if (!description) return '';
     
     let cleaned = description
+      // Remove "for Contract #UUID" pattern: "Payment for Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+for\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
+      // Remove "Contract #UUID" pattern: "Contract #739AAAFD-95FC-42C8-9F8D-E50688BD7B91"
+      .replace(/\s+[Cc]ontract\s*#\s*[a-fA-F0-9-]{8,}/gi, '')
       // Remove contract UUID patterns: "contract 544767dd-d236-4891-a5b1-f389b79d545c"
       .replace(/\s+[Cc]ontract\s+[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g, '')
       // Remove contract ID patterns: (Contract ID: xxx), (ContractId: xxx), etc.
@@ -471,17 +475,17 @@ const WalletComponent: React.FC = () => {
                 <table className="w-full hidden md:table">
                   <thead className="bg-gray-100 border-b-2 border-gray-200">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Date & Time</th>
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Amount</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase border-r border-gray-200">Type</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase border-r border-gray-200">Description</th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase border-r border-gray-200">Date & Time</th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase border-r border-gray-200">Amount</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Balance</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {paginatedTxs.map((tx) => (
                       <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-5">
+                        <td className="px-6 py-5 border-r border-gray-200">
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                               ['deposit', 'refund'].includes(tx.type) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
@@ -493,8 +497,8 @@ const WalletComponent: React.FC = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="px-6 py-5 text-gray-900">{tx.description}</td>
-                        <td className="px-6 py-5 text-sm text-gray-600">
+                        <td className="px-6 py-5 text-gray-900 border-r border-gray-200">{tx.description}</td>
+                        <td className="px-6 py-5 text-sm text-gray-600 border-r border-gray-200">
                           {formatDateTime(tx.date, { 
                             includeTime: true, 
                             includeDate: true, 
@@ -502,7 +506,7 @@ const WalletComponent: React.FC = () => {
                             dateFormat: 'numeric'
                           })}
                         </td>
-                        <td className={`px-6 py-5 text-right font-bold text-lg ${
+                        <td className={`px-6 py-5 text-right font-bold text-lg border-r border-gray-200 ${
                           ['deposit', 'refund'].includes(tx.type) ? 'text-emerald-600' : 'text-rose-600'
                         }`}>
                           {['deposit', 'refund'].includes(tx.type) ? '+' : '-'}

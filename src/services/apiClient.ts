@@ -2,8 +2,10 @@
  * Core API client with improved error handling and structure
  */
 
-import { API_BASE_URL, STORAGE_KEYS, HTTP_STATUS } from '../constants';
-import { extractErrorMessage, handleHttpError, isExpected404 } from '../utils/errorHandler';
+import { API_BASE_URL, STORAGE_KEYS } from '../constants';
+import { extractErrorMessage, handleHttpError } from '../utils/errorHandler';
+import { getCookie } from '../utils/cookie';
+import { refreshTokenIfNeeded } from '../utils/tokenRefresh';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -29,12 +31,12 @@ class ApiClient {
   }
 
   /**
-   * Get authorization token from storage
+   * Get authorization token from cookie
    */
   private getAuthToken(): string | null {
     if (typeof window === 'undefined') return null;
     
-    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     return token?.trim() || null;
   }
 
@@ -42,9 +44,9 @@ class ApiClient {
    * Build request headers
    */
   private buildHeaders(customHeaders?: HeadersInit): HeadersInit {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...customHeaders,
+      ...(customHeaders as Record<string, string>),
     };
 
     // Add auth token if available
@@ -53,7 +55,7 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return headers;
+    return headers as HeadersInit;
   }
 
   /**
@@ -64,6 +66,9 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
+      // Refresh token nếu cần trước khi gọi API
+      await refreshTokenIfNeeded();
+      
       const url = `${this.baseUrl}${endpoint}`;
       const config: RequestInit = {
         ...options,

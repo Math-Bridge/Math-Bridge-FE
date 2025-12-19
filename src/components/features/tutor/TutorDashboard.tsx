@@ -7,10 +7,11 @@ import {
   X,
   LogOut,
   FileText,
-  XCircle
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult, TutorParentReports } from '.';
+import { TutorSessions, TutorProfile, TutorDailyReport, TutorTestResult, TutorParentReports, TutorRescheduleRequests  } from '.';
 import { useAuth } from '../../../hooks/useAuth';
 
 const TutorDashboard: React.FC = () => {
@@ -21,7 +22,7 @@ const TutorDashboard: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
-  type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results' | 'parent-reports';
+  type ActionKey = 'profile' | 'sessions' | 'reports' | 'test-results' | 'parent-reports' | 'verification' | 'reschedule-requests';
   const [selectedAction, setSelectedAction] = useState<ActionKey>('sessions');
 
   useEffect(() => {
@@ -35,6 +36,7 @@ const TutorDashboard: React.FC = () => {
 
   const navigationItems = [
     { key: 'sessions' as ActionKey, name: 'My Sessions', icon: Calendar, description: 'View upcoming and completed sessions' },
+    { key: 'reschedule-requests' as ActionKey, name: 'Reschedule Requests', icon: RefreshCw, description: 'View and track reschedule requests' },
     { key: 'reports' as ActionKey, name: 'Daily Reports', icon: BarChart3, description: 'Create and manage daily reports' },
     { key: 'test-results' as ActionKey, name: 'Test Results', icon: FileText, description: 'Create and manage test results' },
     { key: 'parent-reports' as ActionKey, name: 'Parent Reports', icon: FileText, description: 'Report issues or concerns about parents' },
@@ -101,12 +103,16 @@ const TutorDashboard: React.FC = () => {
         return <TutorProfile />;
       case 'sessions':
         return <TutorSessions />;
+      case 'reschedule-requests':
+        return <TutorRescheduleRequests />;
       case 'reports':
         return <TutorDailyReport />;
       case 'test-results':
         return <TutorTestResult />;
       case 'parent-reports':
         return <TutorParentReports />;
+      case 'verification':
+        return null; // TutorVerificationStatus component not yet implemented
       default:
         return null;
     }
@@ -259,10 +265,10 @@ const TutorDashboard: React.FC = () => {
             </div>
           )}
 
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Tutor Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage your tutoring sessions and performance</p>
-          </div>
+          </div> */}
 
           {renderContentView()}
         </div>

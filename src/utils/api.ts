@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { getCookie } from './cookie';
+import { STORAGE_KEYS } from '../constants';
 
 const API_BASE_URL = 'https://api.vibe88.tech/api';
 
@@ -12,7 +14,7 @@ const api = axios.create({
 // Add a request interceptor to inject the auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken'); // Or however you store the token
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

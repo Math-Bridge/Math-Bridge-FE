@@ -726,25 +726,25 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
               <table className="w-full divide-y divide-gray-200 table-fixed">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Package
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Child
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Period
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Time Slot
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Location
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Tutor
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                       Status
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
@@ -755,10 +755,10 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                 <tbody className="bg-white divide-y divide-gray-200">
                   {paginatedContracts.map((contract) => (
                     <tr key={contract.contractId} className="hover:bg-gray-50">
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm font-medium text-gray-900 truncate" title={contract.packageName || ''}>{contract.packageName}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-900">
                           {contract.secondChildName ? (
                             <div className="space-y-1">
@@ -770,16 +770,16 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-900">
                           <div>{new Date(contract.startDate).toLocaleDateString()}</div>
                           <div className="text-xs text-gray-500">{new Date(contract.endDate).toLocaleDateString()}</div>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-900 truncate" title={contract.timeSlot || 'Not set'}>{contract.timeSlot || 'Not set'}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-900 truncate">
                           {contract.isOnline ? (
                             <span className="text-blue-600">Online</span>
@@ -790,10 +790,10 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         <div className="text-sm text-gray-900 truncate" title={contract.mainTutorName || 'Not assigned'}>{contract.mainTutorName || 'Not assigned'}</div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4 border-r border-gray-200">
                         {contract.status === 'cancelled' ? (
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getStatusColor(contract.status)}`}>
                             Cancelled
