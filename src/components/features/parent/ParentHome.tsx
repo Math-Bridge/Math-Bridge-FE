@@ -84,7 +84,7 @@ const ParentHome: React.FC = () => {
     const colors = [
       'bg-gradient-to-br from-primary to-primary-dark',
       'bg-gradient-to-br from-accent-orange to-orange-600',
-      'bg-gradient-to-br from-blue-500 to-blue-700',
+      'bg-gradient-to-br from-primary-light to-primary',
       'bg-gradient-to-br from-green-500 to-green-700',
       'bg-gradient-to-br from-purple-500 to-purple-700',
       'bg-gradient-to-br from-pink-500 to-pink-700',
@@ -219,7 +219,7 @@ const ParentHome: React.FC = () => {
                       Transforming Math Education
                     </h2>
                     <h2 className="text-4xl font-bold text-primary leading-tight -mt-2">
-                      Since 2016
+                      Since 2025
                     </h2>
 
                     <p className="text-lg text-gray-600 leading-relaxed">
@@ -410,7 +410,7 @@ const ParentHome: React.FC = () => {
                         ))}
                       </div>
 
-                      <p className="text-gray-700 mb-8 leading-relaxed text-lg">
+                      <p className="text-gray-600 mb-8 leading-relaxed text-lg">
                         {testimonial.quote}
                       </p>
 
@@ -646,7 +646,8 @@ const ParentHome: React.FC = () => {
                     >
                       <div className="flex gap-8 animate-scroll-horizontal-reverse">
                         {duplicatedPackages.map((pkg, index) => {
-                        const sessionCount = pkg.duration && pkg.duration.includes('week') ? parseInt(pkg.duration) * 3 : 32;
+                        const sessionCount = pkg.SessionCount || pkg.sessionCount || pkg.sessions || 0;
+                        const grade = pkg.Grade || pkg.grade || '';
 
                         return (
                           <div
@@ -676,17 +677,19 @@ const ParentHome: React.FC = () => {
 
                             {/* Course Details */}
                             <div className="p-8">
-                              <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-100">
+                              <div className="flex justify-center gap-8 mb-6 pb-6 border-b border-gray-100">
                                 <div className="text-center">
                                   <PlayCircle className="h-5 w-5 text-primary mx-auto mb-1" />
-                                  <div className="text-sm font-bold text-gray-900">{sessionCount}+</div>
+                                  <div className="text-sm font-bold text-gray-900">{sessionCount}</div>
                                   <div className="text-xs text-gray-500">Sessions</div>
                                 </div>
-                                <div className="text-center">
-                                  <Star className="h-5 w-5 text-accent-yellow fill-current mx-auto mb-1" />
-                                  <div className="text-sm font-bold text-gray-900">{(pkg.rating || 4.5).toFixed(1)}</div>
-                                  <div className="text-xs text-gray-500">Rating</div>
-                                </div>
+                                {grade && (
+                                  <div className="text-center">
+                                    <GraduationCap className="h-5 w-5 text-primary mx-auto mb-1" />
+                                    <div className="text-sm font-bold text-gray-900">{grade}</div>
+                                    <div className="text-xs text-gray-500">Grade</div>
+                                  </div>
+                                )}
                               </div>
 
                               <div className="mb-6">

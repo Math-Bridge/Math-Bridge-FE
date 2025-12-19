@@ -363,7 +363,7 @@ const ContractsManagement: React.FC = () => {
     const config = {
       active: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', icon: CheckCircle, label: 'Active' },
       pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300', icon: Clock, label: 'Pending' },
-      completed: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', icon: CheckCircle, label: 'Completed' },
+      completed: { bg: 'bg-primary/10', text: 'text-primary-dark', border: 'border-primary/30', icon: CheckCircle, label: 'Completed' },
       cancelled: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', icon: XCircle, label: 'Cancelled' },
       unpaid: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', icon: AlertCircle, label: 'Unpaid' },
     };
@@ -693,7 +693,7 @@ const ContractsManagement: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <Calendar className="w-5 h-5 text-primary" />
                       <div>
-                        <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Start Date</p>
+                        <p className="text-xs font-semibold text-primary-dark uppercase tracking-wider">Start Date</p>
                         <p className="text-lg font-bold text-gray-900">
                           {new Date(contract.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </p>
@@ -705,17 +705,17 @@ const ContractsManagement: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <Clock className="w-5 h-5 text-primary flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Schedule</p>
+                        <p className="text-xs font-semibold text-primary-dark uppercase tracking-wider">Schedule</p>
                         <p className="text-sm font-bold text-gray-900 truncate" title={contract.schedule}>{contract.schedule}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-4 border border-purple-100">
+                  <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-2xl p-4 border border-primary/30">
                     <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-purple-600" />
+                      <User className="w-5 h-5 text-primary" />
                       <div>
-                        <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider">Units Learned</p>
+                        <p className="text-xs font-semibold text-primary-dark uppercase tracking-wider">Units Learned</p>
                         <p className="text-lg font-bold text-gray-900">
                           {unitProgressMap[contract.id]?.totalUnitsLearned || 0}
                         </p>
@@ -723,10 +723,10 @@ const ContractsManagement: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-2xl p-4 border border-orange-100">
+                  <div className="bg-gradient-to-r from-primary/10 to-primary-dark/10 rounded-2xl p-4 border border-primary/30">
                     <div className="flex items-center gap-3">
                       <div>
-                        <p className="text-xs font-semibold text-orange-700 uppercase tracking-wider">Price</p>
+                        <p className="text-xs font-semibold text-primary-dark uppercase tracking-wider">Price</p>
                         <p className="text-lg font-bold text-gray-900">
                           {contract.price > 0 
                             ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
@@ -762,7 +762,7 @@ const ContractsManagement: React.FC = () => {
                 <div className="flex flex-wrap gap-3 pt-6 border-t border-gray-100">
                   <button
                     onClick={() => handleViewContract(contract.id)}
-                    className="group px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-2xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                    className="group px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-2xl hover:from-primary-dark hover:to-primary transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
                   >
                     <Eye className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>View Details</span>
@@ -786,7 +786,7 @@ const ContractsManagement: React.FC = () => {
                   {contract.status === 'completed' && !finalFeedbackMap[contract.id] && (
                     <button
                       onClick={() => handleFeedback(contract.id)}
-                      className="group px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-2xl hover:from-emerald-600 hover:to-teal-600 transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
+                      className="group px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-2xl hover:from-primary-dark hover:to-primary transform hover:scale-105 transition-all duration-300 shadow-lg flex items-center gap-2"
                     >
                       <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
                       <span>Feedback</span>
@@ -825,7 +825,7 @@ const ContractsManagement: React.FC = () => {
                     onClick={() => setCurrentPage(page)}
                     className={`w-12 h-12 rounded-2xl font-bold text-lg transition-all duration-300 shadow-lg ${
                       currentPage === page
-                        ? 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white scale-110'
+                        ? 'bg-gradient-to-r from-primary to-primary-dark text-white scale-110'
                         : 'bg-white/80 text-gray-700 hover:bg-white hover:scale-105'
                     }`}
                   >
@@ -849,8 +849,8 @@ const ContractsManagement: React.FC = () => {
         {/* EMPTY STATE */}
         {!error && filteredContracts.length === 0 && (
           <div className="text-center py-20">
-            <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-emerald-100 to-blue-100 rounded-full flex items-center justify-center">
-              <FileText className="w-16 h-16 text-emerald-600" />
+            <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-primary/20 to-primary-dark/20 rounded-full flex items-center justify-center">
+              <FileText className="w-16 h-16 text-primary" />
             </div>
             <h3 className="text-3xl font-black text-gray-800 mb-4">
               {filter === 'all' ? 'No Contracts Yet' : `No ${filter} Contracts`}
@@ -863,7 +863,7 @@ const ContractsManagement: React.FC = () => {
             {filter === 'all' && (
               <button
                 onClick={handleCreateContract}
-                className="px-10 py-5 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-xl rounded-3xl shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300"
+                className="px-10 py-5 bg-gradient-to-r from-primary to-primary-dark text-white font-bold text-xl rounded-3xl shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300"
               >
                 Create Your First Contract
               </button>
@@ -886,14 +886,14 @@ const ContractsManagement: React.FC = () => {
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={handleRetry}
-                className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-blue-600 text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 flex items-center gap-3"
+                className="px-8 py-4 bg-gradient-to-r from-primary to-primary-dark text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 flex items-center gap-3"
               >
                 <RefreshCw className="w-6 h-6 animate-spin" />
                 Try Again
               </button>
               <button
                 onClick={handleCreateContract}
-                className="px-8 py-4 bg-white text-emerald-600 font-bold text-lg rounded-2xl shadow-xl border-2 border-emerald-200 hover:bg-emerald-50 transition-all duration-300"
+                className="px-8 py-4 bg-white text-primary font-bold text-lg rounded-2xl shadow-xl border-2 border-primary/30 hover:bg-primary/10 transition-all duration-300"
               >
                 Create New Contract
               </button>
@@ -945,7 +945,7 @@ const ContractsManagement: React.FC = () => {
                   value={selectedTutorId}
                   onChange={(e) => setSelectedTutorId(e.target.value)}
                   disabled={availableTutorsForContract.length === 0}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white disabled:bg-gray-50 disabled:text-gray-500"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white disabled:bg-gray-50 disabled:text-gray-500"
                   required
                 >
                   <option value="">
@@ -972,7 +972,7 @@ const ContractsManagement: React.FC = () => {
                   value={reportContent}
                   onChange={(e) => setReportContent(e.target.value)}
                   rows={6}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white resize-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white resize-none"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Please provide detailed information about the issue or concern</p>
@@ -987,7 +987,7 @@ const ContractsManagement: React.FC = () => {
                   placeholder="https://example.com"
                   value={reportUrl}
                   onChange={(e) => setReportUrl(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-white"
                 />
                 <p className="mt-1 text-xs text-gray-500">Link to any relevant documents or evidence</p>
               </div>
@@ -1010,7 +1010,7 @@ const ContractsManagement: React.FC = () => {
               <button
                 onClick={handleCreateReport}
                 disabled={isCreatingReport || !selectedTutorId || !reportContent.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:from-primary-dark hover:to-primary transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 {isCreatingReport ? (
                   <>
