@@ -74,7 +74,9 @@ export const appRoutes = [
   <Route key="verify-reset" path="verify-reset" element={<VerifyResetRedirect />} />,
   <Route key="verify-email" path="verify-email" element={<VerifyEmail />} />,
   <Route key="unauthorized" path="unauthorized" element={<UnauthorizedPage />} />,
+  <Route key="terms" path="terms" element={<TermsOfServicePage />} />,
   <Route key="terms-of-service" path="terms-of-service" element={<TermsOfServicePage />} />,
+  <Route key="privacy" path="privacy" element={<PrivacyPolicyPage />} />,
   <Route key="privacy-policy" path="privacy-policy" element={<PrivacyPolicyPage />} />,
 
   // Parent Routes

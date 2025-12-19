@@ -29,9 +29,12 @@ const PrivacyPolicyPage: React.FC = () => {
             </svg>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            Privacy Policy
+            Privacy Policy for Parents
           </h1>
           <p className="text-gray-600">Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <p className="text-sm text-gray-500 mt-2 italic">
+            This Privacy Policy applies specifically to parents using the Math Bridge platform.
+          </p>
         </div>
 
         {/* Content */}
@@ -39,35 +42,44 @@ const PrivacyPolicyPage: React.FC = () => {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              Math Bridge ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our online tutoring platform and services. Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the Service.
+              Math Bridge ("we", "our", or "us") is committed to protecting your privacy and the privacy of your children. This Privacy Policy for Parents explains how we collect, use, disclose, and safeguard your information and your children's information when you use our online and offline tutoring platform. As a parent, you are responsible for all children you add to the system. Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the Service.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Information We Collect</h2>
             
-            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">2.1 Personal Information</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">2.1 Your Personal Information</h3>
             <p className="text-gray-700 leading-relaxed mb-4">
-              We may collect personal information that you voluntarily provide to us when you:
+              As a parent, we collect personal information that you provide when you:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Register for an account (name, email address, phone number)</li>
-              <li>Create a profile (profile picture, location, educational background)</li>
-              <li>Make a payment (billing address, payment card information)</li>
-              <li>Communicate with us (support requests, feedback)</li>
-              <li>Participate in tutoring sessions (session recordings, if applicable)</li>
+              <li>Register for an account (name, email address, phone number from 10-15 digits)</li>
+              <li>Create your profile (profile picture, geographic location)</li>
+              <li>Make payments (billing address, payment information for direct payment or wallet payment methods)</li>
+              <li>Communicate with us (support requests, feedback, tutor reports)</li>
+              <li>Login for the first time (you must update your location after first login)</li>
+              <li>Create contracts for your children</li>
             </ul>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              <strong>Account Information:</strong> All new registrations (regular and Google) default to Parent role (RoleId = 3). You must verify your email before being able to create an account and login. New users are initialized with WalletBalance = 0.00 and Status = "active".
+            </p>
 
-            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">2.2 Student Information</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">2.2 Your Children's Information</h3>
             <p className="text-gray-700 leading-relaxed mb-4">
-              For students using our Service, we may collect:
+              <strong>Important:</strong> You must take responsibility for all children you add to the system. Children are associated with your parent user account. For each child you add, we collect:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Student name, age, and grade level</li>
-              <li>Academic performance and test results</li>
-              <li>Learning preferences and educational goals</li>
-              <li>Progress reports and session notes</li>
+              <li>Child's name and date of birth (<strong>You cannot have 2 children with the same name and birthday</strong>)</li>
+              <li>Academic performance and test scores (<strong>All tests taken by children must be recorded in the system</strong>)</li>
+              <li>Progress reports and session notes from tutors</li>
+              <li>Assigned center information (if applicable for offline contracts)</li>
+              <li>Contract history and session records</li>
+              <li>Reschedule requests and refund information</li>
             </ul>
+            <p className="text-gray-700 leading-relaxed mt-4 bg-yellow-50 p-4 rounded-lg border-l-4 border-yellow-400">
+              <strong>Parent Responsibility:</strong> You must collaborate with the system and supervise your children to ensure the quality of tutoring services. You are responsible for all information and actions related to children you add to your account.
+            </p>
 
             <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">2.3 Automatically Collected Information</h3>
             <p className="text-gray-700 leading-relaxed mb-4">
@@ -78,23 +90,27 @@ const PrivacyPolicyPage: React.FC = () => {
               <li>Usage data (pages visited, time spent, features used)</li>
               <li>Cookies and similar tracking technologies</li>
               <li>Log files and analytics data</li>
+              <li>Geographic location information (to ensure offline contracts are within center range)</li>
             </ul>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. How We Use Your Information</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              We use the information we collect to:
+              We use the information collected from you and your children to:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Provide, maintain, and improve our Service</li>
-              <li>Process transactions and send related information</li>
-              <li>Match students with appropriate tutors</li>
-              <li>Schedule and manage tutoring sessions</li>
-              <li>Send administrative information and updates</li>
-              <li>Respond to your inquiries and provide customer support</li>
-              <li>Monitor and analyze usage patterns and trends</li>
-              <li>Detect, prevent, and address technical issues and security threats</li>
+              <li>Provide, maintain, and improve our tutoring services (1-on-1 offline and online)</li>
+              <li>Process payment transactions using direct payment or wallet payment methods</li>
+              <li>Match your children with appropriate tutors (main tutor and substitute tutors)</li>
+              <li>Schedule and manage tutoring sessions (system ensures 90% of sessions will be conducted)</li>
+              <li>Manage contracts and ensure no overlapping contracts for your children</li>
+              <li>Process reschedule requests (reschedule requests must be within the limit of the contract)</li>
+              <li>Process refunds when necessary (refund at the price of a single session to your wallet if no tutors available for rescheduling)</li>
+              <li>Send administrative information and updates about contracts and sessions</li>
+              <li>Respond to your requests and provide customer support</li>
+              <li>Handle tutor reports (when you report a tutor, you must attach evidence for the best outcome)</li>
+              <li>Monitor for malicious activities (contracts may be terminated if malicious activity is detected)</li>
               <li>Comply with legal obligations and enforce our Terms of Service</li>
             </ul>
           </section>
@@ -110,21 +126,23 @@ const PrivacyPolicyPage: React.FC = () => {
               We may share information with third-party service providers who perform services on our behalf, such as:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Payment processing</li>
-              <li>Video conferencing services</li>
+              <li>Payment processing (supporting both direct payment and wallet payment methods)</li>
+              <li>Video conferencing services (Zoom or Google Meet for online sessions)</li>
               <li>Cloud storage and hosting</li>
               <li>Analytics and data analysis</li>
               <li>Email and communication services</li>
             </ul>
 
-            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">4.2 Tutors and Parents</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">4.2 Tutors and Staff</h3>
             <p className="text-gray-700 leading-relaxed mb-4">
-              To facilitate tutoring services, we may share relevant information between:
+              To facilitate tutoring services, we may share relevant information with:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Tutors and parents/students for session coordination</li>
-              <li>Progress reports and educational assessments</li>
+              <li>Tutors assigned to your children for session coordination and teaching</li>
+              <li>Progress reports and educational assessments (all test results are recorded in the system)</li>
               <li>Communication necessary for service delivery</li>
+              <li>Session reports (tutors must report after each and every session)</li>
+              <li>Staff members who handle reschedule requests, contract management, and support</li>
             </ul>
 
             <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">4.3 Legal Requirements</h3>
@@ -145,10 +163,12 @@ const PrivacyPolicyPage: React.FC = () => {
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
               <li>Encryption of data in transit and at rest</li>
-              <li>Secure authentication and access controls</li>
+              <li>Secure authentication and access controls (role-based access: Admin, Staff, Tutor, Parent)</li>
               <li>Regular security assessments and updates</li>
               <li>Employee training on data protection</li>
               <li>Incident response procedures</li>
+              <li>Monitoring for malicious activities (contracts may be terminated if malicious activity is detected)</li>
+              <li>Account status management (users with "banned" status cannot login)</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-4">
               However, no method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee absolute security.
@@ -182,14 +202,27 @@ const PrivacyPolicyPage: React.FC = () => {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Children's Privacy</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Your Children's Privacy and Your Rights</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              Our Service is designed for use by students under the supervision of parents or guardians. We collect information about children only with parental consent and in accordance with applicable laws. Parents have the right to:
+              Our Service is designed for use by students under your supervision. We collect information about your children only with your consent and in accordance with applicable laws. As a parent, you have the right to:
             </p>
             <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li>Review their child's personal information</li>
-              <li>Request deletion of their child's information</li>
-              <li>Refuse further collection or use of their child's information</li>
+              <li>Review your child's personal information and academic records</li>
+              <li>Request deletion of your child's information</li>
+              <li>Refuse further collection or use of your child's information</li>
+              <li>Report tutors with concrete evidence for malicious activities (you must attach evidence for the best outcome)</li>
+              <li>View all test results and progress reports for your children</li>
+              <li>Manage contracts for your children (ensuring no overlapping contracts)</li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-400">
+              <strong>Your Responsibilities:</strong> 
+            </p>
+            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4 mt-2">
+              <li>You must take responsibility for all children you add to the system</li>
+              <li>You cannot have 2 children with the same name and birthday in your account</li>
+              <li>All test results for your children are recorded in the system</li>
+              <li>You must collaborate with the system and supervise your children to ensure quality</li>
+              <li>You are responsible for ensuring your children attend scheduled sessions</li>
             </ul>
           </section>
 
@@ -197,6 +230,9 @@ const PrivacyPolicyPage: React.FC = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Cookies and Tracking Technologies</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
               We use cookies and similar tracking technologies to track activity on our Service and hold certain information. Cookies are files with a small amount of data that may include an anonymous unique identifier. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent. However, if you do not accept cookies, you may not be able to use some portions of our Service.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              We also use cookies to maintain your session, remember your preferences, and ensure secure authentication. Email verification codes and password reset codes expire after 15 minutes for security purposes.
             </p>
           </section>
 
@@ -222,9 +258,68 @@ const PrivacyPolicyPage: React.FC = () => {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-4">13. Contact Us</h2>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">13. Payment, Wallet, and Refund Policy</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              If you have any questions about this Privacy Policy or wish to exercise your rights regarding your personal information, please contact us through the contact information provided on our platform or via email at the address listed in our Service.
+              Our Service supports two payment methods for parents: <strong>direct payment</strong> and <strong>wallet payment</strong>. Important information regarding payments and refunds:
+            </p>
+            
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">13.1 Payment Methods</h3>
+            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
+              <li>Payment amounts must be greater than 0</li>
+              <li>New payment requests create wallet transactions with "Pending" status</li>
+              <li>Payment status "Completed" maps to "Paid" for external queries</li>
+              <li>Payment status "Pending" maps to "Unpaid" for external queries</li>
+              <li>New parent accounts are initialized with WalletBalance = 0.00</li>
+              <li><strong>System will not convert wallet currency to real money</strong></li>
+            </ul>
+
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">13.2 Refund Policy</h3>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              <strong>Important Refund Restrictions:</strong>
+            </p>
+            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
+              <li><strong>No refund if the contract is cancelled by the parent</strong></li>
+              <li><strong>No refund if the parent transferred money incorrectly to the QR code system provided</strong></li>
+              <li>Refund at the price of a single session to your wallet if there are no tutors available for rescheduling (reschedule requests must be within the limit of the contract)</li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4 bg-red-50 p-4 rounded-lg border-l-4 border-red-400">
+              <strong>Please Note:</strong> You are responsible for ensuring correct payment transfers. We cannot provide refunds for incorrect transfers or parent-initiated contract cancellations.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">14. Contract and Service Terms</h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              Important information regarding contracts and services for your children:
+            </p>
+            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
+              <li>As a parent (RoleId = 3), you can create contracts for your children</li>
+              <li>Your child must exist and have status not equal to "deleted" before contract creation</li>
+              <li>New contracts are created with Status = "pending"</li>
+              <li>Your child can have many contracts if they are not overlapping each other</li>
+              <li>System ensures 90% of sessions will be conducted</li>
+              <li>If the main tutor can't teach anymore, the system will push the substitute tutor to become the main tutor</li>
+              <li>Offline contracts must be in range of any centers, else that contract must be online</li>
+              <li><strong>The contract will be terminated at any time if staff/system/admin detects any malicious activity</strong></li>
+            </ul>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              <strong>Service Scope:</strong> System only teaches International Math Programs for High School students (No SAT). All math programs are based on curriculum of linked international schools. Programs apply for 3 days of a week. Time slots are 16:00-22:00 only, with 90 min duration and 90 min spacing.
+            </p>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">15. Reporting and Support</h2>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              <strong>Reporting Tutors:</strong> If you need to report a tutor for malicious activities, you must attach concrete evidence for the best outcome. Reports will be reviewed by staff and admin, and tutors can be terminated if evidence is substantiated.
+            </p>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              <strong>Support Requests:</strong> Staff will check and handle any requests as early as possible. Staff can only reject requests with valid reasons. Reschedule requests will be approved or denied by staff after consideration.
+            </p>
+            <p className="text-gray-700 leading-relaxed mb-4">
+              <strong>Account Issues:</strong> If you have any questions about this Privacy Policy, wish to exercise your rights regarding your personal information or your children's information, or need assistance with your account, please contact us through the contact information provided on our platform.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4 bg-gray-50 p-4 rounded-lg">
+              <strong>Important:</strong> Any users (including parents) with malicious behavior, accidents, or breach of policy must be banned immediately. Your account status can be "active" or "banned". Users with "banned" status cannot login.
             </p>
           </section>
         </div>

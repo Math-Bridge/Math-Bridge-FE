@@ -242,7 +242,7 @@ const NotificationBell: React.FC = () => {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <div className="fixed sm:absolute top-16 sm:top-auto right-4 sm:right-0 left-4 sm:left-auto mt-0 sm:mt-2 w-auto sm:w-96 max-w-none sm:max-w-sm bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden max-h-[calc(100vh-6rem)] sm:max-h-[calc(100vh-8rem)] flex flex-col">
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
             <div className="flex items-center justify-between">
@@ -313,7 +313,7 @@ const NotificationBell: React.FC = () => {
           )}
 
           {/* Notifications List */}
-          <div className="max-h-96 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             {loading && notifications.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
