@@ -176,32 +176,35 @@ export function sanitizeDateRange(
 
 /**
  * Parse date string from backend (handles UTC and local time)
- * Backend sends DateTime.UtcNow which may be serialized as UTC or local time string
+ * Backend may send DateTime as UTC (with 'Z') or local time (without timezone)
  * @param dateString - Date string from backend (ISO format or other)
- * @returns Date object parsed correctly (always treats as UTC if no timezone info)
+ * @returns Date object parsed correctly
  */
 export function parseBackendDate(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
   
   try {
-    // If string ends with 'Z' or has timezone offset, parse directly
+    // If string ends with 'Z' or has timezone offset, parse directly (this is UTC or has explicit timezone)
     if (dateString.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateString)) {
       return new Date(dateString);
     }
     
-    // If string doesn't have timezone info, assume it's UTC from backend
-    // Backend uses DateTime.UtcNow, so we need to parse it as UTC
+    // If string doesn't have timezone info, it could be:
+    // 1. Local time from backend (DateTime.ToLocalTime() was used)
+    // 2. UTC time without timezone indicator
+    
     // Check if it's an ISO-like format (YYYY-MM-DDTHH:mm:ss or YYYY-MM-DDTHH:mm:ss.fff)
     if (dateString.includes('T')) {
-      // This is likely a UTC time without timezone indicator
-      // Parse it and treat as UTC by appending 'Z'
-      return new Date(dateString + 'Z');
+      // Backend uses DateTime.UtcNow.ToLocalTime() which stores Vietnam local time
+      // If no timezone indicator, treat as Vietnam time (UTC+7)
+      // Append '+07:00' to indicate Vietnam timezone before parsing
+      return new Date(dateString + '+07:00');
     }
     
-    // For date-only strings (YYYY-MM-DD), parse as local date at midnight
-    // But since backend uses UTC, we should treat it as UTC date
+    // For date-only strings (YYYY-MM-DD), parse as Vietnam local date at midnight
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-      return new Date(dateString + 'T00:00:00Z');
+      // Treat as Vietnam local date
+      return new Date(dateString + 'T00:00:00+07:00');
     }
     
     // Fallback: try parsing as-is
@@ -241,9 +244,13 @@ export function formatDateTime(
   const date = parseBackendDate(dateString);
   if (!date) return 'N/A';
 
-  // Use toLocaleString with Vietnam timezone
-  // This automatically converts UTC time to Vietnam local time
+  // Check if the date string has timezone info
+  const hasTimezone = dateString && (dateString.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(dateString));
+  
   const formatOptions: Intl.DateTimeFormatOptions = {
+    // Always use Vietnam timezone for display
+    // If date has timezone (UTC), it will be converted to Vietnam time
+    // If date doesn't have timezone (already local time), it will be displayed as-is in Vietnam timezone
     timeZone: 'Asia/Ho_Chi_Minh',
   };
 
@@ -271,6 +278,38 @@ export function formatDateTime(
     } else {
       formatOptions.hour12 = false;
     }
+  }
+
+  // For 24-hour format, format time manually to ensure 24-hour format without AM/PM
+  if (includeTime && timeFormat === '24h') {
+    // Use Intl.DateTimeFormat to get time components in Vietnam timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: formatOptions.timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    // Format time parts
+    const parts = formatter.formatToParts(date);
+    const hour = parts.find(p => p.type === 'hour')?.value || '00';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    const timeStr = `${hour}:${minute}`;
+    
+    if (includeDate) {
+      // Format date with Vietnamese locale to keep DD/MM/YYYY format
+      const dateOptions: Intl.DateTimeFormatOptions = {
+        ...formatOptions,
+        includeTime: false,
+        timeZone: formatOptions.timeZone
+      };
+      delete dateOptions.hour;
+      delete dateOptions.minute;
+      delete dateOptions.hour12;
+      const dateStr = date.toLocaleString('vi-VN', dateOptions);
+      return `${timeStr} ${dateStr}`;
+    }
+    return timeStr;
   }
 
   return date.toLocaleString('vi-VN', formatOptions);

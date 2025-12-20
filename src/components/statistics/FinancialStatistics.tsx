@@ -102,36 +102,6 @@ const FinancialStatistics: React.FC = () => {
             Revenue Overview
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <TrendingUp className="w-8 h-8 opacity-80" />
-              </div>
-              <p className="text-green-100 text-sm font-medium mb-1">Total Revenue</p>
-              <p className="text-3xl font-bold">{Math.round(overview.totalRevenue / 1000000)}M VND</p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <TrendingUp className="w-8 h-8 opacity-80" />
-              </div>
-              <p className="text-blue-100 text-sm font-medium mb-1">Average Transaction</p>
-              <p className="text-2xl font-bold">{Math.round(overview.averageTransactionAmount / 1000)}K VND</p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white transform hover:scale-105 transition-transform duration-200">
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <CheckCircle className="w-8 h-8 opacity-80" />
-              </div>
-              <p className="text-purple-100 text-sm font-medium mb-1">Success Rate</p>
-              <p className="text-3xl font-bold">{overview.successRate}%</p>
-            </div>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
               <div className="text-sm text-gray-600 mb-2 font-medium">Total Transactions</div>
               <div className="text-2xl font-bold text-gray-900">{overview.totalTransactions.toLocaleString()}</div>

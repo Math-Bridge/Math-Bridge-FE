@@ -3,7 +3,7 @@ import { Wallet, AlertCircle, TrendingUp, TrendingDown, Eye, EyeOff } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { apiService, WalletTransaction } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
-import { formatDate as formatDateUtil } from '../../../utils/dateUtils';
+import { formatDate as formatDateUtil, parseBackendDate } from '../../../utils/dateUtils';
 
 const ParentWallet: React.FC = () => {
   const navigate = useNavigate();
@@ -88,7 +88,12 @@ const ParentWallet: React.FC = () => {
 
     const completed = normalized
       .filter(t => t.status?.toLowerCase() === 'completed')
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
+      });
 
     let runningAfter = currentBalance || 0;
     return completed.map((tx) => {

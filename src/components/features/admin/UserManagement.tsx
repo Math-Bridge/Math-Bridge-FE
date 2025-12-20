@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Edit,
-  MapPin,
   MoreVertical,
 } from 'lucide-react';
 import { apiService } from '../../../services/api';
@@ -68,16 +67,9 @@ const UserManagement: React.FC = () => {
     fullName: '',
     phoneNumber: '',
     gender: '',
-    formattedAddress: '',
     hourlyRate: 0,
     hourlyRateVND: 0, // For display purposes
   });
-
-  const [locationInput, setLocationInput] = useState('');
-  const [locationPredictions, setLocationPredictions] = useState<any[]>([]);
-  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
-  const [selectedPlaceId, setSelectedPlaceId] = useState('');
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [editFormErrors, setEditFormErrors] = useState<Record<string, string>>({});
@@ -415,13 +407,9 @@ const UserManagement: React.FC = () => {
         fullName: userData.fullName || userData.FullName || user.fullName,
         phoneNumber: userData.phoneNumber || userData.PhoneNumber || user.phoneNumber || '',
         gender: userData.gender || userData.Gender || 'male',
-        formattedAddress: userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '',
         hourlyRate: 0,
         hourlyRateVND: 0,
       });
-      
-      setLocationInput(userData.formattedAddress || userData.FormattedAddress || user.formattedAddress || '');
-      setSelectedPlaceId(userData.placeId || userData.PlaceId || '');
       
       // If tutor, fetch verification to get hourlyRate
       if (user.roleId === 2) {
@@ -448,45 +436,6 @@ const UserManagement: React.FC = () => {
     } catch (error: any) {
       showError(error?.message || 'Failed to load user data');
     }
-  };
-
-  const handleLocationInputChange = async (value: string) => {
-    setLocationInput(value);
-    setSelectedPlaceId('');
-
-    if (value.trim().length < 3) {
-      setLocationPredictions([]);
-      setShowLocationDropdown(false);
-      return;
-    }
-
-    setTimeout(async () => {
-      setIsLoadingLocation(true);
-      try {
-        const response = await apiService.getAddressAutocomplete(value, 'VN');
-        if (response.success && response.data?.predictions) {
-          const predictions = response.data.predictions.map((pred: any) => ({
-            placeId: pred.placeId || pred.place_id || '',
-            description: pred.description || '',
-            mainText: pred.mainText || pred.structured_formatting?.main_text || pred.main_text || '',
-            secondaryText: pred.secondaryText || pred.structured_formatting?.secondary_text || pred.secondary_text || ''
-          }));
-          setLocationPredictions(predictions);
-          setShowLocationDropdown(true);
-        }
-      } catch (error) {
-        console.error('Error fetching location predictions:', error);
-      } finally {
-        setIsLoadingLocation(false);
-      }
-    }, 300);
-  };
-
-  const handleLocationSelect = (prediction: any) => {
-    setLocationInput(prediction.description);
-    setSelectedPlaceId(prediction.placeId);
-    setShowLocationDropdown(false);
-    setLocationPredictions([]);
   };
 
   const handleUpdateProfile = async () => {
@@ -529,14 +478,7 @@ const UserManagement: React.FC = () => {
         return;
       }
 
-      // Step 2: Update location if changed
-      if (selectedPlaceId && locationInput !== editFormData.formattedAddress) {
-        // Save location for the user (this requires the user to be logged in, so we might need a different approach)
-        // For now, we'll skip location update from admin panel
-        // TODO: Add admin endpoint to update user location
-      }
-
-      // Step 3: Update tutor salary if tutor
+      // Step 2: Update tutor salary if tutor
       if (editingUser.roleId === 2 && editFormData.hourlyRateVND > 0) {
         try {
           const verificationResponse = await apiService.request<any>(`/tutor-verifications/user/${editingUser.userId}`, {
@@ -1288,9 +1230,6 @@ const UserManagement: React.FC = () => {
                     setShowEditModal(false);
                     setEditingUser(null);
                     setEditFormErrors({});
-                    setLocationInput('');
-                    setSelectedPlaceId('');
-                    setLocationPredictions([]);
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -1350,41 +1289,6 @@ const UserManagement: React.FC = () => {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-1">
-                    <MapPin className="w-4 h-4" />
-                    <span>Address</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={locationInput}
-                      onChange={(e) => handleLocationInputChange(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Start typing address..."
-                    />
-                    {isLoadingLocation && (
-                      <div className="absolute right-3 top-2.5">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      </div>
-                    )}
-                    {showLocationDropdown && locationPredictions.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {locationPredictions.map((prediction, index) => (
-                          <div
-                            key={prediction.placeId || index}
-                            onClick={() => handleLocationSelect(prediction)}
-                            className="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="font-medium text-gray-900">{prediction.mainText}</div>
-                            <div className="text-sm text-gray-500">{prediction.secondaryText}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
                 {editingUser.roleId === 2 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1441,9 +1345,6 @@ const UserManagement: React.FC = () => {
                       setShowEditModal(false);
                       setEditingUser(null);
                       setEditFormErrors({});
-                      setLocationInput('');
-                      setSelectedPlaceId('');
-                      setLocationPredictions([]);
                     }}
                     className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >

@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Upload,
   Loader,
+  ChevronDown,
 } from 'lucide-react';
 import { apiService, getAllCurriculums } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
@@ -57,6 +58,10 @@ const PackageManagement: React.FC = () => {
   const [curricula, setCurricula] = useState<any[]>([]);
   const [loadingCurricula, setLoadingCurricula] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [curriculumSearchTerm, setCurriculumSearchTerm] = useState('');
+  const [showCurriculumDropdown, setShowCurriculumDropdown] = useState(false);
+  const curriculumDropdownRef = useRef<HTMLDivElement>(null);
+  const curriculumInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
@@ -246,6 +251,99 @@ const PackageManagement: React.FC = () => {
     setFilteredPackages(filtered);
   }, [packages, searchTerm]);
 
+  // Filter curricula based on grade and search term
+  const filteredCurricula = curricula.filter((curriculum: any) => {
+    // Filter by grade if grade is selected
+    if (formData.grade) {
+      const curriculumGrades = curriculum.grades || curriculum.Grades || '';
+      if (curriculumGrades) {
+        // Check if curriculum supports the selected grade
+        const gradeLower = formData.grade.toLowerCase();
+        const gradesLower = curriculumGrades.toLowerCase();
+        // Check if grade matches (e.g., "grade 9" in "grade 9, grade 10" or exact match)
+        if (!gradesLower.includes(gradeLower)) {
+          return false;
+        }
+      }
+    }
+    
+    // Filter by search term
+    if (!curriculumSearchTerm.trim()) return true;
+    const searchLower = curriculumSearchTerm.toLowerCase();
+    const name = (curriculum.curriculumName || curriculum.CurriculumName || '').toLowerCase();
+    const code = (curriculum.curriculumCode || curriculum.CurriculumCode || '').toLowerCase();
+    return name.includes(searchLower) || code.includes(searchLower);
+  });
+
+  // Handle curriculum input change
+  const handleCurriculumInputChange = (value: string) => {
+    setCurriculumSearchTerm(value);
+    setShowCurriculumDropdown(true);
+    // Clear curriculum selection if search term is cleared
+    if (!value.trim()) {
+      setFormData({ ...formData, curriculumId: '' });
+    }
+  };
+
+  // Handle curriculum input focus
+  const handleCurriculumInputFocus = () => {
+    setShowCurriculumDropdown(true);
+  };
+
+  // Handle curriculum select
+  const handleCurriculumSelect = (curriculum: any) => {
+    const curriculumId = curriculum.curriculumId || curriculum.CurriculumId || '';
+    const curriculumName = curriculum.curriculumName || curriculum.CurriculumName || '';
+    const curriculumCode = curriculum.curriculumCode || curriculum.CurriculumCode || '';
+    setFormData({ ...formData, curriculumId });
+    setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+    setShowCurriculumDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        curriculumDropdownRef.current &&
+        !curriculumDropdownRef.current.contains(event.target as Node) &&
+        curriculumInputRef.current &&
+        !curriculumInputRef.current.contains(event.target as Node)
+      ) {
+        setShowCurriculumDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Reset curriculum search when grade changes
+  useEffect(() => {
+    if (formData.grade) {
+      setCurriculumSearchTerm('');
+      setFormData(prev => ({ ...prev, curriculumId: '' }));
+      setShowCurriculumDropdown(false);
+    }
+  }, [formData.grade]);
+
+  // Update curriculum search term when curricula are loaded and formData.curriculumId exists (for edit modal)
+  useEffect(() => {
+    if (showEditModal && formData.curriculumId && curricula.length > 0 && !curriculumSearchTerm) {
+      const curriculumIdStr = String(formData.curriculumId);
+      const selectedCurriculum = curricula.find((c: any) => {
+        const cId = String(c.curriculumId || c.CurriculumId || '');
+        return cId === curriculumIdStr;
+      });
+      if (selectedCurriculum) {
+        const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
+        const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
+        setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+      }
+    }
+  }, [curricula, formData.curriculumId, showEditModal, curriculumSearchTerm]);
+
   const resetForm = () => {
     setFormData({
       packageName: '',
@@ -262,6 +360,8 @@ const PackageManagement: React.FC = () => {
     });
     setImagePreview(null);
     setSelectedImageFile(null);
+    setCurriculumSearchTerm('');
+    setShowCurriculumDropdown(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (editFileInputRef.current) editFileInputRef.current.value = '';
   };
@@ -315,6 +415,34 @@ const PackageManagement: React.FC = () => {
       status: pkg.status || 'active',
       imageUrl: (pkg as any).ImageUrl || (pkg as any).imageUrl || (pkg as any).image_url || ''
     });
+    
+    // Set curriculum search term to selected curriculum name
+    // Use setTimeout to ensure curricula are loaded
+    setTimeout(() => {
+      if (curriculumId) {
+        const curriculumIdStr = String(curriculumId);
+        const selectedCurriculum = curricula.find((c: any) => {
+          const cId = String(c.curriculumId || c.CurriculumId || '');
+          return cId === curriculumIdStr;
+        });
+        if (selectedCurriculum) {
+          const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
+          const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
+          setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+        } else {
+          // If curriculum not found, try to use curriculumName from package if available
+          if (pkg.curriculumName) {
+            setCurriculumSearchTerm(pkg.curriculumName);
+          } else {
+            setCurriculumSearchTerm('');
+          }
+        }
+      } else {
+        setCurriculumSearchTerm('');
+      }
+    }, 100);
+    setShowCurriculumDropdown(false);
+    
     // Set image preview if package has image
     const imageUrl = (pkg as any).ImageUrl || (pkg as any).imageUrl || (pkg as any).image_url;
     setImagePreview(imageUrl || null);
@@ -916,32 +1044,78 @@ const PackageManagement: React.FC = () => {
                       No curricula available. Please create a curriculum first.
                     </div>
                   ) : (
-                    <>
-                      <select
-                        required
-                        value={formData.curriculumId || ''}
-                        onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
-                          !formData.curriculumId 
-                            ? 'border-red-300 focus:border-red-500' 
+                    <div className="relative" ref={curriculumDropdownRef}>
+                      <input
+                        ref={curriculumInputRef}
+                        type="text"
+                        value={curriculumSearchTerm}
+                        onChange={(e) => handleCurriculumInputChange(e.target.value)}
+                        onFocus={handleCurriculumInputFocus}
+                        placeholder="Search or select curriculum *"
+                        className={`w-full pl-4 pr-10 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
+                          !formData.curriculumId && !curriculumSearchTerm
+                            ? 'border-red-300 focus:border-red-500'
                             : 'border-gray-200 focus:border-blue-500'
                         }`}
-                      >
-                        <option value="" disabled>Select a curriculum *</option>
-                        {curricula.map((curriculum: any) => {
-                          // Ensure both value and key are strings for proper matching
-                          const curriculumId = String(curriculum.CurriculumId || curriculum.curriculumId || '');
-                          return (
-                            <option key={curriculumId} value={curriculumId}>
-                              {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {!formData.curriculumId && (
-                        <p className="text-xs text-red-600 mt-1">Curriculum is required</p>
+                      />
+                      <ChevronDown
+                        className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-transform pointer-events-none ${showCurriculumDropdown ? 'rotate-180' : ''}`}
+                      />
+                      {formData.curriculumId && (
+                        <div className="absolute right-10 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-600 rounded-full pointer-events-none" />
                       )}
-                    </>
+                      {showCurriculumDropdown && (
+                        <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                          <div className="overflow-y-auto max-h-80 custom-scrollbar">
+                            {filteredCurricula.length === 0 ? (
+                              <div className="p-8 text-center">
+                                <GraduationCap className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                <p className="text-sm text-gray-500 font-medium">
+                                  {formData.grade 
+                                    ? `No curricula found for ${formData.grade}${curriculumSearchTerm ? ' matching your search' : ''}`
+                                    : 'No curricula found'}
+                                </p>
+                                {curriculumSearchTerm && (
+                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                )}
+                              </div>
+                            ) : (
+                              filteredCurricula.map((curriculum: any) => {
+                                const curriculumId = String(curriculum.curriculumId || curriculum.CurriculumId || '');
+                                const curriculumName = curriculum.curriculumName || curriculum.CurriculumName;
+                                const curriculumCode = curriculum.curriculumCode || curriculum.CurriculumCode;
+                                const display = curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName;
+                                const isSelected = formData.curriculumId === curriculumId;
+                                return (
+                                  <button
+                                    key={curriculumId}
+                                    type="button"
+                                    onClick={() => handleCurriculumSelect(curriculum)}
+                                    className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left border-b border-gray-100 last:border-b-0 ${
+                                      isSelected ? 'bg-blue-50 border-blue-100' : ''
+                                    }`}
+                                  >
+                                    <GraduationCap className={`h-5 w-5 flex-shrink-0 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                    <span className={`flex-1 text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-900'}`}>
+                                      {display}
+                                    </span>
+                                    {isSelected && (
+                                      <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!formData.curriculumId && (
+                        <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Curriculum is required</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1226,32 +1400,78 @@ const PackageManagement: React.FC = () => {
                       No curricula available. Please create a curriculum first.
                     </div>
                   ) : (
-                    <>
-                      <select
-                        required
-                        value={formData.curriculumId || ''}
-                        onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
-                        className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
-                          !formData.curriculumId 
-                            ? 'border-red-300 focus:border-red-500' 
+                    <div className="relative" ref={curriculumDropdownRef}>
+                      <input
+                        ref={curriculumInputRef}
+                        type="text"
+                        value={curriculumSearchTerm}
+                        onChange={(e) => handleCurriculumInputChange(e.target.value)}
+                        onFocus={handleCurriculumInputFocus}
+                        placeholder="Search or select curriculum *"
+                        className={`w-full pl-4 pr-10 py-3 border-2 rounded-xl focus:ring-4 focus:ring-blue-100 transition-all outline-none ${
+                          !formData.curriculumId && !curriculumSearchTerm
+                            ? 'border-red-300 focus:border-red-500'
                             : 'border-gray-200 focus:border-blue-500'
                         }`}
-                      >
-                        <option value="" disabled>Select a curriculum *</option>
-                        {curricula.map((curriculum: any) => {
-                          // Ensure both value and key are strings for proper matching
-                          const curriculumId = String(curriculum.CurriculumId || curriculum.curriculumId || '');
-                          return (
-                            <option key={curriculumId} value={curriculumId}>
-                              {curriculum.CurriculumName || curriculum.curriculumName} {curriculum.CurriculumCode || curriculum.curriculumCode ? `(${curriculum.CurriculumCode || curriculum.curriculumCode})` : ''}
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {!formData.curriculumId && (
-                        <p className="text-xs text-red-600 mt-1">Curriculum is required</p>
+                      />
+                      <ChevronDown
+                        className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-transform pointer-events-none ${showCurriculumDropdown ? 'rotate-180' : ''}`}
+                      />
+                      {formData.curriculumId && (
+                        <div className="absolute right-10 top-1/2 transform -translate-y-1/2 w-2 h-2 bg-blue-600 rounded-full pointer-events-none" />
                       )}
-                    </>
+                      {showCurriculumDropdown && (
+                        <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                          <div className="overflow-y-auto max-h-80 custom-scrollbar">
+                            {filteredCurricula.length === 0 ? (
+                              <div className="p-8 text-center">
+                                <GraduationCap className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                <p className="text-sm text-gray-500 font-medium">
+                                  {formData.grade 
+                                    ? `No curricula found for ${formData.grade}${curriculumSearchTerm ? ' matching your search' : ''}`
+                                    : 'No curricula found'}
+                                </p>
+                                {curriculumSearchTerm && (
+                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                )}
+                              </div>
+                            ) : (
+                              filteredCurricula.map((curriculum: any) => {
+                                const curriculumId = String(curriculum.curriculumId || curriculum.CurriculumId || '');
+                                const curriculumName = curriculum.curriculumName || curriculum.CurriculumName;
+                                const curriculumCode = curriculum.curriculumCode || curriculum.CurriculumCode;
+                                const display = curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName;
+                                const isSelected = formData.curriculumId === curriculumId;
+                                return (
+                                  <button
+                                    key={curriculumId}
+                                    type="button"
+                                    onClick={() => handleCurriculumSelect(curriculum)}
+                                    className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-blue-50 transition-colors text-left border-b border-gray-100 last:border-b-0 ${
+                                      isSelected ? 'bg-blue-50 border-blue-100' : ''
+                                    }`}
+                                  >
+                                    <GraduationCap className={`h-5 w-5 flex-shrink-0 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                                    <span className={`flex-1 text-sm ${isSelected ? 'text-blue-900 font-medium' : 'text-gray-900'}`}>
+                                      {display}
+                                    </span>
+                                    {isSelected && (
+                                      <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!formData.curriculumId && (
+                        <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1.5">
+                          <XCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>Curriculum is required</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 

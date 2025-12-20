@@ -444,8 +444,8 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     t('other')
   ];
 
-  // Helper function to check if session is within 4 hours
-  const isSessionWithin4Hours = (): boolean => {
+  // Helper function to check if session has passed (is in the past)
+  const isSessionPast = (): boolean => {
     if (!currentSession.date || !currentSession.time) {
       return false; // If we don't have the data, allow the action (backend will handle)
     }
@@ -453,14 +453,19 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     try {
       // Parse the date - could be ISO string or YYYY-MM-DD format
       let sessionDate: Date;
-      if (currentSession.date.includes('T')) {
-        // ISO string format
-        sessionDate = new Date(currentSession.date);
-      } else {
-        // YYYY-MM-DD format
-        const [year, month, day] = currentSession.date.split('-').map(Number);
-        sessionDate = new Date(year, month - 1, day);
+      let sessionDateStr = currentSession.date;
+      
+      // Extract date part if it's an ISO string
+      if (sessionDateStr.includes('T')) {
+        sessionDateStr = sessionDateStr.split('T')[0];
       }
+      if (sessionDateStr.includes(' ')) {
+        sessionDateStr = sessionDateStr.split(' ')[0];
+      }
+      
+      // Parse YYYY-MM-DD format
+      const [year, month, day] = sessionDateStr.split('-').map(Number);
+      sessionDate = new Date(year, month - 1, day);
       
       if (isNaN(sessionDate.getTime())) {
         console.error('Invalid date format:', currentSession.date);
@@ -478,7 +483,61 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
           return false;
         }
         
-        // Set the time on the session date
+        // Set the time on the session date (using local timezone)
+        sessionDate.setHours(hours, minutes, 0, 0);
+        
+        const now = new Date();
+        // Return true if session has already started (session time is in the past)
+        return sessionDate.getTime() <= now.getTime();
+      }
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
+
+    return false;
+  };
+
+  // Helper function to check if session is within 4 hours
+  const isSessionWithin4Hours = (): boolean => {
+    if (!currentSession.date || !currentSession.time) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse the date - could be ISO string or YYYY-MM-DD format
+      let sessionDate: Date;
+      let sessionDateStr = currentSession.date;
+      
+      // Extract date part if it's an ISO string
+      if (sessionDateStr.includes('T')) {
+        sessionDateStr = sessionDateStr.split('T')[0];
+      }
+      if (sessionDateStr.includes(' ')) {
+        sessionDateStr = sessionDateStr.split(' ')[0];
+      }
+      
+      // Parse YYYY-MM-DD format
+      const [year, month, day] = sessionDateStr.split('-').map(Number);
+      sessionDate = new Date(year, month - 1, day);
+      
+      if (isNaN(sessionDate.getTime())) {
+        console.error('Invalid date format:', currentSession.date);
+        return false;
+      }
+      
+      // Parse start time (format: HH:mm from toLocaleTimeString)
+      const timeParts = currentSession.time.split(':');
+      if (timeParts.length >= 2) {
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+        
+        if (isNaN(hours) || isNaN(minutes)) {
+          console.error('Invalid time format:', currentSession.time);
+          return false;
+        }
+        
+        // Set the time on the session date (using local timezone)
         sessionDate.setHours(hours, minutes, 0, 0);
         
         const now = new Date();
@@ -486,6 +545,9 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
         const diffHours = diffMs / (1000 * 60 * 60);
         
         // Return true if session is within 4 hours and hasn't started yet
+        // diffHours > 0 means session hasn't started
+        // diffHours <= 4 means session is 4 hours or less away (chặn cả session cách đúng 4 tiếng)
+        // Chặn tất cả session từ bây giờ đến 4 tiếng sau
         return diffHours > 0 && diffHours <= 4;
       }
     } catch (error) {
@@ -499,6 +561,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
   const handleConfirm = async () => {
     if (!currentSession.bookingId) {
       showError('Session booking ID is required');
+      return;
+    }
+
+    // Check if session has already passed
+    if (isSessionPast()) {
+      showError('Cannot reschedule session that has already passed');
       return;
     }
 

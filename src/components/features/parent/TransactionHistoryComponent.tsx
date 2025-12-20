@@ -22,7 +22,7 @@ import {
   WithdrawalRequest,
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
-import { formatDateTime } from '../../../utils/dateUtils';
+import { formatDateTime, parseBackendDate } from '../../../utils/dateUtils';
 
 interface CombinedTransaction {
   id: string;
@@ -175,9 +175,12 @@ const TransactionHistoryComponent: React.FC = () => {
       }
 
       // Sort by date (newest first)
-      allCombinedTransactions.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
+      allCombinedTransactions.sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
+      });
 
       // Apply type filter if not 'all'
       let filtered = allCombinedTransactions;

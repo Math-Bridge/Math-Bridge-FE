@@ -142,11 +142,8 @@ const StudySchedule: React.FC = () => {
             return false;
           }
           
-          // Hide rescheduled sessions - they have been replaced by new scheduled sessions
-          // The new session will be displayed instead
-          if (session.status === 'rescheduled') {
-            return false;
-          }
+          // Show rescheduled sessions - allow users to see rescheduled sessions in their schedule
+          // Both the original rescheduled session and the new scheduled session will be displayed
           
           return true;
         });
@@ -375,6 +372,166 @@ const StudySchedule: React.FC = () => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  // Helper function to check if session has passed (is in the past)
+  const isSessionPast = (session: Session): boolean => {
+    if (!session.sessionDate || !session.startTime) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse session date - could be ISO string or YYYY-MM-DD format
+      let sessionDate: Date;
+      let sessionDateStr = session.sessionDate;
+      
+      if (sessionDateStr.includes('T')) {
+        // ISO string format - extract date part
+        sessionDateStr = sessionDateStr.split('T')[0];
+      }
+      if (sessionDateStr.includes(' ')) {
+        sessionDateStr = sessionDateStr.split(' ')[0];
+      }
+      
+      const [year, month, day] = sessionDateStr.split('-').map(Number);
+      sessionDate = new Date(year, month - 1, day);
+      
+      if (isNaN(sessionDate.getTime())) {
+        console.error('Invalid date format:', session.sessionDate);
+        return false;
+      }
+      
+      // Parse start time from session.startTime (could be ISO string or time string)
+      let sessionStartTime: Date;
+      if (typeof session.startTime === 'string') {
+        if (session.startTime.includes('T')) {
+          // ISO string format - parse and convert to local time
+          const isoDate = new Date(session.startTime);
+          // Use the date from sessionDate but time from ISO string
+          sessionStartTime = new Date(sessionDate);
+          sessionStartTime.setHours(isoDate.getHours(), isoDate.getMinutes(), isoDate.getSeconds(), 0);
+        } else {
+          // Time string format (HH:mm or HH:mm:ss)
+          const timeParts = session.startTime.split(':');
+          if (timeParts.length >= 2) {
+            const hours = parseInt(timeParts[0], 10);
+            const minutes = parseInt(timeParts[1], 10);
+            
+            if (isNaN(hours) || isNaN(minutes)) {
+              console.error('Invalid time format:', session.startTime);
+              return false;
+            }
+            
+            // Set the time on the session date (using local timezone)
+            sessionStartTime = new Date(sessionDate);
+            sessionStartTime.setHours(hours, minutes, 0, 0);
+          } else {
+            console.error('Invalid time format:', session.startTime);
+            return false;
+          }
+        }
+      } else {
+        // If startTime is a Date object, use it directly but ensure it's in local timezone
+        const dateObj = new Date(session.startTime);
+        sessionStartTime = new Date(sessionDate);
+        sessionStartTime.setHours(dateObj.getHours(), dateObj.getMinutes(), dateObj.getSeconds(), 0);
+      }
+      
+      if (isNaN(sessionStartTime.getTime())) {
+        console.error('Invalid start time:', session.startTime);
+        return false;
+      }
+      
+      const now = new Date();
+      // Return true if session has already started (session time is in the past)
+      return sessionStartTime.getTime() <= now.getTime();
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
+  };
+
+  // Helper function to check if session is within 4 hours
+  const isSessionWithin4Hours = (session: Session): boolean => {
+    if (!session.sessionDate || !session.startTime) {
+      return false; // If we don't have the data, allow the action (backend will handle)
+    }
+
+    try {
+      // Parse session date - could be ISO string or YYYY-MM-DD format
+      let sessionDate: Date;
+      let sessionDateStr = session.sessionDate;
+      
+      if (sessionDateStr.includes('T')) {
+        // ISO string format - extract date part
+        sessionDateStr = sessionDateStr.split('T')[0];
+      }
+      if (sessionDateStr.includes(' ')) {
+        sessionDateStr = sessionDateStr.split(' ')[0];
+      }
+      
+      const [year, month, day] = sessionDateStr.split('-').map(Number);
+      sessionDate = new Date(year, month - 1, day);
+      
+      if (isNaN(sessionDate.getTime())) {
+        console.error('Invalid date format:', session.sessionDate);
+        return false;
+      }
+      
+      // Parse start time from session.startTime (could be ISO string or time string)
+      let sessionStartTime: Date;
+      if (typeof session.startTime === 'string') {
+        if (session.startTime.includes('T')) {
+          // ISO string format - parse and convert to local time
+          const isoDate = new Date(session.startTime);
+          // Use the date from sessionDate but time from ISO string
+          sessionStartTime = new Date(sessionDate);
+          sessionStartTime.setHours(isoDate.getHours(), isoDate.getMinutes(), isoDate.getSeconds(), 0);
+        } else {
+          // Time string format (HH:mm or HH:mm:ss)
+          const timeParts = session.startTime.split(':');
+          if (timeParts.length >= 2) {
+            const hours = parseInt(timeParts[0], 10);
+            const minutes = parseInt(timeParts[1], 10);
+            
+            if (isNaN(hours) || isNaN(minutes)) {
+              console.error('Invalid time format:', session.startTime);
+              return false;
+            }
+            
+            // Set the time on the session date (using local timezone)
+            sessionStartTime = new Date(sessionDate);
+            sessionStartTime.setHours(hours, minutes, 0, 0);
+          } else {
+            console.error('Invalid time format:', session.startTime);
+            return false;
+          }
+        }
+      } else {
+        // If startTime is a Date object, use it directly but ensure it's in local timezone
+        const dateObj = new Date(session.startTime);
+        sessionStartTime = new Date(sessionDate);
+        sessionStartTime.setHours(dateObj.getHours(), dateObj.getMinutes(), dateObj.getSeconds(), 0);
+      }
+      
+      if (isNaN(sessionStartTime.getTime())) {
+        console.error('Invalid start time:', session.startTime);
+        return false;
+      }
+      
+      const now = new Date();
+      const diffMs = sessionStartTime.getTime() - now.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      
+      // Return true if session is within 4 hours and hasn't started yet
+      // diffHours > 0 means session hasn't started
+      // diffHours <= 4 means session is 4 hours or less away (chặn cả session cách đúng 4 tiếng)
+      // Chặn tất cả session từ bây giờ đến 4 tiếng sau
+      return diffHours > 0 && diffHours <= 4;
+    } catch (error) {
+      console.error('Error calculating session time:', error);
+      return false; // If we can't parse, allow the action (backend will handle)
+    }
   };
 
   const getDaysInWeek = (date: Date): Date[] => {
@@ -1159,21 +1316,12 @@ const StudySchedule: React.FC = () => {
                   {/* Actions */}
                   <div className="mt-6 pt-6 border-t border-gray-200">
                     <div className="flex items-center justify-between gap-3">
-                      {/* Reschedule Button - Only show for scheduled sessions that haven't passed */}
+                      {/* Reschedule Button - Only show for scheduled sessions that haven't passed and are not within 4 hours */}
                       {selectedSession && 
                        selectedSession.status === 'scheduled' && 
-                       selectedSession.sessionDate && (() => {
-                         const today = new Date();
-                         const todayStr = formatDate(today);
-                         let sessionDateStr = selectedSession.sessionDate;
-                         if (sessionDateStr.includes('T')) {
-                           sessionDateStr = sessionDateStr.split('T')[0];
-                         }
-                         if (sessionDateStr.includes(' ')) {
-                           sessionDateStr = sessionDateStr.split(' ')[0];
-                         }
-                         return sessionDateStr >= todayStr;
-                       })() && (
+                       selectedSession.sessionDate && 
+                       !isSessionPast(selectedSession) &&
+                       !isSessionWithin4Hours(selectedSession) && (
                         <button
                           onClick={() => setShowReschedulePopup(true)}
                           className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-orange-50 text-orange-700 border-2 border-orange-200 rounded-xl hover:bg-orange-100 transition-all duration-200 font-semibold"

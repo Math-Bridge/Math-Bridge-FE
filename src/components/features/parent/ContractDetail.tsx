@@ -2245,7 +2245,7 @@ const ContractDetail: React.FC = () => {
                               const sessionDate = session.sessionDate || session.SessionDate || session.date;
                               const sessionTime = session.sessionTime || session.SessionTime || session.time;
                               const status = (session.status || session.Status || '').toLowerCase();
-                              const tutorName = session.tutorName || session.TutorName || contract.tutorName || 'Unknown Tutor';
+                              const tutorName = session.tutorName || session.TutorName || contract.tutorName || 'No tutor';
                               const topic = session.topic || session.Topic || session.unitName || session.UnitName || 'No topic';
                               const notes = session.notes || session.Notes || session.description || session.Description;
                               const bookingId = session.bookingId || session.BookingId || session.id || session.Id;
@@ -2272,7 +2272,11 @@ const ContractDetail: React.FC = () => {
                                           status === 'rescheduled' ? 'bg-yellow-100 text-yellow-700' :
                                           'bg-gray-100 text-gray-700'
                                         }`}>
-                                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                                          {status === 'completed' ? 'Completed' :
+                                           status === 'upcoming' || status === 'scheduled' ? 'Scheduled' :
+                                           status === 'cancelled' ? 'Cancelled' :
+                                           status === 'rescheduled' ? 'Rescheduled' :
+                                           status.charAt(0).toUpperCase() + status.slice(1)}
                                         </span>
                                       </div>
 
@@ -2280,12 +2284,12 @@ const ContractDetail: React.FC = () => {
                                         <div className="flex items-center space-x-2 text-gray-700">
                                           <Calendar className="w-4 h-4 text-gray-400" />
                                           <span className="text-sm font-medium">
-                                            {sessionDate ? new Date(sessionDate).toLocaleDateString('vi-VN', {
+                                            {sessionDate ? new Date(sessionDate).toLocaleDateString('en-US', {
                                               weekday: 'long',
                                               year: 'numeric',
                                               month: 'long',
                                               day: 'numeric'
-                                            }) : 'Date not available'}
+                                            }) : 'No date'}
                                           </span>
                                         </div>
 

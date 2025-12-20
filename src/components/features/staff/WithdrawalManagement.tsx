@@ -144,8 +144,8 @@ const WithdrawalManagement: React.FC<WithdrawalManagementProps> = ({ hideBackBut
     return formatDateTime(dateStr, {
       includeTime: true,
       includeDate: true,
-      timeFormat: '12h',
-      dateFormat: 'short'
+      timeFormat: '24h',
+      dateFormat: 'numeric'
     });
   };
 

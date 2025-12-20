@@ -9,6 +9,7 @@ import {
   deleteUnit,
   getAllCurriculums,
   getAllMathConcepts,
+  getMathConceptsByUnitId,
 } from '../../../services/api';
 import {
   FileText,
@@ -24,6 +25,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  ChevronDown,
+  Brain,
 } from 'lucide-react';
 
 interface Unit {
@@ -71,6 +74,11 @@ const UnitManagement: React.FC = () => {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; right: number } | null>(null);
   const actionButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [curriculumSearchTerm, setCurriculumSearchTerm] = useState('');
+  const [showCurriculumDropdown, setShowCurriculumDropdown] = useState(false);
+  const curriculumDropdownRef = useRef<HTMLDivElement>(null);
+  const curriculumInputRef = useRef<HTMLInputElement>(null);
+  const [mathConceptSearchTerm, setMathConceptSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     unitName: '',
     unitDescription: '',
@@ -413,9 +421,12 @@ const UnitManagement: React.FC = () => {
       isActive: true,
     });
     setSelectedConceptIds([]);
+    setCurriculumSearchTerm('');
+    setShowCurriculumDropdown(false);
+    setMathConceptSearchTerm('');
   };
 
-  const openEditModal = (unit: Unit) => {
+  const openEditModal = async (unit: Unit) => {
     setSelectedUnit(unit);
     setFormData({
       unitName: unit.unitName || '',
@@ -426,13 +437,97 @@ const UnitManagement: React.FC = () => {
       learningObjectives: unit.learningObjectives || '',
       isActive: unit.isActive !== undefined ? unit.isActive : true,
     });
-    // Load existing math-concepts
-    const existingConceptIds = (unit.mathConcepts || []).map((mc: any) => 
-      mc.conceptId || mc.ConceptId || ''
-    ).filter((id: string) => id);
-    setSelectedConceptIds(existingConceptIds);
+    
+    // Fetch math concepts for this unit from database
+    try {
+      const res = await getMathConceptsByUnitId(unit.unitId);
+      if (res.success && res.data) {
+        const conceptsArray = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data.data || []);
+        
+        const existingConceptIds = conceptsArray.map((mc: any) => {
+          const id = mc.conceptId || mc.ConceptId || '';
+          // Ensure it's a string for comparison
+          return String(id);
+        }).filter((id: string) => id);
+        
+        setSelectedConceptIds(existingConceptIds);
+      } else {
+        setSelectedConceptIds([]);
+      }
+    } catch (err) {
+      console.error('Failed to load math concepts for unit:', err);
+      setSelectedConceptIds([]);
+    }
+    
+    // Set curriculum search term to selected curriculum name
+    const selectedCurriculum = curriculums.find((c: any) => 
+      (c.curriculumId || c.CurriculumId) === unit.curriculumId
+    );
+    if (selectedCurriculum) {
+      const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
+      const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
+      setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+    } else {
+      setCurriculumSearchTerm('');
+    }
+    setShowCurriculumDropdown(false);
+    setMathConceptSearchTerm('');
     setShowEditModal(true);
   };
+
+  // Filter curricula based on search term
+  const filteredCurricula = curriculums.filter((c: any) => {
+    if (!curriculumSearchTerm.trim()) return true;
+    const searchLower = curriculumSearchTerm.toLowerCase();
+    const name = (c.curriculumName || c.CurriculumName || '').toLowerCase();
+    const code = (c.curriculumCode || c.CurriculumCode || '').toLowerCase();
+    return name.includes(searchLower) || code.includes(searchLower);
+  });
+
+  // Handle curriculum input change
+  const handleCurriculumInputChange = (value: string) => {
+    setCurriculumSearchTerm(value);
+    setShowCurriculumDropdown(true);
+    if (!value.trim()) {
+      setFormData({ ...formData, curriculumId: '' });
+    }
+  };
+
+  // Handle curriculum input focus
+  const handleCurriculumInputFocus = () => {
+    setShowCurriculumDropdown(true);
+  };
+
+  // Handle curriculum select
+  const handleCurriculumSelect = (curriculum: any) => {
+    const curriculumId = curriculum.curriculumId || curriculum.CurriculumId || '';
+    const curriculumName = curriculum.curriculumName || curriculum.CurriculumName || '';
+    const curriculumCode = curriculum.curriculumCode || curriculum.CurriculumCode || '';
+    setFormData({ ...formData, curriculumId });
+    setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+    setShowCurriculumDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        curriculumDropdownRef.current &&
+        !curriculumDropdownRef.current.contains(event.target as Node) &&
+        curriculumInputRef.current &&
+        !curriculumInputRef.current.contains(event.target as Node)
+      ) {
+        setShowCurriculumDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const openDeleteModal = (unit: Unit) => {
     setSelectedUnit(unit);
@@ -826,23 +921,59 @@ const UnitManagement: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Curriculum *
                   </label>
-                  <select
-                    required
-                    value={formData.curriculumId}
-                    onChange={(e) => setFormData({ ...formData, curriculumId: e.target.value })}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:ring-purple-100 transition-all outline-none ${
-                      !formData.curriculumId 
-                        ? 'border-red-300 focus:border-red-500' 
-                        : 'border-gray-200 focus:border-purple-500'
-                    }`}
-                  >
-                    <option value="">-- Select curriculum * --</option>
-                    {curriculums.map((c: any) => (
-                      <option key={c.curriculumId || c.CurriculumId} value={c.curriculumId || c.CurriculumId}>
-                        {c.curriculumName || c.CurriculumName} {c.curriculumCode || c.CurriculumCode ? `(${c.curriculumCode || c.CurriculumCode})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative" ref={curriculumDropdownRef}>
+                    <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 z-10" />
+                    <input
+                      ref={curriculumInputRef}
+                      type="text"
+                      value={curriculumSearchTerm}
+                      onChange={(e) => handleCurriculumInputChange(e.target.value)}
+                      onFocus={handleCurriculumInputFocus}
+                      placeholder="-- Select curriculum * --"
+                      className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl focus:ring-4 focus:ring-purple-100 transition-all outline-none ${
+                        !formData.curriculumId 
+                          ? 'border-red-300 focus:border-red-500' 
+                          : 'border-gray-200 focus:border-purple-500'
+                      }`}
+                    />
+                    <ChevronDown 
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 transition-transform pointer-events-none ${showCurriculumDropdown ? 'rotate-180' : ''}`}
+                    />
+                    
+                    {showCurriculumDropdown && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                        <div className="overflow-y-auto max-h-80">
+                          {filteredCurricula.length === 0 ? (
+                            <div className="p-8 text-center">
+                              <p className="text-sm text-gray-500">No curricula found</p>
+                            </div>
+                          ) : (
+                            filteredCurricula.map((c: any) => {
+                              const curriculumId = c.curriculumId || c.CurriculumId || '';
+                              const curriculumName = c.curriculumName || c.CurriculumName || '';
+                              const curriculumCode = c.curriculumCode || c.CurriculumCode || '';
+                              const displayName = curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName;
+                              const isSelected = formData.curriculumId === curriculumId;
+                              return (
+                                <button
+                                  key={curriculumId}
+                                  type="button"
+                                  onClick={() => handleCurriculumSelect(c)}
+                                  className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left border-b border-gray-100 last:border-b-0 ${isSelected ? 'bg-purple-50' : ''}`}
+                                >
+                                  <GraduationCap className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                  <span className="flex-1 text-sm text-gray-900">{displayName}</span>
+                                  {isSelected && (
+                                    <div className="w-2 h-2 bg-purple-600 rounded-full flex-shrink-0" />
+                                  )}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {!formData.curriculumId && (
                     <p className="text-xs text-red-600 mt-1">Curriculum is required</p>
                   )}
@@ -878,41 +1009,65 @@ const UnitManagement: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Math Concepts
                   </label>
+                  <div className="mb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <input
+                        type="text"
+                        value={mathConceptSearchTerm}
+                        onChange={(e) => setMathConceptSearchTerm(e.target.value)}
+                        placeholder="Search math concepts..."
+                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
                   <div className="border-2 border-gray-200 rounded-xl p-4 max-h-60 overflow-y-auto">
-                    {mathConcepts.length === 0 ? (
-                      <p className="text-sm text-gray-500">No math concepts available</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {mathConcepts.map((concept) => {
-                          const isSelected = selectedConceptIds.includes(concept.conceptId);
-                          return (
-                            <label
-                              key={concept.conceptId}
-                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedConceptIds([...selectedConceptIds, concept.conceptId]);
-                                  } else {
-                                    setSelectedConceptIds(selectedConceptIds.filter(id => id !== concept.conceptId));
-                                  }
-                                }}
-                                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                              />
-                              <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
-                                {concept.category && (
-                                  <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
-                                )}
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const filteredConcepts = mathConcepts.filter((concept) => {
+                        if (!mathConceptSearchTerm.trim()) return true;
+                        const searchLower = mathConceptSearchTerm.toLowerCase();
+                        const name = (concept.name || '').toLowerCase();
+                        const category = (concept.category || '').toLowerCase();
+                        return name.includes(searchLower) || category.includes(searchLower);
+                      });
+                      
+                      return filteredConcepts.length === 0 ? (
+                        <p className="text-sm text-gray-500">No math concepts found</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredConcepts.map((concept) => {
+                            // Compare as strings to ensure matching
+                            const conceptIdStr = String(concept.conceptId || '');
+                            const isSelected = selectedConceptIds.some(id => String(id) === conceptIdStr);
+                            return (
+                              <label
+                                key={concept.conceptId}
+                                className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedConceptIds([...selectedConceptIds, conceptIdStr]);
+                                    } else {
+                                      setSelectedConceptIds(selectedConceptIds.filter(id => String(id) !== conceptIdStr));
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                                <div className="flex-1">
+                                  <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
+                                  {concept.category && (
+                                    <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Select math concepts to associate with this unit ({selectedConceptIds.length} selected)
@@ -1076,41 +1231,65 @@ const UnitManagement: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Math Concepts
                   </label>
+                  <div className="mb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <input
+                        type="text"
+                        value={mathConceptSearchTerm}
+                        onChange={(e) => setMathConceptSearchTerm(e.target.value)}
+                        placeholder="Search math concepts..."
+                        className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all outline-none"
+                      />
+                    </div>
+                  </div>
                   <div className="border-2 border-gray-200 rounded-xl p-4 max-h-60 overflow-y-auto">
-                    {mathConcepts.length === 0 ? (
-                      <p className="text-sm text-gray-500">No math concepts available</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {mathConcepts.map((concept) => {
-                          const isSelected = selectedConceptIds.includes(concept.conceptId);
-                          return (
-                            <label
-                              key={concept.conceptId}
-                              className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedConceptIds([...selectedConceptIds, concept.conceptId]);
-                                  } else {
-                                    setSelectedConceptIds(selectedConceptIds.filter(id => id !== concept.conceptId));
-                                  }
-                                }}
-                                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                              />
-                              <div className="flex-1">
-                                <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
-                                {concept.category && (
-                                  <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
-                                )}
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {(() => {
+                      const filteredConcepts = mathConcepts.filter((concept) => {
+                        if (!mathConceptSearchTerm.trim()) return true;
+                        const searchLower = mathConceptSearchTerm.toLowerCase();
+                        const name = (concept.name || '').toLowerCase();
+                        const category = (concept.category || '').toLowerCase();
+                        return name.includes(searchLower) || category.includes(searchLower);
+                      });
+                      
+                      return filteredConcepts.length === 0 ? (
+                        <p className="text-sm text-gray-500">No math concepts found</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {filteredConcepts.map((concept) => {
+                            // Compare as strings to ensure matching
+                            const conceptIdStr = String(concept.conceptId || '');
+                            const isSelected = selectedConceptIds.some(id => String(id) === conceptIdStr);
+                            return (
+                              <label
+                                key={concept.conceptId}
+                                className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedConceptIds([...selectedConceptIds, conceptIdStr]);
+                                    } else {
+                                      setSelectedConceptIds(selectedConceptIds.filter(id => String(id) !== conceptIdStr));
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                />
+                                <div className="flex-1">
+                                  <span className="text-sm font-medium text-gray-900">{concept.name || 'Unnamed Concept'}</span>
+                                  {concept.category && (
+                                    <span className="text-xs text-gray-500 ml-2">({concept.category})</span>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Select math concepts to associate with this unit ({selectedConceptIds.length} selected)

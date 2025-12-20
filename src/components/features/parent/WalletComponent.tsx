@@ -16,7 +16,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { apiService, getMyWithdrawalRequests, WithdrawalRequest } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
-import { formatDateTime } from '../../../utils/dateUtils';
+import { formatDateTime, parseBackendDate } from '../../../utils/dateUtils';
 
 interface Transaction {
   id: string;
@@ -126,7 +126,12 @@ const WalletComponent: React.FC = () => {
           method: tx.method || tx.paymentMethod
         };
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
+      });
 
     let runningAfter = currentBalance || 0;
     return normalized.map((tx) => {
@@ -188,7 +193,12 @@ const WalletComponent: React.FC = () => {
       }
 
       // Sort all transactions by date (newest first)
-      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      allTransactions.sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
+      });
 
       // Recalculate balances for all transactions
       const walletBalance = walletRes.success && walletRes.data 
@@ -234,7 +244,8 @@ const WalletComponent: React.FC = () => {
   // Lọc giao dịch
   const filteredTransactions = useMemo(() => {
     return walletData.recentTransactions.filter(tx => {
-      const txDate = new Date(tx.date);
+      const txDate = parseBackendDate(tx.date);
+      if (!txDate) return false;
 
       // Tìm kiếm theo mô tả
       if (searchTerm && !tx.description.toLowerCase().includes(searchTerm.toLowerCase())) {
@@ -250,9 +261,15 @@ const WalletComponent: React.FC = () => {
       if (flowFilter === 'income' && !['deposit', 'refund'].includes(tx.type)) return false;
       if (flowFilter === 'expense' && !['payment', 'withdrawal'].includes(tx.type)) return false;
 
-      // Lọc theo ngày
-      if (dateFrom && txDate < new Date(dateFrom)) return false;
-      if (dateTo && txDate > new Date(new Date(dateTo).setHours(23, 59, 59))) return false;
+      // Lọc theo ngày - so sánh date part để tránh vấn đề timezone
+      if (dateFrom) {
+        const txDateStr = txDate.toISOString().split('T')[0];
+        if (txDateStr < dateFrom) return false;
+      }
+      if (dateTo) {
+        const txDateStr = txDate.toISOString().split('T')[0];
+        if (txDateStr > dateTo) return false;
+      }
 
       return true;
     });
