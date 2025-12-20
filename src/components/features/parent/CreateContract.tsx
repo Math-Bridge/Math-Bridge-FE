@@ -438,7 +438,7 @@ const CreateContract: React.FC = () => {
               showSuccess('Payment successful! Contract has been activated.');
               // Navigate to contract detail after 2 seconds
               setTimeout(() => {
-                navigate(`/contracts/${createdContractId}`);
+                navigate('/contracts/detail', { state: { contractId: createdContractId } });
               }, 2000);
             } else if (contractStatus === 'pending' && attemptCount > 2) {
               // After a few polling attempts, if status is 'pending', payment might be processed
@@ -1628,7 +1628,7 @@ const CreateContract: React.FC = () => {
               setWalletBalance(deductResult.data.newWalletBalance);
               
               // Navigate to contract detail
-              navigate(`/contracts/${contractId || ''}`);
+              navigate('/contracts/detail', { state: { contractId: contractId || '' } });
             } else {
               // Contract created but wallet deduction failed
               showError(`Contract created but wallet deduction failed: ${deductResult.error || 'Unknown error'}. Please contact support.`);
@@ -1688,7 +1688,7 @@ const CreateContract: React.FC = () => {
                   console.error('QR code URL is missing from response:', paymentResult.data);
                 }
                 showError('Failed to generate QR code URL. Please contact support.');
-                navigate(`/contracts/${contractId || ''}`);
+                navigate('/contracts/detail', { state: { contractId: contractId || '' } });
               }
             } else {
               if (import.meta.env.DEV) {
@@ -1697,7 +1697,7 @@ const CreateContract: React.FC = () => {
               const errorMessage = paymentResult.error || paymentResult.message || 'Failed to create payment QR code. Please contact support.';
               showError(errorMessage);
               // Navigate to contract detail anyway - contract was created, just payment setup failed
-              navigate(`/contracts/${contractId || ''}`);
+              navigate('/contracts/detail', { state: { contractId: contractId || '' } });
             }
           } catch (paymentError) {
             if (import.meta.env.DEV) {
@@ -3668,7 +3668,7 @@ const CreateContract: React.FC = () => {
                   setPaymentResponse(null);
                   setIsPolling(false);
                   setPaymentConfirmed(false);
-                  navigate(`/contracts/${createdContractId}`);
+                  navigate('/contracts/detail', { state: { contractId: createdContractId } });
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -3879,7 +3879,7 @@ const CreateContract: React.FC = () => {
                               setPaymentConfirmed(false);
                               showSuccess('Payment successful! Contract has been activated.');
                               setTimeout(() => {
-                                navigate(`/contracts/${createdContractId}`);
+                                navigate('/contracts/detail', { state: { contractId: createdContractId } });
                               }, 2000);
                             } else if (contractStatus === 'pending') {
                               if (!paymentConfirmed) {
@@ -3912,7 +3912,7 @@ const CreateContract: React.FC = () => {
                     setPollingAttempts(0);
                     setPaymentStatusMessage('');
                     setPaymentConfirmed(false);
-                    navigate(`/contracts/${createdContractId}`);
+                    navigate('/contracts/detail', { state: { contractId: createdContractId } });
                   }}
                   className={`flex-1 px-4 py-3 ${
                     paymentConfirmed 

@@ -26,7 +26,7 @@ import {
   MessageSquare,
   Brain
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getContractById, getContractsByParent, apiService, createContractDirectPayment, SePayPaymentResponse, getFinalFeedbackByContractAndProvider, getFinalFeedbacksByUserId, FinalFeedback, getChildUnitProgress, ChildUnitProgress, getDailyReportsByChild, getDailyReportsByContractId, DailyReport, getTutorVerificationByUserId, getSessionsByContractId, Session as ApiSession, getUnitsByContractId } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
@@ -91,7 +91,8 @@ const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: 
 
 const ContractDetail: React.FC = () => {
   const navigate = useNavigate();
-  const { id: contractId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const contractId = (location.state as any)?.contractId || (location.state as any)?.id;
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   useHideIdInUrl(); // Hide ID in URL bar
@@ -167,6 +168,7 @@ const ContractDetail: React.FC = () => {
       if (!contractId) {
         setError('Contract ID is required');
         setLoading(false);
+        navigate('/contracts');
         return;
       }
 
@@ -1515,7 +1517,7 @@ const ContractDetail: React.FC = () => {
 
                   {contract.status === 'completed' && !finalFeedback && (
                     <button
-                      onClick={() => navigate(`/contracts/${contract.id}/feedback`)}
+                      onClick={() => navigate('/contracts/feedback', { state: { contractId: contract.id } })}
                       className="w-full flex items-center space-x-3 p-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-all duration-300 transform hover:scale-105 shadow-lg font-bold"
                     >
                       <Star className="w-5 h-5" />

@@ -24,7 +24,7 @@ import {
   ChevronRight,
   Monitor,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getContractById, Contract, updateContractStatus, assignTutorToContract, getAvailableTutors, Tutor, apiService, getFinalFeedbackByContractAndProvider, FinalFeedback, getDailyReportsByChild, getDailyReportsByContractId, getSessionsByContractId, updateSessionTutor, changeSessionTutor, getReplacementTutors, Session, getMainTutorReplacementPlan, replaceMainTutor, getAvailableTutorsForContract } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
 import { useToast } from '../../../contexts/ToastContext';
@@ -37,7 +37,8 @@ interface ContractDetailStaffProps {
 
 const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButton = false }) => {
   const navigate = useNavigate();
-  const { id: contractId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const contractId = (location.state as any)?.contractId || (location.state as any)?.id;
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   useHideIdInUrl(); // Hide ID in URL bar

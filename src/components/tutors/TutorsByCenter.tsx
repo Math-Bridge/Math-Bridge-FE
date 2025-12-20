@@ -151,7 +151,7 @@ const TutorsByCenter: React.FC = () => {
 
   const handleViewDetails = (tutorId: string) => {
     // Navigate to tutor detail page
-    navigate(`/tutors/${tutorId}`);
+    navigate('/tutors/detail', { state: { tutorId } });
   };
 
   if (loading) {

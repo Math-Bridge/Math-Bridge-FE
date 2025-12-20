@@ -156,7 +156,7 @@ const TutorList: React.FC = () => {
   }, [searchTerm]);
 
   const handleViewDetails = (tutorId: string) => {
-    navigate(`/tutors/${tutorId}`);
+    navigate('/tutors/detail', { state: { tutorId } });
   };
 
   if (loading) {

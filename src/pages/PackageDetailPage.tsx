@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { PackageDetail } from '../components/package';
 import { getPackageById } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -8,9 +8,9 @@ import { useHideIdInUrl } from '../hooks/useHideIdInUrl';
 import type { Course } from '../types';
 
 const PackageDetailPage: React.FC = () => {
-  const { packageId } = useParams<{ packageId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const packageId = (location.state as any)?.packageId || (location.state as any)?.id;
   const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   useHideIdInUrl(); // Hide ID in URL bar
@@ -26,7 +26,7 @@ const PackageDetailPage: React.FC = () => {
 
       // Try to get package from navigation state first
       const packageFromState = location.state?.course as Course;
-      if (packageFromState && (packageFromState.course_id === packageId || packageFromState.packageId === packageId)) {
+      if (packageFromState) {
         setCourse(packageFromState);
         setLoading(false);
         return;
@@ -35,6 +35,7 @@ const PackageDetailPage: React.FC = () => {
       if (!packageId) {
         setError('Package ID is missing.');
         setLoading(false);
+        navigate('/packages');
         return;
       }
 
@@ -68,14 +69,14 @@ const PackageDetailPage: React.FC = () => {
     };
 
     fetchPackage();
-  }, [packageId, navigate, location.state]);
+  }, [packageId, location.state]);
 
   const handleBack = () => {
     navigate('/packages');
   };
 
   const handleEdit = (id: string) => {
-    navigate(`/packages/${id}/edit`, { state: { course } });
+    navigate('/packages/edit', { state: { packageId: id, course } });
   };
 
   const handleEnroll = (enrollingPackage: Course) => {

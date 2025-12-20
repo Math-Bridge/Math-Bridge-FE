@@ -888,7 +888,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                                   )}
                                   <button
                                     onClick={() => {
-                                      navigate(`/staff/contracts/${contract.contractId}`);
+                                      navigate('/staff/contracts/detail', { state: { contractId: contract.contractId } });
                                       setOpenDropdownId(null);
                                       setDropdownPosition(null);
                                     }}

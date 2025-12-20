@@ -161,7 +161,7 @@ const NotificationBell: React.FC = () => {
 
     // Default behavior for other notifications
     if (notification.contractId) {
-      navigate(`/contracts/${notification.contractId}`);
+      navigate('/contracts/detail', { state: { contractId: notification.contractId } });
     } else if (notification.link) {
       navigate(notification.link);
     }

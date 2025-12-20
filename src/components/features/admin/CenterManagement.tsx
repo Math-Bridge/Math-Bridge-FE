@@ -64,6 +64,7 @@ const CenterManagement: React.FC = () => {
   const [selectedCenter, setSelectedCenter] = useState<Center | null>(null);
   const [tutors, setTutors] = useState<any[]>([]);
   const [loadingTutors, setLoadingTutors] = useState(false);
+  const [tutorSearchTerm, setTutorSearchTerm] = useState('');
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [selectedTutorForReassign, setSelectedTutorForReassign] = useState<any | null>(null);
   const [availableCenters, setAvailableCenters] = useState<Center[]>([]);
@@ -1138,6 +1139,7 @@ const CenterManagement: React.FC = () => {
                     setShowTutorManagementModal(false);
                     setSelectedCenter(null);
                     setTutors([]);
+                    setTutorSearchTerm('');
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -1146,18 +1148,55 @@ const CenterManagement: React.FC = () => {
               </div>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
+              {/* Search Bar */}
+              {tutors.length > 0 && (
+                <div className="mb-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by tutor name..."
+                      value={tutorSearchTerm}
+                      onChange={(e) => setTutorSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              )}
               {loadingTutors ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                 </div>
-              ) : tutors.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500 text-lg">No tutors assigned to this center</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {tutors.map((tutor) => (
+              ) : (() => {
+                // Filter tutors based on search term
+                const filteredTutors = tutorSearchTerm
+                  ? tutors.filter((tutor) => {
+                      const tutorName = (tutor.fullName || tutor.FullName || '').toLowerCase();
+                      return tutorName.includes(tutorSearchTerm.toLowerCase());
+                    })
+                  : tutors;
+
+                if (filteredTutors.length === 0 && tutors.length > 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Search className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-500 text-lg">No tutors found matching "{tutorSearchTerm}"</p>
+                    </div>
+                  );
+                }
+
+                if (filteredTutors.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Users className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-500 text-lg">No tutors assigned to this center</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {filteredTutors.map((tutor) => (
                     <div
                       key={tutor.tutorId || tutor.userId}
                       className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-colors"
@@ -1227,9 +1266,10 @@ const CenterManagement: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

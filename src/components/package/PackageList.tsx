@@ -439,14 +439,14 @@ const PackageList: React.FC<PackageListProps> = ({
                     <PackageCard
                       course={course}
                       onView={(id) =>
-                        onViewPackage ? onViewPackage(id) : navigate(`/packages/${id}`)
+                        onViewPackage ? onViewPackage(id) : navigate('/packages/detail', { state: { packageId: id } })
                       }
                       onEdit={
                         isAdmin
                           ? (id) =>
                               onEditPackage
                                 ? onEditPackage(id)
-                                : navigate(`/packages/${id}/edit`, { state: { course } })
+                                : navigate('/packages/edit', { state: { packageId: id, course } })
                           : undefined
                       }
                       onEnroll={onEnrollPackage}

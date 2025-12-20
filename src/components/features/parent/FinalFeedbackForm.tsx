@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Star,
   MessageSquare,
@@ -28,7 +28,8 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
 
 const FinalFeedbackForm: React.FC = () => {
-  const { id: contractId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const contractId = (location.state as any)?.contractId || (location.state as any)?.id;
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { showSuccess, showError } = useToast();
@@ -54,10 +55,14 @@ const FinalFeedbackForm: React.FC = () => {
   const [additionalComments, setAdditionalComments] = useState('');
 
   useEffect(() => {
+    if (!contractId) {
+      navigate('/contracts');
+      return;
+    }
     if (contractId && user?.id) {
       fetchData();
     }
-  }, [contractId, user?.id]);
+  }, [contractId, user?.id, navigate]);
 
   const fetchData = async () => {
     if (!contractId || !user?.id) return;
@@ -73,7 +78,7 @@ const FinalFeedbackForm: React.FC = () => {
         // Check if contract is completed
         if (contractResult.data.status !== 'completed') {
           showError('This contract is not completed yet. You can only submit feedback for completed contracts.');
-          navigate(`/contracts/${contractId}`);
+          navigate('/contracts/detail', { state: { contractId } });
           return;
         }
       } else {
@@ -89,7 +94,7 @@ const FinalFeedbackForm: React.FC = () => {
           setExistingFeedback(feedbackResult.data);
           // Parent already submitted feedback - show message and redirect
           showError('You have already submitted feedback for this contract. Each parent can only submit feedback once.');
-          navigate(`/contracts/${contractId}`);
+          navigate('/contracts/detail', { state: { contractId } });
           return;
         }
         // If feedback doesn't exist, that's fine - user will create new feedback
@@ -170,7 +175,7 @@ const FinalFeedbackForm: React.FC = () => {
       // Parent can only submit feedback once - no updates allowed
       if (existingFeedback) {
         showError('You have already submitted feedback for this contract. Each parent can only submit feedback once.');
-        navigate(`/contracts/${contractId}`);
+        navigate('/contracts/detail', { state: { contractId } });
         return;
       }
 
@@ -179,7 +184,7 @@ const FinalFeedbackForm: React.FC = () => {
 
       if (result.success) {
         showSuccess('Feedback submitted successfully!');
-        navigate(`/contracts/${contractId}`);
+        navigate('/contracts/detail', { state: { contractId } });
       } else {
         showError(result.error || 'Failed to submit feedback');
       }
@@ -225,7 +230,7 @@ const FinalFeedbackForm: React.FC = () => {
         {/* Header */}
         <div className="mb-6">
           <button
-            onClick={() => navigate(`/contracts/${contractId}`)}
+            onClick={() => navigate('/contracts/detail', { state: { contractId } })}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -537,7 +542,7 @@ const FinalFeedbackForm: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex space-x-3">
             <button
-              onClick={() => navigate(`/contracts/${contractId}`)}
+              onClick={() => navigate('/contracts/detail', { state: { contractId } })}
               className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel

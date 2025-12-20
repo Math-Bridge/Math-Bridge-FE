@@ -241,7 +241,7 @@ export const appRoutes = [
   />,
   <Route
     key="package-detail"
-    path="packages/:packageId"
+    path="packages/detail"
     element={
       <ProtectedRoute>
         <PackageDetailPage />
@@ -259,7 +259,7 @@ export const appRoutes = [
   />,
   <Route
     key="package-edit"
-    path="packages/:packageId/edit"
+    path="packages/edit"
     element={
       <ProtectedRoute requiredRole="admin">
         <PackageFormPage />
@@ -297,7 +297,7 @@ export const appRoutes = [
   />,
   <Route
     key="contracts-detail"
-    path="contracts/:id"
+    path="contracts/detail"
     element={
       <ProtectedRoute>
         <ContractDetailPage />
@@ -306,7 +306,7 @@ export const appRoutes = [
   />,
   <Route
     key="contracts-feedback"
-    path="contracts/:id/feedback"
+    path="contracts/feedback"
     element={
       <ProtectedRoute>
         <FinalFeedbackPage />
@@ -315,7 +315,7 @@ export const appRoutes = [
   />,
   <Route
     key="tutors-detail"
-    path="tutors/:id"
+    path="tutors/detail"
     element={
       <ProtectedRoute>
         <TutorDetailPage />
@@ -463,7 +463,7 @@ export const appRoutes = [
   />,
   <Route
     key="staff-contracts-detail"
-    path="staff/contracts/:id"
+    path="staff/contracts/detail"
     element={
       <ProtectedRoute>
         <ContractDetailStaffPage />

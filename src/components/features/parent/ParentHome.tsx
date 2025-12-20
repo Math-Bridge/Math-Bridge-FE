@@ -33,11 +33,11 @@ const ParentHome: React.FC = () => {
   const duplicatedPackages = [...allPackages, ...allPackages];
 
   const handleTutorClick = (tutorId: string) => {
-    navigate(`/tutors/${tutorId}`);
+    navigate('/tutors/detail', { state: { tutorId } });
   };
 
   const handlePackageClick = (packageId: string) => {
-    navigate(`/packages/${packageId}`);
+    navigate('/packages/detail', { state: { packageId } });
   };
 
   const scrollTutors = (direction: 'left' | 'right') => {

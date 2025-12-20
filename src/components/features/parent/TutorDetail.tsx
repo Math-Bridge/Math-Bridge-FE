@@ -9,9 +9,10 @@ import {
   Phone,
   Mail,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Building
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getTutorById, getFinalFeedbacksByUserId, apiService } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useHideIdInUrl } from '../../../hooks/useHideIdInUrl';
@@ -22,7 +23,7 @@ interface TutorProfile {
   email: string;
   phone: string;
   bio: string;
-  experience: string;
+  // experience: string;
   rating: number;
   totalReviews: number;
   subjects: string[];
@@ -63,7 +64,8 @@ interface Review {
 
 const TutorDetail: React.FC = () => {
   const navigate = useNavigate();
-  const { id: tutorId } = useParams<{ id: string }>();
+  const location = useLocation();
+  const tutorId = (location.state as any)?.tutorId || (location.state as any)?.id;
   const { showError } = useToast();
   useHideIdInUrl(); // Hide ID in URL bar
   const [tutor, setTutor] = useState<TutorProfile | null>(null);
@@ -76,6 +78,7 @@ const TutorDetail: React.FC = () => {
     if (!tutorId) {
       console.error('TutorDetail: No tutorId provided');
       setLoading(false);
+      navigate('/tutors');
       return;
     }
 
@@ -133,7 +136,7 @@ const TutorDetail: React.FC = () => {
 
         // Get center info
         const centers = tutorData.tutorCenters || [];
-        const firstCenter = centers[0]?.center || centers[0]?.Center || null;
+        const firstCenter = centers[0]?.Center || centers[0]?.center || null;
 
         // Try to get avatarUrl from tutor data first
         let avatarUrl = tutorData.avatarUrl;
@@ -160,7 +163,7 @@ const TutorDetail: React.FC = () => {
           email: tutorData.email,
           phone: tutorData.phone || 'N/A',
           bio: verification?.bio || 'No bio available',
-          experience: 'Experienced', // Could calculate from createdDate
+          // experience: 'Experienced', // Could calculate from createdDate
           rating: Math.round(avgRating * 10) / 10,
           totalReviews: feedbacks.length,
           subjects: verification?.major ? [verification.major] : ['Mathematics'],
@@ -180,8 +183,8 @@ const TutorDetail: React.FC = () => {
             { day: 'Friday', timeSlots: ['09:00-17:00'] }
           ],
           hourlyRate: verification?.hourlyRate || 0,
-          centerName: firstCenter?.centerName || firstCenter?.CenterName || 'Not assigned',
-          centerAddress: firstCenter?.address || firstCenter?.Address || tutorData.formattedAddress || 'N/A',
+          centerName: firstCenter?.Name || firstCenter?.name || 'Not assigned',
+          centerAddress: firstCenter?.FormattedAddress || firstCenter?.formattedAddress || tutorData.formattedAddress || 'N/A',
           profileImage: avatarUrl,
           avatarUrl: avatarUrl || null,
           verified: verification?.verificationStatus === 'verified' || verification?.verificationStatus === 'Verified'
@@ -288,7 +291,7 @@ const TutorDetail: React.FC = () => {
                     }));
 
                     const centers = tutorData.tutorCenters || [];
-                    const firstCenter = centers[0]?.center || centers[0]?.Center || null;
+                    const firstCenter = centers[0]?.Center || centers[0]?.center || null;
 
                     let avatarUrl = tutorData.avatarUrl;
                     
@@ -311,7 +314,7 @@ const TutorDetail: React.FC = () => {
                       email: tutorData.email,
                       phone: tutorData.phone || 'N/A',
                       bio: verification?.bio || 'No bio available',
-                      experience: 'Experienced',
+                      // experience: 'Experienced',
                       rating: Math.round(avgRating * 10) / 10,
                       totalReviews: feedbacks.length,
                       subjects: verification?.major ? [verification.major] : ['Mathematics'],
@@ -331,8 +334,8 @@ const TutorDetail: React.FC = () => {
                         { day: 'Friday', timeSlots: ['09:00-17:00'] }
                       ],
                       hourlyRate: verification?.hourlyRate || 0,
-                      centerName: firstCenter?.centerName || firstCenter?.CenterName || 'Not assigned',
-                      centerAddress: firstCenter?.address || firstCenter?.Address || tutorData.formattedAddress || 'N/A',
+                      centerName: firstCenter?.Name || firstCenter?.name || 'Not assigned',
+                      centerAddress: firstCenter?.FormattedAddress || firstCenter?.formattedAddress || tutorData.formattedAddress || 'N/A',
                       profileImage: avatarUrl,
                       avatarUrl: avatarUrl || null,
                       verified: verification?.verificationStatus === 'verified' || verification?.verificationStatus === 'Verified'
@@ -520,25 +523,14 @@ const TutorDetail: React.FC = () => {
                         <a href={`mailto:${tutor.email}`} className="text-primary hover:underline">
                           {tutor.email}
                         </a>
-                </div>
-              </div>
-            </div>
-
-                  {/* BASIC INFORMATION */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">BASIC INFORMATION</h3>
-                <div className="space-y-3">
+                      </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-gray-600 font-medium w-24">Experience:</span>
-                        <span className="text-gray-900">{tutor.experience}</span>
-                  </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-600 font-medium w-24">Center:</span>
+                        <Building className="w-5 h-5 text-primary" />
                         <span className="text-gray-900">{tutor.centerName}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-            </div>
-          </div>
         )}
 
         {activeTab === 'reviews' && (

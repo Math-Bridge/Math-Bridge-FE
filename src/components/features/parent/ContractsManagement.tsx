@@ -394,9 +394,9 @@ const ContractsManagement: React.FC = () => {
   };
 
   const handleCreateContract = () => navigate('/contracts/create');
-  const handleViewContract = (id: string) => navigate(`/contracts/${id}`);
+  const handleViewContract = (id: string) => navigate('/contracts/detail', { state: { contractId: id } });
   const handleReschedule = (id: string) => navigate(`/contracts/${id}/reschedule`);
-  const handleFeedback = (id: string) => navigate(`/contracts/${id}/feedback`);
+  const handleFeedback = (id: string) => navigate('/contracts/feedback', { state: { contractId: id } });
   const handleRetry = () => fetchData();
   
   const handleOpenReportModal = async (contract: Contract) => {
