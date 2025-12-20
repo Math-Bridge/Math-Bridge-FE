@@ -15,6 +15,7 @@ import {
 import { usePackages } from '../../../hooks/usePackages';
 import { useTutors } from '../../../hooks/useTutors';
 import FallingLatexSymbols from '../../common/FallingLatexSymbols';
+import { getTutorsByRating } from '../../../services/api';
 // Import hero image - replace with your actual image path
 // import HeroMathSymbolsImage from '../../../assets/images/hero-math-symbols.png';
 
@@ -25,34 +26,58 @@ const ParentHome: React.FC = () => {
   const packagesScrollRef = useRef<HTMLDivElement>(null);
   const [isScrollingTutors, setIsScrollingTutors] = useState(false);
   const [isScrollingPackages, setIsScrollingPackages] = useState(false);
+  const [topRatedTutors, setTopRatedTutors] = useState<any[]>([]);
+  const [loadingTopRated, setLoadingTopRated] = useState(false);
 
   const { packages: allPackages, loading: packagesLoading, error: packagesError } = usePackages(true);
-  const { tutors: allTutors, loading: tutorsLoading, error: tutorsError } = useTutors(true);
+  const { tutors: allTutors, error: tutorsError } = useTutors(true);
   
-  // Sort tutors by rating from high to low
-  const sortedTutors = [...allTutors].sort((a, b) => {
-    // Try to get rating from multiple possible sources
-    const ratingA = Number((a as any).rating) || Number((a as any).averageRating) || 0;
-    const ratingB = Number((b as any).rating) || Number((b as any).averageRating) || 0;
-    
-    // Debug log (remove in production)
-    if (import.meta.env.DEV && allTutors.length > 0 && allTutors.indexOf(a) === 0) {
-      console.log('Sorting tutors by rating:', {
-        tutorA: a.name,
-        ratingA,
-        tutorB: b.name,
-        ratingB,
-        allRatings: allTutors.map(t => ({ 
-          name: t.name, 
-          rating: (t as any).rating, 
-          averageRating: (t as any).averageRating 
-        }))
-      });
-    }
-    
-    // Sort descending (high to low)
-    return ratingB - ratingA;
-  });
+  // Fetch tutors sorted by rating from backend
+  useEffect(() => {
+    const fetchTutorsByRating = async () => {
+      try {
+        setLoadingTopRated(true);
+        const result = await getTutorsByRating();
+        if (result.success && result.data && Array.isArray(result.data)) {
+          // Map Tutor format to TutorDisplay format for useTutors hook compatibility
+          const mappedTutors = result.data.slice(0, 25).map((tutor: any) => ({
+            id: tutor.userId || tutor.id || '',
+            userId: tutor.userId || '',
+            name: tutor.fullName || tutor.name || '',
+            fullName: tutor.fullName || '',
+            email: tutor.email || '',
+            rating: tutor.rating || 0,
+            reviews: tutor.reviewCount || tutor.feedbackCount || 0,
+            reviewCount: tutor.reviewCount || tutor.feedbackCount || 0,
+            avatarUrl: tutor.avatarUrl || undefined,
+            avatar: tutor.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.fullName || 'Tutor')}&size=400&background=FF6B35&color=ffffff&bold=true`,
+            centerName: tutor.centerName || undefined,
+            university: tutor.university || undefined,
+            major: tutor.major || undefined,
+            bio: tutor.bio || undefined,
+            ...tutor // Spread other properties
+          }));
+          setTopRatedTutors(mappedTutors);
+        }
+      } catch (error) {
+        console.error('Error fetching tutors by rating:', error);
+      } finally {
+        setLoadingTopRated(false);
+      }
+    };
+
+    fetchTutorsByRating();
+  }, []);
+
+  // Use topRatedTutors from API if available, otherwise fallback to sorted allTutors
+  const sortedTutors = topRatedTutors.length > 0 
+    ? topRatedTutors 
+    : [...allTutors].sort((a, b) => {
+        // Fallback sorting logic if API fails
+        const ratingA = Number((a as any).rating) || Number((a as any).averageRating) || 0;
+        const ratingB = Number((b as any).rating) || Number((b as any).averageRating) || 0;
+        return ratingB - ratingA;
+      }).slice(0, 100);
   
   // Duplicate tutors and packages for seamless infinite scroll
   const duplicatedTutors = [...sortedTutors, ...sortedTutors];
@@ -556,7 +581,7 @@ const ParentHome: React.FC = () => {
                   </div>
                 </div>
 
-                {tutorsLoading ? (
+                {loadingTopRated ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="h-12 w-12 text-primary animate-spin" />
                   </div>
@@ -638,11 +663,6 @@ const ParentHome: React.FC = () => {
                             </div>
 
                             <p className="text-sm text-gray-500 mb-4">Mathematics Educator</p>
-
-                            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                              <Users className="h-4 w-4" />
-                              <span>{tutor.reviews || 0} reviews</span>
-                            </div>
 
                             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                               <span className="text-sm font-semibold text-primary">View Profile</span>

@@ -243,11 +243,7 @@ const Login: React.FC = () => {
           {errors.password && <p className="error-message">{errors.password}</p>}
         </div>
 
-        <div className="flex items-center justify-between">
-          <label className="flex items-center">
-            <input type="checkbox" className="rounded border-blue-300 text-blue-900 focus:ring-blue-500" />
-            <span className="ml-2 text-sm text-gray-600">Remember me</span>
-          </label>
+        <div className="flex items-center justify-end">
           <Link to="/forgot-password" className="text-sm link">
             Forgot your password?
           </Link>

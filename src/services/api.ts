@@ -3503,6 +3503,88 @@ export async function getAllTutors() {
   }
 }
 
+// Get tutors sorted by rating
+// Backend endpoint: GET /api/tutors/by-rating
+export async function getTutorsByRating() {
+  try {
+    const result = await apiService.request<any>(`/tutors/by-rating`, {
+      method: 'GET',
+    });
+    
+    if (result.success && result.data) {
+      // Backend returns { total, message, data } format
+      const tutorsData = Array.isArray(result.data) ? result.data : (result.data?.data || []);
+      
+      // Map the response to Tutor format
+      const tutors: Tutor[] = tutorsData.map((tutor: any) => {
+        // Extract TutorVerification data (can be nested as TutorVerification or tutorVerification)
+        const verification = tutor.TutorVerification || tutor.tutorVerification || null;
+        
+        // Calculate rating from FinalFeedbacks if available
+        let calculatedRating: number | undefined = undefined;
+        const feedbacks = tutor.FinalFeedbacks || tutor.finalFeedbacks || [];
+        if (feedbacks.length > 0) {
+          const avgRating = feedbacks.reduce((sum: number, fb: any) => {
+            return sum + (fb.overallSatisfactionRating || fb.OverallSatisfactionRating || 0);
+          }, 0) / feedbacks.length;
+          calculatedRating = Math.round(avgRating * 10) / 10;
+        }
+        
+        return {
+          userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id || '',
+          fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name || '',
+          email: tutor.email || tutor.Email || '',
+          phone: tutor.phone || tutor.phoneNumber || tutor.PhoneNumber || undefined,
+          // Get verification status from nested TutorVerification object
+          verificationStatus: verification?.VerificationStatus || verification?.verificationStatus || 
+                            tutor.verificationStatus || tutor.VerificationStatus || tutor.status || undefined,
+          // Get university, major, hourlyRate, bio from nested TutorVerification object
+          university: verification?.University || verification?.university || 
+                     tutor.university || tutor.University || undefined,
+          major: verification?.Major || verification?.major || 
+                tutor.major || tutor.Major || undefined,
+          hourlyRate: verification?.HourlyRate !== undefined ? verification.HourlyRate : 
+                     (verification?.hourlyRate !== undefined ? verification.hourlyRate : 
+                     (tutor.hourlyRate !== undefined ? tutor.hourlyRate : 
+                     (tutor.HourlyRate !== undefined ? tutor.HourlyRate : undefined))),
+          bio: verification?.Bio || verification?.bio || 
+              tutor.bio || tutor.Bio || undefined,
+          specialties: tutor.specialties || tutor.Specialties || tutor.specialization ? [tutor.specialization] : undefined,
+          // Use calculated rating from FinalFeedbacks, fallback to provided rating
+          rating: calculatedRating ?? tutor.rating ?? tutor.Rating ?? undefined,
+          centerId: tutor.centerId || tutor.CenterId || tutor.center_id || undefined,
+          centerName: tutor.centerName || tutor.CenterName || tutor.center_name || undefined,
+          studentCount: tutor.studentCount || tutor.StudentCount || tutor.student_count || undefined,
+          yearsOfExperience: tutor.yearsOfExperience || tutor.YearsOfExperience || tutor.years_of_experience || undefined,
+          profilePictureUrl: tutor.profilePictureUrl || tutor.ProfilePictureUrl || tutor.profile_picture_url || undefined,
+          avatarUrl: tutor.avatarUrl || tutor.AvatarUrl || tutor.avatar_url || undefined,
+          achievements: tutor.achievements || tutor.Achievements || undefined,
+          canTeachOnline: tutor.canTeachOnline ?? tutor.CanTeachOnline ?? tutor.can_teach_online ?? undefined,
+          canTeachOffline: tutor.canTeachOffline ?? tutor.CanTeachOffline ?? tutor.can_teach_offline ?? undefined,
+          // Include reviewCount if available
+          reviewCount: tutor.reviewCount || tutor.ReviewCount || tutor.review_count || feedbacks.length || 0,
+          feedbackCount: tutor.feedbackCount || tutor.FeedbackCount || tutor.feedback_count || feedbacks.length || 0,
+        };
+      });
+      
+      return {
+        success: true,
+        data: tutors,
+        error: null,
+      };
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error fetching tutors by rating:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch tutors by rating',
+      data: undefined,
+    };
+  }
+}
+
 // Get tutor by ID
 // Backend endpoint: GET /api/Tutors/{id}
 export async function getTutorById(tutorId: string) {
