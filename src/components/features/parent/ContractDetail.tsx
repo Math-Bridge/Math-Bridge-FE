@@ -2095,7 +2095,8 @@ const ContractDetail: React.FC = () => {
                                           </div>
                                         </div>
                                       )}
-                                      {(report.url || report.Url) && (
+                                      {/* URL section hidden for parent view */}
+                                      {/* {(report.url || report.Url) && (
                                         <div className="mt-3 p-3 bg-white rounded-lg">
                                           <p className="text-sm font-medium text-gray-700 mb-1">URL:</p>
                                           <a
@@ -2107,7 +2108,7 @@ const ContractDetail: React.FC = () => {
                                             {removeIdFromUrl(report.url || report.Url)}
                                           </a>
                                         </div>
-                                      )}
+                                      )} */}
                                     </div>
                                   </div>
                                 ))}

@@ -18,7 +18,6 @@ import {
   Target,
   Award,
   Sparkles,
-  ExternalLink,
 } from 'lucide-react';
 import {
   getDailyReportsByChild,
@@ -35,7 +34,6 @@ import {
 } from '../../../services/api';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../hooks/useAuth';
-import { removeIdFromUrl } from '../../../utils/urlUtils';
 import Latex from 'react-latex-next';
 import 'katex/dist/katex.min.css';
 
@@ -156,7 +154,7 @@ const ParentDailyReports: React.FC = () => {
         );
         
         if (childContract) {
-          const contractId = childContract.ContractId || childContract.contractId || childContract.id;
+          const contractId = (childContract as any).ContractId || childContract.contractId || (childContract as any).id;
           const result = await getChildUnitProgress(contractId);
           if (result.success && result.data) {
             setUnitProgress(result.data);
@@ -257,7 +255,6 @@ const ParentDailyReports: React.FC = () => {
     const matchesSearch = !searchTerm || 
       report.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.url?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.tutorName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesFilter = filterOnTrack === 'all' ||
@@ -685,7 +682,7 @@ const ParentDailyReports: React.FC = () => {
                               )}
                             </div>
                             <div className="space-y-2 ml-12">
-                              {dayReports.map((report, index) => (
+                              {dayReports.map((report) => (
                                 <div key={report.reportId} className="flex flex-wrap items-center gap-4 text-sm text-gray-700">
                                   {report.unitName && (
                                     <div className="flex items-center space-x-2 px-3 py-1.5 bg-purple-50 rounded-lg border border-purple-100">
@@ -766,7 +763,8 @@ const ParentDailyReports: React.FC = () => {
                                   </div>
                                 </div>
                               )}
-                              {report.url && (
+                              {/* URL section hidden for parent view */}
+                              {/* {report.url && (
                                 <div className="mb-4">
                                   <div className="flex items-center space-x-2 mb-2">
                                     <FileText className="w-4 h-4 text-gray-600" />
@@ -782,7 +780,7 @@ const ParentDailyReports: React.FC = () => {
                                     <ExternalLink className="w-4 h-4 flex-shrink-0" />
                                   </a>
                                 </div>
-                              )}
+                              )} */}
                             </div>
                           ))}
                         </div>
