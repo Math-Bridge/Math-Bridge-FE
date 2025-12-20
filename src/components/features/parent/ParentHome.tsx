@@ -1,9 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   ChevronRight,
-  ChevronLeft,
   Star,
   PlayCircle,
   Award,
@@ -24,12 +23,39 @@ const ParentHome: React.FC = () => {
   const navigate = useNavigate();
   const tutorsScrollRef = useRef<HTMLDivElement>(null);
   const packagesScrollRef = useRef<HTMLDivElement>(null);
+  const [isScrollingTutors, setIsScrollingTutors] = useState(false);
+  const [isScrollingPackages, setIsScrollingPackages] = useState(false);
 
   const { packages: allPackages, loading: packagesLoading, error: packagesError } = usePackages(true);
   const { tutors: allTutors, loading: tutorsLoading, error: tutorsError } = useTutors(true);
   
+  // Sort tutors by rating from high to low
+  const sortedTutors = [...allTutors].sort((a, b) => {
+    // Try to get rating from multiple possible sources
+    const ratingA = Number((a as any).rating) || Number((a as any).averageRating) || 0;
+    const ratingB = Number((b as any).rating) || Number((b as any).averageRating) || 0;
+    
+    // Debug log (remove in production)
+    if (import.meta.env.DEV && allTutors.length > 0 && allTutors.indexOf(a) === 0) {
+      console.log('Sorting tutors by rating:', {
+        tutorA: a.name,
+        ratingA,
+        tutorB: b.name,
+        ratingB,
+        allRatings: allTutors.map(t => ({ 
+          name: t.name, 
+          rating: (t as any).rating, 
+          averageRating: (t as any).averageRating 
+        }))
+      });
+    }
+    
+    // Sort descending (high to low)
+    return ratingB - ratingA;
+  });
+  
   // Duplicate tutors and packages for seamless infinite scroll
-  const duplicatedTutors = [...allTutors, ...allTutors];
+  const duplicatedTutors = [...sortedTutors, ...sortedTutors];
   const duplicatedPackages = [...allPackages, ...allPackages];
 
   const handleTutorClick = (tutorId: string) => {
@@ -40,33 +66,94 @@ const ParentHome: React.FC = () => {
     navigate('/packages/detail', { state: { packageId } });
   };
 
-  const scrollTutors = (direction: 'left' | 'right') => {
-    if (tutorsScrollRef.current) {
-      const scrollAmount = 400; // Scroll by 400px
-      const currentScroll = tutorsScrollRef.current.scrollLeft;
-      const newScroll = direction === 'left' 
-        ? currentScroll - scrollAmount 
-        : currentScroll + scrollAmount;
-      tutorsScrollRef.current.scrollTo({
-        left: newScroll,
-        behavior: 'smooth'
-      });
-    }
-  };
+  // Setup circular scroll for tutors
+  useEffect(() => {
+    const container = tutorsScrollRef.current;
+    if (!container || sortedTutors.length === 0) return;
 
-  const scrollPackages = (direction: 'left' | 'right') => {
-    if (packagesScrollRef.current) {
-      const scrollAmount = 400; // Scroll by 400px
-      const currentScroll = packagesScrollRef.current.scrollLeft;
-      const newScroll = direction === 'left' 
-        ? currentScroll - scrollAmount 
-        : currentScroll + scrollAmount;
-      packagesScrollRef.current.scrollTo({
-        left: newScroll,
-        behavior: 'smooth'
-      });
+    const handleScroll = () => {
+      if (isScrollingTutors) return; // Prevent infinite loop during programmatic scroll
+      
+      const scrollLeft = container.scrollLeft;
+      const scrollWidth = container.scrollWidth;
+      const halfScrollWidth = scrollWidth / 2;
+
+      // If scrolled past the first half (into duplicate section), reset to beginning seamlessly
+      if (scrollLeft >= halfScrollWidth - 1) {
+        setIsScrollingTutors(true);
+        // Use requestAnimationFrame for smoother transition
+        requestAnimationFrame(() => {
+          container.scrollLeft = scrollLeft - halfScrollWidth;
+          setIsScrollingTutors(false);
+        });
+      }
+      // If scrolled before the beginning, jump to corresponding position in second half
+      else if (scrollLeft <= 1) {
+        setIsScrollingTutors(true);
+        requestAnimationFrame(() => {
+          container.scrollLeft = halfScrollWidth + scrollLeft;
+          setIsScrollingTutors(false);
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Initialize scroll position to start of first set (not at 0 to allow backward scroll)
+    if (container.scrollLeft === 0) {
+      // Start slightly into the first set to allow seamless backward scrolling
+      const cardWidth = 320; // w-80 = 320px
+      const gap = 24; // gap-6 = 24px
+      container.scrollLeft = cardWidth + gap;
     }
-  };
+    
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [sortedTutors.length, isScrollingTutors]);
+
+  // Setup circular scroll for packages
+  useEffect(() => {
+    const container = packagesScrollRef.current;
+    if (!container || allPackages.length === 0) return;
+
+    const handleScroll = () => {
+      if (isScrollingPackages) return; // Prevent infinite loop during programmatic scroll
+      
+      const scrollLeft = container.scrollLeft;
+      const scrollWidth = container.scrollWidth;
+      const halfScrollWidth = scrollWidth / 2;
+
+      // If scrolled past the first half (into duplicate section), reset to beginning seamlessly
+      if (scrollLeft >= halfScrollWidth - 1) {
+        setIsScrollingPackages(true);
+        // Use requestAnimationFrame for smoother transition
+        requestAnimationFrame(() => {
+          container.scrollLeft = scrollLeft - halfScrollWidth;
+          setIsScrollingPackages(false);
+        });
+      }
+      // If scrolled before the beginning, jump to corresponding position in second half
+      else if (scrollLeft <= 1) {
+        setIsScrollingPackages(true);
+        requestAnimationFrame(() => {
+          container.scrollLeft = halfScrollWidth + scrollLeft;
+          setIsScrollingPackages(false);
+        });
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Initialize scroll position to start of first set (not at 0 to allow backward scroll)
+    if (container.scrollLeft === 0) {
+      // Start slightly into the first set to allow seamless backward scrolling
+      const cardWidth = 384; // w-96 = 384px
+      const gap = 32; // gap-8 = 32px
+      container.scrollLeft = cardWidth + gap;
+    }
+    
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [allPackages.length, isScrollingPackages]);
+
 
   // Get initials from tutor name
   const getTutorInitials = (name: string): string => {
@@ -97,9 +184,9 @@ const ParentHome: React.FC = () => {
   };
 
   const stats = {
-    totalStudents: 25000,
+    totalStudents: 10000,
     totalCourses: allPackages.length || 100,
-    totalInstructors: allTutors.length || 1000,
+    totalInstructors: sortedTutors.length || 1000,
     satisfactionRate: 100
   };
 
@@ -127,7 +214,7 @@ const ParentHome: React.FC = () => {
                 <div className="relative z-10 space-y-8 lg:col-span-2">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
                     <Award className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">Trusted by 25,000+ Students</span>
+                    <span className="text-sm font-semibold text-primary">Trusted by 10,000+ Students</span>
                   </div>
 
                   <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight">
@@ -228,10 +315,10 @@ const ParentHome: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                       {[
-                        { label: 'Students Helped', value: '25K+', icon: Users },
-                        { label: 'Expert Tutors', value: '1000+', icon: GraduationCap },
+                        { label: 'Students Helped', value: '10K+', icon: Users },
+                        { label: 'Expert Tutors', value: '300+', icon: GraduationCap },
                         { label: 'Success Rate', value: '98%', icon: Award },
-                        { label: 'Years Experience', value: '8+', icon: CheckCircle }
+                        { label: 'Years Experience', value: '2+', icon: CheckCircle }
                       ].map((stat) => (
                         <div key={stat.label} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
                           <stat.icon className="h-6 w-6 text-primary mb-3" />
@@ -334,7 +421,7 @@ const ParentHome: React.FC = () => {
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
                   {[
-                    { icon: GraduationCap, label: 'Expert Mentors', value: stats.totalInstructors, suffix: '+', color: 'primary' },
+                    { icon: GraduationCap, label: 'Expert Tutors', value: stats.totalInstructors, suffix: '+', color: 'primary' },
                     { icon: Users, label: 'Active Students', value: stats.totalStudents / 1000, suffix: 'K+', color: 'accent-green' },
                     { icon: BookOpen, label: 'Course Programs', value: stats.totalCourses, suffix: '+', color: 'accent-yellow' },
                     { icon: Award, label: 'Success Stories', value: 98, suffix: '%', color: 'accent-orange' },
@@ -477,7 +564,7 @@ const ParentHome: React.FC = () => {
                   <div className="text-center py-20">
                     <p className="text-red-500 text-lg">Error loading tutors: {tutorsError}</p>
                   </div>
-                ) : allTutors.length === 0 ? (
+                ) : sortedTutors.length === 0 ? (
                   <div className="text-center py-20">
                     <p className="text-gray-500 text-lg">No tutors available at the moment</p>
                   </div>
@@ -565,23 +652,6 @@ const ParentHome: React.FC = () => {
                         </div>
                         ))}
                       </div>
-                    </div>
-                    {/* Navigation Buttons */}
-                    <div className="flex items-center justify-center gap-4 mt-8">
-                      <button
-                        onClick={() => scrollTutors('left')}
-                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
-                        aria-label="Previous tutors"
-                      >
-                        <ChevronLeft className="h-6 w-6" />
-                      </button>
-                      <button
-                        onClick={() => scrollTutors('right')}
-                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
-                        aria-label="Next tutors"
-                      >
-                        <ChevronRight className="h-6 w-6" />
-                      </button>
                     </div>
                   </div>
                 )}
@@ -729,23 +799,6 @@ const ParentHome: React.FC = () => {
                         })}
                       </div>
                     </div>
-                    {/* Navigation Buttons */}
-                    <div className="flex items-center justify-center gap-4 mt-8">
-                      <button
-                        onClick={() => scrollPackages('left')}
-                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
-                        aria-label="Previous packages"
-                      >
-                        <ChevronLeft className="h-6 w-6" />
-                      </button>
-                      <button
-                        onClick={() => scrollPackages('right')}
-                        className="flex items-center justify-center w-12 h-12 bg-primary text-white rounded-full shadow-math hover:bg-primary-dark transition-all hover:scale-110"
-                        aria-label="Next packages"
-                      >
-                        <ChevronRight className="h-6 w-6" />
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
@@ -792,7 +845,7 @@ const ParentHome: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-white/70 text-sm mt-4">
-                    Join 25,000+ students already learning with us
+                    Join 10,000+ students already learning with us
                   </p>
                 </div>
               </div>

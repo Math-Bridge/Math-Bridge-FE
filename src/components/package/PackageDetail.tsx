@@ -313,28 +313,28 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow-math border-2 border-primary/20 sticky top-8">
               <div className="p-6">
-                <div className="flex flex-wrap gap-3 mb-8">
+                <div className="flex gap-2 mb-8 bg-gray-100 p-1 rounded-xl">
                   <button
                     onClick={() => setActiveTab('overview')}
-                    className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                    className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
                       activeTab === 'overview'
                         ? 'bg-primary text-white shadow-math'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-transparent text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     Overview
                   </button>
                   <button
                     onClick={() => setActiveTab('curriculum')}
-                    className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                    className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-all ${
                       activeTab === 'curriculum'
                         ? 'bg-primary text-white shadow-math'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-transparent text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     Curriculum
                   </button>
-                  <button
+                  {/* <button
                     onClick={() => setActiveTab('instructor')}
                     className={`px-6 py-3 rounded-xl font-semibold transition-all ${
                       activeTab === 'instructor'
@@ -353,7 +353,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                     }`}
                   >
                     Reviews
-                  </button>
+                  </button> */}
                 </div>
 
                 {/* Tab Content */}
@@ -375,7 +375,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                       </div>
 
                       {/* What Will I Learn */}
-                      <div>
+                      {/* <div>
                         <h3 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">
                           What Will I Learn From This Course?
                         </h3>
@@ -401,7 +401,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                   </div>
                 )}
               </div>
-                      </div>
+                      </div> */}
                     </>
                   )}
 
@@ -548,7 +548,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                     </div>
                   )}
 
-                  {activeTab === 'instructor' && (
+                  {/* {activeTab === 'instructor' && (
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">
                         Instructor
@@ -599,9 +599,9 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
               )}
                       </div>
                     </div>
-                  )}
+                  )} */}
 
-                  {activeTab === 'reviews' && (
+                  {/* {activeTab === 'reviews' && (
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 mb-4 uppercase tracking-wide">
                         Reviews
@@ -669,7 +669,7 @@ const PackageDetail: React.FC<PackageDetailProps> = ({
                       )}
                       </div>
                   </div>
-                )}
+                )} */}
               </div>
             </div>
           </div>

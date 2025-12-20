@@ -3441,6 +3441,16 @@ export async function getAllTutors() {
         // Extract TutorVerification data (can be nested as TutorVerification or tutorVerification)
         const verification = tutor.TutorVerification || tutor.tutorVerification || null;
         
+        // Calculate rating from FinalFeedbacks if available
+        let calculatedRating: number | undefined = undefined;
+        const feedbacks = tutor.FinalFeedbacks || tutor.finalFeedbacks || [];
+        if (feedbacks.length > 0) {
+          const avgRating = feedbacks.reduce((sum: number, fb: any) => {
+            return sum + (fb.overallSatisfactionRating || fb.OverallSatisfactionRating || 0);
+          }, 0) / feedbacks.length;
+          calculatedRating = Math.round(avgRating * 10) / 10;
+        }
+        
         return {
           userId: tutor.userId || tutor.id || tutor.UserId || tutor.user_id || '',
           fullName: tutor.fullName || tutor.name || tutor.FullName || tutor.full_name || '',
@@ -3461,7 +3471,8 @@ export async function getAllTutors() {
           bio: verification?.Bio || verification?.bio || 
               tutor.bio || tutor.Bio || undefined,
           specialties: tutor.specialties || tutor.Specialties || tutor.specialization ? [tutor.specialization] : undefined,
-          rating: tutor.rating || tutor.Rating || undefined,
+          // Use calculated rating from FinalFeedbacks, fallback to provided rating
+          rating: calculatedRating ?? tutor.rating ?? tutor.Rating ?? undefined,
           centerId: tutor.centerId || tutor.CenterId || tutor.center_id || undefined,
           centerName: tutor.centerName || tutor.CenterName || tutor.center_name || undefined,
           studentCount: tutor.studentCount || tutor.StudentCount || tutor.student_count || undefined,
@@ -3483,11 +3494,11 @@ export async function getAllTutors() {
     
     return result;
   } catch (error) {
-    console.error('Error fetching all tutors:', error);
+    console.error('Error fetching tutors:', error);
     return {
       success: false,
-      data: null,
       error: error instanceof Error ? error.message : 'Failed to fetch tutors',
+      data: undefined,
     };
   }
 }

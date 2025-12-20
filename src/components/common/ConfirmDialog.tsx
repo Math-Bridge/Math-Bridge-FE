@@ -77,7 +77,9 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </div>
 
         <div className="p-6">
-          <div className="text-gray-700 leading-relaxed mb-8 text-base">{message}</div>
+          <div className="text-gray-700 leading-relaxed mb-8 text-base max-h-[60vh] overflow-y-auto pr-2">
+            {message}
+          </div>
 
           <div className="flex space-x-3">
             <button

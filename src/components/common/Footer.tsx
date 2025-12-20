@@ -166,9 +166,9 @@ const Footer: React.FC = () => {
               <Link to="/terms" className="text-white/70 hover:text-primary transition-colors">
                 Terms of Service
               </Link>
-              <Link to="/support" className="text-white/70 hover:text-primary transition-colors">
+              {/* <Link to="/support" className="text-white/70 hover:text-primary transition-colors">
                 Support
-              </Link>
+              </Link> */}
             </div>
           </div>
         </div>

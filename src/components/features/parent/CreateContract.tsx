@@ -18,7 +18,11 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Search
+  Search,
+  FileText,
+  Shield,
+  Ban,
+  Info
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getChildrenByParent, createContract, apiService, getSchoolById, createContractDirectPayment, SePayPaymentResponse, getContractById, getCentersNearAddress, updateChild, Center, getCoordinatesFromPlaceId, checkTutorsAvailability } from '../../../services/api';
@@ -3935,13 +3939,109 @@ const CreateContract: React.FC = () => {
         isOpen={showConfirmDialog}
         title="Confirm Contract Creation"
         message={
-          <>
-            Are you sure you want to create this contract?{' '}
-            <strong className="font-bold text-amber-700">Important Notice:</strong> Once the contract status changes to{' '}
-            <strong className="font-bold text-amber-700">'Active'</strong>, you will{' '}
-            <strong className="font-bold text-amber-700">not be able to request a refund</strong>. Refunds are only available when the contract is in{' '}
-            <strong className="font-bold text-amber-700">'Pending'</strong> status.
-          </>
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-gray-800 font-medium">
+                Are you sure you want to create this contract? By confirming, you accept all terms and conditions below.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Contract Creation Confirmation */}
+              <div className="border-l-4 border-blue-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <FileText className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Contract Creation Confirmation</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Before proceeding with contract creation, please confirm that you are sure you want to create this contract. Confirming this means you accept the relevant terms and conditions of the contract.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contract Type */}
+              <div className="border-l-4 border-purple-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <Shield className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Contract Type</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      The system only supports online or offline contracts; a combination of both is not possible. Please select one of the two available types when creating the contract.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Package Selection */}
+              <div className="border-l-4 border-amber-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <Package className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Payment Package Selection</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Once you have selected a payment package, it cannot be changed or modified under any circumstances. Please carefully review and choose the appropriate package before confirming.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tutor Assignment */}
+              <div className="border-l-4 border-green-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <Users className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Tutor Assignment</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Tutors will be assigned automatically by the system to ensure the highest quality and fairness in matching. Manual selection or requests for specific tutors are not supported.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contract Status Change */}
+              <div className="border-l-4 border-orange-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Contract Status Change</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      Once the contract status changes to 'Activated', you will no longer be able to request a refund. Activation of the contract is considered final acceptance of its terms.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Refund Policy */}
+              <div className="border-l-4 border-red-500 pl-4 py-2">
+                <div className="flex items-start gap-3">
+                  <Ban className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">Refund Policy</h4>
+                    <p className="text-sm text-gray-700 leading-relaxed mb-2">
+                      Refunds are only available when the contract is in 'Pending' status. After the contract is activated or moves to any other status, refund requests will not be accepted.
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      If you wish to request a refund while the contract is still in 'Pending' status, please contact us via our provided phone number.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Important Note */}
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900 mb-1">Important Note</p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    We recommend that you carefully review all terms, including the selected payment package and tutor assignment process, before confirming contract creation. If you have any questions, please contact our support team beforehand.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         }
         confirmText="Confirm & Create"
         cancelText="Cancel"
