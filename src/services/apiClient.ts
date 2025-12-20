@@ -4,7 +4,7 @@
 
 import { API_BASE_URL, STORAGE_KEYS } from '../constants';
 import { extractErrorMessage, handleHttpError } from '../utils/errorHandler';
-import { getCookie } from '../utils/cookie';
+import { getCookie, setCookie } from '../utils/cookie';
 
 
 export interface ApiResponse<T> {
@@ -13,6 +13,92 @@ export interface ApiResponse<T> {
   message?: string;
   error?: string;
   errorDetails?: any;
+}
+
+/**
+ * Decode JWT token to get payload
+ */
+function decodeJwt(token: string): any | null {
+  try {
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+      return null;
+    }
+    const payload = JSON.parse(atob(tokenParts[1]));
+    return payload;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Check if token is expired or will expire soon
+ */
+function isTokenExpiringSoon(token: string, bufferMinutes: number = 5): boolean {
+  const payload = decodeJwt(token);
+  if (!payload || !payload.exp) {
+    return true; // If we can't decode, assume expired
+  }
+  
+  const expirationTime = payload.exp * 1000; // Convert to milliseconds
+  const currentTime = Date.now();
+  const bufferTime = bufferMinutes * 60 * 1000; // Convert minutes to milliseconds
+  
+  // Token is expiring soon if it expires within buffer time
+  return expirationTime - currentTime < bufferTime;
+}
+
+/**
+ * Refresh token if needed (expired or expiring soon)
+ */
+async function refreshTokenIfNeeded(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  
+  const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
+  if (!token) {
+    return; // No token to refresh
+  }
+  
+  // Check if token is expiring soon (within 5 minutes)
+  if (!isTokenExpiringSoon(token, 5)) {
+    return; // Token is still valid, no need to refresh
+  }
+  
+  try {
+    // Call refresh token endpoint
+    const url = `${API_BASE_URL}/auth/refresh-token`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      // If refresh fails, token might be invalid
+      // Don't throw error here, let the actual API call handle 401
+      if (import.meta.env.DEV) {
+        console.warn('[api] Token refresh failed:', response.status);
+      }
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.token) {
+      // Save new token
+      setCookie(STORAGE_KEYS.AUTH_TOKEN, data.token, { days: 7 });
+      if (import.meta.env.DEV) {
+        console.info('[api] Token refreshed successfully');
+      }
+    }
+  } catch (error) {
+    // If refresh fails, don't throw error
+    // Let the actual API call handle authentication errors
+    if (import.meta.env.DEV) {
+      console.warn('[api] Token refresh error:', error);
+    }
+  }
 }
 
 /**

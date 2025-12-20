@@ -1,3 +1,6 @@
+import { getCookie, removeCookie } from '../utils/cookie';
+import { STORAGE_KEYS } from '../constants';
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vibe88.tech/api';
 
 // Log which API base is being used in development to aid debugging
@@ -119,7 +122,7 @@ class ApiService {
       };
 
       // Add auth token if available
-      const token = localStorage.getItem('authToken');
+      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
       if (token) {
         // Ensure token is not empty and is a valid string
         const cleanToken = token.trim();
@@ -276,8 +279,9 @@ class ApiService {
         // Handle 401 Unauthorized - token expired or invalid
         if (response.status === 401) {
           // Clear invalid token and user data
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
+          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+          removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.USER);
           
           // Redirect to login only if not already on login page
           if (!window.location.pathname.includes('/login')) {
@@ -499,8 +503,9 @@ class ApiService {
     });
     
     // Clear local storage regardless of API response
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+    removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
     
     return response;
   }
@@ -550,7 +555,7 @@ class ApiService {
       // Cách 1: Thử với query parameter để tránh match với {id} route
       let url = `${baseUrl}/users/avatar?action=upload`;
       
-      const token = localStorage.getItem('authToken');
+      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
       
       const headers: HeadersInit = {};
       if (token) {
@@ -610,8 +615,9 @@ class ApiService {
         }
         
         if (response.status === 401) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
+          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+          removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
+          localStorage.removeItem(STORAGE_KEYS.USER);
           if (!window.location.pathname.includes('/login')) {
             setTimeout(() => {
               window.location.href = '/login';
@@ -723,7 +729,7 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = localStorage.getItem('authToken');
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     const headers: HeadersInit = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -1471,7 +1477,7 @@ export async function uploadChildAvatar(childId: string, file: File): Promise<Ap
     const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const url = `${baseUrl}/children/${childId}/avatar`;
     
-    const token = localStorage.getItem('authToken');
+    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
     
     const headers: HeadersInit = {};
     if (token) {
