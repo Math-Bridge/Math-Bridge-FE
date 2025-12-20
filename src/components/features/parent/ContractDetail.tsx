@@ -102,7 +102,7 @@ const ContractDetail: React.FC = () => {
   const [packageOriginalPrice, setPackageOriginalPrice] = useState<number | undefined>(undefined); // Store package original price
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'tutor' | 'curriculum'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'dailyReports' | 'sessions' | 'tutor' | 'curriculum'>('overview');
   
   // Payment states
   const [paymentResponse, setPaymentResponse] = useState<SePayPaymentResponse | null>(null);
@@ -157,6 +157,8 @@ const ContractDetail: React.FC = () => {
   // Sessions and actual teaching tutors
   const [sessions, setSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [currentPageSessions, setCurrentPageSessions] = useState(1);
+  const [itemsPerPageSessions] = useState(10);
   const [tutorFeedbacksMap, setTutorFeedbacksMap] = useState<Map<string, FinalFeedback[]>>(new Map());
   const [loadingTutorFeedbacksMap, setLoadingTutorFeedbacksMap] = useState<Map<string, boolean>>(new Map());
 
@@ -636,6 +638,9 @@ const ContractDetail: React.FC = () => {
     if (activeTab === 'dailyReports') {
       setCurrentPage(1);
     }
+    if (activeTab === 'sessions') {
+      setCurrentPageSessions(1);
+    }
   }, [dateFrom, dateTo, activeTab]);
 
   // Fetch units and unit progress when curriculum tab is active
@@ -690,10 +695,10 @@ const ContractDetail: React.FC = () => {
     fetchCurriculumData();
   }, [contractId, activeTab, contract?.status]);
 
-  // Fetch sessions when tutor tab is active (only for counting sessions taught)
+  // Fetch sessions when tutor or sessions tab is active
   useEffect(() => {
     const fetchSessions = async () => {
-      if (!contract?.id || activeTab !== 'tutor') return;
+      if (!contract?.id || (activeTab !== 'tutor' && activeTab !== 'sessions')) return;
 
       try {
         setLoadingSessions(true);
@@ -1355,6 +1360,7 @@ const ContractDetail: React.FC = () => {
                 { key: 'overview', label: 'Overview', icon: FileText },
                 { key: 'curriculum', label: 'Curriculum', icon: BookOpen },
                 { key: 'dailyReports', label: 'Daily Reports', icon: Calendar },
+                { key: 'sessions', label: 'Sessions', icon: Clock },
                 { key: 'tutor', label: 'Tutor Info', icon: User }
               ].map((tab) => (
                 <button
@@ -1910,15 +1916,18 @@ const ContractDetail: React.FC = () => {
 
           // Convert to array and sort by date (newest first)
           const groupedReportsArray = Object.entries(groupedReports)
-            .map(([dateKey, reports]) => ({
-              dateKey,
-              date: reports[0].sessionDate || reports[0].SessionDate || reports[0].createdDate || reports[0].CreatedDate,
-              reports: reports.sort((a, b) => {
-                const dateA = new Date(a.createdDate || a.CreatedDate).getTime();
-                const dateB = new Date(b.createdDate || b.CreatedDate).getTime();
-                return dateB - dateA;
-              })
-            }))
+            .map(([dateKey, reports]) => {
+              const reportsArray = reports as any[];
+              return {
+                dateKey,
+                date: reportsArray[0].sessionDate || reportsArray[0].SessionDate || reportsArray[0].createdDate || reportsArray[0].CreatedDate,
+                reports: reportsArray.sort((a: any, b: any) => {
+                  const dateA = new Date(a.createdDate || a.CreatedDate).getTime();
+                  const dateB = new Date(b.createdDate || b.CreatedDate).getTime();
+                  return dateB - dateA;
+                })
+              };
+            })
             .sort((a, b) => {
               const dateA = new Date(a.date).getTime();
               const dateB = new Date(b.date).getTime();
@@ -2023,7 +2032,7 @@ const ContractDetail: React.FC = () => {
                               </div>
                             </div>
                             <div className="ml-16 space-y-2">
-                              {dayReports.map((report, index) => (
+                              {dayReports.map((report: any, index: number) => (
                                 <div key={report.reportId || report.ReportId || index} className="flex items-center space-x-3">
                                   <p className="text-sm text-gray-600">
                                     {report.unitName || 'No unit specified'}
@@ -2052,7 +2061,7 @@ const ContractDetail: React.FC = () => {
                             </div>
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-                                {dayReports.map((report, index) => (
+                                {dayReports.map((report: any, index: number) => (
                                   <div key={report.reportId || report.ReportId || index} className="bg-gray-50 rounded-lg p-4">
                                     <div className="space-y-3">
                                       {(report.childName || report.ChildName) && (
@@ -2176,6 +2185,188 @@ const ContractDetail: React.FC = () => {
             </div>
           );
         })()}
+
+        {activeTab === 'sessions' && (
+          <div className="space-y-6">
+            <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 hover-lift transition-all duration-300">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Sessions</h3>
+                    <p className="text-sm text-gray-600 mt-1">View all sessions for this contract</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {loadingSessions ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="text-gray-600 ml-3">Loading sessions...</p>
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-600">No sessions found for this contract</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Sort sessions by date (newest first) */}
+                    {(() => {
+                      const sortedSessions = [...sessions].sort((a, b) => {
+                        const dateA = new Date(a.sessionDate || a.SessionDate || a.date || 0).getTime();
+                        const dateB = new Date(b.sessionDate || b.SessionDate || b.date || 0).getTime();
+                        return dateB - dateA;
+                      });
+
+                      // Calculate pagination
+                      const totalPages = Math.ceil(sortedSessions.length / itemsPerPageSessions);
+                      const startIndex = (currentPageSessions - 1) * itemsPerPageSessions;
+                      const endIndex = startIndex + itemsPerPageSessions;
+                      const paginatedSessions = sortedSessions.slice(startIndex, endIndex);
+
+                      return (
+                        <>
+                          <div className="space-y-4">
+                            {paginatedSessions.map((session: any, index: number) => {
+                              const sessionDate = session.sessionDate || session.SessionDate || session.date;
+                              const sessionTime = session.sessionTime || session.SessionTime || session.time;
+                              const status = (session.status || session.Status || '').toLowerCase();
+                              const tutorName = session.tutorName || session.TutorName || contract.tutorName || 'Unknown Tutor';
+                              const topic = session.topic || session.Topic || session.unitName || session.UnitName || 'No topic';
+                              const notes = session.notes || session.Notes || session.description || session.Description;
+                              const bookingId = session.bookingId || session.BookingId || session.id || session.Id;
+
+                              return (
+                                <div
+                                  key={bookingId || index}
+                                  className="bg-gray-50 rounded-xl p-5 border border-gray-200 hover:shadow-md transition-all duration-300"
+                                >
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-3 mb-3">
+                                        <div className={`w-3 h-3 rounded-full ${
+                                          status === 'completed' ? 'bg-green-500' :
+                                          status === 'upcoming' || status === 'scheduled' ? 'bg-blue-500' :
+                                          status === 'cancelled' ? 'bg-red-500' :
+                                          status === 'rescheduled' ? 'bg-yellow-500' :
+                                          'bg-gray-400'
+                                        }`}></div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                          status === 'completed' ? 'bg-green-100 text-green-700' :
+                                          status === 'upcoming' || status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                                          status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                          status === 'rescheduled' ? 'bg-yellow-100 text-yellow-700' :
+                                          'bg-gray-100 text-gray-700'
+                                        }`}>
+                                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                                        </span>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <div className="flex items-center space-x-2 text-gray-700">
+                                          <Calendar className="w-4 h-4 text-gray-400" />
+                                          <span className="text-sm font-medium">
+                                            {sessionDate ? new Date(sessionDate).toLocaleDateString('vi-VN', {
+                                              weekday: 'long',
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric'
+                                            }) : 'Date not available'}
+                                          </span>
+                                        </div>
+
+                                        {sessionTime && (
+                                          <div className="flex items-center space-x-2 text-gray-700">
+                                            <Clock className="w-4 h-4 text-gray-400" />
+                                            <span className="text-sm">{sessionTime}</span>
+                                          </div>
+                                        )}
+
+                                        <div className="flex items-center space-x-2 text-gray-700">
+                                          <User className="w-4 h-4 text-gray-400" />
+                                          <span className="text-sm">{tutorName}</span>
+                                        </div>
+
+                                        {topic && (
+                                          <div className="flex items-start space-x-2 text-gray-700 mt-2">
+                                            <BookOpen className="w-4 h-4 text-gray-400 mt-0.5" />
+                                            <span className="text-sm font-medium">{topic}</span>
+                                          </div>
+                                        )}
+
+                                        {notes && (
+                                          <div className="mt-3 pt-3 border-t border-gray-200">
+                                            <p className="text-sm text-gray-600">{notes}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                              <div className="text-sm text-gray-600">
+                                Showing {startIndex + 1} to {Math.min(endIndex, sortedSessions.length)} of {sortedSessions.length} sessions
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => setCurrentPageSessions(p => Math.max(1, p - 1))}
+                                  disabled={currentPageSessions === 1}
+                                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                  <span>Previous</span>
+                                </button>
+                                <div className="flex items-center space-x-1">
+                                  {(() => {
+                                    // Show only 5 page numbers
+                                    const startPage = Math.floor((currentPageSessions - 1) / 5) * 5 + 1;
+                                    const endPage = Math.min(startPage + 4, totalPages);
+                                    const pages = [];
+                                    for (let i = startPage; i <= endPage; i++) {
+                                      pages.push(i);
+                                    }
+                                    return pages.map((page) => (
+                                      <button
+                                        key={page}
+                                        onClick={() => setCurrentPageSessions(page)}
+                                        className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                          currentPageSessions === page
+                                            ? 'bg-primary text-white hover:bg-primary-dark'
+                                            : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {page}
+                                      </button>
+                                    ));
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => setCurrentPageSessions(p => Math.min(totalPages, p + 1))}
+                                  disabled={currentPageSessions === totalPages}
+                                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                                >
+                                  <span>Next</span>
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTab === 'curriculum' && (
           <div className="space-y-8">

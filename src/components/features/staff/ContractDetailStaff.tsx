@@ -20,6 +20,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Monitor,
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -68,6 +70,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   const [dailyReports, setDailyReports] = useState<any[]>([]);
   const [loadingDailyReports, setLoadingDailyReports] = useState(false);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [currentPageReports, setCurrentPageReports] = useState(1);
+  const [itemsPerPageReports] = useState(10);
   
   // Tutor sorting options
   const [sortByRating, setSortByRating] = useState(false);
@@ -76,6 +80,8 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
   // Sessions states
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [currentPageSessions, setCurrentPageSessions] = useState(1);
+  const [itemsPerPageSessions] = useState(10);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [selectedNewTutorId, setSelectedNewTutorId] = useState<string>('');
@@ -134,6 +140,16 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
       fetchSessions();
     }
   }, [contractId, activeTab]);
+
+  // Reset pagination when switching tabs
+  useEffect(() => {
+    if (activeTab === 'sessions') {
+      setCurrentPageSessions(1);
+    }
+    if (activeTab === 'dailyReports') {
+      setCurrentPageReports(1);
+    }
+  }, [activeTab]);
 
   // Fetch daily reports when switching to daily reports tab
   useEffect(() => {
@@ -1292,8 +1308,18 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                     <p className="text-gray-600">No sessions found for this contract</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {sessions.map((session) => {
+                  <>
+                    {(() => {
+                      // Calculate pagination
+                      const totalPages = Math.ceil(sessions.length / itemsPerPageSessions);
+                      const startIndex = (currentPageSessions - 1) * itemsPerPageSessions;
+                      const endIndex = startIndex + itemsPerPageSessions;
+                      const paginatedSessions = sessions.slice(startIndex, endIndex);
+
+                      return (
+                        <>
+                          <div className="space-y-4">
+                            {paginatedSessions.map((session) => {
                       // Backend SessionDto already provides StartTime/EndTime as full ISO DateTime strings.
                       // Use them directly (same approach as TutorSessions) to avoid "Invalid Date".
                       let sessionDateTime: Date | null = null;
@@ -1409,7 +1435,62 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                         </div>
                       );
                     })}
-                  </div>
+                          </div>
+
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                              <div className="text-sm text-gray-600">
+                                Showing {startIndex + 1} to {Math.min(endIndex, sessions.length)} of {sessions.length} sessions
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => setCurrentPageSessions(p => Math.max(1, p - 1))}
+                                  disabled={currentPageSessions === 1}
+                                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                  <span>Previous</span>
+                                </button>
+                                <div className="flex items-center space-x-1">
+                                  {(() => {
+                                    // Show only 5 page numbers
+                                    const startPage = Math.floor((currentPageSessions - 1) / 5) * 5 + 1;
+                                    const endPage = Math.min(startPage + 4, totalPages);
+                                    const pages = [];
+                                    for (let i = startPage; i <= endPage; i++) {
+                                      pages.push(i);
+                                    }
+                                    return pages.map((page) => (
+                                      <button
+                                        key={page}
+                                        onClick={() => setCurrentPageSessions(page)}
+                                        className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                          currentPageSessions === page
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                            : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {page}
+                                      </button>
+                                    ));
+                                  })()}
+                                </div>
+                                <button
+                                  onClick={() => setCurrentPageSessions(p => Math.min(totalPages, p + 1))}
+                                  disabled={currentPageSessions === totalPages}
+                                  className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                                >
+                                  <span>Next</span>
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
                 )}
               </div>
             </div>
@@ -1435,8 +1516,18 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                   <p className="text-gray-600">Daily reports will appear here once tutors start creating them</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {dailyReports.map((report) => (
+                <>
+                  {(() => {
+                    // Calculate pagination
+                    const totalPages = Math.ceil(dailyReports.length / itemsPerPageReports);
+                    const startIndex = (currentPageReports - 1) * itemsPerPageReports;
+                    const endIndex = startIndex + itemsPerPageReports;
+                    const paginatedReports = dailyReports.slice(startIndex, endIndex);
+
+                    return (
+                      <>
+                        <div className="divide-y divide-gray-200">
+                          {paginatedReports.map((report) => (
                     <div key={report.reportId || report.ReportId} className="p-6">
                       <div 
                         className="cursor-pointer"
@@ -1520,7 +1611,62 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                       </div>
                     </div>
                   ))}
-                </div>
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 px-6">
+                            <div className="text-sm text-gray-600">
+                              Showing {startIndex + 1} to {Math.min(endIndex, dailyReports.length)} of {dailyReports.length} reports
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => setCurrentPageReports(p => Math.max(1, p - 1))}
+                                disabled={currentPageReports === 1}
+                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span>Previous</span>
+                              </button>
+                              <div className="flex items-center space-x-1">
+                                {(() => {
+                                  // Show only 5 page numbers
+                                  const startPage = Math.floor((currentPageReports - 1) / 5) * 5 + 1;
+                                  const endPage = Math.min(startPage + 4, totalPages);
+                                  const pages = [];
+                                  for (let i = startPage; i <= endPage; i++) {
+                                    pages.push(i);
+                                  }
+                                  return pages.map((page) => (
+                                    <button
+                                      key={page}
+                                      onClick={() => setCurrentPageReports(page)}
+                                      className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                        currentPageReports === page
+                                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                              <button
+                                onClick={() => setCurrentPageReports(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPageReports === totalPages}
+                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                              >
+                                <span>Next</span>
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
               )}
             </div>
           </div>

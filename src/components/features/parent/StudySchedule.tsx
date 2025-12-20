@@ -50,6 +50,8 @@ const StudySchedule: React.FC = () => {
   const [showReschedulePopup, setShowReschedulePopup] = useState(false);
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
+  const [dailyReportsPage, setDailyReportsPage] = useState(1);
+  const [dailyReportsPerPage] = useState(5);
   const { showSuccess } = useToast();
 
   const fetchChildren = async () => {
@@ -265,12 +267,14 @@ const StudySchedule: React.FC = () => {
 
   const handleSessionClick = async (session: Session) => {
     setSelectedSession(session);
+    setDailyReportsPage(1); // Reset pagination when selecting a new session
     await fetchSessionDetail(session.bookingId, true); // Pass true to enable auto-create
   };
 
   const handleCloseDetail = () => {
     setSelectedSession(null);
     setSessionDetail(null);
+    setDailyReportsPage(1); // Reset pagination when closing
   };
 
   const handleCreateVideoConferenceAuto = async (session: Session, platform: 'Zoom' | 'Meet', shouldRefresh: boolean = true) => {
@@ -1013,17 +1017,29 @@ const StudySchedule: React.FC = () => {
                   {/* Daily Reports Section */}
                   {selectedSession && (() => {
                     const sessionReports = dailyReports.filter(report => report.bookingId === selectedSession.bookingId);
-                    return sessionReports.length > 0 ? (
+                    // Sort reports by date descending
+                    const sortedReports = [...sessionReports].sort((a, b) => {
+                      const dateA = new Date(a.sessionDate || a.createdDate).getTime();
+                      const dateB = new Date(b.sessionDate || b.createdDate).getTime();
+                      return dateB - dateA;
+                    });
+                    // Pagination for daily reports
+                    const totalReportsPages = Math.ceil(sortedReports.length / dailyReportsPerPage);
+                    const reportsStartIndex = (dailyReportsPage - 1) * dailyReportsPerPage;
+                    const reportsEndIndex = reportsStartIndex + dailyReportsPerPage;
+                    const paginatedReports = sortedReports.slice(reportsStartIndex, reportsEndIndex);
+                    
+                    return sortedReports.length > 0 ? (
                       <div className="mt-6 pt-6 border-t border-gray-200">
                         <div className="flex items-center space-x-2 mb-4">
                           <FileText className="w-5 h-5 text-primary" />
                           <h4 className="text-lg font-bold text-gray-900">Daily Reports</h4>
                           <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-semibold">
-                            {sessionReports.length}
+                            {sortedReports.length}
                           </span>
                         </div>
                         <div className="space-y-3">
-                          {sessionReports.map((report) => (
+                          {paginatedReports.map((report) => (
                             <div key={report.reportId} className="bg-gray-50 rounded-xl p-4 border-2 border-primary/20">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1">
@@ -1087,6 +1103,55 @@ const StudySchedule: React.FC = () => {
                             </div>
                           ))}
                         </div>
+                        {/* Pagination for Daily Reports */}
+                        {totalReportsPages > 1 && (
+                          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                            <div className="text-sm text-gray-600">
+                              Hiển thị {reportsStartIndex + 1} đến {Math.min(reportsEndIndex, sortedReports.length)} trong tổng số {sortedReports.length} báo cáo
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => setDailyReportsPage(p => Math.max(1, p - 1))}
+                                disabled={dailyReportsPage === 1}
+                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                                <span>Trước</span>
+                              </button>
+                              <div className="flex items-center space-x-1">
+                                {(() => {
+                                  const startPage = Math.max(1, totalReportsPages <= 5 ? 1 : Math.min(dailyReportsPage - 2, totalReportsPages - 4));
+                                  const endPage = Math.min(startPage + 4, totalReportsPages);
+                                  const pages = [];
+                                  for (let i = startPage; i <= endPage; i++) {
+                                    pages.push(i);
+                                  }
+                                  return pages.map((page) => (
+                                    <button
+                                      key={page}
+                                      onClick={() => setDailyReportsPage(page)}
+                                      className={`px-3 py-2 min-w-[2.5rem] rounded-lg text-sm font-medium transition-colors ${
+                                        dailyReportsPage === page
+                                          ? 'bg-primary text-white hover:bg-primary-dark'
+                                          : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {page}
+                                    </button>
+                                  ));
+                                })()}
+                              </div>
+                              <button
+                                onClick={() => setDailyReportsPage(p => Math.min(totalReportsPages, p + 1))}
+                                disabled={dailyReportsPage === totalReportsPages}
+                                className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 text-sm transition-colors"
+                              >
+                                <span>Sau</span>
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : null;
                   })()}
