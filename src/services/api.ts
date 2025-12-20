@@ -1,6 +1,3 @@
-import { getCookie, removeCookie } from '../utils/cookie';
-import { STORAGE_KEYS } from '../constants';
-
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.vibe88.tech/api';
 
 // Log which API base is being used in development to aid debugging
@@ -56,15 +53,6 @@ export interface ResetPasswordRequest {
 export interface ChangePasswordRequest {
   CurrentPassword: string;
   NewPassword: string;
-}
-
-export interface RefreshTokenRequest {
-  refreshToken: string;
-}
-
-export interface RefreshTokenResponse {
-  token: string;
-  refreshToken?: string;
 }
 
 export interface DashboardStats {
@@ -131,7 +119,7 @@ class ApiService {
       };
 
       // Add auth token if available
-      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
+      const token = localStorage.getItem('authToken');
       if (token) {
         // Ensure token is not empty and is a valid string
         const cleanToken = token.trim();
@@ -288,7 +276,7 @@ class ApiService {
         // Handle 401 Unauthorized - token expired or invalid
         if (response.status === 401) {
           // Clear invalid token and user data
-          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+          localStorage.removeItem('authToken');
           localStorage.removeItem('user');
           
           // Redirect to login only if not already on login page
@@ -417,7 +405,7 @@ class ApiService {
     );
   }
 
-  async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string; refreshToken?: string }>> {
+  async signup(userData: SignupRequest): Promise<ApiResponse<{ user: User; token: string }>> {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
@@ -460,14 +448,6 @@ class ApiService {
         body: JSON.stringify({ IdToken: token }),
       }
     );
-  }
-
-  async refreshToken(): Promise<ApiResponse<RefreshTokenResponse>> {
-    // Backend yêu cầu JWT token trong Authorization header (tự động thêm bởi request method)
-    // Không cần gửi refreshToken trong body
-    return this.request<RefreshTokenResponse>('/auth/refresh-token', {
-      method: 'POST',
-    });
   }
 
   // Dashboard endpoints
@@ -518,8 +498,8 @@ class ApiService {
       method: 'POST',
     });
     
-    // Clear cookie and local storage regardless of API response
-    removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+    // Clear local storage regardless of API response
+    localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     
     return response;
@@ -570,7 +550,7 @@ class ApiService {
       // Cách 1: Thử với query parameter để tránh match với {id} route
       let url = `${baseUrl}/users/avatar?action=upload`;
       
-      const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
+      const token = localStorage.getItem('authToken');
       
       const headers: HeadersInit = {};
       if (token) {
@@ -630,7 +610,7 @@ class ApiService {
         }
         
         if (response.status === 401) {
-          removeCookie(STORAGE_KEYS.AUTH_TOKEN);
+          localStorage.removeItem('authToken');
           localStorage.removeItem('user');
           if (!window.location.pathname.includes('/login')) {
             setTimeout(() => {
@@ -743,7 +723,7 @@ class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
+    const token = localStorage.getItem('authToken');
     const headers: HeadersInit = {};
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -1491,7 +1471,7 @@ export async function uploadChildAvatar(childId: string, file: File): Promise<Ap
     const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
     const url = `${baseUrl}/children/${childId}/avatar`;
     
-    const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
+    const token = localStorage.getItem('authToken');
     
     const headers: HeadersInit = {};
     if (token) {

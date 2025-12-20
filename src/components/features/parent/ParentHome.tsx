@@ -496,6 +496,7 @@ const ParentHome: React.FC = () => {
                           className="group relative bg-white rounded-2xl overflow-hidden border-2 border-gray-100 hover:border-primary transition-all duration-300 hover:shadow-math transform hover:-translate-y-2 cursor-pointer flex-shrink-0 w-80"
                         >
                           <div className="relative aspect-[4/3] bg-gradient-to-br from-primary/10 to-primary-dark/10 overflow-hidden">
+                            {/* Try to show avatar image first */}
                             {tutor.avatar && tutor.avatar !== '/images/default-avatar.png' && tutor.avatar.trim() !== '' ? (
                               <>
                                 <img
@@ -503,13 +504,19 @@ const ParentHome: React.FC = () => {
                                   alt={tutor.name}
                                   className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
                                   onError={(e) => {
-                                    // If image fails to load, hide img and show initials
-                                    e.currentTarget.style.display = 'none';
-                                    const parent = e.currentTarget.parentElement;
-                                    if (parent) {
-                                      const initialsDiv = parent.querySelector('.tutor-initials') as HTMLElement;
-                                      if (initialsDiv) initialsDiv.style.display = 'flex';
-                                    }
+                                    // If image fails to load, try generated avatar
+                                    const target = e.currentTarget;
+                                    const generatedAvatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&size=400&background=FF6B35&color=ffffff&bold=true`;
+                                    target.src = generatedAvatarUrl;
+                                    // If generated avatar also fails, show initials
+                                    target.onerror = () => {
+                                      target.style.display = 'none';
+                                      const parent = target.parentElement;
+                                      if (parent) {
+                                        const initialsDiv = parent.querySelector('.tutor-initials') as HTMLElement;
+                                        if (initialsDiv) initialsDiv.style.display = 'flex';
+                                      }
+                                    };
                                   }}
                                 />
                                 <div 
@@ -524,11 +531,33 @@ const ParentHome: React.FC = () => {
                                 </div>
                               </>
                             ) : (
-                              <div className={`w-full h-full ${getAvatarColor(tutor.name)} flex items-center justify-center`}>
-                                <span className="text-6xl font-bold text-white">
-                                  {getTutorInitials(tutor.name)}
-                                </span>
-                              </div>
+                              <>
+                                {/* Use generated avatar from name if no avatar URL */}
+                                <img
+                                  src={`https://ui-avatars.com/api/?name=${encodeURIComponent(tutor.name)}&size=400&background=FF6B35&color=ffffff&bold=true`}
+                                  alt={tutor.name}
+                                  className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                                  onError={(e) => {
+                                    // If generated avatar fails, show initials
+                                    e.currentTarget.style.display = 'none';
+                                    const parent = e.currentTarget.parentElement;
+                                    if (parent) {
+                                      const initialsDiv = parent.querySelector('.tutor-initials-fallback') as HTMLElement;
+                                      if (initialsDiv) initialsDiv.style.display = 'flex';
+                                    }
+                                  }}
+                                />
+                                <div 
+                                  className="tutor-initials-fallback hidden w-full h-full absolute inset-0 items-center justify-center"
+                                  style={{ display: 'none' }}
+                                >
+                                  <div className={`w-full h-full ${getAvatarColor(tutor.name)} flex items-center justify-center`}>
+                                    <span className="text-6xl font-bold text-white">
+                                      {getTutorInitials(tutor.name)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </>
                             )}
                             <div className="absolute top-4 right-4 bg-primary text-white p-2.5 rounded-full shadow-math z-10">
                               <Award className="h-5 w-5" />
