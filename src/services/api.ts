@@ -4137,13 +4137,14 @@ export async function getSePayPaymentDetails(transactionId: string) {
 }
 
 // Create direct contract payment with QR code
-// Backend endpoint: POST /api/SePay/create-contract-payment?contractId={contractId}
-// amount: Optional final amount with discount applied (if not provided, backend uses package price)
-export async function createContractDirectPayment(contractId: string, amount?: number) {
-  const requestBody = amount !== undefined ? { amount } : undefined;
-  return apiService.request<SePayPaymentResponse>(`/SePay/create-contract-payment?contractId=${contractId}`, {
+// Backend endpoint: POST /api/SePay/create-contract-payment?contractId={contractId}&amount={amount}
+// amount: Required final amount with discount applied
+export async function createContractDirectPayment(contractId: string, amount: number) {
+  // Backend expects amount as query parameter, not in request body
+  const url = `/SePay/create-contract-payment?contractId=${contractId}&amount=${amount}`;
+  return apiService.request<SePayPaymentResponse>(url, {
     method: 'POST',
-    body: requestBody ? JSON.stringify(requestBody) : undefined,
+    // No body needed - amount is in query parameter
   });
 }
 

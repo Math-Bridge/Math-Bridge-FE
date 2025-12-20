@@ -73,7 +73,7 @@ interface ContractDetail {
 
 // Calculate price based on number of children, offline mode, and discount
 // Note: basePrice should already have discount applied (if any)
-const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false): number => {
+const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: boolean = false, isDirectPayment: boolean = false): number => {
   let price = basePrice;
   
   // Increase 60% for 2 children
@@ -83,6 +83,11 @@ const calculatePrice = (basePrice: number, numberOfChildren: number, isOffline: 
   
   // Add 2% for offline mode
   if (isOffline) {
+    price = price * 1.02;
+  }
+  
+  // Add 2% for direct payment
+  if (isDirectPayment) {
     price = price * 1.02;
   }
   
@@ -941,9 +946,15 @@ const ContractDetail: React.FC = () => {
       setIsCreatingPayment(true);
       setError(null);
       
-      // Use contract price (which should already include discount if applied during contract creation)
-      // Calculate final amount: contract.price may already include adjustments, but we need to add direct payment fee (+2%)
-      const finalAmount = contract.price * 1.02; // Add 2% for direct payment
+      // Calculate final amount from basePackagePrice with all adjustments including direct payment fee
+      const numberOfChildren = contract.secondChildName ? 2 : 1;
+      const isOffline = contract.isOnline !== undefined ? !contract.isOnline : false;
+      
+      // Use basePackagePrice if available, otherwise use contract.price as base
+      const basePrice = basePackagePrice !== null ? basePackagePrice : contract.price;
+      
+      // Calculate final amount with all adjustments: twin (+60%), offline (+2%), direct payment (+2%)
+      const finalAmount = calculatePrice(basePrice, numberOfChildren, isOffline, true);
       
       // Send final amount to backend
       const paymentResult = await createContractDirectPayment(contractId, finalAmount);

@@ -1655,12 +1655,11 @@ const CreateContract: React.FC = () => {
             // This ensures backend receives the correct discounted amount
             const finalAmount = calculatePrice(selectedPackage.price, numberOfChildren, !schedule.isOnline, true);
             
-            // Send discounted amount to backend (backend may or may not use it, but we send it anyway)
+            // Send discounted amount to backend as query parameter
             const paymentResult = await createContractDirectPayment(contractId, finalAmount);
             
             if (paymentResult.success && paymentResult.data) {
-              // Backend returns response with camelCase properties (Success -> success, QrCodeUrl -> qrCodeUrl, etc.)
-              // due to JsonNamingPolicy.CamelCase configuration, but handle both cases for safety
+              // Backend returns response with camelCase properties
               const paymentData = paymentResult.data as any;
               
               // Check if QR code URL exists (handle both camelCase and PascalCase)
@@ -1668,16 +1667,15 @@ const CreateContract: React.FC = () => {
               
               if (qrCodeUrl) {
                 // Map response to match frontend interface (ensure camelCase)
-                // Always use calculated price from frontend (with discount) instead of backend amount
-                // Backend may return original price, so we override it with the correct discounted price
+                // Use amount from backend response (should match finalAmount we sent)
                 const mappedPaymentResponse: SePayPaymentResponse = {
                   success: paymentData.success ?? paymentData.Success ?? true,
                   message: paymentData.message || paymentData.Message || 'Payment request created successfully',
                   qrCodeUrl: qrCodeUrl,
                   orderReference: paymentData.orderReference || paymentData.OrderReference || '',
                   walletTransactionId: paymentData.walletTransactionId || paymentData.WalletTransactionId,
-                  // Always use calculated price from frontend (with discount) - override backend amount
-                  amount: finalAmount,
+                  // Use amount from backend response (should be the same as finalAmount)
+                  amount: paymentData.amount ?? paymentData.Amount ?? finalAmount,
                   bankInfo: paymentData.bankInfo || paymentData.BankInfo || '',
                   transferContent: paymentData.transferContent || paymentData.TransferContent || paymentData.orderReference || paymentData.OrderReference || ''
                 };
