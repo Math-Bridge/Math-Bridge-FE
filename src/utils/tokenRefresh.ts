@@ -55,12 +55,13 @@ const isTokenExpiringSoon = (token: string, bufferMinutes: number = 5): boolean 
 
 /**
  * Refresh token by calling backend endpoint
+ * Backend yêu cầu JWT token trong Authorization header (không cần refreshToken trong body)
  */
 const callRefreshToken = async (): Promise<string | null> => {
-  const refreshToken = getCookie(STORAGE_KEYS.REFRESH_TOKEN);
+  const token = getCookie(STORAGE_KEYS.AUTH_TOKEN);
   
-  if (!refreshToken) {
-    console.warn('No refresh token available');
+  if (!token) {
+    console.warn('No auth token available for refresh');
     return null;
   }
 
@@ -69,8 +70,8 @@ const callRefreshToken = async (): Promise<string | null> => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ refreshToken }),
     });
 
     const text = await response.text();
@@ -87,17 +88,11 @@ const callRefreshToken = async (): Promise<string | null> => {
       return null;
     }
 
-    // Backend có thể trả về { token: "..." } hoặc { token: "...", refreshToken: "..." }
+    // Backend trả về { token: "...", userId: "...", role: "...", roleId: "..." }
     const newToken = data?.token || data?.Token;
-    const newRefreshToken = data?.refreshToken || data?.RefreshToken;
 
     if (newToken) {
       setCookie(STORAGE_KEYS.AUTH_TOKEN, newToken, { days: 7 });
-      
-      if (newRefreshToken) {
-        setCookie(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken, { days: 30 });
-      }
-      
       return newToken;
     }
 
@@ -143,7 +138,6 @@ export const refreshTokenIfNeeded = async (): Promise<string | null> => {
     } else {
       // Refresh failed - clear tokens and logout
       removeCookie(STORAGE_KEYS.AUTH_TOKEN);
-      removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem(STORAGE_KEYS.USER);
       
       processQueue(new Error('Token refresh failed'), null);
@@ -163,7 +157,6 @@ export const refreshTokenIfNeeded = async (): Promise<string | null> => {
     isRefreshing = false;
     
     removeCookie(STORAGE_KEYS.AUTH_TOKEN);
-    removeCookie(STORAGE_KEYS.REFRESH_TOKEN);
     
     if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
       setTimeout(() => {
@@ -190,4 +183,6 @@ export const isTokenValid = (): boolean => {
   
   return exp > now;
 };
+
+
 

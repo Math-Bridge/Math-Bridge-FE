@@ -463,14 +463,10 @@ class ApiService {
   }
 
   async refreshToken(): Promise<ApiResponse<RefreshTokenResponse>> {
-    const refreshToken = getCookie(STORAGE_KEYS.REFRESH_TOKEN);
-    if (!refreshToken) {
-      return { success: false, error: 'No refresh token available' };
-    }
-
+    // Backend yêu cầu JWT token trong Authorization header (tự động thêm bởi request method)
+    // Không cần gửi refreshToken trong body
     return this.request<RefreshTokenResponse>('/auth/refresh-token', {
       method: 'POST',
-      body: JSON.stringify({ refreshToken }),
     });
   }
 
