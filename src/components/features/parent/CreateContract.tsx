@@ -1914,8 +1914,7 @@ const CreateContract: React.FC = () => {
                         <div className="text-center">
                           {count === 1 ? (
                             <>
-                              <div className="text-2xl font-bold mb-1">{count}</div>
-                              <div className="text-xs text-gray-600">Child</div>
+                              <div className="text-2xl font-bold mb-1">Single</div>
                             </>
                           ) : (
                             <>
@@ -1937,7 +1936,7 @@ const CreateContract: React.FC = () => {
                 {/* Children Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    {numberOfChildren === 1 ? 'Select Child' : 'Select Twin'} <span className="text-red-500">*</span>
+                    {numberOfChildren === 1 ? 'Select Single' : 'Select Twin'} <span className="text-red-500">*</span>
                   </label>
                   {numberOfChildren === 2 && (
                     <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -2025,7 +2024,7 @@ const CreateContract: React.FC = () => {
                   <button
                     onClick={() => {
                       if (numberOfChildren === 1 && !selectedChild) {
-                        showError('Please select a child');
+                        showError('Please select a single');
                         return;
                       }
                       if (numberOfChildren > 1 && selectedChildren.length !== numberOfChildren) {
@@ -2071,7 +2070,7 @@ const CreateContract: React.FC = () => {
               <div className="mb-6 space-y-3">
                 {numberOfChildren === 1 ? (
                   <div className="p-4 bg-primary/10 rounded-lg">
-                    <p className="text-sm text-gray-600 mb-2">Selected Child:</p>
+                    <p className="text-sm text-gray-600 mb-2">Selected Single:</p>
                     <p className="font-semibold text-gray-900">
                       {selectedChild.fullName}
                     </p>
@@ -3440,7 +3439,7 @@ const CreateContract: React.FC = () => {
                 <div className="space-y-3">
                   {numberOfChildren === 1 ? (
                     <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Child:</span>
+                      <span className="text-gray-600">Single:</span>
                       <span className="font-medium">{selectedChild.fullName}</span>
                     </div>
                   ) : (
