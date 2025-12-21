@@ -233,42 +233,34 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     // Use local date to avoid timezone issues
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
     
-    // Start from today + (selectedWeek * 7) days
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() + (selectedWeek * 7));
+    // Start from tomorrow (exclude today) + (selectedWeek * 7) days
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const startDate = new Date(tomorrow);
+    startDate.setDate(tomorrow.getDate() + (selectedWeek * 7));
     
     const weekDays = [];
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
-    // Generate 7 days, always include all days from today onwards
+    // Generate 7 days, starting from tomorrow (exclude today)
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       
-      // Only include dates that are today or in the future
-      if (date >= today) {
+      // Only include dates that are after today (exclude today)
+      if (date > today) {
         // Format date as YYYY-MM-DD in local timezone
         const dateYear = date.getFullYear();
         const dateMonth = String(date.getMonth() + 1).padStart(2, '0');
         const dateDay = String(date.getDate()).padStart(2, '0');
         const dateStr = `${dateYear}-${dateMonth}-${dateDay}`;
         
-        // Check if this is today
-        const isToday = date.getTime() === today.getTime();
-        
         // Create all slots for this day, but mark them as disabled if not available
+        // Note: We exclude today from the calendar, so all dates here are in the future
         const allSlots = VALID_START_TIMES.map(time => {
-          // Check if slot is in the past (for today only)
-          let isPast = false;
-          if (isToday) {
-            const [hours, minutes] = time.split(':').map(Number);
-            const slotTime = hours * 60 + minutes;
-            const currentTime = currentHour * 60 + currentMinute;
-            isPast = slotTime <= currentTime;
-          }
+          // No need to check for past slots since we exclude today
+          const isPast = false;
           
           // Check if slot is available from API
           const slotTimeRange = `${time} - ${calculateEndTime(time)}`;
@@ -276,8 +268,12 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
             slot.date === dateStr && slot.slot === slotTimeRange
           );
           
-          // Check if slot is available for tutors (use API data if available, otherwise fallback to tutor availability check)
-          const isTutorAvailable = availableSlots.length > 0 
+          // Check if we have API data for this specific date
+          const hasAPIDataForDate = availableSlots.some(slot => slot.date === dateStr);
+          
+          // Check if slot is available for tutors
+          // Use API data if available for this date, otherwise fallback to tutor availability check
+          const isTutorAvailable = hasAPIDataForDate
             ? isAvailableFromAPI 
             : isSlotAvailableForTutors(dateStr, time);
           
@@ -408,21 +404,16 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Don't allow selecting past dates
+    // Don't allow selecting past dates or today
     if (selectedDate < today) {
       showError('Cannot select past dates');
       return;
     }
     
-    // If selecting today, check if the time slot is in the future
+    // Don't allow selecting today - must reschedule to at least tomorrow
     if (selectedDate.getTime() === today.getTime()) {
-      const [hours, minutes] = time.split(':').map(Number);
-      const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      
-      if (slotTime <= now) {
-        showError('Cannot select time slots in the past');
-        return;
-      }
+      showError('Cannot reschedule to today. Please select a date from tomorrow onwards.');
+      return;
     }
     
     // Don't allow selecting booked slots (including current session time)
@@ -592,7 +583,7 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       return;
     }
 
-    // Validate that selected date and time are not in the past
+    // Validate that selected date and time are not in the past or today
     const [year, month, day] = requestedDate.split('-').map(Number);
     const selectedDate = new Date(year, month - 1, day);
     const now = new Date();
@@ -603,15 +594,10 @@ const RescheduleRequestPopup: React.FC<RescheduleRequestPopupProps> = ({
       return;
     }
     
-    // If selecting today, check if the time slot is in the future
+    // Don't allow selecting today - must reschedule to at least tomorrow
     if (selectedDate.getTime() === today.getTime()) {
-      const [hours, minutes] = startTime.split(':').map(Number);
-      const slotDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      
-      if (slotDateTime <= now) {
-        showError('Cannot reschedule to a time slot in the past');
-        return;
-      }
+      showError('Cannot reschedule to today. Please select a date from tomorrow onwards.');
+      return;
     }
 
     if (!reason || (reason === t('other') && !notes.trim())) {

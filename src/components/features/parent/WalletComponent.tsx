@@ -14,7 +14,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { apiService, getMyWithdrawalRequests, WithdrawalRequest } from '../../../services/api';
+import { apiService, getMyWithdrawalRequests, WithdrawalRequest, getMyContractSePayTransactions, SePayTransactionItem } from '../../../services/api';
 import { useAutoRefresh } from '../../../hooks/useAutoRefresh';
 import { formatDateTime, parseBackendDate } from '../../../utils/dateUtils';
 
@@ -32,6 +32,7 @@ type TransactionWithBalance = Transaction & {
   balanceBefore: number;
   balanceAfter: number;
   signedAmount: number;
+  isDirectTransaction?: boolean; // Flag for SePay direct transactions that don't affect wallet balance
 };
 
 interface WalletData {
@@ -154,10 +155,11 @@ const WalletComponent: React.FC = () => {
         return;
       }
 
-      // Fetch both wallet transactions and withdrawal requests
-      const [walletRes, withdrawalRes] = await Promise.all([
+      // Fetch wallet transactions, withdrawal requests, and SePay direct transactions
+      const [walletRes, withdrawalRes, sepayRes] = await Promise.all([
         apiService.getUserWallet(userId),
-        getMyWithdrawalRequests()
+        getMyWithdrawalRequests(),
+        getMyContractSePayTransactions()
       ]);
 
       let allTransactions: TransactionWithBalance[] = [];
@@ -192,26 +194,118 @@ const WalletComponent: React.FC = () => {
         allTransactions = [...allTransactions, ...withdrawalTransactions];
       }
 
-      // Sort all transactions by date (newest first)
-      allTransactions.sort((a, b) => {
+      // Process SePay direct transactions
+      if (sepayRes.success && sepayRes.data?.transactions) {
+        const sepayTransactions: TransactionWithBalance[] = sepayRes.data.transactions.map((tx: SePayTransactionItem) => {
+          // Determine transaction type: if has ContractId, it's a payment (direct contract payment)
+          // Otherwise, check transferType: "IN" = deposit (top up), "OUT" = payment
+          const hasContract = !!tx.contractId;
+          const isPayment = hasContract || tx.transferType?.toUpperCase() === 'OUT';
+          const type = isPayment ? 'payment' : 'deposit';
+          const amount = Math.abs(tx.transferAmount || 0);
+          
+          // Build description with contract info if available
+          let description = tx.description || tx.content || tx.code || 'SePay Transaction';
+          
+          // For direct contract payments, use orderReference/code as main identifier
+          if (tx.orderReference || tx.code) {
+            const ref = tx.orderReference || tx.code;
+            description = ref;
+            if (tx.childName && tx.packageName) {
+              description = `${ref} - ${tx.childName} (${tx.packageName})`;
+            } else if (tx.childName) {
+              description = `${ref} - ${tx.childName}`;
+            } else if (tx.packageName) {
+              description = `${ref} - ${tx.packageName}`;
+            }
+          } else if (tx.childName && tx.packageName) {
+            description = `${description} - ${tx.childName} (${tx.packageName})`;
+          } else if (tx.childName) {
+            description = `${description} - ${tx.childName}`;
+          } else if (tx.packageName) {
+            description = `${description} - ${tx.packageName}`;
+          }
+          
+          // Add gateway info if available
+          if (tx.gateway) {
+            description = `${description} [${tx.gateway}]`;
+          }
+
+          return {
+            id: tx.sepayTransactionId,
+            type: type as 'deposit' | 'payment',
+            amount: amount,
+            description: description,
+            date: tx.transactionDate || tx.createdAt || new Date().toISOString(),
+            status: 'completed' as const,
+            method: 'SePay Direct',
+            balanceBefore: 0, // Will be recalculated separately for direct transactions
+            balanceAfter: 0, // Will be recalculated separately for direct transactions
+            signedAmount: isPayment ? -amount : amount, // Payment is negative, deposit is positive
+            isDirectTransaction: true // Flag to identify direct SePay transactions
+          };
+        });
+        allTransactions = [...allTransactions, ...sepayTransactions];
+      }
+
+      // Separate direct transactions from wallet transactions
+      const walletTransactions = allTransactions.filter(tx => !tx.isDirectTransaction);
+      const directTransactions = allTransactions.filter(tx => tx.isDirectTransaction);
+
+      // Sort wallet transactions by date (newest first)
+      walletTransactions.sort((a, b) => {
         const dateA = parseBackendDate(a.date);
         const dateB = parseBackendDate(b.date);
         if (!dateA || !dateB) return 0;
         return dateB.getTime() - dateA.getTime();
       });
 
-      // Recalculate balances for all transactions
+      // Sort direct transactions by date (newest first)
+      directTransactions.sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      // Calculate balances for wallet transactions (these affect wallet balance)
       const walletBalance = walletRes.success && walletRes.data 
-        ? (walletRes.data.walletBalance ?? walletRes.data.balance ?? 0)
+        ? Math.max(0, walletRes.data.walletBalance ?? walletRes.data.balance ?? 0) // Ensure non-negative
         : 0;
       
       let runningAfter = walletBalance;
-      const transactionsWithBalances = allTransactions.map((tx) => {
+      const walletTransactionsWithBalances = walletTransactions.map((tx) => {
         const signedAmount = ['deposit', 'refund'].includes(tx.type) ? tx.amount : -tx.amount;
-        const balanceBefore = runningAfter - signedAmount;
-        const result = { ...tx, balanceBefore, balanceAfter: runningAfter, signedAmount };
+        const balanceBefore = Math.max(0, runningAfter - signedAmount); // Ensure non-negative
+        const balanceAfter = Math.max(0, runningAfter); // Ensure non-negative
+        const result = { ...tx, balanceBefore, balanceAfter, signedAmount };
         runningAfter = balanceBefore;
         return result;
+      });
+
+      // Calculate balances for direct transactions separately
+      // Direct transactions don't affect wallet balance, so we calculate them independently
+      // For direct contract payments, balance should not be negative
+      // Calculate backward from newest to oldest
+      let directRunningAfter = 0; // Start from 0
+      const directTransactionsWithBalances = directTransactions.map((tx) => {
+        // For direct payments: they are payments made, balance represents cumulative payments
+        const paymentAmount = tx.amount;
+        const balanceAfter = Math.max(0, directRunningAfter); // Ensure non-negative
+        const balanceBefore = Math.max(0, balanceAfter + paymentAmount); // Before payment = after + payment amount
+        const signedAmount = -paymentAmount; // Payment is negative (money out)
+        const result = { ...tx, balanceBefore, balanceAfter, signedAmount };
+        directRunningAfter = balanceBefore; // Move to previous transaction
+        return result;
+      });
+
+      // Merge all transactions and sort by date again
+      const transactionsWithBalances = [...walletTransactionsWithBalances, ...directTransactionsWithBalances];
+      transactionsWithBalances.sort((a, b) => {
+        const dateA = parseBackendDate(a.date);
+        const dateB = parseBackendDate(b.date);
+        if (!dateA || !dateB) return 0;
+        return dateB.getTime() - dateA.getTime();
       });
 
       setWalletData({
@@ -530,8 +624,14 @@ const WalletComponent: React.FC = () => {
                           {formatCurrency(tx.amount)}
                         </td>
                         <td className="px-6 py-5 text-right text-sm text-gray-600 leading-tight">
-                          <div>Before: {formatCurrency(tx.balanceBefore)}</div>
-                          <div>After: {formatCurrency(tx.balanceAfter)}</div>
+                          {tx.isDirectTransaction ? (
+                            <span className="text-gray-400 italic">N/A</span>
+                          ) : (
+                            <>
+                              <div>Before: {formatCurrency(tx.balanceBefore)}</div>
+                              <div>After: {formatCurrency(tx.balanceAfter)}</div>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -569,8 +669,12 @@ const WalletComponent: React.FC = () => {
                             dateFormat: 'numeric'
                           })}
                         </p>
-                        <p>Before: {formatCurrency(tx.balanceBefore)}</p>
-                        <p>After: {formatCurrency(tx.balanceAfter)}</p>
+                        {!tx.isDirectTransaction && (
+                          <>
+                            <p>Before: {formatCurrency(tx.balanceBefore)}</p>
+                            <p>After: {formatCurrency(tx.balanceAfter)}</p>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -599,9 +703,9 @@ const WalletComponent: React.FC = () => {
           </div>
         </div>
 
-        <div className="text-center mt-12 text-gray-500 text-sm">
+        {/* <div className="text-center mt-12 text-gray-500 text-sm">
           Need help? Contact <span className="text-primary font-medium">support@yourapp.com</span>
-        </div>
+        </div> */}
       </div>
     </div>
   );

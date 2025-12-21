@@ -319,30 +319,56 @@ const PackageManagement: React.FC = () => {
     };
   }, []);
 
-  // Reset curriculum search when grade changes
+  // Reset curriculum search when grade changes (only if current curriculum is not valid for new grade)
   useEffect(() => {
-    if (formData.grade) {
+    if (formData.grade && formData.curriculumId) {
+      // Check if current curriculum is valid for the selected grade
+      const currentCurriculum = curricula.find((c: any) => {
+        const cId = String(c.curriculumId || c.CurriculumId || '').trim();
+        return cId === String(formData.curriculumId).trim();
+      });
+      
+      if (currentCurriculum) {
+        const curriculumGrades = currentCurriculum.grades || currentCurriculum.Grades || '';
+        if (curriculumGrades) {
+          const gradeLower = formData.grade.toLowerCase();
+          const gradesLower = curriculumGrades.toLowerCase();
+          // If curriculum supports the new grade, keep it
+          if (gradesLower.includes(gradeLower)) {
+            return; // Don't reset, curriculum is still valid
+          }
+        }
+      }
+      
+      // Curriculum is not valid for new grade, reset it
       setCurriculumSearchTerm('');
       setFormData(prev => ({ ...prev, curriculumId: '' }));
       setShowCurriculumDropdown(false);
+    } else if (formData.grade && !formData.curriculumId) {
+      // Grade changed but no curriculum selected, just close dropdown
+      setShowCurriculumDropdown(false);
     }
-  }, [formData.grade]);
+  }, [formData.grade, curricula]);
 
   // Update curriculum search term when curricula are loaded and formData.curriculumId exists (for edit modal)
   useEffect(() => {
-    if (showEditModal && formData.curriculumId && curricula.length > 0 && !curriculumSearchTerm) {
-      const curriculumIdStr = String(formData.curriculumId);
+    if (showEditModal && formData.curriculumId && formData.curriculumId.trim() !== '' && curricula.length > 0) {
+      const curriculumIdStr = String(formData.curriculumId).trim();
       const selectedCurriculum = curricula.find((c: any) => {
-        const cId = String(c.curriculumId || c.CurriculumId || '');
+        const cId = String(c.curriculumId || c.CurriculumId || '').trim();
         return cId === curriculumIdStr;
       });
       if (selectedCurriculum) {
         const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
         const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
-        setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+        const newSearchTerm = curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName;
+        // Only update if it's different to avoid unnecessary re-renders
+        if (curriculumSearchTerm !== newSearchTerm) {
+          setCurriculumSearchTerm(newSearchTerm);
+        }
       }
     }
-  }, [curricula, formData.curriculumId, showEditModal, curriculumSearchTerm]);
+  }, [curricula, formData.curriculumId, showEditModal]);
 
   const resetForm = () => {
     setFormData({
@@ -377,7 +403,12 @@ const PackageManagement: React.FC = () => {
     
     // Try to fetch full package details to get CurriculumId
     // Since backend DTO doesn't include CurriculumId in GetAllPackages, try to fetch from packages endpoint
-    let curriculumId = pkg.curriculumId ? String(pkg.curriculumId) : '';
+    let curriculumId = '';
+    
+    // First, try to get from package data
+    if (pkg.curriculumId) {
+      curriculumId = String(pkg.curriculumId).trim();
+    }
     
     // If curriculumId is not in the package data, try to fetch from packages endpoint
     if (!curriculumId && pkg.packageId) {
@@ -388,13 +419,14 @@ const PackageManagement: React.FC = () => {
         if (result.success && result.data) {
           const fullPackage = result.data as any;
           // Try multiple possible field names
-          curriculumId = String(
-            fullPackage.CurriculumId || 
+          const fetchedId = fullPackage.CurriculumId || 
             fullPackage.curriculumId || 
             fullPackage.Curriculum?.CurriculumId || 
-            fullPackage.curriculum?.curriculumId || 
-            ''
-          );
+            fullPackage.curriculum?.curriculumId;
+          
+          if (fetchedId) {
+            curriculumId = String(fetchedId).trim();
+          }
         }
       } catch (error) {
         console.warn('Could not fetch full package details from /packages endpoint:', error);
@@ -417,30 +449,27 @@ const PackageManagement: React.FC = () => {
     });
     
     // Set curriculum search term to selected curriculum name
-    // Use setTimeout to ensure curricula are loaded
-    setTimeout(() => {
-      if (curriculumId) {
-        const curriculumIdStr = String(curriculumId);
-        const selectedCurriculum = curricula.find((c: any) => {
-          const cId = String(c.curriculumId || c.CurriculumId || '');
-          return cId === curriculumIdStr;
-        });
-        if (selectedCurriculum) {
-          const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
-          const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
-          setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
-        } else {
-          // If curriculum not found, try to use curriculumName from package if available
-          if (pkg.curriculumName) {
-            setCurriculumSearchTerm(pkg.curriculumName);
-          } else {
-            setCurriculumSearchTerm('');
-          }
-        }
+    // Try to set immediately if curricula are already loaded
+    if (curriculumId && curriculumId.trim() !== '') {
+      const curriculumIdStr = String(curriculumId).trim();
+      const selectedCurriculum = curricula.find((c: any) => {
+        const cId = String(c.curriculumId || c.CurriculumId || '').trim();
+        return cId === curriculumIdStr;
+      });
+      if (selectedCurriculum) {
+        const curriculumName = selectedCurriculum.curriculumName || selectedCurriculum.CurriculumName || '';
+        const curriculumCode = selectedCurriculum.curriculumCode || selectedCurriculum.CurriculumCode || '';
+        setCurriculumSearchTerm(curriculumCode ? `${curriculumName} (${curriculumCode})` : curriculumName);
+      } else if (pkg.curriculumName) {
+        // If curriculum not found in list but we have curriculumName from package, use it
+        setCurriculumSearchTerm(pkg.curriculumName);
       } else {
+        // Wait for curricula to load, useEffect will handle it
         setCurriculumSearchTerm('');
       }
-    }, 100);
+    } else {
+      setCurriculumSearchTerm('');
+    }
     setShowCurriculumDropdown(false);
     
     // Set image preview if package has image
@@ -532,7 +561,7 @@ const PackageManagement: React.FC = () => {
       showError('Duration days must be greater than 0');
       return false;
     }
-    if (!formData.curriculumId) {
+    if (!formData.curriculumId || formData.curriculumId.trim() === '') {
       showError('Curriculum is required');
       return false;
     }

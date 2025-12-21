@@ -4230,6 +4230,57 @@ export async function createContractDirectPayment(contractId: string, amount: nu
   });
 }
 
+// SePay Transaction Interfaces
+export interface SePayTransactionItem {
+  sepayTransactionId: string;
+  contractId?: string;
+  gateway?: string;
+  transactionDate: string;
+  accountNumber?: string;
+  transferType: string;
+  transferAmount: number;
+  code: string;
+  content: string;
+  referenceNumber?: string;
+  description?: string;
+  orderReference?: string;
+  createdAt: string;
+  childName?: string;
+  packageName?: string;
+  contractStatus?: string;
+}
+
+export interface SePayTransactionsByUserResponse {
+  success: boolean;
+  message: string;
+  transactions: SePayTransactionItem[];
+}
+
+// Get SePay transactions for current user through their contracts
+// Backend endpoint: GET /api/SePay/transactions/my-contracts
+export async function getMyContractSePayTransactions(): Promise<{
+  success: boolean;
+  data?: SePayTransactionsByUserResponse;
+  error?: string;
+}> {
+  try {
+    const result = await apiService.request<SePayTransactionsByUserResponse>(
+      `/SePay/transactions/my-contracts`,
+      {
+        method: 'GET',
+      }
+    );
+    return result;
+  } catch (error: any) {
+    console.error('Error fetching SePay transactions:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to fetch SePay transactions',
+      data: undefined
+    };
+  }
+}
+
 // Check tutor availability before creating contract
 export interface CheckTutorAvailabilityRequest {
   packageId: string;

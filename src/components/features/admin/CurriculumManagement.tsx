@@ -70,6 +70,8 @@ const CurriculumManagement: React.FC = () => {
     syllabusUrl: '',
     isActive: true,
   });
+  const [selectedGrade, setSelectedGrade] = useState<string>('');
+  const [gradesDropdownOpen, setGradesDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchCurriculums();
@@ -128,6 +130,28 @@ const CurriculumManagement: React.FC = () => {
     };
   }, [openDropdownId]);
 
+  // Close grades dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const isClickOnGradesDropdown = target.closest('.grades-dropdown-container');
+      
+      if (!isClickOnGradesDropdown && gradesDropdownOpen) {
+        setGradesDropdownOpen(false);
+      }
+    };
+
+    if (gradesDropdownOpen) {
+      setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [gradesDropdownOpen]);
+
   const fetchCurriculums = async () => {
     try {
       setLoading(true);
@@ -168,8 +192,12 @@ const CurriculumManagement: React.FC = () => {
       filtered = filtered.filter((c) => {
         if (!c.grades) return false;
         // Check if the selected grade is in the grades string
-        // Grades can be "10,11,12" or "9,10" etc.
-        const gradesArray = c.grades.split(',').map(g => g.trim());
+        // Grades can be "grade 9,grade 10" or "9,10" etc.
+        const gradesArray = c.grades.split(',').map(g => {
+          const trimmed = g.trim();
+          // Extract number from "grade 9" or "9"
+          return trimmed.toLowerCase().replace(/grade\s*/g, '').trim();
+        });
         return gradesArray.includes(gradeFilter);
       });
     }
@@ -188,16 +216,6 @@ const CurriculumManagement: React.FC = () => {
     setFilteredCurriculums(filtered);
   };
 
-  const validateGrades = (grades: string): boolean => {
-    if (!grades.trim()) return true; // Optional field, empty is valid
-    
-    const validGrades = ['9', '10', '11', '12'];
-    const gradesArray = grades.split(',').map(g => g.trim());
-    
-    // Check if all grades are valid
-    return gradesArray.every(grade => validGrades.includes(grade));
-  };
-
   const handleCreateCurriculum = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -206,9 +224,12 @@ const CurriculumManagement: React.FC = () => {
       return;
     }
 
-    // Validate grades if provided
-    if (formData.grades.trim() && !validateGrades(formData.grades)) {
-      showError('Invalid grades. Only grades 9, 10, 11, and 12 are allowed. Format: e.g., "9,10,11" or "10,11,12"');
+    // Use selected grade (single selection) - format with "grade" prefix
+    const gradesString = selectedGrade ? `grade ${selectedGrade}` : '';
+
+    // Validate grade if provided
+    if (selectedGrade && !['9', '10', '11', '12'].includes(selectedGrade)) {
+      showError('Invalid grade. Only grades 9, 10, 11, and 12 are allowed.');
       return;
     }
 
@@ -218,7 +239,7 @@ const CurriculumManagement: React.FC = () => {
         CurriculumName: formData.curriculumName.trim(),
         Description: formData.description.trim() || undefined,
         CurriculumCode: formData.curriculumCode.trim() || undefined,
-        Grades: formData.grades.trim() || undefined,
+        Grades: gradesString || undefined,
         SyllabusUrl: formData.syllabusUrl.trim() || undefined,
         IsActive: formData.isActive,
       } as any);
@@ -248,9 +269,12 @@ const CurriculumManagement: React.FC = () => {
       return;
     }
 
-    // Validate grades if provided
-    if (formData.grades.trim() && !validateGrades(formData.grades)) {
-      showError('Invalid grades. Only grades 9, 10, 11, and 12 are allowed. Format: e.g., "9,10,11" or "10,11,12"');
+    // Use selected grade (single selection) - format with "grade" prefix
+    const gradesString = selectedGrade ? `grade ${selectedGrade}` : '';
+
+    // Validate grade if provided
+    if (selectedGrade && !['9', '10', '11', '12'].includes(selectedGrade)) {
+      showError('Invalid grade. Only grades 9, 10, 11, and 12 are allowed.');
       return;
     }
 
@@ -260,7 +284,7 @@ const CurriculumManagement: React.FC = () => {
         CurriculumName: formData.curriculumName.trim(),
         Description: formData.description.trim() || undefined,
         CurriculumCode: formData.curriculumCode.trim() || undefined,
-        Grades: formData.grades.trim() || undefined,
+        Grades: gradesString || undefined,
         SyllabusUrl: formData.syllabusUrl.trim() || undefined,
         IsActive: formData.isActive,
       } as any);
@@ -309,15 +333,23 @@ const CurriculumManagement: React.FC = () => {
       syllabusUrl: '',
       isActive: true,
     });
+    setSelectedGrade('');
+    setGradesDropdownOpen(false);
   };
 
   const openEditModal = (curriculum: Curriculum) => {
     setSelectedCurriculum(curriculum);
+    const grades = curriculum.grades || '';
+    // Get first grade if multiple grades exist, extract number from "grade 9" or "9"
+    const firstGradeString = grades ? grades.split(',').map(g => g.trim()).filter(g => g)[0] || '' : '';
+    // Extract number from grade string (e.g., "grade 9" -> "9", "9" -> "9")
+    const gradeNumber = firstGradeString.toLowerCase().replace(/grade\s*/g, '').trim();
+    setSelectedGrade(gradeNumber);
     setFormData({
       curriculumName: curriculum.curriculumName || '',
       curriculumCode: curriculum.curriculumCode || '',
       description: curriculum.description || '',
-      grades: curriculum.grades || '',
+      grades: grades,
       syllabusUrl: curriculum.syllabusUrl || '',
       isActive: curriculum.isActive !== undefined ? curriculum.isActive : true,
     });
@@ -361,6 +393,8 @@ const CurriculumManagement: React.FC = () => {
             <button
               onClick={() => {
                 resetForm();
+                setSelectedGrade('');
+                setGradesDropdownOpen(false);
                 setShowCreateModal(true);
               }}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -703,15 +737,51 @@ const CurriculumManagement: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Grades
                   </label>
-                  <input
-                    type="text"
-                    value={formData.grades}
-                    onChange={(e) => setFormData({ ...formData, grades: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                    placeholder="e.g., 9,10,11,12 (only grades 9-12 allowed)"
-                  />
+                  <div className="relative grades-dropdown-container">
+                    <button
+                      type="button"
+                      onClick={() => setGradesDropdownOpen(!gradesDropdownOpen)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none text-left bg-white flex items-center justify-between"
+                    >
+                      <span className={selectedGrade === '' ? 'text-gray-400' : 'text-gray-900'}>
+                        {selectedGrade === '' 
+                          ? 'Select grade...' 
+                          : `grade ${selectedGrade}`}
+                      </span>
+                      <ChevronRight 
+                        className={`w-5 h-5 text-gray-400 transition-transform ${gradesDropdownOpen ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                    {gradesDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg grades-dropdown-container">
+                        <div className="p-2">
+                          {['9', '10', '11', '12'].map((grade) => (
+                            <button
+                              key={grade}
+                              type="button"
+                              onClick={() => {
+                                setSelectedGrade(grade);
+                                setGradesDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer text-left ${
+                                selectedGrade === grade ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              {selectedGrade === grade && (
+                                <CheckCircle className="w-4 h-4 text-blue-600" />
+                              )}
+                              {selectedGrade !== grade && (
+                                <div className="w-4 h-4 border-2 border-gray-300 rounded-full"></div>
+                              )}
+                              <span className="text-sm text-gray-700">grade {grade}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Only grades 9, 10, 11, and 12 are allowed. Separate multiple grades with commas.
+                    Only grades 9, 10, 11, and 12 are allowed. Select one grade.
                   </p>
                 </div>
 
@@ -825,15 +895,51 @@ const CurriculumManagement: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Grades
                   </label>
-                  <input
-                    type="text"
-                    value={formData.grades}
-                    onChange={(e) => setFormData({ ...formData, grades: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                    placeholder="e.g., 9,10,11,12 (only grades 9-12 allowed)"
-                  />
+                  <div className="relative grades-dropdown-container">
+                    <button
+                      type="button"
+                      onClick={() => setGradesDropdownOpen(!gradesDropdownOpen)}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none text-left bg-white flex items-center justify-between"
+                    >
+                      <span className={selectedGrade === '' ? 'text-gray-400' : 'text-gray-900'}>
+                        {selectedGrade === '' 
+                          ? 'Select grade...' 
+                          : `grade ${selectedGrade}`}
+                      </span>
+                      <ChevronRight 
+                        className={`w-5 h-5 text-gray-400 transition-transform ${gradesDropdownOpen ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+                    {gradesDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-2 bg-white border-2 border-gray-200 rounded-xl shadow-lg grades-dropdown-container">
+                        <div className="p-2">
+                          {['9', '10', '11', '12'].map((grade) => (
+                            <button
+                              key={grade}
+                              type="button"
+                              onClick={() => {
+                                setSelectedGrade(grade);
+                                setGradesDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg cursor-pointer text-left ${
+                                selectedGrade === grade ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              {selectedGrade === grade && (
+                                <CheckCircle className="w-4 h-4 text-blue-600" />
+                              )}
+                              {selectedGrade !== grade && (
+                                <div className="w-4 h-4 border-2 border-gray-300 rounded-full"></div>
+                              )}
+                              <span className="text-sm text-gray-700">grade {grade}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Only grades 9, 10, 11, and 12 are allowed. Separate multiple grades with commas.
+                    Only grades 9, 10, 11, and 12 are allowed. Select one grade.
                   </p>
                 </div>
 
