@@ -10,7 +10,7 @@ import {
   MostActiveTutorsListDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
-import { GraduationCap, Star, Activity } from 'lucide-react';
+import { GraduationCap, Star, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -32,6 +32,9 @@ const TutorStatistics: React.FC = () => {
   const [topRatedOrder, setTopRatedOrder] = useState<'top' | 'bottom'>('top');
   const [topRatedPage, setTopRatedPage] = useState(1);
   const [mostActivePage, setMostActivePage] = useState(1);
+  const [topRatedTablePage, setTopRatedTablePage] = useState(1);
+  const [mostActiveTablePage, setMostActiveTablePage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     fetchAllData();
@@ -151,7 +154,11 @@ const TutorStatistics: React.FC = () => {
             <div className="flex items-center gap-3">
               <select
                 value={topRatedOrder}
-                onChange={(e) => { setTopRatedOrder(e.target.value as 'top' | 'bottom'); setTopRatedPage(1); }}
+                onChange={(e) => { 
+                  setTopRatedOrder(e.target.value as 'top' | 'bottom'); 
+                  setTopRatedPage(1);
+                  setTopRatedTablePage(1);
+                }}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
                 aria-label="Order"
               >
@@ -160,7 +167,13 @@ const TutorStatistics: React.FC = () => {
               </select>
               <select
                 value={limit}
-                onChange={(e) => { setLimit(Number(e.target.value)); setTopRatedPage(1); setMostActivePage(1); }}
+                onChange={(e) => { 
+                  setLimit(Number(e.target.value)); 
+                  setTopRatedPage(1); 
+                  setMostActivePage(1);
+                  setTopRatedTablePage(1);
+                  setMostActiveTablePage(1);
+                }}
                 className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
                 aria-label="Limit"
               >
@@ -247,9 +260,11 @@ const TutorStatistics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {topRated.tutors.map((tutor, index) => (
+                {topRated.tutors
+                  .slice((topRatedTablePage - 1) * ITEMS_PER_PAGE, topRatedTablePage * ITEMS_PER_PAGE)
+                  .map((tutor, index) => (
                   <tr key={tutor.tutorId}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{(topRatedTablePage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{tutor.tutorName}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{tutor.email}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
@@ -264,6 +279,88 @@ const TutorStatistics: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination for Top Rated */}
+          {topRated.tutors.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => setTopRatedTablePage(Math.max(1, topRatedTablePage - 1))}
+                  disabled={topRatedTablePage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setTopRatedTablePage(Math.min(Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE), topRatedTablePage + 1))}
+                  disabled={topRatedTablePage >= Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE)}
+                  className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(topRatedTablePage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(topRatedTablePage * ITEMS_PER_PAGE, topRated.tutors.length)}</span> of <span className="font-medium">{topRated.tutors.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setTopRatedTablePage(Math.max(1, topRatedTablePage - 1))}
+                      disabled={topRatedTablePage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    {Array.from({ length: Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                        const page = i + 1;
+                        const totalPages = Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE);
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= topRatedTablePage - 1 && page <= topRatedTablePage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setTopRatedTablePage(page)}
+                              aria-current={page === topRatedTablePage ? 'page' : undefined}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                page === topRatedTablePage
+                                  ? 'bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                  : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          (page === topRatedTablePage - 2 && page > 1) ||
+                          (page === topRatedTablePage + 2 && page < totalPages)
+                        ) {
+                          return (
+                            <span key={page} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                    })}
+                    <button
+                      onClick={() => setTopRatedTablePage(Math.min(Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE), topRatedTablePage + 1))}
+                      disabled={topRatedTablePage >= Math.ceil(topRated.tutors.length / ITEMS_PER_PAGE)}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -352,9 +449,11 @@ const TutorStatistics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {mostActive.tutors.map((tutor, index) => (
+                {mostActive.tutors
+                  .slice((mostActiveTablePage - 1) * ITEMS_PER_PAGE, mostActiveTablePage * ITEMS_PER_PAGE)
+                  .map((tutor, index) => (
                   <tr key={tutor.tutorId}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{index + 1}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">{(mostActiveTablePage - 1) * ITEMS_PER_PAGE + index + 1}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{tutor.tutorName}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">{tutor.email}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold border-r border-gray-200">{tutor.sessionCount}</td>
@@ -364,6 +463,88 @@ const TutorStatistics: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination for Most Active */}
+          {mostActive.tutors.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => setMostActiveTablePage(Math.max(1, mostActiveTablePage - 1))}
+                  disabled={mostActiveTablePage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setMostActiveTablePage(Math.min(Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE), mostActiveTablePage + 1))}
+                  disabled={mostActiveTablePage >= Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE)}
+                  className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(mostActiveTablePage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(mostActiveTablePage * ITEMS_PER_PAGE, mostActive.tutors.length)}</span> of <span className="font-medium">{mostActive.tutors.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setMostActiveTablePage(Math.max(1, mostActiveTablePage - 1))}
+                      disabled={mostActiveTablePage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    {Array.from({ length: Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                        const page = i + 1;
+                        const totalPages = Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE);
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= mostActiveTablePage - 1 && page <= mostActiveTablePage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setMostActiveTablePage(page)}
+                              aria-current={page === mostActiveTablePage ? 'page' : undefined}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                page === mostActiveTablePage
+                                  ? 'bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                  : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          (page === mostActiveTablePage - 2 && page > 1) ||
+                          (page === mostActiveTablePage + 2 && page < totalPages)
+                        ) {
+                          return (
+                            <span key={page} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                    })}
+                    <button
+                      onClick={() => setMostActiveTablePage(Math.min(Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE), mostActiveTablePage + 1))}
+                      disabled={mostActiveTablePage >= Math.ceil(mostActive.tutors.length / ITEMS_PER_PAGE)}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
