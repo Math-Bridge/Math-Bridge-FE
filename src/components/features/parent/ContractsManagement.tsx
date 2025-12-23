@@ -96,7 +96,13 @@ const ContractsManagement: React.FC = () => {
   const [reportContent, setReportContent] = useState('');
   const [reportUrl, setReportUrl] = useState('');
   const [isCreatingReport, setIsCreatingReport] = useState(false);
-
+  const sortContractsByDate = (contracts: Contract[]) => {
+  return [...contracts].sort((a, b) => {
+    const aDate = new Date(a.startDate || a.createdAt || 0).getTime();
+    const bDate = new Date(b.startDate || b.createdAt || 0).getTime();
+    return bDate - aDate; // newest first
+  });
+  };
   const fetchData = useCallback(async (isInitialLoad = false) => {
     try {
       // Only show loading skeleton on initial load, not on auto-refresh
@@ -248,7 +254,7 @@ const ContractsManagement: React.FC = () => {
             rawData: contract
           };
         }));
-        setContracts(mappedContracts);
+        setContracts(sortContractsByDate(mappedContracts));
       } else {
         const errorMsg = contractsResponse.error || 'Failed to load contracts.';
         const isBackendError = /Object reference|NullReferenceException|500|Internal Server Error|missing data/i.test(contractsResponse.error || '');
