@@ -8,7 +8,7 @@ import {
   SessionTrendStatisticsDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
-import { Calendar, Monitor, MapPin, TrendingUp } from 'lucide-react';
+import { Calendar, Monitor, MapPin, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -35,6 +35,8 @@ const SessionStatistics: React.FC = () => {
     endDate: new Date().toISOString().split('T')[0],
   });
   const [dateValidationMessage, setDateValidationMessage] = useState<string | null>(null);
+  const [trendsPage, setTrendsPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const todayIso = todayString();
 
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
@@ -48,6 +50,7 @@ const SessionStatistics: React.FC = () => {
       range.endDate !== dateRange.endDate
     ) {
       setDateRange(range);
+      setTrendsPage(1);
     }
   };
 
@@ -322,7 +325,9 @@ const SessionStatistics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {trends.trends.map((trend, index) => (
+                {trends.trends
+                  .slice((trendsPage - 1) * ITEMS_PER_PAGE, trendsPage * ITEMS_PER_PAGE)
+                  .map((trend, index) => (
                   <tr key={index}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
                       {new Date(trend.date).toLocaleDateString('en-US')}
@@ -333,6 +338,88 @@ const SessionStatistics: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination for Trends */}
+          {trends.trends.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => setTrendsPage(Math.max(1, trendsPage - 1))}
+                  disabled={trendsPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setTrendsPage(Math.min(Math.ceil(trends.trends.length / ITEMS_PER_PAGE), trendsPage + 1))}
+                  disabled={trendsPage >= Math.ceil(trends.trends.length / ITEMS_PER_PAGE)}
+                  className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(trendsPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(trendsPage * ITEMS_PER_PAGE, trends.trends.length)}</span> of <span className="font-medium">{trends.trends.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setTrendsPage(Math.max(1, trendsPage - 1))}
+                      disabled={trendsPage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    {Array.from({ length: Math.ceil(trends.trends.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                        const page = i + 1;
+                        const totalPages = Math.ceil(trends.trends.length / ITEMS_PER_PAGE);
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= trendsPage - 1 && page <= trendsPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setTrendsPage(page)}
+                              aria-current={page === trendsPage ? 'page' : undefined}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                page === trendsPage
+                                  ? 'bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                  : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          (page === trendsPage - 2 && page > 1) ||
+                          (page === trendsPage + 2 && page < totalPages)
+                        ) {
+                          return (
+                            <span key={page} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                    })}
+                    <button
+                      onClick={() => setTrendsPage(Math.min(Math.ceil(trends.trends.length / ITEMS_PER_PAGE), trendsPage + 1))}
+                      disabled={trendsPage >= Math.ceil(trends.trends.length / ITEMS_PER_PAGE)}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

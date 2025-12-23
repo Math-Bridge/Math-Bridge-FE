@@ -10,7 +10,7 @@ import {
   WalletStatisticsDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
-import { Users, MapPin, Wallet, TrendingUp, Calendar } from 'lucide-react';
+import { Users, MapPin, Wallet, TrendingUp, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -37,6 +37,9 @@ const UserStatistics: React.FC = () => {
     endDate: new Date().toISOString().split('T')[0],
   });
   const [dateValidationMessage, setDateValidationMessage] = useState<string | null>(null);
+  const [registrationTrendsPage, setRegistrationTrendsPage] = useState(1);
+  const [locationDistributionPage, setLocationDistributionPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const todayIso = todayString();
 
   const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
@@ -50,6 +53,7 @@ const UserStatistics: React.FC = () => {
       range.endDate !== dateRange.endDate
     ) {
       setDateRange(range);
+      setRegistrationTrendsPage(1);
     }
   };
 
@@ -274,7 +278,9 @@ const UserStatistics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {registrationTrends.trends.map((trend, index) => (
+                {registrationTrends.trends
+                  .slice((registrationTrendsPage - 1) * ITEMS_PER_PAGE, registrationTrendsPage * ITEMS_PER_PAGE)
+                  .map((trend, index) => (
                   <tr key={index}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
                       {new Date(trend.date).toLocaleDateString('en-US')}
@@ -285,6 +291,88 @@ const UserStatistics: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination for Registration Trends */}
+          {registrationTrends.trends.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => setRegistrationTrendsPage(Math.max(1, registrationTrendsPage - 1))}
+                  disabled={registrationTrendsPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setRegistrationTrendsPage(Math.min(Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE), registrationTrendsPage + 1))}
+                  disabled={registrationTrendsPage >= Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE)}
+                  className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(registrationTrendsPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(registrationTrendsPage * ITEMS_PER_PAGE, registrationTrends.trends.length)}</span> of <span className="font-medium">{registrationTrends.trends.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setRegistrationTrendsPage(Math.max(1, registrationTrendsPage - 1))}
+                      disabled={registrationTrendsPage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    {Array.from({ length: Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                        const page = i + 1;
+                        const totalPages = Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE);
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= registrationTrendsPage - 1 && page <= registrationTrendsPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setRegistrationTrendsPage(page)}
+                              aria-current={page === registrationTrendsPage ? 'page' : undefined}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                page === registrationTrendsPage
+                                  ? 'bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                  : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          (page === registrationTrendsPage - 2 && page > 1) ||
+                          (page === registrationTrendsPage + 2 && page < totalPages)
+                        ) {
+                          return (
+                            <span key={page} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                    })}
+                    <button
+                      onClick={() => setRegistrationTrendsPage(Math.min(Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE), registrationTrendsPage + 1))}
+                      disabled={registrationTrendsPage >= Math.ceil(registrationTrends.trends.length / ITEMS_PER_PAGE)}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -349,7 +437,9 @@ const UserStatistics: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {locationDistribution.cityDistribution.map((city, index) => (
+                {locationDistribution.cityDistribution
+                  .slice((locationDistributionPage - 1) * ITEMS_PER_PAGE, locationDistributionPage * ITEMS_PER_PAGE)
+                  .map((city, index) => (
                   <tr key={index}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">{city.city}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm">{city.userCount}</td>
@@ -358,6 +448,88 @@ const UserStatistics: React.FC = () => {
               </tbody>
             </table>
           </div>
+          {/* Pagination for Location Distribution */}
+          {locationDistribution.cityDistribution.length > ITEMS_PER_PAGE && (
+            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => setLocationDistributionPage(Math.max(1, locationDistributionPage - 1))}
+                  disabled={locationDistributionPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setLocationDistributionPage(Math.min(Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE), locationDistributionPage + 1))}
+                  disabled={locationDistributionPage >= Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE)}
+                  className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{(locationDistributionPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(locationDistributionPage * ITEMS_PER_PAGE, locationDistribution.cityDistribution.length)}</span> of <span className="font-medium">{locationDistribution.cityDistribution.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => setLocationDistributionPage(Math.max(1, locationDistributionPage - 1))}
+                      disabled={locationDistributionPage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    {Array.from({ length: Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE) }).map((_, i) => {
+                        const page = i + 1;
+                        const totalPages = Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE);
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= locationDistributionPage - 1 && page <= locationDistributionPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setLocationDistributionPage(page)}
+                              aria-current={page === locationDistributionPage ? 'page' : undefined}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                                page === locationDistributionPage
+                                  ? 'bg-blue-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                                  : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          (page === locationDistributionPage - 2 && page > 1) ||
+                          (page === locationDistributionPage + 2 && page < totalPages)
+                        ) {
+                          return (
+                            <span key={page} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                    })}
+                    <button
+                      onClick={() => setLocationDistributionPage(Math.min(Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE), locationDistributionPage + 1))}
+                      disabled={locationDistributionPage >= Math.ceil(locationDistribution.cityDistribution.length / ITEMS_PER_PAGE)}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
