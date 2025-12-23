@@ -82,6 +82,7 @@ const ContractsManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active' | 'completed' | 'cancelled' | 'unpaid'>('all');
   const [selectedChildId, setSelectedChildId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3;
   const [unitProgressMap, setUnitProgressMap] = useState<Record<string, ChildUnitProgress | null>>({});
@@ -376,17 +377,28 @@ const ContractsManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contracts]);
 
-  const filteredContracts = contracts.filter(c => 
-    (filter === 'all' || c.status === filter) && 
-    (selectedChildId === 'all' || c.childId === selectedChildId || (c as any).secondChildId === selectedChildId)
-  );
+  const filteredContracts = contracts.filter(c => {
+    const matchesStatus = (filter === 'all' || c.status === filter);
+    const matchesChild = (selectedChildId === 'all' || c.childId === selectedChildId || (c as any).secondChildId === selectedChildId);
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || [
+      c.packageName,
+      c.childName,
+      c.secondChildName,
+      c.tutorName,
+      c.centerName,
+      c.schedule,
+      c.id
+    ].some(field => String(field || '').toLowerCase().includes(q));
+    return matchesStatus && matchesChild && matchesSearch;
+  });
 
   const totalPages = Math.ceil(filteredContracts.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedContracts = filteredContracts.slice(startIndex, endIndex);
 
-  useEffect(() => { setCurrentPage(1); }, [filter, selectedChildId]);
+  useEffect(() => { setCurrentPage(1); }, [filter, selectedChildId, searchQuery]);
 
   const getStatusConfig = (status: string) => {
     const config = {
@@ -654,10 +666,21 @@ const ContractsManagement: React.FC = () => {
                 >
                   <option value="all">All Children ({filteredContracts.length})</option>
                   {children.map(child => {
-                    const count = contracts.filter(c => 
-                      (c.childId === child.childId || (c as any).secondChildId === child.childId) && 
-                      (filter === 'all' || c.status === filter)
-                    ).length;
+                    const q = searchQuery.trim().toLowerCase();
+                    const count = contracts.filter(c => {
+                      const matchesChild = (c.childId === child.childId || (c as any).secondChildId === child.childId);
+                      const matchesStatus = (filter === 'all' || c.status === filter);
+                      const matchesSearch = !q || [
+                        c.packageName,
+                        c.childName,
+                        c.secondChildName,
+                        c.tutorName,
+                        c.centerName,
+                        c.schedule,
+                        c.id
+                      ].some(field => String(field || '').toLowerCase().includes(q));
+                      return matchesChild && matchesStatus && matchesSearch;
+                    }).length;
                     return (
                       <option key={child.childId} value={child.childId}>
                         {child.fullName} ({count})
@@ -665,6 +688,23 @@ const ContractsManagement: React.FC = () => {
                     );
                   })}
                 </select>
+
+                {/* Search input */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by package, tutor, child, center..."
+                    className="pl-10 pr-9 w-[320px] py-3 bg-white/90 backdrop-blur-sm border-2 border-gray-200 rounded-2xl text-sm text-gray-800 focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all duration-300 shadow-sm"
+                  />
+                  <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500">
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
