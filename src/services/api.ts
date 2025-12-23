@@ -5101,6 +5101,25 @@ export interface RevenueTrendStatisticsDto {
   totalTransactionsInPeriod: number;
 }
 
+export interface WithdrawalTransactionDto {
+  transactionId: string;
+  parentId: string;
+  parentName?: string;
+  amount: number;
+  status: string;
+  transactionDate: string;
+  description?: string;
+}
+
+export interface WithdrawalStatisticsDto {
+  totalWithdrawalAmount: number;
+  totalWithdrawalCount: number;
+  pendingWithdrawalCount: number;
+  completedWithdrawalCount: number;
+  rejectedWithdrawalCount: number;
+  transactions: WithdrawalTransactionDto[];
+}
+
 // Statistics API Functions
 export async function getUserStatistics() {
   return apiService.request<UserStatisticsDto>('/statistics/users/overview', {
@@ -5211,6 +5230,12 @@ export async function getRevenueTrends(startDate: string, endDate: string) {
       method: 'GET',
     }
   );
+}
+
+export async function getWithdrawalStatistics() {
+  return apiService.request<WithdrawalStatisticsDto>('/statistics/financial/withdrawals', {
+    method: 'GET',
+  });
 }
 
 // ==================== Daily Report APIs ====================

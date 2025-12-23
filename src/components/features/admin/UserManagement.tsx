@@ -701,9 +701,6 @@ const UserManagement: React.FC = () => {
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
-                    Wallet Balance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200">
                     Salary
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -714,7 +711,7 @@ const UserManagement: React.FC = () => {
               <tbody className="bg-white divide-y divide-gray-200" style={{ position: 'relative' }}>
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center">
+                    <td colSpan={5} className="px-6 py-16 text-center">
                       <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
                         <Users className="w-10 h-10 text-gray-400" />
                       </div>
@@ -760,11 +757,6 @@ const UserManagement: React.FC = () => {
                         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusBadgeColor(user.status)}`}>
                           {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
-                        {user.walletBalance !== undefined
-                          ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.walletBalance)
-                          : '0 ₫'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                         {user.roleId === 2 && user.hourlyRate !== undefined && user.hourlyRate > 0

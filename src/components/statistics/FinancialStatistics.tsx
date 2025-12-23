@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  getRevenueStatistics,
   getRevenueTrends,
-  RevenueStatisticsDto,
+  getWithdrawalStatistics,
   RevenueTrendStatisticsDto,
+  WithdrawalStatisticsDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
-import { TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -20,8 +20,8 @@ import {
 import { sanitizeDateRange, todayString } from '../../utils/dateUtils';
 
 const FinancialStatistics: React.FC = () => {
-  const [overview, setOverview] = useState<RevenueStatisticsDto | null>(null);
   const [trends, setTrends] = useState<RevenueTrendStatisticsDto | null>(null);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalStatisticsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState({
@@ -52,20 +52,53 @@ const FinancialStatistics: React.FC = () => {
     fetchAllData();
   }, [dateRange]);
 
+  const normalizeRevenueTrends = (data: any): RevenueTrendStatisticsDto => {
+    const trendsArray = data.trends ?? data.Trends ?? [];
+    return {
+      trends: trendsArray.map((t: any) => ({
+        date: t.date ?? t.Date ?? '',
+        revenue: t.revenue ?? t.Revenue ?? 0,
+        transactionCount: t.transactionCount ?? t.TransactionCount ?? 0,
+      })),
+      totalRevenueInPeriod: data.totalRevenueInPeriod ?? data.TotalRevenueInPeriod ?? 0,
+      totalTransactionsInPeriod: data.totalTransactionsInPeriod ?? data.TotalTransactionsInPeriod ?? 0,
+    };
+  };
+
+  const normalizeWithdrawalStatistics = (data: any): WithdrawalStatisticsDto => {
+    const transactionsArray = data.transactions ?? data.Transactions ?? [];
+    return {
+      totalWithdrawalAmount: data.totalWithdrawalAmount ?? data.TotalWithdrawalAmount ?? 0,
+      totalWithdrawalCount: data.totalWithdrawalCount ?? data.TotalWithdrawalCount ?? 0,
+      pendingWithdrawalCount: data.pendingWithdrawalCount ?? data.PendingWithdrawalCount ?? 0,
+      completedWithdrawalCount: data.completedWithdrawalCount ?? data.CompletedWithdrawalCount ?? 0,
+      rejectedWithdrawalCount: data.rejectedWithdrawalCount ?? data.RejectedWithdrawalCount ?? 0,
+      transactions: transactionsArray.map((t: any) => ({
+        transactionId: t.transactionId ?? t.TransactionId ?? '',
+        parentId: t.parentId ?? t.ParentId ?? '',
+        parentName: t.parentName ?? t.ParentName ?? '',
+        amount: t.amount ?? t.Amount ?? 0,
+        status: t.status ?? t.Status ?? '',
+        transactionDate: t.transactionDate ?? t.TransactionDate ?? '',
+        description: t.description ?? t.Description ?? '',
+      })),
+    };
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewRes, trendsRes] = await Promise.all([
-        getRevenueStatistics(),
+      const [trendsRes, withdrawalsRes] = await Promise.all([
         getRevenueTrends(dateRange.startDate, dateRange.endDate),
+        getWithdrawalStatistics(),
       ]);
 
-      if (overviewRes.success && overviewRes.data) {
-        setOverview(overviewRes.data);
-      }
       if (trendsRes.success && trendsRes.data) {
-        setTrends(trendsRes.data);
+        setTrends(normalizeRevenueTrends(trendsRes.data));
+      }
+      if (withdrawalsRes.success && withdrawalsRes.data) {
+        setWithdrawals(normalizeWithdrawalStatistics(withdrawalsRes.data));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading data');
@@ -98,35 +131,6 @@ const FinancialStatistics: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Overview Cards */}
-      {overview && (
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-900">
-            Revenue Overview
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
-              <div className="text-sm text-gray-600 mb-2 font-medium">Total Transactions</div>
-              <div className="text-2xl font-bold text-gray-900">{overview.totalTransactions.toLocaleString()}</div>
-            </div>
-            <div className="bg-white border-l-4 border-green-500 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 font-medium">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                Successful Transactions
-              </div>
-              <div className="text-2xl font-bold text-green-600">{overview.successfulTransactions.toLocaleString()}</div>
-            </div>
-            <div className="bg-white border-l-4 border-red-500 rounded-lg shadow-sm p-5 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-2 font-medium">
-                <XCircle className="w-5 h-5 text-red-600" />
-                Failed Transactions
-              </div>
-              <div className="text-2xl font-bold text-red-600">{overview.failedTransactions.toLocaleString()}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Revenue Trends */}
       {trends && (
         <div className="mb-8">
@@ -159,23 +163,81 @@ const FinancialStatistics: React.FC = () => {
               {dateValidationMessage}
             </p>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="bg-gradient-to-r from-green-50 to-emerald-100 border border-green-200 rounded-lg p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-green-700 mb-1 font-medium">Total Revenue in Period</div>
+                  <div className="text-sm text-green-700 mb-1 font-medium">Gross Revenue in Period</div>
                   <div className="text-3xl font-bold text-green-900">{Math.round(trends.totalRevenueInPeriod / 1000000)}M VND</div>
+                  <div className="text-xs text-green-600 mt-1">
+                    {new Date(dateRange.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(dateRange.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </div>
                 </div>
                 <div className="p-4 bg-green-200 rounded-full">
                   <TrendingUp className="w-8 h-8 text-green-700" />
                 </div>
               </div>
             </div>
+            {(() => {
+              // Calculate completed withdrawals in period
+              const startDate = new Date(dateRange.startDate);
+              const endDate = new Date(dateRange.endDate);
+              endDate.setHours(23, 59, 59, 999); // Include entire end date
+              
+              const completedWithdrawalsInPeriod = withdrawals?.transactions
+                .filter(t => {
+                  const txDate = new Date(t.transactionDate);
+                  return txDate >= startDate && 
+                         txDate <= endDate && 
+                         t.status.toLowerCase() === 'completed';
+                })
+                .reduce((sum, t) => sum + t.amount, 0) || 0;
+              
+              const netRevenue = trends.totalRevenueInPeriod - completedWithdrawalsInPeriod;
+              
+              return (
+                <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border border-indigo-200 rounded-lg p-5 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-indigo-700 mb-1 font-medium">Net Revenue in Period</div>
+                      <div className="text-3xl font-bold text-indigo-900">{Math.round(netRevenue / 1000000)}M VND</div>
+                      <div className="text-xs text-indigo-600 mt-1">
+                        After withdrawals: -{Math.round(completedWithdrawalsInPeriod / 1000000)}M VND
+                      </div>
+                    </div>
+                    <div className="p-4 bg-indigo-200 rounded-full">
+                      <TrendingUp className="w-8 h-8 text-indigo-700" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-blue-700 mb-1 font-medium">Total Transactions in Period</div>
-                  <div className="text-3xl font-bold text-blue-900">{trends.totalTransactionsInPeriod.toLocaleString()}</div>
+                  {(() => {
+                    const startDate = new Date(dateRange.startDate);
+                    const endDate = new Date(dateRange.endDate);
+                    endDate.setHours(23, 59, 59, 999);
+                    
+                    const withdrawalsInPeriod = withdrawals?.transactions
+                      .filter(w => {
+                        const wDate = new Date(w.transactionDate);
+                        return wDate >= startDate && wDate <= endDate;
+                      }).length || 0;
+                    
+                    const totalTransactions = trends.totalTransactionsInPeriod + withdrawalsInPeriod;
+                    
+                    return (
+                      <>
+                        <div className="text-3xl font-bold text-blue-900">{totalTransactions.toLocaleString()}</div>
+                        <div className="text-xs text-blue-600 mt-1">
+                          {new Date(dateRange.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(dateRange.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="p-4 bg-blue-200 rounded-full">
                   <TrendingUp className="w-8 h-8 text-blue-700" />
@@ -186,11 +248,32 @@ const FinancialStatistics: React.FC = () => {
           <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
             <ResponsiveContainer width="100%" height={400}>
               <LineChart 
-                data={trends.trends.map(t => ({
-                  date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                  revenue: t.revenue,
-                  transactions: t.transactionCount
-                }))}
+                data={trends.trends.map(t => {
+                  // Calculate net revenue for this date
+                  const trendDate = new Date(t.date);
+                  const startOfDay = new Date(trendDate);
+                  startOfDay.setHours(0, 0, 0, 0);
+                  const endOfDay = new Date(trendDate);
+                  endOfDay.setHours(23, 59, 59, 999);
+                  
+                  const completedWithdrawalsForDate = withdrawals?.transactions
+                    .filter(w => {
+                      const wDate = new Date(w.transactionDate);
+                      return wDate >= startOfDay && 
+                             wDate <= endOfDay && 
+                             w.status.toLowerCase() === 'completed';
+                    })
+                    .reduce((sum, w) => sum + w.amount, 0) || 0;
+                  
+                  const netRevenue = t.revenue - completedWithdrawalsForDate;
+                  
+                  return {
+                    date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    revenue: t.revenue,
+                    netRevenue: netRevenue,
+                    transactions: t.transactionCount
+                  };
+                })}
                 margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -221,7 +304,7 @@ const FinancialStatistics: React.FC = () => {
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
                   formatter={(value: any, name: string) => {
-                    if (name === 'Revenue (VND)') {
+                    if (name === 'Gross Revenue (VND)' || name === 'Net Revenue (VND)') {
                       return [`${Math.round(value / 1000)}K VND`, name];
                     }
                     return [value, name];
@@ -238,7 +321,19 @@ const FinancialStatistics: React.FC = () => {
                   strokeWidth={3}
                   dot={{ fill: '#10b981', r: 5 }}
                   activeDot={{ r: 8 }}
-                  name="Revenue (VND)"
+                  name="Gross Revenue (VND)"
+                  animationDuration={1000}
+                />
+                <Line 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="netRevenue" 
+                  stroke="#6366f1" 
+                  strokeWidth={3}
+                  strokeDasharray="5 5"
+                  dot={{ fill: '#6366f1', r: 5 }}
+                  activeDot={{ r: 8 }}
+                  name="Net Revenue (VND)"
                   animationDuration={1000}
                 />
                 <Line 
@@ -260,24 +355,59 @@ const FinancialStatistics: React.FC = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Revenue</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Gross Revenue</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Withdrawals</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase border-r border-gray-200">Net Revenue</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction Count</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {trends.trends
                   .slice((trendsPage - 1) * ITEMS_PER_PAGE, trendsPage * ITEMS_PER_PAGE)
-                  .map((trend, index) => (
-                  <tr key={index}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
-                      {new Date(trend.date).toLocaleDateString('en-US')}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200">
-                      {trend.revenue.toLocaleString('en-US')} VND
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm">{trend.transactionCount}</td>
-                  </tr>
-                ))}
+                  .map((trend, index) => {
+                    // Calculate net revenue for this date
+                    const trendDate = new Date(trend.date);
+                    const startOfDay = new Date(trendDate);
+                    startOfDay.setHours(0, 0, 0, 0);
+                    const endOfDay = new Date(trendDate);
+                    endOfDay.setHours(23, 59, 59, 999);
+                    
+                    const completedWithdrawalsForDate = withdrawals?.transactions
+                      .filter(w => {
+                        const wDate = new Date(w.transactionDate);
+                        return wDate >= startOfDay && 
+                               wDate <= endOfDay && 
+                               w.status.toLowerCase() === 'completed';
+                      })
+                      .reduce((sum, w) => sum + w.amount, 0) || 0;
+                    
+                    const withdrawalsCountForDate = withdrawals?.transactions
+                      .filter(w => {
+                        const wDate = new Date(w.transactionDate);
+                        return wDate >= startOfDay && wDate <= endOfDay;
+                      }).length || 0;
+                    
+                    const netRevenue = trend.revenue - completedWithdrawalsForDate;
+                    const totalTransactionCount = trend.transactionCount + withdrawalsCountForDate;
+                    
+                    return (
+                      <tr key={index}>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm border-r border-gray-200">
+                          {new Date(trend.date).toLocaleDateString('en-US')}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200 text-green-700">
+                          {trend.revenue.toLocaleString('en-US')} VND
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200 text-purple-700">
+                          {completedWithdrawalsForDate.toLocaleString('en-US')} VND
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium border-r border-gray-200 text-indigo-700">
+                          {netRevenue.toLocaleString('en-US')} VND
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">{totalTransactionCount.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -365,6 +495,7 @@ const FinancialStatistics: React.FC = () => {
           )}
         </div>
       )}
+
     </div>
   );
 };
