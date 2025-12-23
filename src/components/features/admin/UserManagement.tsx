@@ -267,14 +267,14 @@ const UserManagement: React.FC = () => {
         // If user is created with tutor role, also create tutor verification with salary
         if (formData.roleId === 2 && response.data?.userId) {
           try {
-            const salaryUSD = formData.salaryVND / 25000; // Convert VND to USD
+            // Send salary from DB directly (stored in VND)
             const verificationResponse = await apiService.request<any>('/tutor-verifications', {
               method: 'POST',
               body: JSON.stringify({
                 UserId: response.data.userId,
                 University: 'N/A',
                 Major: 'N/A',
-                HourlyRate: salaryUSD > 0 ? salaryUSD : 0.01,
+                HourlyRate: formData.salaryVND > 0 ? formData.salaryVND : 0.01,
                 Bio: 'N/A',
                 VerificationStatus: 'pending'
               })
@@ -419,12 +419,11 @@ const UserManagement: React.FC = () => {
           });
           if (verificationResponse.success && verificationResponse.data) {
             const verification = verificationResponse.data;
-            const hourlyRateUSD = verification.hourlyRate || verification.HourlyRate || 0;
-            const hourlyRateVND = Math.round(hourlyRateUSD * 25000); // Convert USD to VND for display
+            const hourlyRateFromDb = verification.hourlyRate || verification.HourlyRate || 0;
             setEditFormData(prev => ({
               ...prev,
-              hourlyRate: hourlyRateUSD,
-              hourlyRateVND: hourlyRateVND,
+              hourlyRate: hourlyRateFromDb,
+              hourlyRateVND: Math.round(hourlyRateFromDb),
             }));
           }
         } catch (error) {
@@ -488,12 +487,11 @@ const UserManagement: React.FC = () => {
           if (verificationResponse.success && verificationResponse.data) {
             const verificationId = verificationResponse.data.verificationId || verificationResponse.data.verification_id;
             if (verificationId) {
-              // Convert VND back to USD before saving
-              const hourlyRateUSD = editFormData.hourlyRateVND / 25000;
+              // Save hourly rate in VND as provided by UI/DB
               await apiService.request<any>(`/tutor-verifications/${verificationId}`, {
                 method: 'PUT',
                 body: JSON.stringify({
-                  HourlyRate: hourlyRateUSD,
+                  HourlyRate: editFormData.hourlyRateVND,
                 }),
               });
             }
@@ -770,12 +768,12 @@ const UserManagement: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 border-r border-gray-200">
                         {user.roleId === 2 && user.hourlyRate !== undefined && user.hourlyRate > 0
-                          ? new Intl.NumberFormat('vi-VN', { 
-                              style: 'currency', 
+                          ? new Intl.NumberFormat('vi-VN', {
+                              style: 'currency',
                               currency: 'VND',
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 0
-                            }).format(user.hourlyRate * 25000)
+                            }).format(user.hourlyRate)
                           : user.roleId === 2 ? 'N/A' : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" style={{ position: 'relative', overflow: 'visible' }}>
@@ -1314,7 +1312,7 @@ const UserManagement: React.FC = () => {
                         setEditFormData({ 
                           ...editFormData, 
                           hourlyRateVND: vndValue,
-                          hourlyRate: vndValue / 25000 // Keep USD value in sync
+                          hourlyRate: vndValue
                         });
                       }}
                       onBlur={(e) => {
@@ -1325,7 +1323,7 @@ const UserManagement: React.FC = () => {
                           setEditFormData({ 
                             ...editFormData, 
                             hourlyRateVND: rounded,
-                            hourlyRate: rounded / 25000
+                            hourlyRate: rounded
                           });
                         }
                       }}

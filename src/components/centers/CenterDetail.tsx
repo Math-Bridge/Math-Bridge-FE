@@ -362,7 +362,7 @@ const CenterDetail: React.FC<CenterDetailProps> = ({ centerId, onBack, onEdit })
                         currency: 'VND',
                         minimumFractionDigits: 0,
                         maximumFractionDigits: 0,
-                      }).format((t.HourlyRate || t.hourlyRate || 0) * 25000)}
+                      }).format((t.HourlyRate || t.hourlyRate || 0))}
                     </span>
                   </div>
                   {t.Bio || t.bio ? (

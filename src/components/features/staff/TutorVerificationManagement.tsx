@@ -496,7 +496,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                                 currency: 'VND',
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0,
-                              }).format(tutor.hourlyRate * 25000)}
+                              }).format(tutor.hourlyRate)}
                               /hour
                             </>
                           ) : 'N/A'}
@@ -793,7 +793,7 @@ const TutorVerificationManagement: React.FC<TutorVerificationManagementProps> = 
                                   currency: 'VND',
                                   minimumFractionDigits: 0,
                                   maximumFractionDigits: 0,
-                                }).format(verificationDetail.hourlyRate * 25000)}
+                                }).format(verificationDetail.hourlyRate)}
                                 /hour
                               </>
                             ) : 'N/A'}

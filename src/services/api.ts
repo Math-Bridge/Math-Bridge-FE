@@ -5053,6 +5053,19 @@ export interface TopRatedTutorsListDto {
   totalTutors: number;
 }
 
+export interface WorstRatedTutorDto {
+  tutorId: string;
+  tutorName: string;
+  email: string;
+  averageRating: number;
+  feedbackCount: number;
+}
+
+export interface WorstRatedTutorsListDto {
+  tutors: WorstRatedTutorDto[];
+  totalTutors: number;
+} 
+
 export interface TutorSessionCountDto {
   tutorId: string;
   tutorName: string;
@@ -5154,6 +5167,15 @@ export async function getTutorStatistics() {
 export async function getTopRatedTutors(limit: number = 10) {
   return apiService.request<TopRatedTutorsListDto>(
     `/statistics/tutors/top-rated?limit=${limit}`,
+    {
+      method: 'GET',
+    }
+  );
+}
+
+export async function getWorstRatedTutors(limit: number = 10) {
+  return apiService.request<WorstRatedTutorsListDto>(
+    `/statistics/tutors/worst-rated?limit=${limit}`,
     {
       method: 'GET',
     }

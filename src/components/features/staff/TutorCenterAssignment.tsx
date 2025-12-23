@@ -448,7 +448,7 @@ const TutorCenterAssignment: React.FC<TutorCenterAssignmentProps> = ({ hideBackB
                               currency: 'VND',
                               minimumFractionDigits: 0,
                               maximumFractionDigits: 0,
-                            }).format(tutor.tutorVerification.hourlyRate * 25000)}
+                            }).format(tutor.tutorVerification.hourlyRate)}
                             /hour
                           </p>
                         )}

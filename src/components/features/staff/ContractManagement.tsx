@@ -1568,7 +1568,7 @@ const ContractManagement: React.FC<ContractManagementProps> = ({ hideBackButton 
                             currency: 'VND',
                             minimumFractionDigits: 0,
                             maximumFractionDigits: 0,
-                          }).format(tutorDetail.hourlyRate * 25000)}
+                          }).format(tutorDetail.hourlyRate)}
                         </div>
                         <div className="text-xs text-gray-600 mt-1">Per Hour</div>
                       </div>

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   getTutorStatistics,
   getTopRatedTutors,
+  getWorstRatedTutors,
   getMostActiveTutors,
   TutorStatisticsDto,
   TopRatedTutorsListDto,
+  WorstRatedTutorsListDto,
   MostActiveTutorsListDto,
 } from '../../services/api';
 import { LoadingSpinner } from '../common';
@@ -22,15 +24,18 @@ import {
 
 const TutorStatistics: React.FC = () => {
   const [overview, setOverview] = useState<TutorStatisticsDto | null>(null);
-  const [topRated, setTopRated] = useState<TopRatedTutorsListDto | null>(null);
+  const [topRated, setTopRated] = useState<TopRatedTutorsListDto | WorstRatedTutorsListDto | null>(null);
   const [mostActive, setMostActive] = useState<MostActiveTutorsListDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(10);
+  const [topRatedOrder, setTopRatedOrder] = useState<'top' | 'bottom'>('top');
+  const [topRatedPage, setTopRatedPage] = useState(1);
+  const [mostActivePage, setMostActivePage] = useState(1);
 
   useEffect(() => {
     fetchAllData();
-  }, [limit]);
+  }, [limit, topRatedOrder, topRatedPage, mostActivePage]);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -38,8 +43,9 @@ const TutorStatistics: React.FC = () => {
     try {
       const [overviewRes, topRatedRes, mostActiveRes] = await Promise.all([
         getTutorStatistics(),
-        getTopRatedTutors(limit),
-        getMostActiveTutors(limit),
+        // request enough items to cover the current page
+        topRatedOrder === 'top' ? getTopRatedTutors(limit * topRatedPage) : getWorstRatedTutors(limit * topRatedPage),
+        getMostActiveTutors(limit * mostActivePage),
       ]);
 
       if (overviewRes.success && overviewRes.data) {
@@ -140,18 +146,31 @@ const TutorStatistics: React.FC = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2 text-gray-900">
               <Star className="w-6 h-6 text-yellow-600" />
-              Top Rated Tutors
+              {topRatedOrder === 'top' ? 'Top Rated Tutors' : 'Worst Rated Tutors'}
             </h2>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
-            >
-              <option value={5}>Top 5</option>
-              <option value={10}>Top 10</option>
-              <option value={20}>Top 20</option>
-              <option value={50}>Top 50</option>
-            </select>
+            <div className="flex items-center gap-3">
+              <select
+                value={topRatedOrder}
+                onChange={(e) => { setTopRatedOrder(e.target.value as 'top' | 'bottom'); setTopRatedPage(1); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
+                aria-label="Order"
+              >
+                <option value="top">Top</option>
+                <option value="bottom">Bottom</option>
+              </select>
+              <select
+                value={limit}
+                onChange={(e) => { setLimit(Number(e.target.value)); setTopRatedPage(1); setMostActivePage(1); }}
+                className="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent shadow-sm"
+                aria-label="Limit"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={1000}>All</option>
+              </select>
+            </div>
           </div>
           <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
             <ResponsiveContainer width="100%" height={400}>
@@ -265,6 +284,7 @@ const TutorStatistics: React.FC = () => {
               <option value={10}>Top 10</option>
               <option value={20}>Top 20</option>
               <option value={50}>Top 50</option>
+              <option value={1000}>All</option>
             </select>
           </div>
           <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-6">
