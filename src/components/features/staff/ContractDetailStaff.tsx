@@ -1179,7 +1179,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
         {activeTab === 'management' && (
           <div className="space-y-6">
             {/* Status Management */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            {/* <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Management</h3>
               <div className="space-y-4">
                 <div>
@@ -1232,7 +1232,7 @@ const ContractDetailStaff: React.FC<ContractDetailStaffProps> = ({ hideBackButto
                   )}
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Tutor Assignment */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
